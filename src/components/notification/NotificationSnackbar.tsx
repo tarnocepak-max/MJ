@@ -24,13 +24,13 @@ interface NotificationSnackbarProps {
 
 const SNACKBAR_ICON_BOX: Record<SnackbarVariant, string> = {
   violet:
-    'bg-[#EEE5FF] text-[#5424A8] border-[#D8C5FF] dark:bg-[#341668] dark:text-[#DEC8FF] dark:border-[#8648F5]/50',
+    'bg-[#EAE8FF] text-[#5145A6] border-[#DCE3F2] dark:bg-[#341668] dark:text-[#DEC8FF] dark:border-[#8648F5]/50',
   warning:
-    'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/75 dark:text-amber-300 dark:border-amber-700/60',
+    'bg-[#FFF2D9] text-[#C88735] border-[#F2CF95] dark:bg-amber-950/75 dark:text-amber-300 dark:border-amber-700/60',
   success:
-    'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/75 dark:text-emerald-300 dark:border-emerald-700/60',
+    'bg-[#E4F5EC] text-[#218A63] border-[#B7E4CC] dark:bg-emerald-950/75 dark:text-emerald-300 dark:border-emerald-700/60',
   danger:
-    'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/75 dark:text-rose-300 dark:border-rose-700/60'
+    'bg-[#FCE9EB] text-[#D45B66] border-[#F3C5CA] dark:bg-rose-950/75 dark:text-rose-300 dark:border-rose-700/60'
 };
 
 export const NotificationSnackbar: React.FC<NotificationSnackbarProps> = ({
@@ -60,11 +60,11 @@ export const NotificationSnackbar: React.FC<NotificationSnackbarProps> = ({
             {icon}
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-extrabold text-[#28203A] dark:text-white truncate">
+            <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
               {title}
             </div>
             {description && (
-              <div className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] truncate mt-0.5">
+              <div className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] truncate mt-0.5">
                 {description}
               </div>
             )}
@@ -96,7 +96,7 @@ export const NotificationSnackbar: React.FC<NotificationSnackbarProps> = ({
               type="button"
               onClick={onDismiss}
               aria-label="Tutup snackbar"
-              className="w-7 h-7 rounded-[10px] bg-[#F7F4FC] dark:bg-white/10 hover:bg-[#EEE5FF] dark:hover:bg-white/20 text-[#756C86] hover:text-[#28203A] dark:text-[#CFC3EC] dark:hover:text-white flex items-center justify-center cursor-pointer"
+              className="w-7 h-7 rounded-[10px] bg-[#F8FAFD] dark:bg-white/10 hover:bg-[#EAE8FF] dark:hover:bg-white/20 text-[#8492A5] hover:text-[#26364A] dark:text-[#CFC3EC] dark:hover:text-white flex items-center justify-center cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>

@@ -680,27 +680,27 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (Number.isNaN(opmNumeric)) {
       return {
         label: 'Menunggu Ukur',
-        badgeCls: 'bg-[#f3eaff] text-[#58149c] border-[#d8ccf3]',
+        badgeCls: 'bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]',
         isOutOfSpec: false
       };
     }
     if (opmNumeric <= -15 && opmNumeric >= -22) {
       return {
         label: 'PASS (Optimal)',
-        badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        badgeCls: 'bg-[#E4F5EC] dark:bg-emerald-50 text-[#218A63] dark:text-emerald-700 border-[#B7E4CC] dark:border-emerald-200',
         isOutOfSpec: false
       };
     }
     if (opmNumeric > -24 && opmNumeric < -8) {
       return {
         label: 'PASS (SOP OK)',
-        badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        badgeCls: 'bg-[#E4F5EC] dark:bg-emerald-50 text-[#218A63] dark:text-emerald-700 border-[#B7E4CC] dark:border-emerald-200',
         isOutOfSpec: false
       };
     }
     return {
       label: 'Out of Spec (SOP)',
-      badgeCls: 'bg-rose-50 text-[#ba1a1a] border-rose-200',
+      badgeCls: 'bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] border-[#F3C5CA] dark:border-rose-200',
       isOutOfSpec: true
     };
   }, [opmNumeric]);
@@ -1038,7 +1038,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     canvas.setPointerCapture(e.pointerId);
     isDrawingSignatureRef.current = true;
     const { x, y } = getCanvasPoint(e);
-    ctx.strokeStyle = '#58149c';
+    ctx.strokeStyle = '#5145A6';
     ctx.lineWidth = 2.6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -1644,11 +1644,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   }, [opmNumericForLcd]);
 
   return (
-    <div className="fixed inset-0 z-45 bg-[#fcf8ff] dark:bg-[#140827] text-[#1f1638] dark:text-[#f5eeff] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-45 bg-[#F8FAFD] dark:bg-[#140827] text-[#26364A] dark:text-[#f5eeff] flex flex-col overflow-hidden">
       {/* ============================================================== */}
       {/* MORAJAWS ENTERPRISE STICKY HEADER                              */}
       {/* ============================================================== */}
-      <header className="bg-white dark:bg-[#1E1238] pt-safe border-b border-[#e8ddff] dark:border-[#35105E] shadow-xs shrink-0 z-20">
+      <header className="bg-white/95 dark:bg-[#1E1238] backdrop-blur-md pt-safe border-b border-[#DDE6F0] dark:border-[#35105E] shadow-xs shrink-0 z-20">
         <div className="max-w-6xl mx-auto h-15 px-3 sm:px-6 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -1661,14 +1661,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </button>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[11px] font-bold text-[#58149c] dark:text-[#DAB9FF] truncate">
+                <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] truncate">
                   {activeTicket.woNumber}
                 </span>
-                <span className="font-mono text-[10px] text-[#7d7484] dark:text-[#A79BC0] tabular-nums hidden sm:inline">
+                <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0] tabular-nums hidden sm:inline">
                   • Durasi {elapsedClockLabel}
                 </span>
               </div>
-              <h1 className="font-display text-[15px] sm:text-base font-bold truncate text-[#1f1638] dark:text-[#f5eeff] leading-tight">
+              <h1 className="font-display text-[15px] sm:text-base font-bold truncate text-[#26364A] dark:text-[#f5eeff] leading-tight">
                 Detail Work Order
               </h1>
             </div>
@@ -1688,7 +1688,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               {isOnline ? <Radio className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">{!isOnline ? 'Offline' : isSyncing ? 'Sync' : 'Online'}</span>
               {pendingCount > 0 && (
-                <span className="min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white font-mono text-[9.5px] font-bold flex items-center justify-center tabular-nums">
+                <span className="min-w-[16px] h-4 px-1 rounded-full bg-[#D4933E] dark:bg-amber-600 text-white font-mono text-[9.5px] font-bold flex items-center justify-center tabular-nums">
                   {pendingCount > 9 ? '9+' : pendingCount}
                 </span>
               )}
@@ -1699,7 +1699,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 type="button"
                 onClick={() => setShowProfilePopover(prev => !prev)}
                 aria-label="Info Teknisi"
-                className="w-9 h-9 rounded-full bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer relative"
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-[#5145A6] to-[#2E7D8B] dark:bg-none dark:bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer relative"
               >
                 <span>{userInitials}</span>
                 <span
@@ -1712,24 +1712,24 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               {showProfilePopover && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setShowProfilePopover(false)} />
-                  <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] shadow-lg p-3.5 z-30 text-xs space-y-2">
-                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
+                  <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] shadow-lg p-3.5 z-30 text-xs space-y-2">
+                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                       <div className="min-w-0">
-                        <div className="font-bold text-[#1f1638] dark:text-[#f5eeff] truncate">{currentUser.name}</div>
-                        <div className="font-mono text-[10.5px] text-[#58149c] dark:text-[#DAB9FF]">
+                        <div className="font-bold text-[#26364A] dark:text-[#f5eeff] truncate">{currentUser.name}</div>
+                        <div className="font-mono text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF]">
                           @{currentUser.username}
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[10px] font-bold uppercase shrink-0">
+                      <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold uppercase shrink-0">
                         {currentUser.role}
                       </span>
                     </div>
-                    <div className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] space-y-1">
+                    <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] space-y-1">
                       <div>
-                        Mitra: <strong className="text-[#1f1638] dark:text-[#f5eeff]">{activeTicket.contractorName || currentUser.contractor || '-'}</strong>
+                        Mitra: <strong className="text-[#26364A] dark:text-[#f5eeff]">{activeTicket.contractorName || currentUser.contractor || '-'}</strong>
                       </div>
                       <div>
-                        Area: <strong className="text-[#1f1638] dark:text-[#f5eeff]">{activeTicket.area || currentUser.area || '-'}</strong>
+                        Area: <strong className="text-[#26364A] dark:text-[#f5eeff]">{activeTicket.area || currentUser.area || '-'}</strong>
                       </div>
                     </div>
                     <button
@@ -1741,7 +1741,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       className="mj-btn-installer-neutral mj-btn-xs w-full py-2 px-2.5 text-[11px] justify-between cursor-pointer"
                     >
                       <span>Sinkronisasi Offline</span>
-                      <span className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF]">{pendingCount} antre</span>
+                      <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{pendingCount} antre</span>
                     </button>
                   </div>
                 </>
@@ -1771,13 +1771,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-extrabold border ${
                 isCheckInStepDone
-                  ? 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300 border-[#86EFAC] dark:border-emerald-700/60'
-                  : 'bg-[#FEF3C7] dark:bg-amber-950/50 text-[#B45309] dark:text-amber-300 border-[#FCD34D] dark:border-amber-700/60'
+                  ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
+                  : 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60'
               }`}
             >
               <span
                 className={`w-2 h-2 rounded-full ${
-                  isCheckInStepDone ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  isCheckInStepDone ? 'bg-[#218A63] dark:bg-emerald-500 animate-pulse' : 'bg-[#D4933E] dark:bg-amber-500'
                 }`}
               />
               <span>{isCheckInStepDone ? 'CHECK-IN (AKTIF)' : 'BELUM CHECK-IN'}</span>
@@ -1786,27 +1786,27 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
           <section className="card-3d-lavender rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] block">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] block">
                 NO. PERINTAH KERJA
               </span>
-              <div className="font-mono text-base sm:text-lg font-extrabold text-[#1f1638] dark:text-[#f5eeff] truncate mt-0.5">
+              <div className="font-mono text-base sm:text-lg font-extrabold text-[#26364A] dark:text-[#f5eeff] truncate mt-0.5">
                 {activeTicket.woNumber}
               </div>
-              <div className="text-xs text-[#4b4452] dark:text-[#C4B5D6] truncate mt-0.5">
+              <div className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate mt-0.5">
                 {activeTicket.contractorName || currentUser.contractor || 'Mitra Lapangan'} · {activeTicket.area || currentUser.area || '-'}
               </div>
             </div>
 
-            {/* Dark Inset Digital SLA Timer */}
-            <div className="rounded-xl bg-[#160D29] border border-[#35105E] px-4 py-2.5 text-white shrink-0 shadow-inner min-w-[165px]">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#DAB9FF]">
+            {/* Crystal Aqua-Violet / Dark Inset Digital SLA Timer */}
+            <div className="rounded-xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] px-4 py-2.5 text-[#26364A] dark:text-white shrink-0 shadow-inner min-w-[165px]">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
                 <Timer className="w-3 h-3" />
                 <span>DURASI KERJA</span>
               </div>
-              <div className="font-mono text-xl sm:text-2xl font-extrabold text-white tabular-nums leading-tight mt-0.5">
+              <div className="font-mono text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums leading-tight mt-0.5">
                 {elapsedClockLabel}
               </div>
-              <div className="font-mono text-[10px] text-[#A380FE]">
+              <div className="font-mono text-[10px] text-[#5145A6] dark:text-[#A380FE]">
                 Target SLA 90m
               </div>
             </div>
@@ -1818,12 +1818,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             {/* SECTION 1: WO INFORMATION                                  */}
             {/* ---------------------------------------------------------- */}
             <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                     1
                   </span>
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     WO Information
                   </h2>
                 </div>
@@ -1832,19 +1832,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">No. WO</span>
-                  <span className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">No. WO</span>
+                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Kategori / Work Type</span>
-                  <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">{woBadgeLabel}</span>
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Kategori / Work Type</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">{woBadgeLabel}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Layanan</span>
-                  <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">{serviceLabel}</span>
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Layanan</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">{serviceLabel}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 flex-wrap pt-0.5">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Status Approval</span>
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Status Approval</span>
                   <div className="flex items-center gap-1 flex-wrap">
                     {canonicalReport !== 'NONE' && (
                       <StatusBadge status={canonicalReport} variant="report" />
@@ -1852,15 +1852,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     {activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE' ? (
                       <StatusApprovalBadge status={activeTicket.approvalStatus} />
                     ) : (
-                      <span className="font-mono text-[10.5px] text-[#7d7484] dark:text-[#A79BC0]">Belum Submit</span>
+                      <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">Belum Submit</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {(activeTicket.remarksAgent || activeTicket.remarks) && (
-                <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff] dark:border-[#35105E] text-[11px] text-[#4b4452] dark:text-[#C4B5D6] leading-snug">
-                  <span className="font-bold text-[#58149c] dark:text-[#DAB9FF] block mb-0.5">Catatan Dispatch:</span>
+                <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] text-[#52647A] dark:text-[#C4B5D6] leading-snug">
+                  <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] block mb-0.5">Catatan Dispatch:</span>
                   <p className="line-clamp-3">{activeTicket.remarksAgent || activeTicket.remarks}</p>
                 </div>
               )}
@@ -1870,26 +1870,26 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             {/* SECTION 2: CUSTOMER INFORMATION                            */}
             {/* ---------------------------------------------------------- */}
             <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                     2
                   </span>
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Customer Information
                   </h2>
                 </div>
-                <span className="font-mono text-[10.5px] font-semibold text-[#7d7484] dark:text-[#A79BC0] shrink-0">
+                <span className="font-mono text-[10.5px] font-semibold text-[#8492A5] dark:text-[#A79BC0] shrink-0">
                   {activeTicket.idCustomer || activeTicket.customerId || '-'}
                 </span>
               </div>
 
               <div className="space-y-1.5 text-xs">
                 <div>
-                  <div className="font-display font-bold text-[15px] text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <div className="font-display font-bold text-[15px] text-[#26364A] dark:text-[#f5eeff] truncate">
                     {activeTicket.customerName || activeTicket.endUserName || 'Pelanggan'}
                   </div>
-                  <div className="font-mono text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] mt-0.5">
+                  <div className="font-mono text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] mt-0.5">
                     {rawCustomerPhone || 'No. HP belum tersedia'}
                   </div>
                 </div>
@@ -1897,13 +1897,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <button
                   type="button"
                   onClick={handleCopyAddress}
-                  className="w-full text-left flex items-start gap-1.5 p-2 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] hover:text-[#1f1638] dark:text-[#f5eeff] cursor-pointer"
+                  className="w-full text-left flex items-start gap-1.5 p-2 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] hover:text-[#26364A] dark:hover:text-[#f5eeff] cursor-pointer"
                   title="Ketuk untuk menyalin alamat"
                 >
                   {copiedAddress ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <Check className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-600 shrink-0 mt-0.5" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+                    <Copy className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
                   )}
                   <span className="line-clamp-2 leading-snug">
                     {[activeTicket.streetName || activeTicket.address, activeTicket.clusterName, activeTicket.area]
@@ -1919,7 +1919,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   onClick={handleOpenMaps}
                   className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] gap-1 cursor-pointer"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
                   <span>Maps</span>
                 </button>
 
@@ -1928,7 +1928,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     href={telCustomerHref}
                     className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] gap-1"
                   >
-                    <Phone className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                    <Phone className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>Telepon</span>
                   </a>
                 )}
@@ -1961,16 +1961,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             {/* SECTION 3: APPOINTMENT                                     */}
             {/* ---------------------------------------------------------- */}
             <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                     3
                   </span>
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Appointment
                   </h2>
                 </div>
-                <span className="inline-flex items-center gap-1 font-mono text-[10.5px] font-bold text-[#58149c] dark:text-[#DAB9FF] bg-[#f8f1ff] dark:bg-[#160D29] px-2 py-0.5 rounded-full border border-[#e8ddff] dark:border-[#35105E]">
+                <span className="inline-flex items-center gap-1 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] bg-[#EAE8FF] dark:bg-[#160D29] px-2 py-0.5 rounded-full border border-[#DCE3F2] dark:border-[#35105E]">
                   <Calendar className="w-3 h-3" />
                   <span>{activeTicket.slotTime || 'Fleksibel'}</span>
                 </span>
@@ -1978,37 +1978,37 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Tanggal Jadwal</span>
-                  <span className="font-bold text-[#1f1638] dark:text-[#f5eeff]">{appointmentDateDisplay}</span>
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Tanggal Jadwal</span>
+                  <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">{appointmentDateDisplay}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Slot Waktu</span>
-                  <span className="font-mono font-semibold text-[#1f1638] dark:text-[#f5eeff]">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Slot Waktu</span>
+                  <span className="font-mono font-semibold text-[#26364A] dark:text-[#f5eeff]">
                     {activeTicket.slotTime || '-'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#7d7484] dark:text-[#A79BC0]">Area</span>
-                  <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Area</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
                     {activeTicket.area || '-'}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff] dark:border-[#35105E] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5145A6] to-[#2E7D8B] dark:bg-none dark:bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
                   {(activeTicket.installerName || 'T').slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <div className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
                     {activeTicket.installerName || 'Belum Ditugaskan'}
                   </div>
-                  <div className="text-[10.5px] text-[#4b4452] dark:text-[#C4B5D6] truncate">
+                  <div className="text-[10.5px] text-[#52647A] dark:text-[#C4B5D6] truncate">
                     Mitra: {activeTicket.contactorName || activeTicket.contractorName || '-'} · Korlap:{' '}
                     {activeTicket.leaderName || '-'}
                   </div>
                 </div>
-                <Building2 className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] shrink-0" />
+                <Building2 className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] shrink-0" />
               </div>
             </section>
           </div>
@@ -2019,16 +2019,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           <section className="mj-enterprise-card rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   4
                 </span>
-                <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff]">
+                <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
                   Work Progress
                 </h2>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] font-mono text-[11px] font-bold text-[#58149c] dark:text-[#DAB9FF] tabular-nums">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                   <Timer className="w-3.5 h-3.5" />
                   <span>{elapsedClockLabel}</span>
                 </span>
@@ -2046,7 +2046,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </div>
 
             {/* 5-Stage Progress Stepper */}
-            <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#e8ddff] dark:border-[#35105E] grid grid-cols-5 gap-1.5 text-center">
+            <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-5 gap-1.5 text-center">
               {[
                 {
                   label: 'Check-In',
@@ -2106,23 +2106,23 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   key={step.label}
                   type="button"
                   onClick={step.onClick}
-                  className="flex flex-col items-center p-1.5 rounded-lg hover:bg-white/80 dark:hover:bg-[#2A194B] transition-colors cursor-pointer"
+                  className="flex flex-col items-center p-1.5 rounded-lg hover:bg-white dark:hover:bg-[#2A194B] transition-colors cursor-pointer"
                 >
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-bold mb-1 ${
                       step.done
-                        ? 'bg-emerald-600 text-white'
+                        ? 'bg-[#218A63] dark:bg-emerald-600 text-white'
                         : step.active
-                        ? 'bg-[#7135b5] text-white ring-2 ring-[#dab9ff] dark:ring-[#58149C]'
-                        : 'bg-[#e8ddff] dark:bg-[#2A194B] text-[#4b4452] dark:text-[#C4B5D6]'
+                        ? 'bg-[#6657C8] dark:bg-[#7135b5] text-white ring-2 ring-[#BDE4E8] dark:ring-[#58149C]'
+                        : 'bg-[#EDF3F8] dark:bg-[#2A194B] text-[#52647A] dark:text-[#C4B5D6]'
                     }`}
                   >
                     {step.done ? <Check className="w-3.5 h-3.5" /> : i + 1}
                   </div>
-                  <span className="text-[10.5px] font-bold text-[#1f1638] dark:text-[#f5eeff] leading-tight truncate max-w-full">
+                  <span className="text-[10.5px] font-bold text-[#26364A] dark:text-[#f5eeff] leading-tight truncate max-w-full">
                     {step.label}
                   </span>
-                  <span className="font-mono text-[9px] text-[#7d7484] dark:text-[#A79BC0] truncate max-w-full">
+                  <span className="font-mono text-[9px] text-[#8492A5] dark:text-[#A79BC0] truncate max-w-full">
                     {step.sub}
                   </span>
                 </button>
@@ -2130,14 +2130,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </div>
 
             {ticketClosed && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs flex items-start gap-2.5">
-                <Lock className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-xl bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800/60 text-xs flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-[#218A63] dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5 min-w-0">
-                  <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2 flex-wrap">
+                  <div className="font-bold text-[#1B6B4D] dark:text-emerald-200 flex items-center gap-2 flex-wrap">
                     <span>Work Order Terverifikasi Dispatch (Read-Only)</span>
                     <StatusBadge status="APPROVED" variant="approval" />
                   </div>
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300/90">
+                  <p className="text-[11px] text-[#218A63] dark:text-emerald-300/90">
                     Laporan akhir ({canonicalReport !== 'NONE' ? canonicalReport : activeTicket.statusWOInstaller}) telah disetujui Dispatch{' '}
                     {activeTicket.approvedBy ? `(${activeTicket.approvedBy})` : ''}.
                   </p>
@@ -2146,13 +2146,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             )}
 
             {!ticketClosed && canonicalApproval === 'REVISION' && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-[#93000a] dark:text-rose-200 text-xs space-y-1">
+              <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-200 text-xs space-y-1">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 font-bold uppercase tracking-wide">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>Revisi Laporan Diminta Dispatch</span>
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-[#ba1a1a] text-white font-mono text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded bg-[#D45B66] dark:bg-[#ba1a1a] text-white font-mono text-[10px] font-bold">
                     Revisi v{(activeTicket.progressReports?.length || 0) + 1}
                   </span>
                 </div>
@@ -2174,14 +2174,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           >
             <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   5
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Check-In Information
                   </h2>
-                  <span className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] block truncate">
+                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
                     {isCheckInStepDone
                       ? `Tercatat pukul ${validatedCheckInTime} WIB • Valid #PROGRESS`
                       : 'Belum Check-In — Foto Rumah GPS wajib diambil di lokasi'}
@@ -2192,24 +2192,24 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                     isCheckInStepDone
-                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/60'
-                      : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700/60'
+                      ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
+                      : 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60'
                   }`}
                 >
                   {isCheckInStepDone ? 'Sudah Check-In' : 'Belum Check-In'}
                 </span>
-                <ChevronDown className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
             </summary>
 
-            <div className="px-4 pb-4 pt-1 border-t border-[#e8ddff] dark:border-[#35105E] space-y-3">
+            <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
               {requiresProgressCheckIn ? (
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="p-3.5 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-start gap-2.5 min-w-0">
-                    <Camera className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="text-xs text-amber-900 dark:text-amber-200">
+                    <Camera className="w-5 h-5 text-[#9D661F] dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-[#7D4F15] dark:text-amber-200">
                       <div className="font-bold">Siap Memulai Pekerjaan? Lakukan Check-In GPS</div>
-                      <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5">
+                      <p className="text-[11px] text-[#9D661F] dark:text-amber-300/90 mt-0.5">
                         Menekan tombol CHECK-IN akan mengaktifkan kamera, validasi koordinat GPS, mengambil Foto Rumah (#01), dan mencatat timestamp Check-In serta #PROGRESS.
                       </p>
                     </div>
@@ -2235,22 +2235,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-3 border border-[#e8ddff] dark:border-[#35105E] text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#35105E] text-xs">
                   <div>
-                    <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Waktu Check-In</span>
-                    <span className="font-mono font-bold text-[#1f1638] dark:text-[#f5eeff] inline-flex items-center gap-1 mt-0.5">
-                      <LockOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Waktu Check-In</span>
+                    <span className="font-mono font-bold text-[#26364A] dark:text-[#f5eeff] inline-flex items-center gap-1 mt-0.5">
+                      <LockOpen className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-600" />
                       <span>{validatedCheckInTime} WIB</span>
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Validasi SOP</span>
-                    <span className="font-bold text-emerald-700 block mt-0.5">
+                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Validasi SOP</span>
+                    <span className="font-bold text-[#218A63] dark:text-emerald-400 block mt-0.5">
                       #PROGRESS Tervalidasi
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Koordinat GPS Rumah</span>
+                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Koordinat GPS Rumah</span>
                     {houseCoordsValid ? (
                       <a
                         href={buildGoogleMapsCoordinateUrl(
@@ -2259,7 +2259,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         )}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 mt-0.5 truncate"
+                        className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 mt-0.5 truncate"
                       >
                         <span>
                           {formatCoordinates(
@@ -2270,7 +2270,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     ) : (
-                      <span className="font-mono text-[#7d7484] dark:text-[#A79BC0] block mt-0.5">
+                      <span className="font-mono text-[#8492A5] dark:text-[#A79BC0] block mt-0.5">
                         Menunggu Foto #01 Rumah
                       </span>
                     )}
@@ -2290,27 +2290,27 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           >
             <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   6
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Bukti Foto Fisik
                   </h2>
-                  <span className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] block truncate">
+                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
                     7 Foto SOP wajib berurutan (Rumah, FAT, Redaman FAT, Port FAT, Instalasi, SN ONT, OPM)
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold tabular-nums border border-[#d8ccf3]">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold tabular-nums border border-[#DCE3F2] dark:border-[#d8ccf3]">
                   {uploadedPhotoCount}/{totalPhotoSlots}
                 </span>
-                <ChevronDown className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
             </summary>
 
-            <div className="px-4 pb-4 pt-1 border-t border-[#e8ddff] dark:border-[#35105E]">
+            <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
               <PhotoEvidenceMatrixSection
                 sectionRef={photoSectionRef}
                 activeTicket={activeTicket}
@@ -2341,14 +2341,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           >
             <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   7
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Technical Information
                   </h2>
-                  <span className="font-mono text-[11px] text-[#7d7484] dark:text-[#A79BC0] block truncate">
+                  <span className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
                     {activeTicket.fatCode || activeTicket.fdtCode || '-'} •{' '}
                     {fatPort.trim() ? `Port ${fatPort}` : 'Port belum diisi'}
                     {opmDbm.trim() ? ` • ${opmDbm} dBm` : ''}
@@ -2359,15 +2359,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
                   {opmStatus.label}
                 </span>
-                <ChevronDown className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
             </summary>
 
-            <div className="px-4 pb-4 pt-2 border-t border-[#e8ddff] dark:border-[#35105E] space-y-3.5">
-              {/* Dark Inset OPM READING (1490 nm RX) LCD Card */}
-              <div className="rounded-2xl bg-[#160D29] border border-[#35105E] p-4 text-white space-y-3 shadow-inner">
+            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3.5">
+              {/* Crystal Aqua-Violet / Dark Inset OPM READING (1490 nm RX) LCD Card */}
+              <div className="rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] p-4 text-[#26364A] dark:text-white space-y-3 shadow-inner">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#DAB9FF]">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
                     <Gauge className="w-3.5 h-3.5" />
                     <span>OPM READING (1490 nm RX)</span>
                   </span>
@@ -2380,12 +2380,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   <div className="flex items-baseline gap-1.5 font-mono tabular-nums">
                     <span
                       className={`text-3xl sm:text-4xl font-extrabold leading-none ${
-                        opmStatus.isOutOfSpec ? 'text-rose-300' : 'text-white'
+                        opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-white'
                       }`}
                     >
                       {opmDbm.trim() || '—'}
                     </span>
-                    <span className="text-sm font-bold text-[#DAB9FF]">dBm</span>
+                    <span className="text-sm font-bold text-[#5145A6] dark:text-[#DAB9FF]">dBm</span>
                   </div>
 
                   {!ticketClosed && (
@@ -2401,19 +2401,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
                 {/* Live Range Progress Bar */}
                 <div className="space-y-1">
-                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-[#DDE6F0] dark:bg-white/10 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         opmNumericForLcd === null
                           ? 'w-0'
                           : opmStatus.isOutOfSpec
-                          ? 'bg-[#BA1A1A]'
-                          : 'bg-gradient-to-r from-emerald-400 to-[#A380FE]'
+                          ? 'bg-[#D45B66] dark:bg-[#BA1A1A]'
+                          : 'bg-gradient-to-r from-[#218A63] to-[#65B8C4] dark:from-emerald-400 dark:to-[#A380FE]'
                       }`}
                       style={{ width: `${opmNumericForLcd !== null ? Math.max(8, opmRangePct) : 0}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-white/70">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-[#52647A] dark:text-white/70">
                     <span>Standar Redaman SOP: -15.0 s/d -24.0 dBm</span>
                     <span>{opmNumericForLcd !== null ? 'Tercatat' : 'Belum diukur'}</span>
                   </div>
@@ -2421,22 +2421,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
 
               {/* Allocation Summary */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#f8f1ff] dark:bg-[#160D29] p-3 rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#F8FAFD] dark:bg-[#160D29] p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
                 <div>
-                  <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">FAT / OLT</span>
-                  <span className="font-mono text-xs text-[#1f1638] dark:text-[#f5eeff] font-bold truncate block">
+                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">FAT / OLT</span>
+                  <span className="font-mono text-xs text-[#26364A] dark:text-[#f5eeff] font-bold truncate block">
                     {activeTicket.fatCode || activeTicket.oltCode || '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Port Assignment</span>
-                  <span className="font-mono text-xs text-[#58149c] dark:text-[#DAB9FF] font-bold truncate block">
+                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Port Assignment</span>
+                  <span className="font-mono text-xs text-[#5145A6] dark:text-[#DAB9FF] font-bold truncate block">
                     {fatPort.trim() ? `Port ${fatPort.replace(/^#/, '')}` : 'Menunggu Input'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Redaman Roset / FAT</span>
-                  <span className={`font-mono text-xs font-bold truncate block ${opmStatus.isOutOfSpec ? 'text-[#ba1a1a] dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Redaman Roset / FAT</span>
+                  <span className={`font-mono text-xs font-bold truncate block ${opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#218A63] dark:text-emerald-400'}`}>
                     {opmDbm.trim()
                       ? `${opmDbm.trim()} dBm`
                       : activeTicket.fatRedamanDbm
@@ -2445,29 +2445,29 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] block">Standar SOP</span>
-                  <span className="font-mono text-xs text-[#4b4452] dark:text-[#C4B5D6] font-semibold">
+                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Standar SOP</span>
+                  <span className="font-mono text-xs text-[#52647A] dark:text-[#C4B5D6] font-semibold">
                     -15 s/d -24 dBm
                   </span>
                 </div>
               </div>
 
               {/* ONT Info Pill */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] gap-2">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Router className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF] shrink-0" />
+                  <Router className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-xs text-[#1f1638] dark:text-[#f5eeff] block font-bold truncate">
+                    <span className="text-xs text-[#26364A] dark:text-[#f5eeff] block font-bold truncate">
                       {activeTicket.ontBrand || 'GPON ONT'} {activeTicket.ontModel || ''}
                     </span>
-                    <span className={`font-mono text-[10.5px] block truncate ${ontSerialNumber.trim() ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-[#7d7484] dark:text-[#A79BC0]'}`}>
+                    <span className={`font-mono text-[10.5px] block truncate ${ontSerialNumber.trim() ? 'text-[#218A63] dark:text-emerald-400 font-semibold' : 'text-[#8492A5] dark:text-[#A79BC0]'}`}>
                       {ontSerialNumber.trim()
                         ? `SN Terinput: ${ontSerialNumber.trim()}`
                         : 'SN belum diinput — ketuk Scan SN atau Foto #06'}
                     </span>
                   </div>
                 </div>
-                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white dark:bg-[#2A194B] border border-[#e8ddff] dark:border-[#4B386B] text-[#58149c] dark:text-[#DAB9FF] font-bold shrink-0">
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-bold shrink-0">
                   ONT
                 </span>
               </div>
@@ -2476,7 +2476,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <label htmlFor="opm-input" className="text-xs font-bold text-[#1f1638] dark:text-[#f5eeff]">
+                    <label htmlFor="opm-input" className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
                       Redaman OPM Roset (dBm)
                     </label>
                     <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
@@ -2492,11 +2492,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       disabled={ticketClosed || isSubmittingReport}
                       onChange={e => setOpmDbm(e.target.value)}
                       placeholder="-18.50"
-                      className={`tactile-debossed-input w-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] font-mono font-bold text-base rounded-xl py-2 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#7135b5] tabular-nums disabled:opacity-60 ${
-                        opmStatus.isOutOfSpec ? 'text-[#ba1a1a] dark:text-rose-300' : 'text-[#1f1638] dark:text-[#f5eeff]'
+                      className={`tactile-debossed-input w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] font-mono font-bold text-base rounded-xl py-2 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60 ${
+                        opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-[#f5eeff]'
                       }`}
                     />
-                    <span className="absolute right-3 font-mono text-xs font-semibold text-[#7d7484] dark:text-[#A79BC0]">
+                    <span className="absolute right-3 font-mono text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">
                       dBm
                     </span>
                   </div>
@@ -2504,14 +2504,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff]">
+                    <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
                       Nomor Seri (SN) ONT / Perangkat Wi-Fi
                     </label>
                     {!ticketClosed && (
                       <button
                         type="button"
                         onClick={() => openCameraForSlotKey('barcode_sn')}
-                        className="font-mono text-[10.5px] font-bold text-[#58149c] dark:text-[#DAB9FF] hover:underline shrink-0 cursor-pointer"
+                        className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline shrink-0 cursor-pointer"
                       >
                         Foto #06 SN
                       </button>
@@ -2527,10 +2527,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         disabled={ticketClosed || isSubmittingReport}
                         onChange={e => setOntSerialNumber(e.target.value.toUpperCase())}
                         placeholder="Scan barcode atau ketik SN ONT / Wi-Fi"
-                        className="w-full min-h-[44px] bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
+                        className="w-full min-h-[44px] bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
                       />
                       {ontSerialNumber.trim().length >= 6 && (
-                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600" />
+                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#218A63] dark:text-emerald-600" />
                       )}
                     </div>
                     <button
@@ -2547,7 +2547,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </div>
 
                 <div>
-                  <label htmlFor="dropcore-input" className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+                  <label htmlFor="dropcore-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
                     Panjang Dropcore
                   </label>
                   <div className="relative">
@@ -2559,16 +2559,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       disabled={ticketClosed || isSubmittingReport}
                       onChange={e => setDropcoreLength(e.target.value)}
                       placeholder="0"
-                      className="w-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#7135b5] tabular-nums disabled:opacity-60"
+                      className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60"
                     />
-                    <span className="absolute right-3 top-2.5 font-mono text-[11px] text-[#7d7484] dark:text-[#A79BC0]">
+                    <span className="absolute right-3 top-2.5 font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
                       Meter
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="fat-port-input" className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+                  <label htmlFor="fat-port-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
                     Port FAT Aktif
                   </label>
                   <div className="relative">
@@ -2579,17 +2579,17 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       disabled={ticketClosed || isSubmittingReport}
                       onChange={e => setFatPort(e.target.value)}
                       placeholder="Port 06"
-                      className="w-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#7135b5] disabled:opacity-60"
+                      className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
                     />
-                    <Cable className="w-4 h-4 absolute right-2.5 top-2.5 text-[#58149c] dark:text-[#DAB9FF] pointer-events-none" />
+                    <Cable className="w-4 h-4 absolute right-2.5 top-2.5 text-[#2E7D8B] dark:text-[#DAB9FF] pointer-events-none" />
                   </div>
                 </div>
               </div>
 
               {/* Used Materials */}
               <div>
-                <label htmlFor="materials-input" className="flex items-center gap-1.5 text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
-                  <Package className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                <label htmlFor="materials-input" className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                  <Package className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
                   <span>Material Terpakai di Lapangan</span>
                 </label>
                 <input
@@ -2600,7 +2600,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   disabled={ticketClosed || isSubmittingReport}
                   onChange={e => setUsedMaterials(e.target.value)}
                   placeholder="Contoh: Dropcore 85m, 1x ONT, 2x Fast Connector, 1x Roset"
-                  className="w-full bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] text-xs rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#7135b5] disabled:opacity-60"
+                  className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
                 />
                 {!ticketClosed && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -2639,31 +2639,31 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           >
             <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   8
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Report &amp; Koordinasi Lapangan
                   </h2>
-                  <span className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] block truncate">
+                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
                     Laporan 3-Tingkat (L1/L2/L3), Catatan Commissioning, Riwayat &amp; LiveChat
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {unreadChatCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 dark:bg-rose-950/50 text-[#ba1a1a] dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FCE9EB] dark:bg-rose-950/50 text-[#9B2C37] dark:text-rose-300 border border-[#F3C5CA] dark:border-rose-800/60">
                     {unreadChatCount} Chat Baru
                   </span>
                 )}
-                <ChevronDown className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
             </summary>
 
-            <div className="px-4 pb-4 pt-2 border-t border-[#e8ddff] dark:border-[#35105E] space-y-4">
+            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-4">
               {reportError && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-[#ba1a1a] dark:text-rose-300 text-xs flex items-center gap-2 font-semibold">
+                <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-xs flex items-center gap-2 font-semibold">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{reportError}</span>
                 </div>
@@ -2676,45 +2676,45 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   onSubmit={handleOpenQcSheet}
                   className="lg:col-span-6 space-y-3"
                 >
-                  <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#e8ddff] dark:border-[#35105E] space-y-3">
+                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <GitBranch className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF]" />
-                        <h3 className="font-display font-bold text-[13.5px] text-[#1f1638] dark:text-[#f5eeff]">
+                        <GitBranch className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
+                        <h3 className="font-display font-bold text-[13.5px] text-[#26364A] dark:text-[#f5eeff]">
                           Laporan Teknis 3-Tingkat
                         </h3>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] border border-[#d8ccf3] dark:border-[#4B386B] font-mono text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-bold">
                         Wajib SOP
                       </span>
                     </div>
 
                     {/* Flow Tracker */}
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-[#1E1238] rounded-lg text-[10.5px] font-mono border border-[#e8ddff] dark:border-[#35105E]">
-                      <span className={reportStatus ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-[#7d7484] dark:text-[#A79BC0]'}>
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-[#1E1238] rounded-lg text-[10.5px] font-mono border border-[#DDE6F0] dark:border-[#35105E]">
+                      <span className={reportStatus ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
                         L1: Status
                       </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#7d7484] dark:text-[#A79BC0]" />
-                      <span className={reasonReport ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-[#7d7484] dark:text-[#A79BC0]'}>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A79BC0]" />
+                      <span className={reasonReport ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
                         L2: Reason
                       </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#7d7484] dark:text-[#A79BC0]" />
-                      <span className={rootCause ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-[#7d7484] dark:text-[#A79BC0]'}>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A79BC0]" />
+                      <span className={rootCause ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
                         L3: Rootcause
                       </span>
                     </div>
 
                     <div className="space-y-2.5">
                       <div>
-                        <label className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
-                          Level 1: Report Status <span className="text-[#ba1a1a] dark:text-rose-400">*</span>
+                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                          Level 1: Report Status <span className="text-[#D45B66] dark:text-rose-400">*</span>
                         </label>
                         <div className="relative">
                           <select
                             value={reportStatus}
                             disabled={ticketClosed || isSubmittingReport}
                             onChange={e => handleReportStatusChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#7135b5] cursor-pointer disabled:opacity-55"
+                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-55"
                           >
                             <option value="">-- Pilih Report Status (Level 1) --</option>
                             {availableStatusOptions.map(st => (
@@ -2723,13 +2723,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               </option>
                             ))}
                           </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#58149c] dark:text-[#DAB9FF] pointer-events-none" />
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
-                          Level 2: Reason Report <span className="text-[#ba1a1a] dark:text-rose-400">*</span>
+                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                          Level 2: Reason Report <span className="text-[#D45B66] dark:text-rose-400">*</span>
                         </label>
                         <div className="relative">
                           <select
@@ -2741,7 +2741,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               availableReasonOptions.length === 0
                             }
                             onChange={e => handleReasonReportChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
+                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
                           >
                             {!reportStatus ? (
                               <option value="">-- Pilih Report Status Terlebih Dahulu --</option>
@@ -2758,13 +2758,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               </>
                             )}
                           </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#58149c] dark:text-[#DAB9FF] pointer-events-none" />
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
-                          Level 3: Rootcause Code <span className="text-[#ba1a1a] dark:text-rose-400">*</span>
+                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                          Level 3: Rootcause Code <span className="text-[#D45B66] dark:text-rose-400">*</span>
                         </label>
                         <div className="relative">
                           <select
@@ -2776,7 +2776,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               availableRootcauseOptions.length === 0
                             }
                             onChange={e => handleRootcauseChange(e.target.value)}
-                            className="w-full bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
+                            className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
                           >
                             {!reasonReport ? (
                               <option value="">-- Pilih Reason Report Terlebih Dahulu --</option>
@@ -2793,26 +2793,26 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                               </>
                             )}
                           </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#58149c] dark:text-[#DAB9FF] pointer-events-none" />
+                          <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Work Description / Catatan Teknisi */}
-                  <div className="bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#e8ddff] dark:border-[#35105E] space-y-2">
+                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <label htmlFor="remarks-commissioning" className="text-xs font-bold text-[#1f1638] dark:text-[#f5eeff]">
-                        Work Description &amp; Catatan Commissioning <span className="text-[#ba1a1a] dark:text-rose-400">*</span>
+                      <label htmlFor="remarks-commissioning" className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
+                        Work Description &amp; Catatan Commissioning <span className="text-[#D45B66] dark:text-rose-400">*</span>
                       </label>
-                      <span className="text-[10.5px] font-mono text-[#58149c] dark:text-[#DAB9FF]">
+                      <span className="text-[10.5px] font-mono text-[#5145A6] dark:text-[#DAB9FF]">
                         {remarksReport.length} Karakter
                       </span>
                     </div>
 
                     {!ticketClosed && availableRemarksTemplates.length > 0 && (
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                        <span className="text-[#7d7484] dark:text-[#A79BC0] text-[10px] font-mono shrink-0">Template:</span>
+                        <span className="text-[#8492A5] dark:text-[#A79BC0] text-[10px] font-mono shrink-0">Template:</span>
                         {availableRemarksTemplates.map((tpl, i) => (
                           <button
                             key={i}
@@ -2833,7 +2833,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       disabled={ticketClosed || isSubmittingReport}
                       onChange={e => setRemarksReport(e.target.value)}
                       placeholder="Tuliskan hasil pekerjaan, panjang dropcore, redaman OPM akhir, dan catatan teknis..."
-                      className="w-full bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-[#f5eeff] text-xs rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#7135b5] leading-relaxed resize-none disabled:opacity-60"
+                      className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] leading-relaxed resize-none disabled:opacity-60"
                     />
                   </div>
                 </form>
@@ -2867,20 +2867,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   />
 
                   {/* Report History & Timeline */}
-                  <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#e8ddff] dark:border-[#35105E] space-y-2.5">
+                  <div className="bg-[#FFFFFF] dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
                     <button
                       type="button"
                       onClick={() => setShowHistorySection(prev => !prev)}
-                      className="w-full flex items-center justify-between pb-2 border-b border-[#e8ddff] dark:border-[#35105E] cursor-pointer"
+                      className="w-full flex items-center justify-between pb-2 border-b border-[#DDE6F0] dark:border-[#35105E] cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <History className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF] shrink-0" />
-                        <h3 className="font-display font-bold text-[13px] text-[#1f1638] dark:text-[#f5eeff]">
+                        <History className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                        <h3 className="font-display font-bold text-[13px] text-[#26364A] dark:text-[#f5eeff]">
                           Riwayat Report ({progressHistory.length} Versi)
                         </h3>
                       </div>
                       <ChevronDown
-                        className={`w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform ${
+                        className={`w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform ${
                           showHistorySection ? 'rotate-180' : ''
                         }`}
                       />
@@ -2889,7 +2889,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     {showHistorySection && (
                       <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
                         {progressHistory.length === 0 ? (
-                          <div className="py-3 text-center text-[#7d7484] dark:text-[#A79BC0] text-xs">
+                          <div className="py-3 text-center text-[#8492A5] dark:text-[#A79BC0] text-xs">
                             Belum ada riwayat laporan untuk WO ini.
                           </div>
                         ) : (
@@ -2904,18 +2904,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                             return (
                               <div
                                 key={item.id || idx}
-                                className="p-2.5 rounded-lg border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff] dark:bg-[#160D29] space-y-1 text-xs"
+                                className="p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] space-y-1 text-xs"
                               >
-                                <div className="flex flex-wrap items-center justify-between gap-1 pb-1 border-b border-[#e8ddff] dark:border-[#35105E]">
+                                <div className="flex flex-wrap items-center justify-between gap-1 pb-1 border-b border-[#DDE6F0] dark:border-[#35105E]">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#eedbff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF]">
+                                    <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF]">
                                       v{item.versionNumber || progressHistory.length - idx}
                                     </span>
-                                    <span className="font-mono text-[10px] text-[#7d7484] dark:text-[#A79BC0]">
+                                    <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
                                       {formattedDate} WIB
                                     </span>
-                                    <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] inline-flex items-center gap-1">
-                                      <User className="w-3 h-3 text-[#58149c] dark:text-[#DAB9FF]" />
+                                    <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] inline-flex items-center gap-1">
+                                      <User className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
                                       {item.submittedBy}
                                     </span>
                                   </div>
@@ -2933,20 +2933,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                                   </div>
                                 </div>
 
-                                <div className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6]">
-                                  <span>Reason: <strong className="text-[#1f1638] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
+                                <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
+                                  <span>Reason: <strong className="text-[#26364A] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
                                   {' · '}
-                                  <span>Rootcause: <strong className="text-[#58149c] dark:text-[#DAB9FF]">{item.rootCause}</strong></span>
+                                  <span>Rootcause: <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{item.rootCause}</strong></span>
                                 </div>
 
                                 {item.remarksReport && (
-                                  <p className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] italic bg-white dark:bg-[#1E1238] p-2 rounded border border-[#e8ddff] dark:border-[#35105E]">
+                                  <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic bg-[#FFFFFF] dark:bg-[#1E1238] p-2 rounded border border-[#DDE6F0] dark:border-[#35105E]">
                                     &ldquo;{item.remarksReport}&rdquo;
                                   </p>
                                 )}
 
                                 {(item.revisionReason || (item as any).rejectionReason) && (
-                                  <div className="p-2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-[#ba1a1a] dark:text-rose-300 text-[10.5px] font-semibold">
+                                  <div className="p-2 rounded bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-[10.5px] font-semibold">
                                     Catatan Revisi Dispatch: &ldquo;
                                     {item.revisionReason || (item as any).rejectionReason}&rdquo;
                                   </div>
@@ -2957,23 +2957,23 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         )}
 
                         {relatedActivities.length > 0 && (
-                          <div className="pt-2 border-t border-[#e8ddff] dark:border-[#35105E] space-y-1.5">
-                            <div className="font-mono text-[10px] uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] font-semibold flex items-center justify-between">
+                          <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-1.5">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] font-semibold flex items-center justify-between">
                               <span>Log Aktivitas Terbaru</span>
-                              <Wrench className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                              <Wrench className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                             </div>
                             {relatedActivities.slice(0, 4).map(act => (
                               <div
                                 key={act.id}
-                                className="p-2 rounded bg-[#f8f1ff] dark:bg-[#160D29] text-[11px] border-l-2 border-[#7135b5]"
+                                className="p-2 rounded bg-[#F8FAFD] dark:bg-[#160D29] text-[11px] border-l-2 border-[#6657C8] dark:border-[#7135b5]"
                               >
-                                <div className="flex items-center justify-between gap-2 text-[#1f1638] dark:text-[#f5eeff] font-semibold">
+                                <div className="flex items-center justify-between gap-2 text-[#26364A] dark:text-[#f5eeff] font-semibold">
                                   <span className="truncate">{act.performedBy || 'Sistem'}</span>
-                                  <span className="font-mono text-[9.5px] text-[#7d7484] dark:text-[#A79BC0] shrink-0">
+                                  <span className="font-mono text-[9.5px] text-[#8492A5] dark:text-[#A79BC0] shrink-0">
                                     {formatJakartaTimeOnly(act.timestamp)}
                                   </span>
                                 </div>
-                                <p className="text-[#4b4452] dark:text-[#C4B5D6] leading-snug mt-0.5">{act.description}</p>
+                                <p className="text-[#52647A] dark:text-[#C4B5D6] leading-snug mt-0.5">{act.description}</p>
                               </div>
                             ))}
                           </div>
@@ -2996,14 +2996,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           >
             <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
                   9
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
                     Check-Out &amp; Tanda Tangan Pelanggan
                   </h2>
-                  <span className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] block truncate">
+                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
                     {activeTicket.checkOutAt
                       ? `Check-Out tercatat ${formatJakartaTimeOnly(activeTicket.checkOutAt)} WIB`
                       : 'Konfirmasi Berita Acara Pelanggan & Simpan Check-Out Akhir'}
@@ -3014,21 +3014,21 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <span
                   className={`font-mono text-[10px] font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full border ${
                     isSignatureReady
-                      ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-700/60'
-                      : 'text-[#4b4452] dark:text-[#C4B5D6] bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E]'
+                      ? 'text-[#218A63] dark:text-emerald-300 bg-[#E4F5EC] dark:bg-emerald-950/50 border-[#B7E4CC] dark:border-emerald-700/60'
+                      : 'text-[#52647A] dark:text-[#C4B5D6] bg-[#EDF3F8] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
                   }`}
                 >
                   <PenTool className="w-3 h-3" />
                   <span>{isSignatureReady ? 'TTD Siap' : 'Belum TTD'}</span>
                 </span>
-                <ChevronDown className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
             </summary>
 
-            <div className="px-4 pb-4 pt-2 border-t border-[#e8ddff] dark:border-[#35105E] space-y-3">
+            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
               {/* Signature Pad (surface remains light so dark pen ink stays crisp) */}
-              <div className="relative bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl p-3 border border-[#e8ddff] dark:border-[#35105E]">
-                <div className="relative w-full h-28 bg-white rounded-lg border border-[#e8ddff] dark:border-[#35105E]">
+              <div className="relative bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="relative w-full h-28 bg-white rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
                   <canvas
                     ref={signatureCanvasRef}
                     onPointerDown={handleSignaturePointerDown}
@@ -3040,14 +3040,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     }`}
                   />
                   {!customerSignatureUrl && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-mono text-[#7d7484]">
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-mono text-[#8492A5]">
                       Tanda tangan pelanggan di area ini...
                     </div>
                   )}
                 </div>
 
                 <div className="w-full flex items-center justify-between pt-2 mt-1">
-                  <span className="text-xs font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                  <span className="text-xs font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
                     {activeTicket.customerName || 'Pelanggan'} (Pelanggan)
                   </span>
                   {!ticketClosed && (
@@ -3056,7 +3056,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       onClick={handleClearSignature}
                       className="mj-btn-installer-neutral mj-btn-xs gap-1 px-2.5 py-1 text-[11px] cursor-pointer"
                     >
-                      <Trash2 className="w-3 h-3 text-[#ba1a1a]" />
+                      <Trash2 className="w-3 h-3 text-[#9B2C37] dark:text-[#ba1a1a]" />
                       <span>Ulangi TTD</span>
                     </button>
                   )}
@@ -3069,19 +3069,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   checked={customerConsentConfirmed}
                   disabled={ticketClosed || isSubmittingReport}
                   onChange={e => setCustomerConsentConfirmed(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded accent-[#7135b5] cursor-pointer"
+                  className="mt-0.5 w-4 h-4 rounded accent-[#6657C8] dark:accent-[#7135b5] cursor-pointer"
                 />
-                <span className="text-xs text-[#4b4452] dark:text-[#C4B5D6] leading-snug">
+                <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] leading-snug">
                   Pelanggan telah menguji koneksi, menerima perangkat dalam kondisi baik, dan menyetujui Berita Acara Digital.
                 </span>
               </label>
 
               {!ticketClosed && (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="flex items-center gap-2 min-w-0">
-                    <HardDriveDownload className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF] shrink-0" />
-                    <span className="text-xs text-[#4b4452] dark:text-[#C4B5D6] truncate">
-                      Draft lokal (<strong className="font-mono text-[#58149c] dark:text-[#DAB9FF]">{activeTicket.woNumber}</strong>)
+                    <HardDriveDownload className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                    <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate">
+                      Draft lokal (<strong className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</strong>)
                       {draftSavedAt ? ` · ${formatJakartaTimeOnly(draftSavedAt)} WIB` : ''}
                     </span>
                   </div>
@@ -3104,31 +3104,31 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       {/* MORAJAWS STICKY FOOTER ACTION BAR                              */}
       {/* ============================================================== */}
       {currentUser.role !== 'leader' && (
-        <footer className="bg-white dark:bg-[#1E1238] px-3.5 sm:px-6 pt-2.5 pb-safe border-t border-[#e8ddff] dark:border-[#35105E] shadow-[0_-4px_16px_rgba(31,22,56,0.06)] shrink-0 z-20">
+        <footer className="bg-[#FFFFFF]/95 dark:bg-[#1E1238] backdrop-blur-md px-3.5 sm:px-6 pt-2.5 pb-safe border-t border-[#DDE6F0] dark:border-[#35105E] shadow-[0_-4px_16px_rgba(38,54,74,0.06)] dark:shadow-[0_-4px_16px_rgba(31,22,56,0.06)] shrink-0 z-20">
           <div className="max-w-5xl mx-auto space-y-2">
             {/* Progress Meta Row */}
             <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] font-mono">
-              <span className="text-[#4b4452] dark:text-[#C4B5D6] tabular-nums">
-                Foto SOP: <strong className="text-[#1f1638] dark:text-[#f5eeff]">{uploadedPhotoCount}/{totalPhotoSlots}</strong>
+              <span className="text-[#52647A] dark:text-[#C4B5D6] tabular-nums">
+                Foto SOP: <strong className="text-[#26364A] dark:text-[#f5eeff]">{uploadedPhotoCount}/{totalPhotoSlots}</strong>
               </span>
 
               {ticketClosed ? (
-                <span className="text-emerald-700 dark:text-emerald-400 font-bold inline-flex items-center gap-1">
+                <span className="text-[#218A63] dark:text-emerald-400 font-bold inline-flex items-center gap-1">
                   <Lock className="w-3.5 h-3.5" />
                   <span>Terverifikasi Dispatch</span>
                 </span>
               ) : requiresProgressCheckIn ? (
-                <span className="text-amber-700 dark:text-amber-300 font-bold inline-flex items-center gap-1">
+                <span className="text-[#9D661F] dark:text-amber-300 font-bold inline-flex items-center gap-1">
                   <Camera className="w-3.5 h-3.5" />
                   <span>Lakukan CHECK-IN Dahulu</span>
                 </span>
               ) : !isCheckoutFormReady ? (
-                <span className="text-[#58149c] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1">
+                <span className="text-[#5145A6] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" />
                   <span>Lengkapi Form Report</span>
                 </span>
               ) : (
-                <span className="text-emerald-700 dark:text-emerald-400 font-bold inline-flex items-center gap-1">
+                <span className="text-[#218A63] dark:text-emerald-400 font-bold inline-flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5" />
                   <span>Siap Check-Out &amp; Kirim Dispatch</span>
                 </span>
@@ -3166,14 +3166,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         className="fixed inset-0 z-10"
                         onClick={() => setShowEscalationMenu(false)}
                       />
-                      <div className="absolute bottom-13 left-0 z-30 w-64 rounded-xl bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
+                      <div className="absolute bottom-13 left-0 z-30 w-64 rounded-xl bg-[#FFFFFF] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
                         <button
                           type="button"
                           onClick={() => {
                             setShowEscalationMenu(false);
                             setShowKendalaModal(true);
                           }}
-                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold text-[#ba1a1a] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
+                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 font-bold text-[#9B2C37] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
                         >
                           <ShieldAlert className="w-4 h-4" />
                           <span>Laporkan Kendala / Reschedule (#ISSUE)</span>
@@ -3228,32 +3228,32 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           role="dialog"
           aria-modal="true"
           aria-labelledby="qc-confirm-sheet-title"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-150"
         >
           <div className="absolute inset-0" onClick={() => setShowQcConfirmSheet(false)} />
 
-          <div className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-white dark:bg-[#1E1238] text-[#1f1638] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#e8ddff] dark:border-[#35105E] shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FFFFFF] dark:bg-[#1E1238] text-[#26364A] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
             <div className="flex justify-center pt-2.5 pb-1 sm:hidden shrink-0">
-              <div className="w-10 h-1.5 rounded-full bg-[#cec3d4] dark:bg-[#4B386B]" />
+              <div className="w-10 h-1.5 rounded-full bg-[#CBD5E1] dark:bg-[#4B386B]" />
             </div>
 
-            <div className="px-5 pt-3 pb-3.5 border-b border-[#e8ddff] dark:border-[#35105E] bg-[#fdf7ff] dark:bg-[#160D29] flex items-start justify-between gap-3 shrink-0">
+            <div className="px-5 pt-3 pb-3.5 border-b border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] flex items-start justify-between gap-3 shrink-0">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-[#f3eaff] dark:bg-[#2A194B] border border-[#d8ccf3] dark:border-[#4B386B] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7135b5] dark:text-[#DAB9FF]">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
                       VALIDASI AKHIR QC &amp; CHECK-OUT
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-[#f3eaff] dark:bg-[#2A194B] font-mono text-[10px] font-bold text-[#58149c] dark:text-[#DAB9FF]">
+                    <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2A194B] font-mono text-[10px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                       #{activeTicket.woNumber}
                     </span>
                   </div>
                   <h3
                     id="qc-confirm-sheet-title"
-                    className="font-display font-bold text-base text-[#1f1638] dark:text-[#f5eeff] leading-snug mt-0.5 truncate"
+                    className="font-display font-bold text-base text-[#26364A] dark:text-[#f5eeff] leading-snug mt-0.5 truncate"
                   >
                     Konfirmasi Penyelesaian WO
                   </h3>
@@ -3272,9 +3272,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               {/* Telemetry Summary */}
-              <div className="rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] p-3.5 space-y-3">
+              <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3.5 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#58149c] dark:text-[#DAB9FF]">
+                  <span className="flex items-center gap-1.5 text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     <span>Ringkasan Teknis</span>
                   </span>
@@ -3284,29 +3284,29 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-lg bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] p-3">
-                    <div className="text-[11px] text-[#7d7484] dark:text-[#A79BC0]">Rx Optical Power</div>
+                  <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] p-3">
+                    <div className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">Rx Optical Power</div>
                     <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
                       <span
                         className={`text-lg font-bold leading-none ${
-                          opmStatus.isOutOfSpec ? 'text-[#ba1a1a] dark:text-rose-300' : 'text-[#1f1638] dark:text-[#f5eeff]'
+                          opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-[#f5eeff]'
                         }`}
                       >
                         {opmDbm.trim() || '—'}
                       </span>
-                      {opmDbm.trim() && <span className="text-xs text-[#7d7484] dark:text-[#A79BC0]">dBm</span>}
+                      {opmDbm.trim() && <span className="text-xs text-[#8492A5] dark:text-[#A79BC0]">dBm</span>}
                     </div>
                   </div>
 
-                  <div className="rounded-lg bg-white dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] p-3">
-                    <div className="text-[11px] text-[#7d7484] dark:text-[#A79BC0]">Dropcore &amp; FAT</div>
+                  <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] p-3">
+                    <div className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">Dropcore &amp; FAT</div>
                     <div className="mt-1 flex items-baseline gap-1 font-mono tabular-nums">
-                      <span className="text-lg font-bold text-[#1f1638] dark:text-[#f5eeff] leading-none">
+                      <span className="text-lg font-bold text-[#26364A] dark:text-[#f5eeff] leading-none">
                         {dropcoreLength.trim() || '—'}
                       </span>
-                      {dropcoreLength.trim() && <span className="text-xs text-[#7d7484] dark:text-[#A79BC0]">m</span>}
+                      {dropcoreLength.trim() && <span className="text-xs text-[#8492A5] dark:text-[#A79BC0]">m</span>}
                     </div>
-                    <div className="mt-1 text-[10px] font-mono text-[#58149c] dark:text-[#DAB9FF] truncate">
+                    <div className="mt-1 text-[10px] font-mono text-[#5145A6] dark:text-[#DAB9FF] truncate">
                       FAT {activeTicket.fatCode || '-'}{fatPort ? ` • #${fatPort}` : ''}
                     </div>
                   </div>
@@ -3316,10 +3316,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               {/* Uploaded Photo Proof Thumbnails */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-display font-bold text-sm text-[#1f1638] dark:text-[#f5eeff]">
+                  <h4 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
                     Bukti Foto Fisik
                   </h4>
-                  <span className="font-mono text-[11px] font-bold text-[#58149c] dark:text-[#DAB9FF]">
+                  <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                     {uploadedPhotoCount}/{totalPhotoSlots} Terlampir
                   </span>
                 </div>
@@ -3331,23 +3331,23 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         key={slot.slotKey}
                         type="button"
                         onClick={() => setLightboxState({ url: slot.url })}
-                        className="relative h-24 rounded-lg overflow-hidden border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff] dark:bg-[#160D29] cursor-pointer text-left"
+                        className="relative h-24 rounded-lg overflow-hidden border border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] cursor-pointer text-left"
                       >
                         <img
                           src={getSafePreviewUrl(slot.url)}
                           alt={slot.title}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-x-0 bottom-0 bg-white/95 dark:bg-[#160D29]/95 border-t border-[#e8ddff] dark:border-[#35105E] px-2 py-1 flex items-center gap-1 text-[#1f1638] dark:text-[#f5eeff] text-[10px] font-mono font-semibold">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div className="absolute inset-x-0 bottom-0 bg-[#FFFFFF]/95 dark:bg-[#160D29]/95 border-t border-[#DDE6F0] dark:border-[#35105E] px-2 py-1 flex items-center gap-1 text-[#26364A] dark:text-[#f5eeff] text-[10px] font-mono font-semibold">
+                          <CheckCircle2 className="w-3 h-3 text-[#218A63] dark:text-emerald-400 shrink-0" />
                           <span className="truncate">{slot.title}</span>
                         </div>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg border border-dashed border-[#cec3d4] dark:border-[#4B386B] bg-[#f8f1ff] dark:bg-[#160D29] text-center space-y-2">
-                    <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6]">
+                  <div className="p-3 rounded-lg border border-dashed border-[#CBD5E1] dark:border-[#4B386B] bg-[#F8FAFD] dark:bg-[#160D29] text-center space-y-2">
+                    <p className="text-xs text-[#52647A] dark:text-[#C4B5D6]">
                       Belum ada foto bukti SOP yang diunggah. Disarankan melampirkan bukti foto fisik sebelum Check-Out.
                     </p>
                     <button
@@ -3362,8 +3362,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
 
               {/* SOP Verification Checklist */}
-              <div className="rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] p-3.5 space-y-2">
-                <div className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#DAB9FF]">
+              <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3.5 space-y-2">
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   Lembar Verifikasi Kualitas (SOP)
                 </div>
                 {[
@@ -3373,7 +3373,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 ].map(item => (
                   <label
                     key={item.key}
-                    className="flex items-start gap-2.5 text-xs text-[#1f1638] dark:text-[#f5eeff] cursor-pointer select-none py-0.5"
+                    className="flex items-start gap-2.5 text-xs text-[#26364A] dark:text-[#f5eeff] cursor-pointer select-none py-0.5"
                   >
                     <input
                       type="checkbox"
@@ -3381,7 +3381,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                       onChange={e =>
                         setSopChecks(prev => ({ ...prev, [item.key]: e.target.checked }))
                       }
-                      className="mt-0.5 w-4 h-4 rounded accent-[#7135b5] cursor-pointer"
+                      className="mt-0.5 w-4 h-4 rounded accent-[#6657C8] dark:accent-[#7135b5] cursor-pointer"
                     />
                     <span className="leading-snug">{item.label}</span>
                   </label>
@@ -3389,7 +3389,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-[#fdf7ff] dark:bg-[#160D29] border-t border-[#e8ddff] dark:border-[#35105E] space-y-2 shrink-0">
+            <div className="px-5 py-4 bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2 shrink-0">
               <button
                 type="button"
                 disabled={
@@ -3472,43 +3472,43 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-900/50 animate-in fade-in duration-200"
+          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-200"
         >
-          <div className="w-full max-w-md bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#35105E] p-6 shadow-2xl text-center space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-700/60 flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+          <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] p-6 shadow-2xl text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7 text-[#218A63] dark:text-emerald-400" />
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-[#1f1638] dark:text-[#f5eeff] uppercase tracking-tight">
+              <h3 className="text-lg font-bold text-[#26364A] dark:text-[#f5eeff] uppercase tracking-tight">
                 Report &amp; Check-Out Tersimpan
               </h3>
-              <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] mt-1 leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] mt-1 leading-relaxed">
                 Laporan berhasil dikirim ke Dispatch dengan status{' '}
-                <strong className="text-[#58149c] dark:text-[#DAB9FF]">BUTUH APPROVAL</strong>.
+                <strong className="text-[#5145A6] dark:text-[#DAB9FF]">BUTUH APPROVAL</strong>.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-left text-xs space-y-2">
+            <div className="p-3.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-left text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[#7d7484] dark:text-[#A79BC0]">No. Work Order:</span>
-                <span className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">No. Work Order:</span>
+                <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7d7484] dark:text-[#A79BC0]">Report Status:</span>
-                <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff]">
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">Report Status:</span>
+                <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
                   {savedReportSnapshot?.status || reportStatus}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7d7484] dark:text-[#A79BC0]">Reason Report:</span>
-                <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate max-w-[190px]">
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">Reason Report:</span>
+                <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate max-w-[190px]">
                   {savedReportSnapshot?.reason || reasonReport}
                 </span>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t border-[#e8ddff] dark:border-[#35105E]">
-                <span className="text-[#7d7484] dark:text-[#A79BC0]">Bukti Foto SOP:</span>
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+              <div className="flex items-center justify-between pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">Bukti Foto SOP:</span>
+                <span className="font-mono font-bold text-[#218A63] dark:text-emerald-400">
                   {uploadedPhotoCount}/{totalPhotoSlots} Terlampir
                 </span>
               </div>

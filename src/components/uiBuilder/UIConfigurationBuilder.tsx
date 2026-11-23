@@ -229,7 +229,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'table_columns'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Columns3 className="w-3.5 h-3.5" />
@@ -242,7 +242,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'device_layout'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Smartphone className="w-3.5 h-3.5" />
@@ -255,7 +255,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'menu_layout'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <FolderTree className="w-3.5 h-3.5" />
@@ -268,7 +268,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'toolbar'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <LayoutTemplate className="w-3.5 h-3.5" />
@@ -281,7 +281,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'detail_sections'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -294,7 +294,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'global_theme'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
@@ -307,7 +307,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'presets'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -320,7 +320,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'json'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -333,7 +333,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'supabase_config'
                 ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#35105E] hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
@@ -430,24 +430,24 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {activeTab === 'supabase_config' && (
         <div className="space-y-6">
           {/* Hero Banner */}
-          <div className="bg-gradient-to-br from-[#160D29] via-[#27104A] to-[#1A0D36] text-white rounded-2xl p-6 sm:p-7 shadow-xl border border-[#35105E] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-[#A855F7]/15 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+          <div className="bg-gradient-to-br from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#27104A] dark:to-[#1A0D36] text-[#26364A] dark:text-white rounded-2xl p-6 sm:p-7 shadow-sm dark:shadow-xl border border-[#C5BEEF] dark:border-[#35105E] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#9E95DE]/20 dark:bg-[#A855F7]/15 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-2 max-w-2xl">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#6b103b] to-[#480123] text-white border border-white/15 flex items-center gap-1.5">
-                    <Cloud className="w-3 h-3 text-[#DAB9FF]" />
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#DDF4F4] dark:bg-gradient-to-r dark:from-[#6b103b] dark:to-[#480123] text-[#2E7D8B] dark:text-white border border-[#BDE4E8] dark:border-white/15 flex items-center gap-1.5">
+                    <Cloud className="w-3 h-3 text-[#2E7D8B] dark:text-[#DAB9FF]" />
                     Supabase PostgreSQL Real-Time Config
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-[#35105E] text-[#D8B4FE] border border-[#7135B5]/40">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/80 dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/40">
                     app_settings/ui_configuration
                   </span>
                 </div>
-                <h3 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-                  <Database className="w-6 h-6 text-[#D8B4FE]" />
+                <h3 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white flex items-center gap-2.5">
+                  <Database className="w-6 h-6 text-[#5145A6] dark:text-[#D8B4FE]" />
                   Database Configuration App
                 </h3>
-                <p className="text-xs sm:text-sm text-[#CEC0E8] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                   Jadikan tata letak UI, susunan menu, visibilitas kolom tabel, dan preferensi perangkat sebagai <strong>Database Configuration App</strong> terpusat di Supabase PostgreSQL. Seluruh pengguna dan perangkat (Android &amp; PC) akan otomatis menggunakan konfigurasi baku ini secara real-time.
                 </p>
               </div>
@@ -478,32 +478,32 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             </div>
 
             {/* Status Information Bar */}
-            <div className="mt-6 pt-4 border-t border-[#35105E] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="mt-6 pt-4 border-t border-[#C5BEEF]/70 dark:border-[#35105E] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
               <div>
-                <p className="text-[#CEC0E8]/75 text-[11px]">Status Sinkronisasi:</p>
-                <p className="font-semibold text-emerald-300 flex items-center gap-1.5 mt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <p className="text-[#52647A] dark:text-[#CEC0E8]/75 text-[11px]">Status Sinkronisasi:</p>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
                   {cloudSyncStatus === 'synced' ? `Tersimpan & Aktif (v${uiConfigVersion})` : cloudSyncStatus === 'syncing' ? 'Sedang Sinkronisasi...' : cloudSyncStatus === 'error' ? 'Gagal Terhubung' : 'Konfigurasi Lokal'}
                 </p>
               </div>
 
               <div>
-                <p className="text-[#CEC0E8]/75 text-[11px]">Terakhir Di-upload:</p>
-                <p className="font-semibold text-white mt-0.5 font-mono tabular-nums">
+                <p className="text-[#52647A] dark:text-[#CEC0E8]/75 text-[11px]">Terakhir Di-upload:</p>
+                <p className="font-semibold text-[#26364A] dark:text-white mt-0.5 font-mono tabular-nums">
                   {lastCloudSyncTime ? new Date(lastCloudSyncTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'Belum di-upload'}
                 </p>
               </div>
 
               <div>
-                <p className="text-[#CEC0E8]/75 text-[11px]">Pengunggah Terakhir:</p>
-                <p className="font-semibold text-white mt-0.5">
+                <p className="text-[#52647A] dark:text-[#CEC0E8]/75 text-[11px]">Pengunggah Terakhir:</p>
+                <p className="font-semibold text-[#26364A] dark:text-white mt-0.5">
                   {currentUser?.name || 'Super Admin'} ({currentUser?.role || 'Admin'})
                 </p>
               </div>
 
               <div>
-                <p className="text-[#CEC0E8]/75 text-[11px]">Supabase Table / Key:</p>
-                <p className="font-mono text-[#D8B4FE] text-[11px] mt-0.5 truncate">
+                <p className="text-[#52647A] dark:text-[#CEC0E8]/75 text-[11px]">Supabase Table / Key:</p>
+                <p className="font-mono text-[#5145A6] dark:text-[#D8B4FE] text-[11px] mt-0.5 truncate">
                   app_settings / ui_configuration
                 </p>
               </div>
@@ -514,52 +514,52 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="card-3d-lavender rounded-2xl p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#4B4452] dark:text-[#CEC0E8] font-semibold">Kolom Tabel WO</span>
-                <Columns3 className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] font-semibold">Kolom Tabel WO</span>
+                <Columns3 className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
               </div>
-              <p className="font-display text-xl font-extrabold text-[#1F1638] dark:text-white mt-2 tabular-nums">
-                {config.ticketsTable.columns.filter(c => c.visible).length} <span className="text-xs font-normal text-[#7D7484] dark:text-[#CEC0E8]">/ {config.ticketsTable.columns.length} Aktif</span>
+              <p className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-2 tabular-nums">
+                {config.ticketsTable.columns.filter(c => c.visible).length} <span className="text-xs font-normal text-[#8492A5] dark:text-[#CEC0E8]">/ {config.ticketsTable.columns.length} Aktif</span>
               </p>
-              <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]/80 mt-1">
+              <p className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80 mt-1">
                 Tersimpan di properti `ticketsTable.columns`
               </p>
             </div>
 
             <div className="card-3d-lavender rounded-2xl p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#4B4452] dark:text-[#CEC0E8] font-semibold">Susunan Menu Navigasi</span>
+                <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] font-semibold">Susunan Menu Navigasi</span>
                 <FolderTree className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <p className="font-display text-xl font-extrabold text-[#1F1638] dark:text-white mt-2 tabular-nums">
-                {navigationItems.filter(i => i.visible).length} <span className="text-xs font-normal text-[#7D7484] dark:text-[#CEC0E8]">Menu ({menuCategories.length} Kategori)</span>
+              <p className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-2 tabular-nums">
+                {navigationItems.filter(i => i.visible).length} <span className="text-xs font-normal text-[#8492A5] dark:text-[#CEC0E8]">Menu ({menuCategories.length} Kategori)</span>
               </p>
-              <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]/80 mt-1">
+              <p className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80 mt-1">
                 Tersimpan di properti `navigationItems`
               </p>
             </div>
 
             <div className="card-3d-lavender rounded-2xl p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#4B4452] dark:text-[#CEC0E8] font-semibold">Mode Perangkat</span>
-                <Smartphone className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />
+                <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] font-semibold">Mode Perangkat</span>
+                <Smartphone className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE]" />
               </div>
-              <p className="font-display text-xl font-extrabold text-[#1F1638] dark:text-white mt-2 capitalize">
+              <p className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-2 capitalize">
                 {config.device?.mode || 'Auto'}
               </p>
-              <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]/80 mt-1">
+              <p className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80 mt-1">
                 Android: {config.device?.android?.layoutType === 'cards' ? 'Card View' : 'Table'}, PC: Compact
               </p>
             </div>
 
             <div className="card-3d-lavender rounded-2xl p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#4B4452] dark:text-[#CEC0E8] font-semibold">Preset &amp; Tema Global</span>
-                <Palette className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] font-semibold">Preset &amp; Tema Global</span>
+                <Palette className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
               </div>
-              <p className="font-display text-xl font-extrabold text-[#1F1638] dark:text-white mt-2 tabular-nums">
-                {config.ticketsTable.presets.length} Preset <span className="text-xs font-normal text-[#7D7484] dark:text-[#CEC0E8] capitalize">({config.global.themeMode})</span>
+              <p className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-2 tabular-nums">
+                {config.ticketsTable.presets.length} Preset <span className="text-xs font-normal text-[#8492A5] dark:text-[#CEC0E8] capitalize">({config.global.themeMode})</span>
               </p>
-              <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]/80 mt-1">
+              <p className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80 mt-1">
                 Densitas: {config.global.density}, Skala Font: {config.global.fontScale}
               </p>
             </div>
@@ -570,22 +570,22 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             {/* Action 1: Upload Card */}
             <div className="card-3d-lavender rounded-2xl p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0 border border-[#D8CCF3] dark:border-[#7135B5]/40">
+                <div className="w-10 h-10 rounded-xl bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] flex items-center justify-center shrink-0 border border-[#C5BEEF] dark:border-[#7135B5]/40">
                   <CloudUpload className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
+                  <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
                     Simpan &amp; Upload ke Supabase
                   </h4>
-                  <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                     Jadikan konfigurasi lokal saat ini sebagai database configuration app baku.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] rounded-xl text-xs text-[#4B4452] dark:text-[#CEC0E8] space-y-1.5 leading-relaxed">
-                <p className="font-semibold text-[#1F1638] dark:text-white">Yang akan disimpan ke Supabase PostgreSQL:</p>
-                <ul className="list-disc list-inside space-y-1 text-[#7D7484] dark:text-[#CEC0E8]/90 text-[11px]">
+              <div className="p-3.5 mj-tactile-well border border-[#DDE6F0] dark:border-[#35105E] rounded-xl text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-1.5 leading-relaxed">
+                <p className="font-semibold text-[#26364A] dark:text-white">Yang akan disimpan ke Supabase PostgreSQL:</p>
+                <ul className="list-disc list-inside space-y-1 text-[#8492A5] dark:text-[#CEC0E8]/90 text-[11px]">
                   <li>Visibilitas, urutan, dan pengaturan {config.ticketsTable.columns.length} kolom tabel Work Order</li>
                   <li>Susunan dan urutan {navigationItems.length} menu navigasi di {menuCategories.length} kategori</li>
                   <li>Pengaturan khusus layar sentuh Android (Navigasi bawah, kartu responsif)</li>
@@ -616,18 +616,18 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   <CloudDownload className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
+                  <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
                     Tarik Konfigurasi dari Supabase
                   </h4>
-                  <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                     Muat konfigurasi master yang tersimpan di cloud database ke sesi Anda.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 mj-tactile-well border border-[#E8DDFF] dark:border-[#35105E] rounded-xl text-xs text-[#4B4452] dark:text-[#CEC0E8] space-y-1.5 leading-relaxed">
-                <p className="font-semibold text-[#1F1638] dark:text-white">Manfaat Sinkronisasi dari Cloud:</p>
-                <ul className="list-disc list-inside space-y-1 text-[#7D7484] dark:text-[#CEC0E8]/90 text-[11px]">
+              <div className="p-3.5 mj-tactile-well border border-[#DDE6F0] dark:border-[#35105E] rounded-xl text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-1.5 leading-relaxed">
+                <p className="font-semibold text-[#26364A] dark:text-white">Manfaat Sinkronisasi dari Cloud:</p>
+                <ul className="list-disc list-inside space-y-1 text-[#8492A5] dark:text-[#CEC0E8]/90 text-[11px]">
                   <li>Menerapkan perubahan layout yang dibuat oleh Super Admin dari perangkat lain</li>
                   <li>Mengembalikan tampilan ke konfigurasi baku cloud jika pengaturan lokal berubah</li>
                   <li>Memastikan kolom dan urutan menu selaras dengan tim operasional pusat</li>
@@ -654,17 +654,17 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
           <div className="card-3d-lavender rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <FileJson className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
-                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-xs uppercase tracking-wider">
+                <FileJson className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-xs uppercase tracking-wider">
                   Pratinjau Record Supabase (app_settings/ui_configuration)
                 </h4>
               </div>
-              <span className="text-[11px] text-[#7D7484] dark:text-[#D8B4FE] font-mono">
+              <span className="text-[11px] text-[#8492A5] dark:text-[#D8B4FE] font-mono">
                 Document Schema: AppSetting
               </span>
             </div>
 
-            <div className="p-3.5 bg-[#160D29] rounded-xl overflow-x-auto text-[11px] font-mono text-[#D8B4FE] max-h-72 border border-[#35105E]">
+            <div className="p-3.5 bg-[#1B2738] dark:bg-[#160D29] rounded-xl overflow-x-auto text-[11px] font-mono text-[#DDF4F4] dark:text-[#D8B4FE] max-h-72 border border-[#26364A] dark:border-[#35105E]">
               <pre>{JSON.stringify({
                 id: 'ui_configuration',
                 app: 'MoraJaws',
@@ -692,14 +692,14 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {activeTab === 'device_layout' && (
         <div className="space-y-6">
           {/* Quick Preset Actions */}
-          <div className="card-3d-lavender rounded-2xl p-5 bg-gradient-to-r from-[#F8F1FF] to-[#F3EAFF] dark:from-[#1E1238] dark:to-[#27104A]">
+          <div className="card-3d-lavender rounded-2xl p-5 bg-gradient-to-r from-[#EAE8FF] to-[#DDF4F4] dark:from-[#1E1238] dark:to-[#27104A]">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
                   <span>Preset Ergonomis Siap Pakai (1-Klik)</span>
                 </h4>
-                <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-1">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-1">
                   Terapkan tata letak instan yang disesuaikan untuk kenyamanan penggunaan Android (Layar Sentuh) atau PC (Monitor Lebar).
                 </p>
               </div>
@@ -785,15 +785,15 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
           {/* Active Mode Switcher */}
           <div className="card-3d-lavender rounded-2xl p-5 space-y-3">
-            <h5 className="font-display font-bold text-[#7D7484] dark:text-[#D8B4FE] text-xs uppercase tracking-wider">
+            <h5 className="font-display font-bold text-[#52647A] dark:text-[#D8B4FE] text-xs uppercase tracking-wider">
               Pilihan Mode Perangkat Utama
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                   config.device?.mode === 'auto'
-                    ? 'border-[#7135B5] ring-2 ring-[#7135B5]/20 bg-[#F8F1FF] dark:bg-[#2E1859]/60'
-                    : 'border-[#E8DDFF] dark:border-[#35105E] hover:border-[#A855F7]'
+                    ? 'border-[#6657C8] dark:border-[#7135B5] ring-2 ring-[#6657C8]/20 dark:ring-[#7135B5]/20 bg-[#EAE8FF]/70 dark:bg-[#2E1859]/60'
+                    : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE] dark:hover:border-[#A855F7]'
                 }`}
               >
                 <input
@@ -802,14 +802,14 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   disabled={!isSuperAdmin}
                   checked={config.device?.mode === 'auto'}
                   onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'auto' } }))}
-                  className="mt-0.5 text-[#7135B5] focus:ring-[#7135B5]"
+                  className="mt-0.5 text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
                 />
                 <div>
-                  <div className="font-semibold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                  <div className="font-semibold text-[#26364A] dark:text-white text-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                     <span>Otomatis (Adaptif)</span>
                   </div>
-                  <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] mt-1 leading-relaxed">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 leading-relaxed">
                     Menyesuaikan tampilan secara otomatis sesuai lebar layar perangkat saat dibuka (HP = Kartu, PC = Tabel).
                   </p>
                 </div>
@@ -819,7 +819,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                   config.device?.mode === 'android'
                     ? 'border-emerald-600 ring-2 ring-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/30'
-                    : 'border-[#E8DDFF] dark:border-[#35105E] hover:border-[#A855F7]'
+                    : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE] dark:hover:border-[#A855F7]'
                 }`}
               >
                 <input
@@ -831,11 +831,11 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
-                  <div className="font-semibold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5">
+                  <div className="font-semibold text-[#26364A] dark:text-white text-xs flex items-center gap-1.5">
                     <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Paksa Mode Android / HP</span>
                   </div>
-                  <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] mt-1 leading-relaxed">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 leading-relaxed">
                     Mengaktifkan tata letak sentuh jempol, kartu tiket besar, dan navigasi bawah bahkan saat dibuka di PC.
                   </p>
                 </div>
@@ -844,8 +844,8 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
               <label
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                   config.device?.mode === 'pc'
-                    ? 'border-[#7135B5] ring-2 ring-[#7135B5]/20 bg-[#F8F1FF] dark:bg-[#2E1859]/60'
-                    : 'border-[#E8DDFF] dark:border-[#35105E] hover:border-[#A855F7]'
+                    ? 'border-[#2E7D8B] dark:border-[#7135B5] ring-2 ring-[#2E7D8B]/20 dark:ring-[#7135B5]/20 bg-[#DDF4F4]/70 dark:bg-[#2E1859]/60'
+                    : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE] dark:hover:border-[#A855F7]'
                 }`}
               >
                 <input
@@ -854,14 +854,14 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   disabled={!isSuperAdmin}
                   checked={config.device?.mode === 'pc'}
                   onChange={() => updateDraft(prev => ({ ...prev, device: { ...prev.device, mode: 'pc' } }))}
-                  className="mt-0.5 text-[#7135B5] focus:ring-[#7135B5]"
+                  className="mt-0.5 text-[#2E7D8B] dark:text-[#7135B5] focus:ring-[#2E7D8B]"
                 />
                 <div>
-                  <div className="font-semibold text-[#1F1638] dark:text-white text-xs flex items-center gap-1.5">
-                    <Monitor className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                  <div className="font-semibold text-[#26364A] dark:text-white text-xs flex items-center gap-1.5">
+                    <Monitor className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#D8B4FE]" />
                     <span>Paksa Mode PC / Desktop</span>
                   </div>
-                  <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] mt-1 leading-relaxed">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 leading-relaxed">
                     Mengunci tampilan ke mode tabel data intensif, multi-kolom, dan tombol toolbar desktop lengkap.
                   </p>
                 </div>
@@ -871,15 +871,15 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
           {/* Section A: Android Specific Settings */}
           <div className="card-3d-lavender rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+            <div className="flex items-center gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
                 <Smartphone className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-xs">
                   Pengaturan Ergonomis Android / HP (Layar Sentuh)
                 </h4>
-                <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Optimalkan pengalaman pengoperasian dengan jempol satu tangan, visibilitas di lapangan, dan tombol sentuh nyaman.
                 </p>
               </div>
@@ -887,8 +887,8 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {/* Option 1: Layout Type on Mobile */}
-              <div className="p-3.5 rounded-xl border border-[#E8DDFF] dark:border-[#35105E] bg-[#F8F1FF]/50 dark:bg-[#160D29]/60 space-y-2">
-                <label className="font-semibold text-[#1F1638] dark:text-white block">
+              <div className="p-3.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29]/60 space-y-2">
+                <label className="font-semibold text-[#26364A] dark:text-white block">
                   Tipe Tampilan Tiket di Android
                 </label>
                 <p className="text-[11px] text-slate-500 leading-normal mb-2">
@@ -1069,15 +1069,15 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
           {/* Section B: PC Specific Settings */}
           <div className="card-3d-lavender rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
-              <div className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center">
+            <div className="flex items-center gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
+              <div className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] flex items-center justify-center">
                 <Monitor className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-xs">
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-xs">
                   Pengaturan Produktivitas PC / Desktop (Monitor Lebar)
                 </h4>
-                <p className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Maksimalkan efisiensi multitasking dengan grid kepadatan tinggi, pin kolom, dan pemanfaatan layar hingga 1600px+.
                 </p>
               </div>
@@ -1244,24 +1244,24 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {activeTab === 'toolbar' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-6 text-xs">
           <div>
-            <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm mb-1">
+            <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm mb-1">
               Pengaturan Toolbar &amp; Tombol Aksi
             </h4>
-            <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
               Konfigurasi kontrol yang tampil pada toolbar tiket utama, termasuk posisi dan pengelompokan aksi.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4 mj-tactile-well rounded-xl border border-[#E8DDFF] dark:border-[#35105E]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4 mj-tactile-well rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 disabled={!isSuperAdmin}
                 checked={config.toolbar.showSearch}
                 onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showSearch: e.target.checked } }))}
-                className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
               />
-              <span className="font-medium text-[#1F1638] dark:text-[#CEC0E8]">Tampilkan Kotak Pencarian</span>
+              <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Kotak Pencarian</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1270,9 +1270,9 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 disabled={!isSuperAdmin}
                 checked={config.toolbar.showFilters}
                 onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showFilters: e.target.checked } }))}
-                className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
               />
-              <span className="font-medium text-[#1F1638] dark:text-[#CEC0E8]">Tampilkan Baris Filter Area/Status</span>
+              <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Baris Filter Area/Status</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1281,9 +1281,9 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 disabled={!isSuperAdmin}
                 checked={config.toolbar.showExport}
                 onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showExport: e.target.checked } }))}
-                className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
               />
-              <span className="font-medium text-[#1F1638] dark:text-[#CEC0E8]">Tampilkan Tombol Export CSV</span>
+              <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Tombol Export CSV</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1292,19 +1292,19 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 disabled={!isSuperAdmin}
                 checked={config.toolbar.showArchiveToggle}
                 onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showArchiveToggle: e.target.checked } }))}
-                className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
               />
-              <span className="font-medium text-[#1F1638] dark:text-[#CEC0E8]">Tampilkan Tombol Filter Arsip</span>
+              <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Tombol Filter Arsip</span>
             </label>
           </div>
 
           <div>
-            <h5 className="font-semibold text-[#1F1638] dark:text-[#D8B4FE] mb-2">Tombol Aksi Toolbar:</h5>
+            <h5 className="font-semibold text-[#26364A] dark:text-[#D8B4FE] mb-2">Tombol Aksi Toolbar:</h5>
             <div className="space-y-2">
               {config.toolbar.buttons.map(btn => (
                 <div
                   key={btn.id}
-                  className="flex items-center justify-between p-3 bg-[#F8F1FF]/60 dark:bg-[#160D29]/70 rounded-xl border border-[#E8DDFF] dark:border-[#35105E]"
+                  className="flex items-center justify-between p-3 bg-[#F4F7FB] dark:bg-[#160D29]/70 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]"
                 >
                   <div className="flex items-center gap-3">
                     <input
@@ -1318,11 +1318,11 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                           buttons: prev.toolbar.buttons.map(b => b.id === btn.id ? { ...b, visible: e.target.checked } : b)
                         }
                       }))}
-                      className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                      className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
                     />
                     <div>
-                      <span className="font-semibold text-[#1F1638] dark:text-white">{btn.label}</span>
-                      <span className="text-[11px] text-[#7D7484] dark:text-[#CEC0E8] block font-mono">id: {btn.id}</span>
+                      <span className="font-semibold text-[#26364A] dark:text-white">{btn.label}</span>
+                      <span className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8] block font-mono">id: {btn.id}</span>
                     </div>
                   </div>
 
@@ -1337,7 +1337,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                           buttons: prev.toolbar.buttons.map(b => b.id === btn.id ? { ...b, group: e.target.value as any } : b)
                         }
                       }))}
-                      className="px-2.5 py-1.5 tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white rounded-lg text-xs disabled:opacity-60 focus:outline-none"
+                      className="px-2.5 py-1.5 tactile-debossed-input bg-white dark:bg-[#1E1238] text-[#26364A] dark:text-white rounded-lg text-xs disabled:opacity-60 focus:outline-none"
                     >
                       <option value="primary">Primary Action</option>
                       <option value="secondary">Secondary Action</option>
@@ -1354,19 +1354,19 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {/* Tab 3: Detail Sections & Empty Fields */}
       {activeTab === 'detail_sections' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-6 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
             <div>
-              <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
+              <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
                 Ticket Detail Layout &amp; Section Architecture
               </h4>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                 Atur urutan section, visibilitas section, dan perilaku tampilan field kosong sesuai standar aplikasi.
               </p>
             </div>
 
             {/* Global Show Empty Fields toggle */}
-            <div className="flex items-center gap-2 p-2 mj-tactile-well rounded-xl border border-[#E8DDFF] dark:border-[#35105E]">
-              <span className="text-[#4B4452] dark:text-[#CEC0E8] font-semibold">Show Empty Fields:</span>
+            <div className="flex items-center gap-2 p-2 mj-tactile-well rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+              <span className="text-[#52647A] dark:text-[#CEC0E8] font-semibold">Show Empty Fields:</span>
               <button
                 disabled={!isSuperAdmin}
                 onClick={() => updateDraft(prev => ({
@@ -1388,7 +1388,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             {config.ticketDetail.sections.map((section, secIdx) => (
               <div
                 key={section.id}
-                className="p-4 mj-tactile-well rounded-xl border border-[#E8DDFF] dark:border-[#35105E] space-y-3"
+                className="p-4 mj-tactile-well rounded-xl border border-[#DDE6F0] dark:border-[#35105E] space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1403,10 +1403,10 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                           sections: prev.ticketDetail.sections.map(s => s.id === section.id ? { ...s, visible: e.target.checked } : s)
                         }
                       }))}
-                      className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                      className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
                     />
-                    <span className="font-display font-bold text-[#1F1638] dark:text-white text-sm">{section.title}</span>
-                    <span className="text-[11px] text-[#7D7484] dark:text-[#D8B4FE] font-mono">({section.fields.length} fields)</span>
+                    <span className="font-display font-bold text-[#26364A] dark:text-white text-sm">{section.title}</span>
+                    <span className="text-[11px] text-[#8492A5] dark:text-[#D8B4FE] font-mono">({section.fields.length} fields)</span>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -1430,11 +1430,11 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 </div>
 
                 {/* Fields inside section */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                   {section.fields.map(field => (
                     <div
                       key={field.key}
-                      className="p-2 bg-white dark:bg-[#1E1238] rounded-lg border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between"
+                      className="p-2 bg-white dark:bg-[#1E1238] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between"
                     >
                       <div className="flex items-center gap-2 truncate">
                         <input
@@ -1450,9 +1450,9 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                                 : s)
                             }
                           }))}
-                          className="rounded border-[#CEC3D4] text-[#7135B5] focus:ring-[#7135B5]"
+                          className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
                         />
-                        <span className="truncate text-[#1F1638] dark:text-[#CEC0E8]">{field.label}</span>
+                        <span className="truncate text-[#26364A] dark:text-[#CEC0E8]">{field.label}</span>
                       </div>
                       <select
                         disabled={!isSuperAdmin}
@@ -1466,7 +1466,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                               : s)
                           }
                         }))}
-                        className="text-[11px] px-1.5 py-0.5 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded disabled:opacity-60 focus:outline-none"
+                        className="text-[11px] px-1.5 py-0.5 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded disabled:opacity-60 focus:outline-none"
                       >
                         <option value="third">1/3</option>
                         <option value="half">1/2</option>
@@ -1485,33 +1485,33 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {activeTab === 'global_theme' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-6 text-xs">
           <div>
-            <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm mb-1">
+            <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm mb-1">
               Pengaturan Tampilan Global &amp; Branding
             </h4>
-            <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
               Konfigurasi tema warna, mode gelap/terang, kepadatan tabel, font scale, dan batas layout aplikasi.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <label className="block font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Nama Aplikasi</label>
+              <label className="block font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">Nama Aplikasi</label>
               <input
                 type="text"
                 disabled={!isSuperAdmin}
                 value={config.global.appName}
                 onChange={e => updateDraft(prev => ({ ...prev, global: { ...prev.global, appName: e.target.value } }))}
-                className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Tema Mode</label>
+              <label className="block font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">Tema Mode</label>
               <select
                 disabled={!isSuperAdmin}
                 value={config.global.themeMode}
                 onChange={e => updateDraft(prev => ({ ...prev, global: { ...prev.global, themeMode: e.target.value as any } }))}
-                className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
               >
                 <option value="light">Light Mode</option>
                 <option value="dark">Dark Mode</option>
@@ -1519,7 +1519,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Kepadatan Grid / Tabel (Density)</label>
+              <label className="block font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">Kepadatan Grid / Tabel (Density)</label>
               <select
                 disabled={!isSuperAdmin}
                 value={config.ticketsTable.density}
@@ -1530,7 +1530,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                     ticketsTable: { ...prev.ticketsTable, density: nextDensity }
                   }));
                 }}
-                className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
               >
                 <option value="compact">Compact (Maksimal data)</option>
                 <option value="comfortable">Comfortable (Standar)</option>
@@ -1539,7 +1539,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Jumlah Baris per Halaman</label>
+              <label className="block font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">Jumlah Baris per Halaman</label>
               <select
                 disabled={!isSuperAdmin}
                 value={config.ticketsTable.rowsPerPage}
@@ -1550,7 +1550,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                     ticketsTable: { ...prev.ticketsTable, rowsPerPage: val }
                   }));
                 }}
-                className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
               >
                 <option value={5}>5 baris</option>
                 <option value={10}>10 baris</option>
@@ -1561,7 +1561,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">Status Menu Sidebar (Default)</label>
+              <label className="block font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">Status Menu Sidebar (Default)</label>
               <select
                 disabled={!isSuperAdmin}
                 value={config.global.sidebarState || 'expanded'}
@@ -1572,7 +1572,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                     global: { ...prev.global, sidebarState: state, sidebarCollapsed: state === 'minimized' }
                   }));
                 }}
-                className="w-full px-3 py-2 tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl disabled:opacity-60 focus:outline-none"
               >
                 <option value="expanded">Expanded (Terbuka Penuh - Lebar)</option>
                 <option value="minimized">Minimized (Di-minimize - Hanya Ikon)</option>
@@ -1586,12 +1586,12 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {/* Tab 5: Presets Manager */}
       {activeTab === 'presets' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-4 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DDFF] dark:border-[#35105E]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
             <div>
-              <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm">
+              <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
                 Daftar Preset Tampilan Tabel
               </h4>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                 Pilih atau kelola preset layout tabel yang tersimpan untuk beralih perspektif kerja dalam 1-klik.
               </p>
             </div>
@@ -1614,15 +1614,15 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   key={p.id}
                   className={`p-4 rounded-xl border transition-all ${
                     isActive
-                      ? 'border-[#7135B5] bg-[#F8F1FF] dark:bg-[#2E1859]/50 shadow-sm'
-                      : 'border-[#E8DDFF] dark:border-[#35105E] bg-white dark:bg-[#160D29]/60 hover:border-[#A855F7]'
+                      ? 'border-[#6657C8] dark:border-[#7135B5] bg-[#EAE8FF]/70 dark:bg-[#2E1859]/50 shadow-sm'
+                      : 'border-[#DDE6F0] dark:border-[#35105E] bg-white dark:bg-[#160D29]/60 hover:border-[#9E95DE] dark:hover:border-[#A855F7]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-2">
+                    <h5 className="font-bold text-[#26364A] dark:text-white text-xs flex items-center gap-2">
                       <span>{p.name}</span>
                       {isActive && (
-                        <span className="px-2 py-0.5 bg-[#58149C] text-white rounded-full text-[10px] font-bold">
+                        <span className="px-2 py-0.5 bg-[#6657C8] dark:bg-[#58149C] text-white rounded-full text-[10px] font-bold">
                           Aktif
                         </span>
                       )}
@@ -1656,7 +1656,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                               triggerError(res.error || 'Gagal menghapus preset dari database.');
                             }
                           }}
-                          className="p-1 text-[#7D7484] hover:text-rose-600 rounded disabled:opacity-40 cursor-pointer"
+                          className="p-1 text-[#8492A5] hover:text-rose-600 rounded disabled:opacity-40 cursor-pointer"
                           title="Hapus Preset"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1665,8 +1665,8 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-[#4B4452] dark:text-[#CEC0E8] text-[11px] mb-2">{p.description}</p>
-                  <div className="text-[11px] text-[#7D7484] dark:text-[#D8B4FE]/75 font-mono tabular-nums">
+                  <p className="text-[#52647A] dark:text-[#CEC0E8] text-[11px] mb-2">{p.description}</p>
+                  <div className="text-[11px] text-[#8492A5] dark:text-[#D8B4FE]/75 font-mono tabular-nums">
                     {visibleColsCount} Kolom Aktif · Kepadatan: {p.density} · {p.rowsPerPage} rows/hal
                   </div>
                 </div>
@@ -1680,10 +1680,10 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {activeTab === 'json' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-4 text-xs">
           <div>
-            <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm mb-1">
+            <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm mb-1">
               Backup, Pulihkan &amp; Migrasi Konfigurasi
             </h4>
-            <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
               Paste JSON konfigurasi untuk memulihkan seluruh layout, visibilitas kolom, dan pengaturan toolbar.
             </p>
           </div>
@@ -1694,7 +1694,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             placeholder="Paste string JSON konfigurasi UI di sini..."
             value={jsonInput}
             onChange={e => setJsonInput(e.target.value)}
-            className="w-full p-3 font-mono text-xs tactile-debossed-input bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-[#1F1638] dark:text-[#D8B4FE] disabled:opacity-60 focus:outline-none"
+            className="w-full p-3 font-mono text-xs tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl text-[#26364A] dark:text-[#D8B4FE] disabled:opacity-60 focus:outline-none"
           />
 
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1718,16 +1718,16 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       {/* Tab: Menu & Kategori Navigasi */}
       {activeTab === 'menu_layout' && (
         <div className="card-3d-lavender rounded-2xl p-6 space-y-6 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8DDFF] dark:border-[#35105E] pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DDE6F0] dark:border-[#35105E] pb-4">
             <div>
-              <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-sm flex items-center gap-2">
-                <FolderTree className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE]" />
+              <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm flex items-center gap-2">
+                <FolderTree className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>Pengaturan Susunan Menu &amp; Kategori Navigasi</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#7135B5]/40">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/40">
                   nav v{navDocVersion}
                 </span>
               </h4>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
                 Atur urutan menu, ubah kategori induk menu, sembunyikan/tampilkan menu tertentu, lalu simpan ke database agar berlaku global.
               </p>
             </div>
@@ -1759,9 +1759,9 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
           </div>
 
           {/* Add Category Section */}
-          <div className="p-4 mj-tactile-well rounded-xl border border-[#E8DDFF] dark:border-[#35105E] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="p-4 mj-tactile-well rounded-xl border border-[#DDE6F0] dark:border-[#35105E] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="flex-1">
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">
                 Tambah Kategori Menu Baru
               </label>
               <input
@@ -1770,7 +1770,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 placeholder="misal: Operasional Khusus, Laporan & Statistik..."
                 value={newCategoryName}
                 onChange={e => setNewCategoryName(e.target.value)}
-                className="w-full px-3 py-2 text-xs tactile-debossed-input rounded-xl bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-white disabled:opacity-60 focus:outline-none"
+                className="w-full px-3 py-2 text-xs tactile-debossed-input rounded-xl bg-white dark:bg-[#1E1238] text-[#26364A] dark:text-white disabled:opacity-60 focus:outline-none"
               />
             </div>
             <button
@@ -1821,16 +1821,16 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
               return (
                 <div
                   key={category}
-                  className="border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl overflow-hidden bg-white dark:bg-[#160D29]/70"
+                  className="border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl overflow-hidden bg-white dark:bg-[#160D29]/70"
                 >
                   {/* Category Header */}
-                  <div className="bg-[#F8F1FF] dark:bg-[#241145] px-4 py-2.5 flex items-center justify-between border-b border-[#E8DDFF] dark:border-[#35105E]">
+                  <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:bg-none dark:bg-[#241145] px-4 py-2.5 flex items-center justify-between border-b border-[#DDE6F0] dark:border-[#35105E]">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#7135B5] dark:bg-[#A855F7]" />
-                      <span className="font-display font-bold text-[#1F1638] dark:text-white text-xs uppercase tracking-wide">
+                      <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#A855F7]" />
+                      <span className="font-display font-bold text-[#26364A] dark:text-white text-xs uppercase tracking-wide">
                         {category}
                       </span>
-                      <span className="text-[10px] bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#D8B4FE] px-2 py-0.5 rounded-full font-bold tabular-nums">
+                      <span className="text-[10px] bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-transparent px-2 py-0.5 rounded-full font-bold tabular-nums">
                         {itemsInCategory.length} menu
                       </span>
                     </div>
@@ -1866,9 +1866,9 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   </div>
 
                   {/* Items in Category */}
-                  <div className="divide-y divide-[#E8DDFF]/70 dark:divide-[#35105E]">
+                  <div className="divide-y divide-[#DDE6F0]/70 dark:divide-[#35105E]">
                     {itemsInCategory.length === 0 ? (
-                      <div className="p-4 text-center text-[#7D7484] italic text-[11px]">
+                      <div className="p-4 text-center text-[#8492A5] italic text-[11px]">
                         Tidak ada menu di kategori ini. Anda dapat memindahkan menu dari kategori lain ke sini.
                       </div>
                     ) : (
@@ -1876,24 +1876,24 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                         return (
                           <div
                             key={item.id}
-                            className={`p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F8F1FF]/60 dark:hover:bg-[#241145]/40 transition-colors ${
-                              !item.visible ? 'opacity-50 bg-[#F8F1FF]/40 dark:bg-[#160D29]/40' : ''
+                            className={`p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#EDF3F8]/70 dark:hover:bg-[#241145]/40 transition-colors ${
+                              !item.visible ? 'opacity-50 bg-[#F4F7FB]/80 dark:bg-[#160D29]/40' : ''
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className="w-6 text-[10px] font-mono text-[#7D7484] dark:text-[#D8B4FE] text-center tabular-nums">
+                              <span className="w-6 text-[10px] font-mono text-[#8492A5] dark:text-[#D8B4FE] text-center tabular-nums">
                                 #{item.order}
                               </span>
                               <div>
-                                <div className="font-semibold text-[#1F1638] dark:text-white flex items-center gap-2">
+                                <div className="font-semibold text-[#26364A] dark:text-white flex items-center gap-2">
                                   <span>{item.label}</span>
                                   {!item.visible && (
-                                    <span className="text-[10px] bg-[#E8DDFF] dark:bg-[#35105E] text-[#4B4452] dark:text-[#CEC0E8] px-1.5 py-0.2 rounded font-normal">
+                                    <span className="text-[10px] bg-[#EDF3F8] dark:bg-[#35105E] text-[#52647A] dark:text-[#CEC0E8] px-1.5 py-0.2 rounded font-normal">
                                       Disembunyikan
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-[#7D7484] dark:text-[#CEC0E8]/70 font-mono">
+                                <div className="text-[10px] text-[#8492A5] dark:text-[#CEC0E8]/70 font-mono">
                                   ID: {item.id}
                                 </div>
                               </div>
@@ -1902,7 +1902,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                             <div className="flex items-center gap-2 self-end sm:self-auto">
                               {/* Change Category Select */}
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#7D7484] dark:text-[#CEC0E8]">Pindah ke:</span>
+                                <span className="text-[10px] text-[#8492A5] dark:text-[#CEC0E8]">Pindah ke:</span>
                                 <select
                                   disabled={!isSuperAdmin}
                                   value={item.category}
@@ -1910,7 +1910,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                                     updateNavigationItem(item.id, { category: e.target.value });
                                     triggerNotice(`Menu "${item.label}" dipindahkan ke "${e.target.value}" di draft.`);
                                   }}
-                                  className="text-xs px-2 py-1 tactile-debossed-input bg-white dark:bg-[#1E1238] rounded-lg text-[#1F1638] dark:text-white disabled:opacity-60 focus:outline-none"
+                                  className="text-xs px-2 py-1 tactile-debossed-input bg-white dark:bg-[#1E1238] rounded-lg text-[#26364A] dark:text-white disabled:opacity-60 focus:outline-none"
                                 >
                                   {menuCategories.map(c => (
                                     <option key={c} value={c}>{c}</option>
@@ -1957,8 +1957,8 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                                 title={item.visible ? 'Sembunyikan Menu' : 'Tampilkan Menu'}
                                 className={`p-1.5 rounded-lg border disabled:opacity-40 cursor-pointer ${
                                   item.visible
-                                    ? 'border-[#D8CCF3] text-[#58149C] dark:text-[#D8B4FE] bg-[#F8F1FF] dark:bg-[#35105E]/60'
-                                    : 'border-[#E8DDFF] dark:border-[#35105E] text-[#7D7484]'
+                                    ? 'border-[#C5BEEF] text-[#5145A6] dark:text-[#D8B4FE] bg-[#EAE8FF] dark:bg-[#35105E]/60'
+                                    : 'border-[#DDE6F0] dark:border-[#35105E] text-[#8492A5]'
                                 }`}
                               >
                                 {item.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -2007,23 +2007,23 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       >
         <div className="space-y-4 text-xs">
           <div>
-            <label className="block text-[#4B4452] dark:text-[#CEC0E8] mb-1 font-semibold">Nama Preset</label>
+            <label className="block text-[#52647A] dark:text-[#CEC0E8] mb-1 font-semibold">Nama Preset</label>
             <input
               type="text"
               placeholder="misal: Tampilan Fokus SLA & WA"
               value={newPresetName}
               onChange={e => setNewPresetName(e.target.value)}
-              className="w-full px-3 py-2 min-h-[38px] tactile-debossed-input rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white focus:outline-none"
+              className="w-full px-3 py-2 min-h-[38px] tactile-debossed-input rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-[#4B4452] dark:text-[#CEC0E8] mb-1 font-semibold">Deskripsi Singkat</label>
+            <label className="block text-[#52647A] dark:text-[#CEC0E8] mb-1 font-semibold">Deskripsi Singkat</label>
             <input
               type="text"
               placeholder="Penjelasan layout ini"
               value={newPresetDesc}
               onChange={e => setNewPresetDesc(e.target.value)}
-              className="w-full px-3 py-2 min-h-[38px] tactile-debossed-input rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white focus:outline-none"
+              className="w-full px-3 py-2 min-h-[38px] tactile-debossed-input rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white focus:outline-none"
             />
           </div>
         </div>
@@ -2067,7 +2067,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
           </>
         }
       >
-        <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
           {confirmModal === 'pull'
             ? 'Tindakan ini akan memuat konfigurasi terbaru dari tabel app_settings Supabase PostgreSQL dan membuang draft lokal yang belum disimpan.'
             : confirmModal === 'reset_ui'

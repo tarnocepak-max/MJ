@@ -135,7 +135,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
       id: 'soundLoading' as const,
       name: '1. App Loading',
       freq: '340 ms · Digital Intro Chime',
-      dotColor: 'bg-[#8648F5]',
+      dotColor: 'bg-[#6657C8] dark:bg-[#8648F5]',
       action: () => previewSound('loading')
     },
     {
@@ -271,43 +271,43 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
     <div className="space-y-6">
       {/* HERO HEADER CARD — Stitch v4.14 Spec in MoraJaws Lilac + Dark Purple + Maroon */}
       <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 relative overflow-hidden">
-        <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-[#7135B5]/10 dark:bg-[#7135B5]/20 blur-2xl pointer-events-none" />
+        <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-[#6657C8]/10 dark:bg-[#7135B5]/20 blur-2xl pointer-events-none" />
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-start gap-3.5 min-w-0">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#58149C] via-[#431599] to-[#480123] text-white flex items-center justify-center shrink-0 shadow-[0_3px_0_#240644]">
-              <BellRing className="w-6 h-6 text-[#F3EAFF]" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#EAE8FF] via-[#DDF4F4] to-[#E2ECFA] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:from-[#58149C] dark:via-[#431599] dark:to-[#480123] dark:text-white flex items-center justify-center shrink-0 shadow-xs dark:shadow-[0_3px_0_#240644]">
+              <BellRing className="w-6 h-6 text-[#5145A6] dark:text-[#F3EAFF]" />
             </div>
             <div className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
                   Tactile 3D Alerts &amp; Notification Engine
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-[#58149C] text-white shadow-2xs">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-[#6657C8] dark:bg-[#58149C] text-white shadow-2xs">
                   V4.14 SPEC
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]">
                   Audio v{soundVersion} · DB-First
                 </span>
               </div>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] max-w-2xl leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] max-w-2xl leading-relaxed">
                 Sistem notifikasi taktil 3D MoraJaws dengan specular highlights, animasi spring physics, integrasi telemetry live PostgreSQL, dan mesin audio Web Audio API.
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
                     soundSettings.enabled
-                      ? 'bg-[#F3EAFF] text-[#58149C] border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
+                      ? 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
                       : 'bg-rose-50 text-[#BA1A1A] border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
                   }`}
                 >
                   {soundSettings.enabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                   <span>Operational Chirps: {soundSettings.enabled ? 'ON' : 'OFF'}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-[#160D29] text-[#431599] dark:text-[#D8B4FE] border border-[#E8DDFF] dark:border-[#3B1D78] font-mono tabular-nums">
-                  <Activity className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-[#160D29] text-[#5145A6] dark:text-[#D8B4FE] border border-[#DDE6F0] dark:border-[#3B1D78] font-mono tabular-nums">
+                  <Activity className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
                   <span>Active Toasts: {toasts.length}</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-[#160D29] text-[#4B4452] dark:text-[#CEC0E8] border border-[#E8DDFF] dark:border-[#3B1D78]">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border border-[#DDE6F0] dark:border-[#3B1D78]">
                   <span className={`w-2 h-2 rounded-full ${databaseStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                   <span>Relay: {databaseStatus.toUpperCase()}</span>
                 </span>
@@ -317,12 +317,12 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
           {/* Master Audio Toggle */}
           <div className="flex items-center gap-3 mj-tactile-well px-4 py-3 rounded-xl shrink-0">
-            {isSoundSaving && <Loader2 className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] animate-spin" />}
+            {isSoundSaving && <Loader2 className="w-4 h-4 text-[#6657C8] dark:text-[#D8B4FE] animate-spin" />}
             <div>
-              <div className="text-xs font-extrabold text-[#1F1638] dark:text-white">
+              <div className="text-xs font-extrabold text-[#26364A] dark:text-white">
                 Master Audio Notifikasi
               </div>
-              <div className="text-[11px] font-semibold text-[#58149C] dark:text-[#D8B4FE]">
+              <div className="text-[11px] font-semibold text-[#5145A6] dark:text-[#D8B4FE]">
                 {soundSettings.enabled
                   ? `Aktif (${soundScope === 'global' ? 'Global DB' : 'Perangkat Ini'})`
                   : soundSettings.criticalSeparate
@@ -335,7 +335,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
               disabled={isSoundSaving}
               onClick={() => updateSoundSettings({ enabled: !soundSettings.enabled })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
-                soundSettings.enabled ? 'bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                soundSettings.enabled ? 'bg-[#6657C8] dark:bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
               }`}
               title="Aktif/Nonaktifkan Master Audio"
             >
@@ -367,62 +367,62 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
       {/* 4 PHYSICS & ARCHITECTURE SPEC TILES */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card-3d-lavender rounded-2xl p-3.5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
             <Clock className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
               DEFAULT DWELL
             </div>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white mt-0.5 tabular-nums">
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white mt-0.5 tabular-nums">
               3,600–6,800 ms
             </div>
-            <div className="text-[10.5px] font-semibold text-[#58149C] dark:text-[#D8B4FE]">Adaptive Drain</div>
+            <div className="text-[10.5px] font-semibold text-[#5145A6] dark:text-[#D8B4FE]">Adaptive Drain</div>
           </div>
         </div>
 
         <div className="card-3d-lavender rounded-2xl p-3.5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
               PHYSICS CURVE
             </div>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white mt-0.5">
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white mt-0.5">
               Spring Overshoot
             </div>
-            <div className="text-[10.5px] font-mono font-semibold text-[#7135B5] dark:text-[#D8B4FE]">c(0.34, 1.56)</div>
+            <div className="text-[10.5px] font-mono font-semibold text-[#5145A6] dark:text-[#D8B4FE]">c(0.34, 1.56)</div>
           </div>
         </div>
 
         <div className="card-3d-lavender rounded-2xl p-3.5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
             <Layers className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
               Z-EXTRUSION
             </div>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white mt-0.5">
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white mt-0.5">
               3.5px Dual-Bevel
             </div>
-            <div className="text-[10.5px] font-semibold text-[#58149C] dark:text-[#D8B4FE]">Layered Tactile</div>
+            <div className="text-[10.5px] font-semibold text-[#5145A6] dark:text-[#D8B4FE]">Layered Tactile</div>
           </div>
         </div>
 
         <div className="card-3d-lavender rounded-2xl p-3.5 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
             <PauseCircle className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
               HOVER INTERRUPT
             </div>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white mt-0.5">
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white mt-0.5">
               Tactile Freeze
             </div>
-            <div className="text-[10.5px] font-semibold text-[#58149C] dark:text-[#D8B4FE]">Pointer Latch</div>
+            <div className="text-[10.5px] font-semibold text-[#5145A6] dark:text-[#D8B4FE]">Pointer Latch</div>
           </div>
         </div>
       </div>
@@ -431,14 +431,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
       <div className="card-3d-lavender rounded-2xl p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[#58149C] dark:text-[#D8B4FE] flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#7135B5] animate-pulse" />
+            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[#5145A6] dark:text-[#D8B4FE] flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#7135B5] animate-pulse" />
               <span>INTERACTIVE DISPATCH PLAYGROUND</span>
             </div>
-            <h3 className="font-display text-base sm:text-lg font-extrabold text-[#1F1638] dark:text-white mt-0.5">
+            <h3 className="font-display text-base sm:text-lg font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Trigger Live 3D Extruded Notifications
             </h3>
-            <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
               Klik tombol di bawah untuk memicu notifikasi toast 3D dengan angka telemetry nyata, progress bar drain otomatis, dan audio chirp.
             </p>
           </div>
@@ -450,7 +450,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
             }}
             className="btn-3d-lilac px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shrink-0 self-start sm:self-auto"
           >
-            <Trash2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+            <Trash2 className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
             <span>Flush Toast Stack ({toasts.length})</span>
           </button>
         </div>
@@ -471,10 +471,10 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                   HTTP 200 OK
                 </span>
               </div>
-              <div className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
+              <div className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                 Success Dispatch
               </div>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-2">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                 {liveTelemetry.completedToday} WO hari ini rampung ({liveTelemetry.completionPct}%) dengan sinkronisasi DB aktif.
               </p>
             </div>
@@ -499,10 +499,10 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                   TELEMETRY WARN
                 </span>
               </div>
-              <div className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
+              <div className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                 Pending QC Alert
               </div>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-2">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                 {liveTelemetry.pendingApprovalCount} laporan foto instalasi sedang menunggu antrean verifikasi QC.
               </p>
             </div>
@@ -527,10 +527,10 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                   CRITICAL P1
                 </span>
               </div>
-              <div className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
+              <div className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                 Overdue &amp; Unassigned
               </div>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-2">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                 {liveTelemetry.totalOverdue} tiket overdue · {liveTelemetry.unassignedToday} belum ter-assign hari ini.
               </p>
             </div>
@@ -544,25 +544,25 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           <button
             type="button"
             onClick={() => handleTriggerInteractiveToast('sync')}
-            className="mj-tactile-well p-4 rounded-2xl text-left flex flex-col justify-between gap-3 hover:border-[#7135B5] dark:hover:border-[#9B6BE8] hover:-translate-y-0.5 transition-all cursor-pointer group"
+            className="mj-tactile-well p-4 rounded-2xl text-left flex flex-col justify-between gap-3 hover:border-[#9E95DE] dark:hover:border-[#9B6BE8] hover:-translate-y-0.5 transition-all cursor-pointer group"
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center">
                   <RefreshCw className="w-4 h-4" />
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]">
                   DATA RELAY
                 </span>
               </div>
-              <div className="font-display font-bold text-sm text-[#1F1638] dark:text-white">
+              <div className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                 Auto-Sync Telemetry
               </div>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-2">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                 Status sync: {syncStatus.toUpperCase()} · Antrean offline {pendingCount} mutasi siap disinkronkan.
               </p>
             </div>
-            <div className="flex items-center justify-between text-[11px] font-extrabold text-[#58149C] dark:text-[#D8B4FE] pt-1">
+            <div className="flex items-center justify-between text-[11px] font-extrabold text-[#5145A6] dark:text-[#D8B4FE] pt-1">
               <span>FIRE TOAST</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </div>
@@ -574,14 +574,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-1 px-1">
           <div>
-            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[#58149C] dark:text-[#D8B4FE]">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[#5145A6] dark:text-[#D8B4FE]">
               ENTERPRISE BANNER SYSTEM
             </div>
-            <h3 className="font-display text-base sm:text-lg font-extrabold text-[#1F1638] dark:text-white">
+            <h3 className="font-display text-base sm:text-lg font-extrabold text-[#26364A] dark:text-white">
               Standard Operations Alert Banners (Live Data)
             </h3>
           </div>
-          <span className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">
+          <span className="text-[11px] text-[#8492A5] dark:text-[#A493C2]">
             Tactile extruded bars dengan CTA operasional langsung
           </span>
         </div>
@@ -597,14 +597,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 <span className="px-2 py-0.5 rounded bg-rose-100 text-[#881337] dark:bg-rose-950/70 dark:text-rose-300">
                   CRITICAL SLA WATCH
                 </span>
-                <span className="text-[#7D7484] dark:text-[#A493C2] font-mono">
+                <span className="text-[#8492A5] dark:text-[#A493C2] font-mono">
                   Tanggal Operasional: {todayWIB} WIB
                 </span>
               </div>
-              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white">
+              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white">
                 {liveTelemetry.totalOverdue} Tiket Overdue &amp; {liveTelemetry.unassignedToday} WO Belum Ter-Assign Hari Ini
               </h4>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 Pantau tiket yang melewati slot appointment agar distribusi teknisi mitra segera ditindaklanjuti dari antrean overdue dan dispatch desk.
               </p>
             </div>
@@ -640,14 +640,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
                   VERIFICATION QUEUE
                 </span>
-                <span className="text-[#7D7484] dark:text-[#A493C2] font-mono">
+                <span className="text-[#8492A5] dark:text-[#A493C2] font-mono">
                   BUTUH APPROVAL · QC DESK
                 </span>
               </div>
-              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white">
+              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white">
                 {liveTelemetry.pendingApprovalCount} Laporan Teknisi Menunggu Persetujuan Dispatch / QA
               </h4>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 Laporan yang telah diunggah installer beserta bukti foto ODP/FAT dan redaman OPM menunggu validasi akhir sebelum status ditutup.
               </p>
             </div>
@@ -655,7 +655,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <div className="mj-tactile-well px-3 py-2 rounded-xl min-w-[140px]">
-              <div className="flex items-center justify-between text-[10px] font-bold text-[#4B4452] dark:text-[#CEC0E8] mb-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-[#52647A] dark:text-[#CEC0E8] mb-1">
                 <span>Rasio Antrean</span>
                 <span className="font-mono text-amber-700 dark:text-amber-300">{liveTelemetry.approvalPct}%</span>
               </div>
@@ -689,14 +689,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
                   DAILY EXECUTION RATE
                 </span>
-                <span className="text-[#7D7484] dark:text-[#A493C2] font-mono">
+                <span className="text-[#8492A5] dark:text-[#A493C2] font-mono">
                   {liveTelemetry.completedToday}/{liveTelemetry.totalToday} WO SELESAI
                 </span>
               </div>
-              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white">
+              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white">
                 {liveTelemetry.completedToday} dari {liveTelemetry.totalToday} Work Order Hari Ini Telah Selesai ({liveTelemetry.completionPct}%)
               </h4>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 Rekapitulasi penyelesaian harian berdasarkan kluster area, kontraktor pelaksana, dan status instalasi aktual dari server.
               </p>
             </div>
@@ -713,24 +713,24 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
         </div>
 
         {/* 4. System Sync & Offline Queue Banner */}
-        <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 border-l-4 border-l-[#7135B5] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 border-l-4 border-l-[#6657C8] dark:border-l-[#7135B5] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
               <RefreshCw className={`w-5 h-5 ${isRefreshingTelemetry ? 'animate-spin' : ''}`} />
             </div>
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase tracking-wider">
-                <span className="px-2 py-0.5 rounded bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+                <span className="px-2 py-0.5 rounded bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
                   SYNC TELEMETRY ENGINE
                 </span>
-                <span className="text-[#7D7484] dark:text-[#A493C2] font-mono">
+                <span className="text-[#8492A5] dark:text-[#A493C2] font-mono">
                   DB: {databaseStatus.toUpperCase()} · QUEUE: {pendingCount} PENDING
                 </span>
               </div>
-              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#1F1638] dark:text-white">
+              <h4 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-white">
                 Sinkronisasi Cloud PostgreSQL ({syncStatus.toUpperCase()})
               </h4>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 Memastikan seluruh mutasi status tiket, log audit, dan preferensi audio tersinkron secara real-time di semua operator.
               </p>
             </div>
@@ -752,77 +752,77 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* LEFT (7 Cols): 3D Tactile Rendering & Interactive Press Sandbox */}
         <div className="xl:col-span-7 card-3d-lavender rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#3B1D78]">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#3B1D78]">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+                <h3 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
                   3D Tactile Rendering &amp; Animation Physics Specs
                 </h3>
-                <p className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">
+                <p className="text-[11px] text-[#8492A5] dark:text-[#A493C2]">
                   Hardware-accelerated keyframe matrices &amp; dual-plane bevel shading
                 </p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1] shrink-0">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1] shrink-0">
               60fps GPU
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="mj-tactile-well p-3.5 rounded-xl space-y-2">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                 ENTRANCE VECTOR
               </div>
-              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Spring Overshoot</div>
-              <code className="block p-2 rounded-lg bg-[#160D29] text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
+              <div className="font-bold text-xs text-[#26364A] dark:text-white">Spring Overshoot</div>
+              <code className="block p-2 rounded-lg bg-[#EDF3F8] text-[#5145A6] border border-[#DDE6F0] dark:border-transparent dark:bg-[#160D29] dark:text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
                 cubic-bezier(0.34, 1.56, 0.64, 1)
               </code>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] leading-snug">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] leading-snug">
                 Efek pegas 8px cepat yang langsung terkunci presisi saat alert masuk.
               </p>
             </div>
 
             <div className="mj-tactile-well p-3.5 rounded-xl space-y-2">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                 SURFACE SPECULAR
               </div>
-              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Dual-Plane Extrusion</div>
-              <code className="block p-2 rounded-lg bg-[#160D29] text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
+              <div className="font-bold text-xs text-[#26364A] dark:text-white">Dual-Plane Extrusion</div>
+              <code className="block p-2 rounded-lg bg-[#EDF3F8] text-[#5145A6] border border-[#DDE6F0] dark:border-transparent dark:bg-[#160D29] dark:text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
                 inset 0 1px rgba(255,255,255,0.6)
               </code>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] leading-snug">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] leading-snug">
                 Top edge specular highlight dengan kedalaman bottom bezel 3.5px.
               </p>
             </div>
 
             <div className="mj-tactile-well p-3.5 rounded-xl space-y-2">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                 DECAY DYNAMICS
               </div>
-              <div className="font-bold text-xs text-[#1F1638] dark:text-white">Progressive Draining</div>
-              <code className="block p-2 rounded-lg bg-[#160D29] text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
+              <div className="font-bold text-xs text-[#26364A] dark:text-white">Progressive Draining</div>
+              <code className="block p-2 rounded-lg bg-[#EDF3F8] text-[#5145A6] border border-[#DDE6F0] dark:border-transparent dark:bg-[#160D29] dark:text-[#E9D5FF] text-[10px] font-mono leading-relaxed">
                 transition: width linear
               </code>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] leading-snug">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] leading-snug">
                 Timer bar berkurang halus dan langsung jeda saat pointer menyentuh toast.
               </p>
             </div>
           </div>
 
           {/* Interactive Tactile Pressing Sandbox */}
-          <div className="p-4 rounded-xl bg-[#F3EAFF]/80 dark:bg-[#160D29]/80 border border-[#DFC7FF] dark:border-[#3B1D78] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-4 rounded-xl bg-gradient-to-r from-[#EAE8FF]/70 via-[#F4F7FB] to-[#DDF4F4]/70 dark:bg-none dark:bg-[#160D29]/80 border border-[#C5BEEF] dark:border-[#3B1D78] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                 <MousePointerClick className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs font-extrabold text-[#1F1638] dark:text-white">
+                <div className="text-xs font-extrabold text-[#26364A] dark:text-white">
                   Try Interactive Tactile Pressing
                 </div>
-                <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Tekan &amp; tahan tombol untuk merasakan fisika key-travel 3D ({pressCount}x ditekan).
                 </p>
               </div>
@@ -843,14 +843,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
         {/* RIGHT (5 Cols): NOTIFICATION SOUND SETTINGS & CATEGORY PREVIEW */}
         <div className="xl:col-span-5 card-3d-lavender rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#E8DDFF] dark:border-[#3B1D78]">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#3B1D78]">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#8648F5]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6657C8] dark:bg-[#8648F5]" />
               <div>
-                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                   IMPERIAL VIOLET AUDIO ENGINE
                 </div>
-                <h3 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+                <h3 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
                   Notification Sound Settings
                 </h3>
               </div>
@@ -869,7 +869,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
               className="btn-3d-lilac px-2.5 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
               title="Kembalikan pengaturan suara ke nilai default"
             >
-              <RotateCcw className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF]" />
+              <RotateCcw className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
               <span>Restore Default</span>
             </button>
           </div>
@@ -877,12 +877,12 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           {/* Master Volume Slider (0-100%) + Preview */}
           <div className="mj-tactile-well p-3.5 rounded-xl space-y-2.5">
             <div className="flex items-center justify-between text-xs gap-2">
-              <div className="flex items-center gap-1.5 font-bold text-[#1F1638] dark:text-white">
-                <Sliders className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+              <div className="flex items-center gap-1.5 font-bold text-[#26364A] dark:text-white">
+                <Sliders className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>Master Volume</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-extrabold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                <span className="font-mono font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                   {draftMasterVol}%
                 </span>
                 <button
@@ -910,15 +910,15 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 }
               }}
               aria-label="Master Volume"
-              className="w-full h-2 bg-[#E8DDFF] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#58149C]"
+              className="w-full h-2 bg-[#DDE6F0] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#6657C8] dark:accent-[#58149C]"
             />
 
             {/* Priority Tier Volume Controls: Normal 65% / Important 85% / Critical 90% */}
-            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#E8DDFF]/70 dark:border-[#3B1D78]/70">
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#DDE6F0]/80 dark:border-[#3B1D78]/70">
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[10px] font-bold">
-                  <span className="text-[#4B4452] dark:text-[#CEC0E8]">Normal</span>
-                  <span className="font-mono text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                  <span className="text-[#52647A] dark:text-[#CEC0E8]">Normal</span>
+                  <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                     {draftNormalVol}%
                   </span>
                 </div>
@@ -945,7 +945,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                       }
                     })
                   }
-                  className="w-full h-1.5 bg-[#E8DDFF] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#58149C]"
+                  className="w-full h-1.5 bg-[#DDE6F0] dark:bg-[#2E1459] rounded-lg appearance-none cursor-pointer accent-[#6657C8] dark:accent-[#58149C]"
                 />
               </div>
 
@@ -1026,23 +1026,23 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
               disabled={isSoundSaving}
               onClick={() => updateSoundSettings({ muteNormal: !soundSettings.muteNormal })}
               className={`mj-tactile-well p-3 rounded-xl flex items-center justify-between gap-2 text-left cursor-pointer transition-all ${
-                soundSettings.muteNormal ? 'ring-1 ring-[#5424A8]/50 bg-[#EEE5FF]/60 dark:bg-[#2E1459]/75' : ''
+                soundSettings.muteNormal ? 'ring-1 ring-[#6657C8]/50 bg-[#EAE8FF]/70 dark:ring-[#5424A8]/50 dark:bg-[#2E1459]/75' : ''
               }`}
             >
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1638] dark:text-white">
-                  <BellOff className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-white">
+                  <BellOff className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                   <span>Mute Normal</span>
                 </div>
-                <p className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
+                <p className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2] truncate">
                   Senyapkan notifikasi normal &amp; chat
                 </p>
               </div>
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
                   soundSettings.muteNormal
-                    ? 'bg-[#58149C] text-white'
-                    : 'bg-[#E8DDFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                    : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
                 }`}
               >
                 {soundSettings.muteNormal ? 'MUTED' : 'ACTIVE'}
@@ -1058,11 +1058,11 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
               }`}
             >
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1638] dark:text-white">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-white">
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>Critical Terpisah</span>
                 </div>
-                <p className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate">
+                <p className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2] truncate">
                   Critical tetap bunyi meski mode senyap
                 </p>
               </div>
@@ -1070,7 +1070,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
                   soundSettings.criticalSeparate
                     ? 'bg-rose-600 text-white'
-                    : 'bg-[#E8DDFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
+                    : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]'
                 }`}
               >
                 {soundSettings.criticalSeparate ? 'ON' : 'OFF'}
@@ -1079,12 +1079,12 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           </div>
 
           {/* Test Notification Sound Bar */}
-          <div className="p-3 rounded-xl bg-[#F3EAFF]/85 dark:bg-[#1A0C33] border border-[#DFC7FF] dark:border-[#4B238F] flex flex-wrap items-center gap-2">
+          <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#1A0C33] border border-[#C5BEEF] dark:border-[#4B238F] flex flex-wrap items-center gap-2">
             <select
               value={testCategory}
               onChange={e => setTestCategory(e.target.value as NotificationSoundCategory)}
               aria-label="Pilih kategori Test Sound"
-              className="flex-1 min-w-[150px] px-2.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-[#120826] text-[#1F1638] dark:text-white border border-[#D8CCF3] dark:border-[#5B35B1] outline-none"
+              className="flex-1 min-w-[150px] px-2.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-[#120826] text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#5B35B1] outline-none"
             >
               {SOUND_CATEGORY_CATALOG.map(cat => (
                 <option key={cat.id} value={cat.id}>
@@ -1105,7 +1105,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
           {/* 6 Notification Sound Categories + Preview */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 px-0.5">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#D8B4FE]">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                 Kategori Suara Notifikasi (6 Profil)
               </span>
               <div className="flex items-center gap-2">
@@ -1120,7 +1120,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                     Aktifkan Audio Browser
                   </button>
                 )}
-                <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">
+                <span className="text-[10px] font-mono text-[#8492A5] dark:text-[#A493C2]">
                   Engine: {audioEngineState.toUpperCase()}
                 </span>
               </div>
@@ -1137,13 +1137,13 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                   ? 'bg-blue-500'
                   : cat.id === 'success'
                   ? 'bg-emerald-500'
-                  : 'bg-[#8648F5]';
+                  : 'bg-[#6657C8] dark:bg-[#8648F5]';
 
               const categoryIcon =
                 cat.id === 'live_chat' ? (
                   <MessageCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 ) : cat.id === 'wo_assignment' ? (
-                  <ClipboardCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+                  <ClipboardCheck className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                 ) : cat.id === 'critical' ? (
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 ) : cat.id === 'important' ? (
@@ -1151,7 +1151,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 ) : cat.id === 'success' ? (
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <BellRing className="w-3.5 h-3.5 text-[#8648F5]" />
+                  <BellRing className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#8648F5]" />
                 );
 
               return (
@@ -1163,14 +1163,14 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                     <div className="flex items-center gap-1.5">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badgeClass}`} />
                       {categoryIcon}
-                      <span className="font-bold text-xs text-[#1F1638] dark:text-white truncate">
+                      <span className="font-bold text-xs text-[#26364A] dark:text-white truncate">
                         {cat.label}
                       </span>
-                      <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2] shrink-0">
+                      <span className="text-[10px] font-mono text-[#8492A5] dark:text-[#A493C2] shrink-0">
                         · {cat.durationLabel}
                       </span>
                     </div>
-                    <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2] truncate pl-3">
+                    <div className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2] truncate pl-3">
                       {cat.character}
                     </div>
                   </div>
@@ -1188,7 +1188,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                         })
                       }
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer disabled:opacity-45 ${
-                        isEnabled ? 'bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                        isEnabled ? 'bg-[#6657C8] dark:bg-[#58149C]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
                       }`}
                       title={`Aktif/Nonaktifkan suara kategori ${cat.label}`}
                     >
@@ -1205,7 +1205,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                       className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                       title={`Preview suara ${cat.label}`}
                     >
-                      <Play className="w-3 h-3 fill-current text-[#58149C] dark:text-[#DAB9FF]" />
+                      <Play className="w-3 h-3 fill-current text-[#5145A6] dark:text-[#DAB9FF]" />
                       <span>Preview</span>
                     </button>
                   </div>
@@ -1216,7 +1216,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
 
           {/* Operational Event Channel Mapping (Compact) */}
           <details className="mj-tactile-well rounded-xl p-3">
-            <summary className="text-[11px] font-extrabold text-[#58149C] dark:text-[#D8B4FE] cursor-pointer select-none">
+            <summary className="text-[11px] font-extrabold text-[#5145A6] dark:text-[#D8B4FE] cursor-pointer select-none">
               Pengaturan Event Aplikasi ({soundList.filter(s => soundSettings[s.id]).length}/5 aktif)
             </summary>
             <div className="space-y-2 mt-2.5">
@@ -1225,16 +1225,16 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-2 text-xs py-1 border-t border-[#E8DDFF]/60 dark:border-[#3B1D78]/60 first:border-t-0"
+                    className="flex items-center justify-between gap-2 text-xs py-1 border-t border-[#DDE6F0]/70 dark:border-[#3B1D78]/60 first:border-t-0"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.dotColor}`} />
-                        <span className="font-bold text-[11.5px] text-[#1F1638] dark:text-white truncate">
+                        <span className="font-bold text-[11.5px] text-[#26364A] dark:text-white truncate">
                           {item.name}
                         </span>
                       </div>
-                      <div className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2] pl-3">
+                      <div className="text-[10px] font-mono text-[#8492A5] dark:text-[#A493C2] pl-3">
                         {item.freq}
                       </div>
                     </div>
@@ -1245,7 +1245,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                         onClick={() => void updateSoundSettings({ [item.id]: !isItemEnabled })}
                         className={`relative inline-flex h-4.5 w-8 items-center rounded-full transition-colors cursor-pointer disabled:opacity-45 ${
                           isItemEnabled && soundSettings.enabled
-                            ? 'bg-[#58149C]'
+                            ? 'bg-[#6657C8] dark:bg-[#58149C]'
                             : 'bg-[#CBD5E1] dark:bg-[#35105E]'
                         }`}
                       >
@@ -1258,7 +1258,7 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
                       <button
                         type="button"
                         onClick={item.action}
-                        className="text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                        className="text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                       >
                         Uji
                       </button>
@@ -1269,8 +1269,8 @@ export const SoundSettingsView: React.FC<SoundSettingsViewProps> = ({ onNavigate
             </div>
           </details>
 
-          <div className="p-3 bg-[#F3EAFF]/70 dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78] rounded-xl flex items-start gap-2.5 text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
-            <Smartphone className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+          <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] rounded-xl flex items-start gap-2.5 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+            <Smartphone className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <span>
               Web Audio API dengan Dynamics Compressor anti-clipping. Suara notifikasi dalam aplikasi menghormati volume sistem, mode senyap perangkat, dan aturan autoplay browser.
             </span>

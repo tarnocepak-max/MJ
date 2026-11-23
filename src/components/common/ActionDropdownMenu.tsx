@@ -55,15 +55,15 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
   const toneClasses = (tone: DropdownActionItem['tone']) => {
     switch (tone) {
       case 'danger':
-        return 'text-[#BA1A1A] dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60';
+        return 'text-[#D45B66] dark:text-rose-300 hover:bg-[#FCE9EB] dark:hover:bg-rose-950/60';
       case 'success':
-        return 'text-[#15803D] dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/60';
+        return 'text-[#218A63] dark:text-emerald-300 hover:bg-[#E4F5EC] dark:hover:bg-emerald-950/60';
       case 'warning':
-        return 'text-[#B45309] dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/60';
+        return 'text-[#C88735] dark:text-amber-300 hover:bg-[#FFF2D9] dark:hover:bg-amber-950/60';
       case 'primary':
-        return 'text-[#58149C] dark:text-[#DAB9FF] hover:bg-[#F3EAFF] dark:hover:bg-[#35105E]';
+        return 'text-[#5145A6] dark:text-[#DAB9FF] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E]';
       default:
-        return 'text-[#1F1638] dark:text-[#F5EEFF] hover:bg-[#F8F1FF] dark:hover:bg-[#35105E]/70';
+        return 'text-[#26364A] dark:text-[#F5EEFF] hover:bg-[#F8FAFD] dark:hover:bg-[#35105E]/70';
     }
   };
 
@@ -86,14 +86,14 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
       {open && (
         <div
           role="menu"
-          className={`absolute top-full mt-1.5 z-50 min-w-[190px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#1E1238] border border-[#CEC3D4] dark:border-[#4B386B] rounded-xl shadow-xl py-1.5 text-xs ${
+          className={`absolute top-full mt-1.5 z-50 min-w-[190px] max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-[#1E1238] backdrop-blur-xl border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl shadow-xl py-1.5 text-xs ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >
           {visibleActions.map(action => (
             <React.Fragment key={action.id}>
               {action.dividerBefore && (
-                <div className="my-1 border-t border-[#E8DDFF] dark:border-[#35105E]" />
+                <div className="my-1 border-t border-[#DDE6F0] dark:border-[#35105E]" />
               )}
               <button
                 type="button"

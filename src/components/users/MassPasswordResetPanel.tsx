@@ -215,14 +215,14 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
       onClose={onClose}
       title="Reset Sandi Massal (Batch Aman)"
       subtitle="Eksklusif Superadmin · Zero Plaintext Password · Idempoten & Dapat Di-Rollback"
-      icon={<ShieldAlert className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF]" />}
+      icon={<ShieldAlert className="w-5 h-5 text-[#5145A6] dark:text-[#DAB9FF]" />}
       size="xl"
       mobileVariant="sheet"
       zIndexClass="z-50"
     >
       <div className="space-y-5 text-xs">
-        <div className="p-3.5 rounded-xl bg-[#F4EAFF] dark:bg-[#29174B] border border-[#DFCEFA] dark:border-[#4F2D91] text-[#35105E] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2.5">
-          <KeyRound className="w-4 h-4 shrink-0 mt-0.5 text-[#58149C] dark:text-[#DAB9FF]" />
+        <div className="p-3.5 rounded-xl bg-[#EAE8FF] dark:bg-[#29174B] border border-[#C5BEEF] dark:border-[#4F2D91] text-[#26364A] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2.5">
+          <KeyRound className="w-4 h-4 shrink-0 mt-0.5 text-[#5145A6] dark:text-[#DAB9FF]" />
           <div>
             Sistem tidak pernah membuat, menyimpan, atau mengekspor kata sandi plaintext. Setiap akun target akan menerima kewajiban <strong>Ganti Sandi Saat Login (must_change_password)</strong>, sesi aktif dicabut, serta token pemulihan satu-kali berbatas waktu (SHA-256 hash).
           </div>
@@ -230,17 +230,17 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Left Form: Configure New Mass Reset Batch */}
-          <form onSubmit={handleStartMassReset} className="lg:col-span-5 space-y-3.5 p-4 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78]">
-            <h4 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+          <form onSubmit={handleStartMassReset} className="lg:col-span-5 space-y-3.5 p-4 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78]">
+            <h4 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
               Konfigurasi Batch Baru
             </h4>
 
             <div>
-              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Cakupan Target Akun</label>
+              <label className="block font-bold text-[#26364A] dark:text-white mb-1">Cakupan Target Akun</label>
               <select
                 value={targetScope}
                 onChange={e => setTargetScope(e.target.value as any)}
-                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="all_active">Semua Akun Aktif</option>
                 <option value="by_role">Berdasarkan Role Tertentu</option>
@@ -250,11 +250,11 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
 
             {targetScope === 'by_role' && (
               <div>
-                <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Filter Role</label>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">Filter Role</label>
                 <select
                   value={roleFilter}
                   onChange={e => setRoleFilter(e.target.value as UserRole)}
-                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-semibold"
+                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white font-semibold"
                 >
                   <option value="super_admin">Super Admin</option>
                   <option value="dispatch">Dispatch</option>
@@ -265,28 +265,28 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
             )}
 
             {targetScope === 'selected_users' && (
-              <div className="max-h-40 overflow-y-auto p-2.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] space-y-1.5">
+              <div className="max-h-40 overflow-y-auto p-2.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] space-y-1.5">
                 {eligibleUsers.map(u => (
                   <label key={u.id} className="flex items-center gap-2 cursor-pointer py-0.5">
                     <input
                       type="checkbox"
                       checked={selectedUserIds.includes(u.id)}
                       onChange={() => handleToggleUser(u.id)}
-                      className="rounded accent-[#58149C]"
+                      className="rounded accent-[#5145A6] dark:accent-[#58149C]"
                     />
-                    <span className="font-semibold text-[#1F1638] dark:text-white truncate">{u.name}</span>
-                    <span className="text-[10px] font-mono text-[#7D7484]">@{u.username} ({u.role})</span>
+                    <span className="font-semibold text-[#26364A] dark:text-white truncate">{u.name}</span>
+                    <span className="text-[10px] font-mono text-[#8492A5]">@{u.username} ({u.role})</span>
                   </label>
                 ))}
               </div>
             )}
 
             <div>
-              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Mode Keamanan Reset</label>
+              <label className="block font-bold text-[#26364A] dark:text-white mb-1">Mode Keamanan Reset</label>
               <select
                 value={resetMode}
                 onChange={e => setResetMode(e.target.value as MassResetMode)}
-                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="force_change_with_token">Wajib Ganti Sandi + Terbitkan Token 1x (Sandi Lama Tetap Berlaku s.d. Ganti)</option>
                 <option value="rotate_credential_and_force">Rotasi Kredensial Otomatis + Token Pemulihan 1x</option>
@@ -295,37 +295,37 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
 
             <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Ukuran Batch</label>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">Ukuran Batch</label>
                 <input
                   type="number"
                   min={1}
                   max={25}
                   value={batchSize}
                   onChange={e => setBatchSize(Math.min(25, Math.max(1, Number(e.target.value) || 10)))}
-                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-mono tabular-nums"
+                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white font-mono tabular-nums"
                 />
               </div>
               <div>
-                <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Masa Berlaku Token (Jam)</label>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">Masa Berlaku Token (Jam)</label>
                 <input
                   type="number"
                   min={1}
                   max={168}
                   value={tokenTtlHours}
                   onChange={e => setTokenTtlHours(Math.min(168, Math.max(1, Number(e.target.value) || 24)))}
-                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white font-mono tabular-nums"
+                  className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white font-mono tabular-nums"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">Alasan / Catatan Audit</label>
+              <label className="block font-bold text-[#26364A] dark:text-white mb-1">Alasan / Catatan Audit</label>
               <input
                 type="text"
                 required
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#D8CCF3] dark:border-[#3B1D78] text-[#1F1638] dark:text-white"
+                className="tactile-debossed-input w-full min-h-[38px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E1338] border border-[#C5BEEF] dark:border-[#3B1D78] text-[#26364A] dark:text-white"
               />
             </div>
 
@@ -335,9 +335,9 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                   type="checkbox"
                   checked={excludeSelf}
                   onChange={e => setExcludeSelf(e.target.checked)}
-                  className="rounded accent-[#58149C]"
+                  className="rounded accent-[#5145A6] dark:accent-[#58149C]"
                 />
-                <span className="font-semibold text-[#1F1638] dark:text-white">Kecualikan akun saya sendiri ({currentUser.username})</span>
+                <span className="font-semibold text-[#26364A] dark:text-white">Kecualikan akun saya sendiri ({currentUser.username})</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -345,9 +345,9 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                   type="checkbox"
                   checked={invalidateSessions}
                   onChange={e => setInvalidateSessions(e.target.checked)}
-                  className="rounded accent-[#58149C]"
+                  className="rounded accent-[#5145A6] dark:accent-[#58149C]"
                 />
-                <span className="font-semibold text-[#1F1638] dark:text-white">Cabut seluruh sesi aktif user target</span>
+                <span className="font-semibold text-[#26364A] dark:text-white">Cabut seluruh sesi aktif user target</span>
               </label>
 
               <label className="flex items-start gap-2 cursor-pointer p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
@@ -355,7 +355,7 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                   type="checkbox"
                   checked={confirmChecked}
                   onChange={e => setConfirmChecked(e.target.checked)}
-                  className="mt-0.5 rounded accent-[#58149C]"
+                  className="mt-0.5 rounded accent-[#5145A6] dark:accent-[#58149C]"
                 />
                 <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 leading-snug">
                   Saya mengonfirmasi eksekusi reset sandi aman untuk <strong>{targetCountPreview} akun</strong> secara bertahap.
@@ -376,14 +376,14 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
           {/* Right Panel: Live Job Progress, Counters, Retry/Cancel/Rollback, Report */}
           <div className="lg:col-span-7 space-y-4">
             {activeJob ? (
-              <div className="p-4 rounded-2xl bg-white dark:bg-[#1E1338] border border-[#E8DDFF] dark:border-[#3B1D78] space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#E8DDFF] dark:border-[#3B1D78]">
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#3B1D78] space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#3B1D78]">
                   <div>
-                    <div className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A79BC0]">
+                    <div className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A79BC0]">
                       JOB ID: {activeJob.id}
                     </div>
-                    <h5 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
-                      Status Batch: <span className="uppercase text-[#58149C] dark:text-[#DAB9FF]">{activeJob.status.replace(/_/g, ' ')}</span>
+                    <h5 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
+                      Status Batch: <span className="uppercase text-[#5145A6] dark:text-[#DAB9FF]">{activeJob.status.replace(/_/g, ' ')}</span>
                     </h5>
                   </div>
 
@@ -447,11 +447,11 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                   return (
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-[#4B4452] dark:text-[#CABDE8]">Progres Eksekusi Batch</span>
-                        <span className="font-mono tabular-nums text-[#58149C] dark:text-[#DAB9FF]">{done}/{activeJob.totalTargets} ({pct}%)</span>
+                        <span className="text-[#52647A] dark:text-[#CABDE8]">Progres Eksekusi Batch</span>
+                        <span className="font-mono tabular-nums text-[#5145A6] dark:text-[#DAB9FF]">{done}/{activeJob.totalTargets} ({pct}%)</span>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-[#F4EAFF] dark:bg-[#2E1459] overflow-hidden">
-                        <div className="h-full bg-[#7135B5] transition-all duration-300" style={{ width: `${pct}%` }} />
+                      <div className="h-2 w-full rounded-full bg-[#DDE6F0] dark:bg-[#2E1459] overflow-hidden">
+                        <div className="h-full bg-[#6657C8] dark:bg-[#7135B5] transition-all duration-300" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -459,13 +459,13 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
 
                 {/* 5 Aggregate Counters */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  <div className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78]">
-                    <div className="text-[10px] font-bold text-[#7D7484]">PENDING</div>
-                    <div className="text-lg font-extrabold font-mono tabular-nums text-[#1F1638] dark:text-white">{activeJob.pendingCount}</div>
+                  <div className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78]">
+                    <div className="text-[10px] font-bold text-[#8492A5]">PENDING</div>
+                    <div className="text-lg font-extrabold font-mono tabular-nums text-[#26364A] dark:text-white">{activeJob.pendingCount}</div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78]">
-                    <div className="text-[10px] font-bold text-[#7D7484]">PROSES</div>
-                    <div className="text-lg font-extrabold font-mono tabular-nums text-[#58149C] dark:text-[#DAB9FF]">{activeJob.processingCount}</div>
+                  <div className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78]">
+                    <div className="text-[10px] font-bold text-[#8492A5]">PROSES</div>
+                    <div className="text-lg font-extrabold font-mono tabular-nums text-[#5145A6] dark:text-[#DAB9FF]">{activeJob.processingCount}</div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
                     <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">SELESAI</div>
@@ -482,9 +482,9 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                 </div>
 
                 {/* Itemized Table */}
-                <div className="max-h-56 overflow-y-auto rounded-xl border border-[#E8DDFF] dark:border-[#3B1D78]">
+                <div className="max-h-56 overflow-y-auto rounded-xl border border-[#DDE6F0] dark:border-[#3B1D78]">
                   <table className="w-full text-left border-collapse text-[11px]">
-                    <thead className="bg-[#F4EAFF] dark:bg-[#2E1459] sticky top-0 text-[#35105E] dark:text-[#E9D5FF]">
+                    <thead className="bg-[#EDF3F8] dark:bg-[#2E1459] sticky top-0 text-[#26364A] dark:text-[#E9D5FF]">
                       <tr>
                         <th className="py-2 px-3 font-bold">Akun</th>
                         <th className="py-2 px-3 font-bold">Role</th>
@@ -493,24 +493,24 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                         <th className="py-2 px-3 font-bold">Catatan</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#EFE6FF] dark:divide-[#2D1857]">
+                    <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1857]">
                       {(activeJob.items || []).map(item => (
-                        <tr key={item.id} className="hover:bg-[#FAF5FF] dark:hover:bg-[#241447]">
+                        <tr key={item.id} className="odd:bg-white even:bg-[#F8FAFD] dark:odd:bg-transparent dark:even:bg-transparent hover:bg-[#EDF3F8] dark:hover:bg-[#241447]">
                           <td className="py-1.5 px-3">
-                            <div className="font-bold text-[#1F1638] dark:text-white">{item.userName}</div>
-                            <div className="font-mono text-[10px] text-[#7D7484]">@{item.username}</div>
+                            <div className="font-bold text-[#26364A] dark:text-white">{item.userName}</div>
+                            <div className="font-mono text-[10px] text-[#8492A5]">@{item.username}</div>
                           </td>
                           <td className="py-1.5 px-3 font-mono">{item.userRole}</td>
                           <td className="py-1.5 px-3 font-bold">
                             {item.status === 'completed' && <span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Selesai</span>}
                             {item.status === 'failed' && <span className="text-rose-600 dark:text-rose-400 inline-flex items-center gap-1"><AlertCircle className="w-3 h-3" />Gagal</span>}
-                            {item.status === 'pending' && <span className="text-[#7D7484] inline-flex items-center gap-1"><Clock className="w-3 h-3" />Antre</span>}
-                            {item.status === 'processing' && <span className="text-[#7135B5] inline-flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" />Proses</span>}
+                            {item.status === 'pending' && <span className="text-[#8492A5] inline-flex items-center gap-1"><Clock className="w-3 h-3" />Antre</span>}
+                            {item.status === 'processing' && <span className="text-[#6657C8] dark:text-[#7135B5] inline-flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" />Proses</span>}
                             {item.status === 'cancelled' && <span className="text-amber-600 inline-flex items-center gap-1"><XCircle className="w-3 h-3" />Batal</span>}
                             {item.status === 'rolled_back' && <span className="text-indigo-600 dark:text-indigo-300 inline-flex items-center gap-1"><RotateCcw className="w-3 h-3" />Rollback</span>}
                           </td>
                           <td className="py-1.5 px-3">{item.sessionsRevoked ? 'Ya' : 'Tidak'}</td>
-                          <td className="py-1.5 px-3 text-[#4B4452] dark:text-[#CABDE8] truncate max-w-[160px]" title={item.errorMessage || ''}>
+                          <td className="py-1.5 px-3 text-[#52647A] dark:text-[#CABDE8] truncate max-w-[160px]" title={item.errorMessage || ''}>
                             {item.errorMessage || (item.mustChangePassword ? 'Wajib ganti sandi aktif' : '-')}
                           </td>
                         </tr>
@@ -520,30 +520,30 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="p-8 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78] text-center space-y-2">
-                <Users className="w-8 h-8 mx-auto text-[#7135B5] dark:text-[#DAB9FF]" />
-                <div className="font-bold text-[#1F1638] dark:text-white">Belum Ada Batch Reset Dipilih</div>
-                <p className="text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+              <div className="p-8 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] text-center space-y-2">
+                <Users className="w-8 h-8 mx-auto text-[#5145A6] dark:text-[#DAB9FF]" />
+                <div className="font-bold text-[#26364A] dark:text-white">Belum Ada Batch Reset Dipilih</div>
+                <p className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
                   Konfigurasikan target di panel kiri untuk memulai reset sandi massal atau pilih riwayat batch di bawah.
                 </p>
               </div>
             )}
 
             {/* Recent Jobs History */}
-            <div className="p-3.5 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78] space-y-2">
+            <div className="p-3.5 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-[#1F1638] dark:text-white">Riwayat Batch Terbaru</span>
+                <span className="font-bold text-[#26364A] dark:text-white">Riwayat Batch Terbaru</span>
                 <button
                   type="button"
                   onClick={() => void loadJobs()}
-                  className="text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <RefreshCw className={`w-3 h-3 ${loadingJobs ? 'animate-spin' : ''}`} />
                   <span>Segarkan</span>
                 </button>
               </div>
               {jobs.length === 0 ? (
-                <div className="text-[11px] text-[#7D7484]">Belum ada riwayat batch reset sandi.</div>
+                <div className="text-[11px] text-[#8492A5]">Belum ada riwayat batch reset sandi.</div>
               ) : (
                 <div className="space-y-1.5 max-h-36 overflow-y-auto">
                   {jobs.map(j => (
@@ -553,17 +553,17 @@ export const MassPasswordResetPanel: React.FC<MassPasswordResetPanelProps> = ({
                       onClick={() => void selectJob(j.id)}
                       className={`w-full text-left p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-colors ${
                         activeJob?.id === j.id
-                          ? 'bg-white dark:bg-[#2A194F] border-[#7135B5]'
-                          : 'bg-white/60 dark:bg-[#1E1338] border-[#E8DDFF] dark:border-[#3B1D78] hover:border-[#A78BFA]'
+                          ? 'bg-white dark:bg-[#2A194F] border-[#6657C8] dark:border-[#7135B5]'
+                          : 'bg-white/75 dark:bg-[#1E1338] border-[#DDE6F0] dark:border-[#3B1D78] hover:border-[#C5BEEF]'
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="font-bold text-[#1F1638] dark:text-white truncate">{j.reason || j.targetScope}</div>
-                        <div className="text-[10px] font-mono text-[#7D7484]">
+                        <div className="font-bold text-[#26364A] dark:text-white truncate">{j.reason || j.targetScope}</div>
+                        <div className="text-[10px] font-mono text-[#8492A5]">
                           {new Date(j.createdAt).toLocaleString('id-ID')} · {j.completedCount}/{j.totalTargets} selesai
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                         {j.status.replace(/_/g, ' ')}
                       </span>
                     </button>

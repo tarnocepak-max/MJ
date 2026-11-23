@@ -52,10 +52,10 @@ export const TemplateBuilder: React.FC = () => {
         <div className="banner-maroon-superadmin w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-white shadow-md">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-display font-bold text-[#1F1638] dark:text-white text-base">
+        <h3 className="font-display font-bold text-[#26364A] dark:text-white text-base">
           Akses Ditolak: Khusus Superadmin & Dispatch
         </h3>
-        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
           Sesuai aturan keamanan Role Access Control MoraJaws, modul Template WhatsApp hanya dapat dikelola oleh Superadmin dan Dispatch. Role Anda (<strong>{currentUser.role}</strong>) tidak memiliki izin.
         </p>
       </div>
@@ -252,35 +252,35 @@ export const TemplateBuilder: React.FC = () => {
     switch (saveStatus) {
       case 'EDITING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/30 animate-pulse">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-400/30 animate-pulse">
             <Edit2 className="w-3 h-3" />
             <span>EDITING...</span>
           </span>
         );
       case 'SAVING':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-400/30">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-400/30">
             <RefreshCw className="w-3 h-3 animate-spin" />
             <span>SAVING KE SUPABASE...</span>
           </span>
         );
       case 'SAVED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-400/30">
             <CheckCircle2 className="w-3 h-3" />
             <span>SAVED (Supabase Sync)</span>
           </span>
         );
       case 'OFFLINE':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-500/20 text-slate-300 border border-slate-400/30">
-            <WifiOff className="w-3 h-3 text-amber-400" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-400/30">
+            <WifiOff className="w-3 h-3 text-amber-600 dark:text-amber-400" />
             <span>OFFLINE (Saved Locally)</span>
           </span>
         );
       case 'ERROR':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-400/30">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-400/30">
             <AlertCircle className="w-3 h-3" />
             <span>ERROR SAVING</span>
           </span>
@@ -292,22 +292,22 @@ export const TemplateBuilder: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Bar: Selector & Template Actions with Dark Purple & Lilac Styling */}
-      <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/30 p-5 shadow-[0_4px_24px_rgba(22,13,41,0.6)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE]/50 to-transparent" />
+      {/* Top Bar: Selector & Template Actions */}
+      <div className="bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#160D29] dark:to-[#160D29] dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/30 p-5 shadow-md dark:shadow-[0_4px_24px_rgba(22,13,41,0.6)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden">
+        <div className="hidden dark:block absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE]/50 to-transparent" />
         
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7135B5] to-[#35105E] border border-[#D8B4FE]/50 text-white flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(113,53,181,0.4)]">
-            <MessageSquare className="w-5 h-5 text-[#E9D5FF]" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#7135B5] dark:to-[#35105E] border border-[#C5BEEF] dark:border-[#D8B4FE]/50 text-white flex items-center justify-center shrink-0 shadow-sm dark:shadow-[0_0_15px_rgba(113,53,181,0.4)]">
+            <MessageSquare className="w-5 h-5 text-white dark:text-[#E9D5FF]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white tracking-tight">
                 WhatsApp Template Builder & Real-time Auto-Save
               </h3>
               {renderAutoSaveBadge()}
             </div>
-            <p className="text-xs text-[#D8B4FE]/80 mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 mt-0.5">
               Kelola template pesan konfirmasi pelanggan. Perubahan otomatis tersimpan ke Supabase PostgreSQL dengan debounce 1000ms ({databaseStatus}).
             </p>
           </div>
@@ -326,23 +326,23 @@ export const TemplateBuilder: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
-          <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
+          <Check className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span className="font-medium">{statusMsg}</span>
         </div>
       )}
 
       {/* New Template Form Modal / Collapse */}
       {isCreatingNew && (
-        <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/50 p-6 shadow-xl space-y-4 animate-in zoom-in-95">
-          <div className="flex items-center justify-between pb-3 border-b border-[#D8B4FE]/20">
+        <div className="bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/50 p-6 shadow-xl space-y-4 animate-in zoom-in-95">
+          <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/20">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#D8B4FE]" />
-              <h4 className="font-extrabold text-white text-sm">Buat Template Baru (Auto-Save ke Supabase)</h4>
+              <Sparkles className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+              <h4 className="font-extrabold text-[#26364A] dark:text-white text-sm">Buat Template Baru (Auto-Save ke Supabase)</h4>
             </div>
             <button
               onClick={() => setIsCreatingNew(false)}
-              className="text-xs text-[#D8B4FE]/70 hover:text-white transition-colors cursor-pointer"
+              className="text-xs text-[#52647A] hover:text-[#26364A] dark:text-[#D8B4FE]/70 dark:hover:text-white transition-colors cursor-pointer"
             >
               Batal
             </button>
@@ -350,21 +350,21 @@ export const TemplateBuilder: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-semibold text-[#E9D5FF] mb-1">Nama Template *</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E9D5FF] mb-1">Nama Template *</label>
               <input
                 type="text"
                 placeholder="misal: Konfirmasi Kunjungan Hari H"
                 value={newTemplateData.name}
                 onChange={e => setNewTemplateData({ ...newTemplateData, name: e.target.value })}
-                className="w-full px-3.5 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+                className="w-full px-3.5 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block font-semibold text-[#E9D5FF] mb-1">Kategori</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E9D5FF] mb-1">Kategori</label>
               <select
                 value={newTemplateData.category}
                 onChange={e => setNewTemplateData({ ...newTemplateData, category: e.target.value })}
-                className="w-full px-3.5 py-2 bg-[#35105E] border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none"
+                className="w-full px-3.5 py-2 bg-[#F4F7FB] dark:bg-[#35105E] border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               >
                 <option value="Konfirmasi Jadwal Kunjungan">Konfirmasi Jadwal Kunjungan</option>
                 <option value="Teknisi Menuju Lokasi">Teknisi Menuju Lokasi</option>
@@ -374,23 +374,23 @@ export const TemplateBuilder: React.FC = () => {
               </select>
             </div>
             <div className="col-span-full">
-              <label className="block font-semibold text-[#E9D5FF] mb-1">Deskripsi</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E9D5FF] mb-1">Deskripsi</label>
               <input
                 type="text"
                 placeholder="Penjelasan kapan template ini digunakan"
                 value={newTemplateData.description}
                 onChange={e => setNewTemplateData({ ...newTemplateData, description: e.target.value })}
-                className="w-full px-3.5 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+                className="w-full px-3.5 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block font-semibold text-[#E9D5FF] text-xs">
+              <label className="block font-semibold text-[#26364A] dark:text-[#E9D5FF] text-xs">
                 Isi Template Pesan (Placeholder Dinamis)
               </label>
-              <span className="text-[11px] text-[#D8B4FE]/70">Klik variabel di bawah untuk menyisipkan</span>
+              <span className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70">Klik variabel di bawah untuk menyisipkan</span>
             </div>
             <div className="flex flex-wrap gap-1.5 mb-2.5">
               {availableVariables.map(v => (
@@ -398,7 +398,7 @@ export const TemplateBuilder: React.FC = () => {
                   key={v.key}
                   type="button"
                   onClick={() => handleInsertVariableNew(v.key)}
-                  className="px-2 py-0.5 text-[11px] font-mono bg-[#35105E]/60 hover:bg-[#7135B5] text-[#E9D5FF] rounded-lg border border-[#D8B4FE]/30 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 text-[11px] font-mono bg-[#EAE8FF] hover:bg-[#D8D3FF] dark:bg-[#35105E]/60 dark:hover:bg-[#7135B5] text-[#5145A6] dark:text-[#E9D5FF] rounded-lg border border-[#C5BEEF] dark:border-[#D8B4FE]/30 transition-colors cursor-pointer"
                 >
                   +{`{{${v.key}}}`}
                 </button>
@@ -408,7 +408,7 @@ export const TemplateBuilder: React.FC = () => {
               rows={6}
               value={newTemplateData.messageBody}
               onChange={e => setNewTemplateData({ ...newTemplateData, messageBody: e.target.value })}
-              className="w-full p-3 font-mono text-xs bg-[#160D29] border border-[#D8B4FE]/30 rounded-xl text-[#E9D5FF] focus:border-[#A855F7] focus:outline-none leading-relaxed"
+              className="w-full p-3 font-mono text-xs bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-[#E9D5FF] focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none leading-relaxed"
             />
           </div>
 
@@ -436,12 +436,12 @@ export const TemplateBuilder: React.FC = () => {
         {/* Left Column (6 cols): Template List & Active Editor */}
         <div className="lg:col-span-6 space-y-4">
           {/* Template Select Tabs */}
-          <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/25 p-4 shadow-sm">
+          <div className="bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2.5">
-              <label className="block text-[11px] font-bold text-[#D8B4FE] uppercase tracking-wider">
+              <label className="block text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] uppercase tracking-wider">
                 Daftar Template Aktif ({templates.length})
               </label>
-              <span className="text-[10px] text-[#D8B4FE]/60">Auto-save aktif pada setiap perubahan</span>
+              <span className="text-[10px] text-[#8492A5] dark:text-[#D8B4FE]/60">Auto-save aktif pada setiap perubahan</span>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -453,20 +453,20 @@ export const TemplateBuilder: React.FC = () => {
                     onClick={() => setActiveTemplateId(tpl.id)}
                     className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
                       isSelected
-                        ? 'bg-[#35105E]/80 border-[#A855F7] text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                        : 'bg-[#1E1138]/60 border-[#D8B4FE]/15 text-[#D8B4FE]/80 hover:bg-[#35105E]/40 hover:text-white'
+                        ? 'bg-gradient-to-r from-[#EAE8FF] to-[#DDF4F4] dark:from-[#35105E]/80 dark:to-[#35105E]/80 dark:bg-[#35105E]/80 border-[#6657C8] dark:border-[#A855F7] text-[#26364A] dark:text-white shadow-xs dark:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                        : 'bg-[#F4F7FB] dark:bg-[#1E1138]/60 border-[#DDE6F0] dark:border-[#D8B4FE]/15 text-[#52647A] dark:text-[#D8B4FE]/80 hover:bg-[#EDF3F8] dark:hover:bg-[#35105E]/40 hover:text-[#26364A] dark:hover:text-white'
                     }`}
                   >
                     <div>
                       <div className="font-bold flex items-center gap-1.5">
                         <span>{tpl.name}</span>
                         {tpl.isDefault && (
-                          <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full font-bold">
+                          <span className="text-[9.5px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 border dark:border-emerald-400/30 rounded-full font-bold">
                             Default
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-[#D8B4FE]/60 mt-0.5">
+                      <div className="text-[11px] text-[#8492A5] dark:text-[#D8B4FE]/60 mt-0.5">
                         {tpl.category} · v{tpl.version}
                       </div>
                     </div>
@@ -477,7 +477,7 @@ export const TemplateBuilder: React.FC = () => {
                           e.stopPropagation();
                           handleDuplicateTemplate(tpl);
                         }}
-                        className="p-1.5 text-[#D8B4FE]/60 hover:text-white rounded-lg hover:bg-[#7135B5]/40 transition-colors cursor-pointer"
+                        className="p-1.5 text-[#5145A6] hover:bg-[#EAE8FF] dark:text-[#D8B4FE]/60 dark:hover:text-white rounded-lg dark:hover:bg-[#7135B5]/40 transition-colors cursor-pointer"
                         title="Duplikat Template"
                       >
                         <Copy className="w-3.5 h-3.5" />
@@ -489,7 +489,7 @@ export const TemplateBuilder: React.FC = () => {
                             e.stopPropagation();
                             setPendingDeleteTemplate(tpl);
                           }}
-                          className="p-1.5 text-rose-400 hover:text-rose-300 rounded-lg hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          className="p-1.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Hapus Template"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -504,22 +504,22 @@ export const TemplateBuilder: React.FC = () => {
 
           {/* Active Template Editor */}
           {activeTemplate && (
-            <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/30 p-5 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#D8B4FE]/20 gap-2">
+            <div className="bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/30 p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/20 gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-extrabold text-white text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-[#26364A] dark:text-white text-sm">
                       Editor Template
                     </h4>
                     {renderAutoSaveBadge()}
                   </div>
-                  <p className="text-[11px] text-[#D8B4FE]/70 mt-0.5">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                     {lastSavedAt ? `Terakhir disimpan: ${lastSavedAt.toLocaleTimeString('id-ID')}` : 'Siap disimpan'}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-xs text-[#E9D5FF] cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-xs text-[#26364A] dark:text-[#E9D5FF] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={activeTemplate.isDefault}
@@ -528,7 +528,7 @@ export const TemplateBuilder: React.FC = () => {
                           updateTemplate(t.id, { isDefault: t.id === activeTemplate.id ? e.target.checked : false });
                         });
                       }}
-                      className="rounded border-[#D8B4FE]/40 text-[#A855F7] focus:ring-[#A855F7]"
+                      className="rounded border-[#C5BEEF] dark:border-[#D8B4FE]/40 text-[#5145A6] dark:text-[#A855F7] focus:ring-[#6657C8] dark:focus:ring-[#A855F7]"
                     />
                     <span>Set as Default</span>
                   </label>
@@ -538,20 +538,20 @@ export const TemplateBuilder: React.FC = () => {
               {/* Editable Name & Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-[#D8B4FE] mb-1">Nama Template</label>
+                  <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#D8B4FE] mb-1">Nama Template</label>
                   <input
                     type="text"
                     value={draftName}
                     onChange={e => handleNameChange(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white text-xs focus:border-[#A855F7] focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white text-xs focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-[#D8B4FE] mb-1">Kategori</label>
+                  <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#D8B4FE] mb-1">Kategori</label>
                   <select
                     value={draftCategory}
                     onChange={e => handleCategoryChange(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-[#35105E] border border-[#D8B4FE]/30 rounded-xl text-white text-xs focus:border-[#A855F7] focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-[#F4F7FB] dark:bg-[#35105E] border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white text-xs focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
                   >
                     <option value="Konfirmasi Jadwal Kunjungan">Konfirmasi Jadwal Kunjungan</option>
                     <option value="Teknisi Menuju Lokasi">Teknisi Menuju Lokasi</option>
@@ -564,7 +564,7 @@ export const TemplateBuilder: React.FC = () => {
 
               {/* Clickable Placeholders */}
               <div>
-                <span className="text-[11px] font-bold text-[#D8B4FE] block mb-1.5">
+                <span className="text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] block mb-1.5">
                   Klik untuk Sisipkan Placeholder:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -573,7 +573,7 @@ export const TemplateBuilder: React.FC = () => {
                       key={v.key}
                       type="button"
                       onClick={() => handleInsertVariable(v.key)}
-                      className="px-2 py-0.5 text-[10.5px] font-mono bg-[#35105E]/70 hover:bg-[#7135B5] text-[#E9D5FF] rounded-lg border border-[#D8B4FE]/30 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 text-[10.5px] font-mono bg-[#EAE8FF] hover:bg-[#D8D3FF] dark:bg-[#35105E]/70 dark:hover:bg-[#7135B5] text-[#5145A6] dark:text-[#E9D5FF] rounded-lg border border-[#C5BEEF] dark:border-[#D8B4FE]/30 transition-colors cursor-pointer"
                       title={v.desc}
                     >
                       +{`{{${v.key}}}`}
@@ -588,18 +588,18 @@ export const TemplateBuilder: React.FC = () => {
                   rows={9}
                   value={draftBody}
                   onChange={e => handleBodyChange(e.target.value)}
-                  className="w-full p-3 font-mono text-xs bg-[#1E1138] border border-[#D8B4FE]/30 rounded-xl text-[#E9D5FF] leading-relaxed focus:border-[#A855F7] focus:outline-none"
+                  className="w-full p-3 font-mono text-xs bg-[#F4F7FB] dark:bg-[#1E1138] border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-[#E9D5FF] leading-relaxed focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
                   placeholder="Ketik teks pesan template WhatsApp..."
                 />
               </div>
 
               {/* Footer Indicator */}
-              <div className="flex items-center justify-between text-[11px] text-[#D8B4FE]/70 pt-2 border-t border-[#D8B4FE]/15">
+              <div className="flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 pt-2 border-t border-[#E2E8F0] dark:border-[#D8B4FE]/15">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#D8B4FE]" />
+                  <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                   <span>Auto-save debounce 1.000 ms</span>
                 </span>
-                <span className="font-semibold text-[#E9D5FF]">
+                <span className="font-semibold text-[#26364A] dark:text-[#E9D5FF]">
                   {draftBody.length} karakter
                 </span>
               </div>
@@ -609,24 +609,24 @@ export const TemplateBuilder: React.FC = () => {
 
         {/* Right Column (6 cols): Live Preview Panel */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/30 p-5 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#D8B4FE]/20">
+          <div className="bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/30 p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/20">
               <div>
-                <h4 className="font-extrabold text-white text-sm">
+                <h4 className="font-extrabold text-[#26364A] dark:text-white text-sm">
                   Live Preview WhatsApp Chat
                 </h4>
-                <p className="text-[11px] text-[#D8B4FE]/70">
+                <p className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70">
                   Simulasi tampilan pesan pada layar pelanggan seketika
                 </p>
               </div>
 
               {/* Sample Ticket Switcher */}
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-[#D8B4FE]/70 text-[11px]">Uji Tiket:</span>
+                <span className="text-[#52647A] dark:text-[#D8B4FE]/70 text-[11px]">Uji Tiket:</span>
                 <select
                   value={selectedTicketId}
                   onChange={e => setSelectedTicketId(e.target.value)}
-                  className="px-2.5 py-1 text-xs bg-[#35105E] border border-[#D8B4FE]/30 text-white rounded-xl focus:outline-none"
+                  className="px-2.5 py-1 text-xs bg-[#F4F7FB] dark:bg-[#35105E] border border-[#DDE6F0] dark:border-[#D8B4FE]/30 text-[#26364A] dark:text-white rounded-xl focus:outline-none"
                 >
                   {tickets.map(t => (
                     <option key={t.id} value={t.id}>
@@ -639,11 +639,11 @@ export const TemplateBuilder: React.FC = () => {
 
             {/* Warnings if any missing variables */}
             {previewResult.missingVariables.length > 0 && (
-              <div className="p-3 bg-amber-950/50 border border-amber-500/40 rounded-xl text-amber-200 text-xs flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-500/40 rounded-xl text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                 <div>
                   <p className="font-bold">Placeholder Kosong pada Tiket Contoh Ini:</p>
-                  <p className="text-[11px] mt-0.5 font-mono text-amber-300">
+                  <p className="text-[11px] mt-0.5 font-mono text-amber-700 dark:text-amber-300">
                     {previewResult.missingVariables.map(v => `{{${v}}}`).join(', ')}
                   </p>
                 </div>
@@ -663,7 +663,7 @@ export const TemplateBuilder: React.FC = () => {
               </div>
             </div>
 
-            <div className="text-[11px] text-[#D8B4FE]/70 text-center">
+            <div className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 text-center">
               Pesan diformat dan dikirimkan langsung ke nomor WhatsApp pelanggan saat tombol WhatsApp ditekan.
             </div>
           </div>
@@ -676,7 +676,6 @@ export const TemplateBuilder: React.FC = () => {
         onClose={() => setPendingDeleteTemplate(null)}
         size="sm"
         mobileVariant="sheet"
-        variant="dark_purple"
         zIndexClass="z-60"
         icon={<Trash2 className="w-4 h-4" />}
         title="Hapus Template WhatsApp"
@@ -708,8 +707,8 @@ export const TemplateBuilder: React.FC = () => {
           </div>
         }
       >
-        <p className="text-xs text-[#E9D5FF] leading-relaxed">
-          Anda yakin ingin menghapus template <strong className="text-white">"{pendingDeleteTemplate?.name}"</strong>? Tindakan ini tidak dapat dibatalkan.
+        <p className="text-xs text-[#52647A] dark:text-[#E9D5FF] leading-relaxed">
+          Anda yakin ingin menghapus template <strong className="text-[#26364A] dark:text-white">"{pendingDeleteTemplate?.name}"</strong>? Tindakan ini tidak dapat dibatalkan.
         </p>
       </ResponsiveModal>
     </div>

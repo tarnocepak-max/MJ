@@ -170,18 +170,18 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
         {/* Recipient Details & Phone Normalization */}
         <div className="mj-tactile-well grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl">
           <div>
-            <span className="text-[#7D7484] dark:text-[#A493C2] text-[11px] font-semibold block">Customer Contact</span>
-            <span className="font-bold text-[#1F1638] dark:text-white">{ticket.customerName}</span>
-            <div className="font-mono tabular-nums text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+            <span className="text-[#8492A5] dark:text-[#A493C2] text-[11px] font-semibold block">Customer Contact</span>
+            <span className="font-bold text-[#26364A] dark:text-white">{ticket.customerName}</span>
+            <div className="font-mono tabular-nums text-[#52647A] dark:text-[#CABDE8] mt-0.5">
               {ticket.customerPhone || '(Belum ada nomor)'}
             </div>
           </div>
           <div>
-            <span className="text-[#7D7484] dark:text-[#A493C2] text-[11px] font-semibold block">Normalized ID WhatsApp (+62)</span>
+            <span className="text-[#8492A5] dark:text-[#A493C2] text-[11px] font-semibold block">Normalized ID WhatsApp (+62)</span>
             <span className={`font-mono tabular-nums font-bold ${isPhoneValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
               {normalizedPhone || 'Format tidak valid'}
             </span>
-            <span className="text-[10px] text-[#7D7484] dark:text-[#A493C2] block mt-0.5">
+            <span className="text-[10px] text-[#8492A5] dark:text-[#A493C2] block mt-0.5">
               {isPhoneValid ? 'Nomor valid siap dikirim via wa.me' : 'Periksa kembali nomor telepon pelanggan'}
             </span>
           </div>
@@ -189,13 +189,13 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
 
         {/* Template Selector */}
         <div>
-          <label className="block text-xs font-bold text-[#1F1638] dark:text-[#E8DDFF] mb-1.5">
+          <label className="block text-xs font-bold text-[#26364A] dark:text-[#E8DDFF] mb-1.5">
             Pilih Template Pesan
           </label>
           <select
             value={selectedTemplateId}
             onChange={e => setSelectedTemplateId(e.target.value)}
-            className="tactile-debossed-input w-full px-3 py-2 text-xs rounded-xl text-[#1F1638] dark:text-white"
+            className="tactile-debossed-input w-full px-3 py-2 text-xs rounded-xl text-[#26364A] dark:text-white"
           >
             {templates.map(tpl => (
               <option key={tpl.id} value={tpl.id}>
@@ -221,13 +221,13 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
         {/* Editable message editor */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-bold text-[#1F1638] dark:text-[#E8DDFF]">
+            <label className="text-xs font-bold text-[#26364A] dark:text-[#E8DDFF]">
               Isi Pesan (Dapat diedit sebelum membuka WhatsApp)
             </label>
             <button
               type="button"
               onClick={handleCopyMessage}
-              className="text-[11px] text-[#5B289B] hover:text-[#35105E] dark:text-[#D8B4FE] dark:hover:text-white flex items-center gap-1 font-bold cursor-pointer"
+              className="text-[11px] text-[#5145A6] hover:text-[#3F3588] dark:text-[#D8B4FE] dark:hover:text-white flex items-center gap-1 font-bold cursor-pointer"
             >
               {copiedMsg ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
               {copiedMsg ? 'Tersalin' : 'Salin Pesan'}
@@ -237,34 +237,34 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
             rows={8}
             value={messageText}
             onChange={e => setMessageText(e.target.value)}
-            className="tactile-debossed-input w-full p-3 font-mono text-xs rounded-xl text-[#1F1638] dark:text-[#E8DDFF] leading-relaxed"
+            className="tactile-debossed-input w-full p-3 font-mono text-xs rounded-xl text-[#26364A] dark:text-[#E8DDFF] leading-relaxed"
           />
         </div>
 
         {/* Generated URL & Actions */}
         <div className="mj-tactile-well p-3 rounded-xl">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CABDE8]">
+            <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CABDE8]">
               Generated Click-to-Chat URL
             </span>
             <button
               type="button"
               onClick={handleCopyUrl}
               disabled={!url}
-              className="text-[11px] text-[#5B289B] hover:text-[#35105E] dark:text-[#D8B4FE] dark:hover:text-white flex items-center gap-1 font-bold disabled:opacity-50 cursor-pointer"
+              className="text-[11px] text-[#5145A6] hover:text-[#3F3588] dark:text-[#D8B4FE] dark:hover:text-white flex items-center gap-1 font-bold disabled:opacity-50 cursor-pointer"
             >
               {copiedUrl ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
               {copiedUrl ? 'URL Tersalin' : 'Salin URL'}
             </button>
           </div>
-          <div className="tactile-debossed-input p-2 rounded-lg font-mono text-[11px] text-[#4B4452] dark:text-[#E8DDFF] truncate select-all">
+          <div className="tactile-debossed-input p-2 rounded-lg font-mono text-[11px] text-[#52647A] dark:text-[#E8DDFF] truncate select-all">
             {url || urlError || 'Tidak dapat membuat URL (cek nomor telepon)'}
           </div>
         </div>
 
         {/* Clarification banner */}
-        <div className="p-2.5 bg-[#F3EAFF] dark:bg-[#241145] border border-[#DAB9FF] dark:border-[#4B2A85] rounded-xl text-[#35105E] dark:text-[#E8DDFF] text-[11px] flex items-start gap-2">
-          <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#5B289B] dark:text-[#D8B4FE]" />
+        <div className="p-2.5 bg-[#EAE8FF] dark:bg-[#241145] border border-[#C5BEEF] dark:border-[#4B2A85] rounded-xl text-[#26364A] dark:text-[#E8DDFF] text-[11px] flex items-start gap-2">
+          <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#5145A6] dark:text-[#D8B4FE]" />
           <div>
             Mekanisme Click-to-Chat membuka WhatsApp dengan template terisi. Pesan baru terkirim setelah pengguna menekan tombol kirim di WhatsApp. Status tidak otomatis menjadi "Confirmed" sampai ada konfirmasi nyata dari pelanggan.
           </div>
@@ -284,7 +284,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
               placeholder="Catatan bukti konfirmasi (misal: Chat dibalas jam 10:05 setuju slot)"
               value={confirmNotes}
               onChange={e => setConfirmNotes(e.target.value)}
-              className="tactile-debossed-input w-full px-2.5 py-1.5 text-xs rounded-lg text-[#1F1638] dark:text-white"
+              className="tactile-debossed-input w-full px-2.5 py-1.5 text-xs rounded-lg text-[#26364A] dark:text-white"
             />
             <div className="flex gap-2">
               <button
@@ -304,8 +304,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
             </div>
           </div>
         ) : showRescheduleForm ? (
-          <div className="p-3 bg-[#F3EAFF] dark:bg-[#241145] rounded-xl border border-[#DAB9FF] dark:border-[#4B2A85] space-y-2">
-            <span className="font-bold text-[#35105E] dark:text-[#E8DDFF] block text-xs">
+          <div className="p-3 bg-[#EAE8FF] dark:bg-[#241145] rounded-xl border border-[#C5BEEF] dark:border-[#4B2A85] space-y-2">
+            <span className="font-bold text-[#26364A] dark:text-[#E8DDFF] block text-xs">
               Catat Permintaan Reschedule Pelanggan:
             </span>
             <input
@@ -313,7 +313,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
               placeholder="Alasan / Jadwal baru yang diinginkan pelanggan..."
               value={rescheduleNotes}
               onChange={e => setRescheduleNotes(e.target.value)}
-              className="tactile-debossed-input w-full px-2.5 py-1.5 rounded-lg text-[#1F1638] dark:text-white text-xs"
+              className="tactile-debossed-input w-full px-2.5 py-1.5 rounded-lg text-[#26364A] dark:text-white text-xs"
             />
             <div className="flex items-center gap-2">
               <button
@@ -356,8 +356,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({ ticket, is
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[#E8DDFF] dark:border-[#3F2370] gap-2">
-            <span className="text-[11px] text-[#7D7484] dark:text-[#CABDE8] font-semibold">Tindakan Lanjutan Verifikasi:</span>
+          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[#E2E8F0] dark:border-[#3F2370] gap-2">
+            <span className="text-[11px] text-[#8492A5] dark:text-[#CABDE8] font-semibold">Tindakan Lanjutan Verifikasi:</span>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"

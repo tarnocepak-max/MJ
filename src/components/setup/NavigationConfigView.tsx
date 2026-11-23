@@ -399,26 +399,26 @@ export const NavigationConfigView: React.FC = () => {
       {/* TOP HEADER & 3D ACTION BAR (STITCH TEMPLATES 1 & 2)              */}
       {/* ================================================================ */}
       <div className="card-3d-lavender relative overflow-hidden rounded-2xl p-4 sm:p-6">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#58149C] via-[#A380FE] to-[#6B103B]" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6657C8] via-[#7CC8D4] to-[#2E7D8B] dark:from-[#58149C] dark:via-[#A380FE] dark:to-[#6B103B]" />
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1">
           <div className="flex items-start gap-3.5 min-w-0">
-            <div className="w-11 h-11 bg-gradient-to-b from-[#7135B5] to-[#58149C] rounded-xl text-white flex items-center justify-center shadow-[0_3px_0_#35105E] shrink-0">
+            <div className="w-11 h-11 bg-gradient-to-b from-[#EAE8FF] to-[#DDF4F4] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:from-[#7135B5] dark:to-[#58149C] rounded-xl dark:text-white flex items-center justify-center shadow-xs dark:shadow-[0_3px_0_#35105E] shrink-0">
               <FolderTree className="w-5 h-5" />
             </div>
             <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-1.5 flex-wrap text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
-                <span className="text-[#58149C] dark:text-[#DAB9FF]">01 — System Configuration</span>
+              <div className="flex items-center gap-1.5 flex-wrap text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
+                <span className="text-[#5145A6] dark:text-[#DAB9FF]">01 — System Configuration</span>
                 <ChevronRight className="w-3 h-3 shrink-0" />
                 <span>Menu Navigasi Engine</span>
                 <ChevronRight className="w-3 h-3 shrink-0" />
-                <span className="text-[#6B103B] dark:text-[#F4B6C2]">{activeTabTitle}</span>
+                <span className="text-[#2E7D8B] dark:text-[#F4B6C2]">{activeTabTitle}</span>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
                   Konfigurasi Menu Navigasi
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-[#35105E] dark:text-[#D8B4FE] dark:border-[#7135B5]/40 uppercase font-mono tabular-nums">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#D8B4FE] dark:border-[#7135B5]/40 uppercase font-mono tabular-nums">
                   v{navDocVersion} Schema
                 </span>
                 {hasUnsavedNavChanges && (
@@ -428,7 +428,7 @@ export const NavigationConfigView: React.FC = () => {
                 )}
               </div>
 
-              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] max-w-3xl leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CABDE8] max-w-3xl leading-relaxed">
                 Kelola {sortedCategories.length} Kategori Accordion, {sortedStandaloneMenus.length} Menu Mandiri, dan{' '}
                 {(submenuItems || []).length} Submenu Items beserta urutan drag-and-drop dan otorisasi role MoraJaws secara realtime.
               </p>
@@ -442,7 +442,7 @@ export const NavigationConfigView: React.FC = () => {
               onClick={() => setShowPreviewModal(true)}
               className="mj-btn-superadmin-lilac px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold gap-2 cursor-pointer"
             >
-              <Eye className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+              <Eye className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
               <span>Pratinjau per Role</span>
             </button>
 
@@ -503,16 +503,16 @@ export const NavigationConfigView: React.FC = () => {
                   ? 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-700/50'
                   : cloudSyncStatus === 'syncing'
                   ? 'bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-700/50'
-                  : 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700/50'
+                  : 'bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700/50'
               }`}
             >
               <Cloud className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                 Supabase PostgreSQL
               </p>
-              <p className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+              <p className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                 {cloudSyncStatus === 'synced'
                   ? hasUnsavedNavChanges
                     ? 'Tersinkronisasi (Ada Perubahan Lokal)'
@@ -528,7 +528,7 @@ export const NavigationConfigView: React.FC = () => {
 
           <div className="flex items-center gap-2 shrink-0">
             {lastCloudSyncTime && (
-              <span className="text-[10.5px] font-mono tabular-nums text-[#7D7484] dark:text-[#A79BC0]">
+              <span className="text-[10.5px] font-mono tabular-nums text-[#8492A5] dark:text-[#A79BC0]">
                 {new Date(lastCloudSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -547,11 +547,11 @@ export const NavigationConfigView: React.FC = () => {
         {/* Multi-Accordion Behavior 3D Toggle Panel */}
         <div className="lg:col-span-7 card-3d-lavender rounded-2xl p-4 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-extrabold text-[#1F1638] dark:text-white flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+            <p className="text-xs font-extrabold text-[#26364A] dark:text-white flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE] shrink-0" />
               <span>Mendukung Multi-Submenu Collapse (Beberapa Kategori Terbuka Bersamaan)</span>
             </p>
-            <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] mt-0.5">
               Ketika diaktifkan, membuka satu kategori accordion tidak akan menutup kategori lain secara otomatis.
             </p>
           </div>
@@ -621,7 +621,7 @@ export const NavigationConfigView: React.FC = () => {
             className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
               activeConfigTab === 'categories'
                 ? 'btn-3d-primary text-white'
-                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+                : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
             }`}
           >
             <Building2 className="w-4 h-4 shrink-0" />
@@ -630,7 +630,7 @@ export const NavigationConfigView: React.FC = () => {
               className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
                 activeConfigTab === 'categories'
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
               }`}
             >
               {sortedCategories.length}
@@ -643,7 +643,7 @@ export const NavigationConfigView: React.FC = () => {
             className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
               activeConfigTab === 'standalone'
                 ? 'btn-3d-primary text-white'
-                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+                : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
             }`}
           >
             <LayoutDashboard className="w-4 h-4 shrink-0" />
@@ -652,7 +652,7 @@ export const NavigationConfigView: React.FC = () => {
               className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
                 activeConfigTab === 'standalone'
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
               }`}
             >
               {sortedStandaloneMenus.length}
@@ -665,7 +665,7 @@ export const NavigationConfigView: React.FC = () => {
             className={`flex items-center justify-center gap-2 px-4 py-2 min-h-[42px] rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 sm:flex-1 ${
               activeConfigTab === 'submenus'
                 ? 'btn-3d-primary text-white'
-                : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+                : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
             }`}
           >
             <ListOrdered className="w-4 h-4 shrink-0" />
@@ -674,7 +674,7 @@ export const NavigationConfigView: React.FC = () => {
               className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
                 activeConfigTab === 'submenus'
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
               }`}
             >
               {(submenuItems || []).length}
@@ -683,7 +683,7 @@ export const NavigationConfigView: React.FC = () => {
         </div>
 
         {isSuperadmin && (
-          <div className="hidden xl:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+          <div className="hidden xl:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-semibold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
             <GripVertical className="w-3.5 h-3.5" />
             <span>Drag &amp; Drop Urutan Aktif</span>
           </div>
@@ -697,10 +697,10 @@ export const NavigationConfigView: React.FC = () => {
         <div className="space-y-4">
           <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white">
+              <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
                 Daftar Kategori Utama (Accordion &amp; Static)
               </h3>
-              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+              <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5">
                 Geser kartu atau gunakan tombol panah 3D untuk mengatur urutan sidebar, ubah mode Accordion/Static, atau lihat pratinjau submenu terpasang.
               </p>
             </div>
@@ -731,7 +731,7 @@ export const NavigationConfigView: React.FC = () => {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => handleDropCategory(index)}
                   className={`card-3d-lavender rounded-2xl p-4 transition-all duration-200 space-y-3 ${
-                    cat.isActive === false ? 'opacity-65' : 'hover:border-[#A380FE] dark:hover:border-[#7135B5]'
+                    cat.isActive === false ? 'opacity-65' : 'hover:border-[#9E95DE] dark:hover:border-[#7135B5]'
                   }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -739,14 +739,14 @@ export const NavigationConfigView: React.FC = () => {
                     <div className="flex items-center gap-3 min-w-0">
                       {isSuperadmin && (
                         <div
-                          className="cursor-grab text-[#7D7484] hover:text-[#58149C] dark:text-purple-400 dark:hover:text-white p-1 shrink-0"
+                          className="cursor-grab text-[#8492A5] hover:text-[#5145A6] dark:text-purple-400 dark:hover:text-white p-1 shrink-0"
                           title="Tahan & geser untuk mengubah urutan"
                         >
                           <GripVertical className="w-4 h-4" />
                         </div>
                       )}
 
-                      <div className="p-2.5 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#7135B5]/30 shrink-0">
+                      <div className="p-2.5 rounded-xl bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/30 shrink-0">
                         <CatIcon className="w-4 h-4" />
                       </div>
 
@@ -756,7 +756,7 @@ export const NavigationConfigView: React.FC = () => {
                             type="text"
                             value={categoryDraftName}
                             onChange={e => setCategoryDraftName(e.target.value)}
-                            className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                            className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                             autoFocus
                           />
                           <button
@@ -786,23 +786,23 @@ export const NavigationConfigView: React.FC = () => {
                       ) : (
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+                            <h4 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white tracking-tight">
                               {cat.name}
                             </h4>
-                            <span className="text-[10px] text-[#7D7484] dark:text-purple-400 font-mono">
+                            <span className="text-[10px] text-[#8492A5] dark:text-purple-400 font-mono">
                               ({cat.id})
                             </span>
                             <span
                               className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider ${
                                 cat.mode === 'static'
                                   ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
-                                  : 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-purple-500/20 dark:text-[#D8B4FE] dark:border-purple-500/30'
+                                  : 'bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-purple-500/20 dark:text-[#D8B4FE] dark:border-purple-500/30'
                               }`}
                             >
                               {cat.mode === 'static' ? 'Static Mode' : 'Accordion Mode'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                          <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] mt-0.5">
                             <strong className="font-mono tabular-nums">{submenusInCat.length}</strong> Submenu terdaftar · Urutan <strong className="font-mono tabular-nums">#{cat.order}</strong>
                           </p>
                         </div>
@@ -916,22 +916,22 @@ export const NavigationConfigView: React.FC = () => {
 
                   {/* Expandable Inline Submenu Preview Drawer (Stitch Template 2) */}
                   {isPreviewOpen && (
-                    <div className="pt-3 border-t border-[#EFE7FC] dark:border-[#35105E] space-y-2.5">
+                    <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#35105E] space-y-2.5">
                       <div className="flex items-center justify-between gap-2 text-[10.5px]">
-                        <span className="font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                        <span className="font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                           Submenu Preview Terpasang ({submenusInCat.length})
                         </span>
                         <button
                           type="button"
                           onClick={() => setActiveConfigTab('submenus')}
-                          className="font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                          className="font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                         >
                           Kelola Semua Submenu →
                         </button>
                       </div>
 
                       {submenusInCat.length === 0 ? (
-                        <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-dashed border-[#D8CCF3] dark:border-[#35105E] text-[11px] text-[#7D7484] dark:text-[#A79BC0] text-center">
+                        <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-dashed border-[#C5BEEF] dark:border-[#35105E] text-[11px] text-[#8492A5] dark:text-[#A79BC0] text-center">
                           Kategori ini belum memiliki submenu. Tambahkan melalui tab <strong>3. Submenu Items</strong>.
                         </div>
                       ) : (
@@ -941,20 +941,20 @@ export const NavigationConfigView: React.FC = () => {
                             return (
                               <div
                                 key={sub.id}
-                                className={`p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-1.5 ${
+                                className={`p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1.5 ${
                                   sub.visible === false ? 'opacity-55' : ''
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-1.5">
-                                  <span className="flex items-center gap-1.5 min-w-0 text-xs font-bold text-[#1F1638] dark:text-white">
-                                    <SubIcon className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                                  <span className="flex items-center gap-1.5 min-w-0 text-xs font-bold text-[#26364A] dark:text-white">
+                                    <SubIcon className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
                                     <span className="truncate">{sub.label}</span>
                                   </span>
                                   <span
                                     className={`text-[9.5px] font-bold shrink-0 ${
                                       sub.visible !== false
                                         ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-[#7D7484]'
+                                        : 'text-[#8492A5]'
                                     }`}
                                   >
                                     {sub.visible !== false ? 'Aktif' : 'Off'}
@@ -964,13 +964,13 @@ export const NavigationConfigView: React.FC = () => {
                                   {(sub.roles || []).slice(0, 3).map(role => (
                                     <span
                                       key={role}
-                                      className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D]"
+                                      className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4A258D]"
                                     >
                                       {role.replace('_admin', '').replace('_', ' ')}
                                     </span>
                                   ))}
                                   {(sub.roles || []).length > 3 && (
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white dark:bg-[#261547] text-[#7D7484]">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white dark:bg-[#261547] text-[#8492A5]">
                                       +{(sub.roles || []).length - 3}
                                     </span>
                                   )}
@@ -998,22 +998,22 @@ export const NavigationConfigView: React.FC = () => {
           <div className="card-3d-lavender rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={standaloneSearch}
                   onChange={e => setStandaloneSearch(e.target.value)}
                   placeholder="Cari nama menu mandiri, ID /route, atau role..."
-                  className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-xl focus:outline-hidden"
+                  className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-xl focus:outline-hidden"
                 />
               </div>
 
               <div className="relative min-w-[190px]">
-                <Filter className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Filter className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <select
                   value={standaloneRoleFilter}
                   onChange={e => setStandaloneRoleFilter(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                  className="w-full pl-8 pr-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
                 >
                   <option value="all">Semua Role RBAC ({sortedStandaloneMenus.length})</option>
                   <option value="super_admin">Super Admin</option>
@@ -1025,7 +1025,7 @@ export const NavigationConfigView: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-              <span className="text-[11px] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+              <span className="text-[11px] font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                 {filteredStandaloneMenus.length} / {sortedStandaloneMenus.length} Menu Mandiri
               </span>
               {isStandaloneFiltered && (
@@ -1046,7 +1046,7 @@ export const NavigationConfigView: React.FC = () => {
 
           {filteredStandaloneMenus.length === 0 ? (
             <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-3">
-              <p className="text-xs font-bold text-[#1F1638] dark:text-white">
+              <p className="text-xs font-bold text-[#26364A] dark:text-white">
                 Tidak ada Menu Mandiri yang cocok dengan pencarian atau filter role.
               </p>
               <button
@@ -1077,17 +1077,17 @@ export const NavigationConfigView: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-xs font-extrabold flex items-center justify-center shrink-0 tabular-nums">
+                        <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-xs font-extrabold flex items-center justify-center shrink-0 tabular-nums">
                           {actualIndex + 1}
                         </span>
-                        <div className="p-2 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#7135B5]/30 shrink-0">
+                        <div className="p-2 rounded-xl bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/30 shrink-0">
                           <MenuIcon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white truncate">
+                          <h4 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white truncate">
                             {menu.label}
                           </h4>
-                          <p className="font-mono text-[11px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                          <p className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                             /{menu.id} · Standalone
                           </p>
                         </div>
@@ -1114,18 +1114,18 @@ export const NavigationConfigView: React.FC = () => {
                     </div>
 
                     {isEditing && (
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
                         <input
                           type="text"
                           value={standaloneDraftLabel}
                           onChange={e => setStandaloneDraftLabel(e.target.value)}
-                          className="flex-1 min-w-[140px] px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                          className="flex-1 min-w-[140px] px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                           autoFocus
                         />
                         <select
                           value={standaloneDraftIcon}
                           onChange={e => setStandaloneDraftIcon(e.target.value)}
-                          className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                          className="px-2.5 py-1.5 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-200 rounded-lg focus:outline-hidden"
                         >
                           {AVAILABLE_ICONS.map(i => (
                             <option key={i.name} value={i.name}>
@@ -1159,15 +1159,15 @@ export const NavigationConfigView: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
                       <div className="flex flex-wrap gap-1">
                         {(menu.roles || []).map(role => (
                           <span
                             key={role}
                             className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
                               role === 'super_admin'
-                                ? 'bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-[#35105E] dark:text-[#DAB9FF] dark:border-[#7135B5]/40'
-                                : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                                ? 'bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#DAB9FF] dark:border-[#7135B5]/40'
+                                : 'bg-[#F4F7FB] text-[#52647A] border border-[#DDE6F0] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
                             }`}
                           >
                             {role.replace('_', ' ')}
@@ -1220,7 +1220,7 @@ export const NavigationConfigView: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                    <tr className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
                       <th className="py-3 px-4 w-20 text-center">Urutan</th>
                       <th className="py-3 px-4 min-w-[230px]">Nama Menu &amp; Path ID</th>
                       <th className="py-3 px-4 w-32">Tipe Engine</th>
@@ -1229,7 +1229,7 @@ export const NavigationConfigView: React.FC = () => {
                       <th className="py-3 px-4 w-32 text-right">Aksi</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2D1754] text-xs">
+                  <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1754] text-xs">
                     {filteredStandaloneMenus.map(menu => {
                       const MenuIcon = getIconComp(menu.icon);
                       const actualIndex = sortedStandaloneMenus.findIndex(m => m.id === menu.id);
@@ -1246,16 +1246,16 @@ export const NavigationConfigView: React.FC = () => {
                               handleDropStandalone(actualIndex);
                             }
                           }}
-                          className={`group transition-colors hover:bg-[#F8F1FF]/80 dark:hover:bg-[#1E1238]/75 ${
+                          className={`group transition-colors odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-[#1E1238]/75 ${
                             menu.visible === false ? 'opacity-60' : ''
                           }`}
                         >
                           <td className="py-3 px-4 text-center">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               {isSuperadmin && !isStandaloneFiltered && (
-                                <GripVertical className="w-4 h-4 text-[#CEC3D4] group-hover:text-[#58149C] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
+                                <GripVertical className="w-4 h-4 text-[#A4B3C4] group-hover:text-[#5145A6] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
                               )}
-                              <span className="w-6 h-6 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[11px] font-extrabold flex items-center justify-center tabular-nums">
+                              <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-extrabold flex items-center justify-center tabular-nums">
                                 {actualIndex + 1}
                               </span>
                             </div>
@@ -1263,7 +1263,7 @@ export const NavigationConfigView: React.FC = () => {
 
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D] flex items-center justify-center shrink-0">
+                              <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#4A258D] flex items-center justify-center shrink-0">
                                 <MenuIcon className="w-4 h-4" />
                               </div>
 
@@ -1273,13 +1273,13 @@ export const NavigationConfigView: React.FC = () => {
                                     type="text"
                                     value={standaloneDraftLabel}
                                     onChange={e => setStandaloneDraftLabel(e.target.value)}
-                                    className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                                    className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                                     autoFocus
                                   />
                                   <select
                                     value={standaloneDraftIcon}
                                     onChange={e => setStandaloneDraftIcon(e.target.value)}
-                                    className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                                    className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-200 rounded-lg focus:outline-hidden"
                                   >
                                     {AVAILABLE_ICONS.map(i => (
                                       <option key={i.name} value={i.name}>
@@ -1313,10 +1313,10 @@ export const NavigationConfigView: React.FC = () => {
                                 </div>
                               ) : (
                                 <div className="min-w-0">
-                                  <div className="font-display font-extrabold text-[#1F1638] dark:text-white truncate">
+                                  <div className="font-display font-extrabold text-[#26364A] dark:text-white truncate">
                                     {menu.label}
                                   </div>
-                                  <div className="font-mono text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                                  <div className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
                                     /{menu.id}
                                   </div>
                                 </div>
@@ -1325,7 +1325,7 @@ export const NavigationConfigView: React.FC = () => {
                           </td>
 
                           <td className="py-3 px-4">
-                            <span className="px-2.5 py-1 rounded-md bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[10px] font-extrabold uppercase tracking-wider">
+                            <span className="px-2.5 py-1 rounded-md bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-extrabold uppercase tracking-wider">
                               Standalone
                             </span>
                           </td>
@@ -1337,8 +1337,8 @@ export const NavigationConfigView: React.FC = () => {
                                   key={role}
                                   className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
                                     role === 'super_admin'
-                                      ? 'bg-[#58149C] text-white dark:bg-[#7135B5]'
-                                      : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                                      ? 'bg-[#6657C8] text-white dark:bg-[#7135B5]'
+                                      : 'bg-[#F4F7FB] text-[#52647A] border border-[#DDE6F0] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
                                   }`}
                                 >
                                   {role.replace('_', ' ')}
@@ -1366,7 +1366,7 @@ export const NavigationConfigView: React.FC = () => {
                                 />
                               </button>
                             ) : (
-                              <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CABDE8]">
+                              <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CABDE8]">
                                 {menu.visible !== false ? 'Aktif' : 'Nonaktif'}
                               </span>
                             )}
@@ -1429,20 +1429,20 @@ export const NavigationConfigView: React.FC = () => {
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
               <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="w-4 h-4 text-[#7D7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={submenuSearch}
                     onChange={e => setSubmenuSearch(e.target.value)}
                     placeholder="Cari submenu / route ID / kategori..."
-                    className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-xl focus:outline-hidden"
+                    className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-xl focus:outline-hidden"
                   />
                 </div>
 
                 <select
                   value={submenuCategoryFilter}
                   onChange={e => setSubmenuCategoryFilter(e.target.value)}
-                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
                 >
                   <option value="all">Semua Kategori ({(submenuItems || []).length} Items)</option>
                   {sortedCategories.map(c => (
@@ -1455,7 +1455,7 @@ export const NavigationConfigView: React.FC = () => {
                 <select
                   value={submenuRoleFilter}
                   onChange={e => setSubmenuRoleFilter(e.target.value)}
-                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
                 >
                   <option value="all">Semua Role Access</option>
                   <option value="super_admin">Super Admin</option>
@@ -1496,8 +1496,8 @@ export const NavigationConfigView: React.FC = () => {
 
             {/* Real Batch Category Move Bar when checkboxes are selected */}
             {isSuperadmin && selectedSubmenuIds.length > 0 && (
-              <div className="pt-3 border-t border-[#EFE7FC] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                   <ArrowRightLeft className="w-4 h-4" />
                   <span>{selectedSubmenuIds.length} submenu dipilih untuk dipindahkan secara batch</span>
                 </div>
@@ -1505,7 +1505,7 @@ export const NavigationConfigView: React.FC = () => {
                   <select
                     value={batchTargetCategoryId}
                     onChange={e => setBatchTargetCategoryId(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
                   >
                     {sortedCategories.map(c => (
                       <option key={c.id} value={c.id}>
@@ -1569,21 +1569,21 @@ export const NavigationConfigView: React.FC = () => {
                   className="card-3d-lavender rounded-2xl overflow-hidden"
                 >
                   {/* Category Accordion Header */}
-                  <div className="px-4 sm:px-5 py-3.5 bg-gradient-to-r from-[#F3EAFF] via-[#F8F1FF] to-white dark:from-[#261547] dark:via-[#1E1238] dark:to-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="px-4 sm:px-5 py-3.5 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#261547] dark:via-[#1E1238] dark:to-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shadow-[0_2px_0_#35105E] shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[#6657C8] to-[#5145A6] dark:from-[#7135B5] dark:to-[#58149C] text-white flex items-center justify-center shadow-[0_2px_0_#3E3484] dark:shadow-[0_2px_0_#35105E] shrink-0">
                         <CatIcon className="w-4 h-4" />
                       </div>
-                      <h4 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white truncate">
+                      <h4 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white truncate">
                         Kategori Induk: {cat.name}
                       </h4>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#58149C] text-white tabular-nums shrink-0">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#6657C8] dark:bg-[#58149C] text-white tabular-nums shrink-0">
                         {filteredInCat.length} Submenu Items
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="hidden sm:inline font-mono text-[11px] font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                      <span className="hidden sm:inline font-mono text-[11px] font-semibold text-[#8492A5] dark:text-[#A79BC0]">
                         Key: {cat.id}
                       </span>
                       <button
@@ -1605,7 +1605,7 @@ export const NavigationConfigView: React.FC = () => {
                   </div>
 
                   {filteredInCat.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-[#7D7484] dark:text-purple-400">
+                    <div className="p-6 text-center text-xs text-[#8492A5] dark:text-purple-400">
                       Belum ada submenu dalam kategori ini. Geser submenu ke sini atau gunakan dropdown pindahkan kategori.
                     </div>
                   ) : isCollapsed ? (
@@ -1617,20 +1617,20 @@ export const NavigationConfigView: React.FC = () => {
                           return (
                             <div
                               key={sub.id}
-                              className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-2"
+                              className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <SubIcon className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                                <SubIcon className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
                                 <div className="min-w-0">
-                                  <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                                  <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                                     {sub.label}
                                   </div>
-                                  <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                                  <div className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                                     /{sub.id}
                                   </div>
                                 </div>
                               </div>
-                              <span className="px-1.5 py-0.5 rounded bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0 tabular-nums">
+                              <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0 tabular-nums">
                                 #{idx + 1}
                               </span>
                             </div>
@@ -1638,8 +1638,8 @@ export const NavigationConfigView: React.FC = () => {
                         })}
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#EFE7FC] dark:border-[#35105E]">
-                        <span className="text-xs font-semibold text-[#4B4452] dark:text-[#CABDE8]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
+                        <span className="text-xs font-semibold text-[#52647A] dark:text-[#CABDE8]">
                           {filteredInCat.length > 3
                             ? `+${filteredInCat.length - 3} submenu lainnya terkonfigurasi dalam kategori ini`
                             : `${filteredInCat.length} submenu terkonfigurasi dalam kategori ini`}
@@ -1671,10 +1671,10 @@ export const NavigationConfigView: React.FC = () => {
                         return (
                           <div
                             key={sub.id}
-                            className={`p-3 rounded-xl bg-[#F8F1FF]/80 dark:bg-[#160D29] border space-y-2.5 ${
+                            className={`p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border space-y-2.5 ${
                               sub.visible === false
                                 ? 'border-slate-200 dark:border-slate-800 opacity-60'
-                                : 'border-[#E8DDFF] dark:border-[#35105E]'
+                                : 'border-[#DDE6F0] dark:border-[#35105E]'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2.5">
@@ -1684,18 +1684,18 @@ export const NavigationConfigView: React.FC = () => {
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={() => handleToggleSelectSubmenu(sub.id)}
-                                    className="rounded border-[#C9B6EA] text-[#58149C] focus:ring-0 cursor-pointer shrink-0"
+                                    className="rounded border-[#9E95DE] dark:border-[#C9B6EA] text-[#5145A6] dark:text-[#58149C] focus:ring-0 cursor-pointer shrink-0"
                                     title="Pilih untuk pindah batch"
                                   />
                                 )}
-                                <div className="p-2 rounded-lg bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
+                                <div className="p-2 rounded-lg bg-white dark:bg-[#261547] text-[#5145A6] dark:text-[#D8B4FE] border border-[#DDE6F0] dark:border-[#35105E] shrink-0">
                                   <SubIcon className="w-3.5 h-3.5" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                                  <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                                     {sub.label}
                                   </div>
-                                  <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                                  <div className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                                     /{sub.id} · #{sIndex + 1}
                                   </div>
                                 </div>
@@ -1721,18 +1721,18 @@ export const NavigationConfigView: React.FC = () => {
                             </div>
 
                             {isEditing && (
-                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
                                 <input
                                   type="text"
                                   value={submenuDraftLabel}
                                   onChange={e => setSubmenuDraftLabel(e.target.value)}
-                                  className="flex-1 min-w-[140px] px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                                  className="flex-1 min-w-[140px] px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                                   autoFocus
                                 />
                                 <select
                                   value={submenuDraftIcon}
                                   onChange={e => setSubmenuDraftIcon(e.target.value)}
-                                  className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                                  className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-200 rounded-lg focus:outline-hidden"
                                 >
                                   {AVAILABLE_ICONS.map(i => (
                                     <option key={i.name} value={i.name}>
@@ -1770,7 +1770,7 @@ export const NavigationConfigView: React.FC = () => {
                               {(sub.roles || []).map(role => (
                                 <span
                                   key={role}
-                                  className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D]"
+                                  className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase bg-white dark:bg-[#261547] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4A258D]"
                                 >
                                   {role.replace('_', ' ')}
                                 </span>
@@ -1778,14 +1778,14 @@ export const NavigationConfigView: React.FC = () => {
                             </div>
 
                             {isSuperadmin && !isEditing && (
-                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
                                 <select
                                   value={sub.categoryId}
                                   onChange={e => {
                                     moveSubmenuToCategory(sub.id, e.target.value);
                                     toast.success('Submenu dipindahkan ke kategori baru.');
                                   }}
-                                  className="px-2.5 py-1 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#D8CCF3] dark:border-[#35105E] text-[#1F1638] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
+                                  className="px-2.5 py-1 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
                                 >
                                   {sortedCategories.map(c => (
                                     <option key={c.id} value={c.id}>
@@ -1841,7 +1841,7 @@ export const NavigationConfigView: React.FC = () => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                          <tr className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
                             <th className="py-2.5 px-3 w-20 text-center">Urutan</th>
                             <th className="py-2.5 px-3 min-w-[200px]">Submenu &amp; Endpoint ID</th>
                             <th className="py-2.5 px-3 min-w-[180px]">Granular Role Access</th>
@@ -1850,7 +1850,7 @@ export const NavigationConfigView: React.FC = () => {
                             <th className="py-2.5 px-3 w-36 text-right">Aksi Manajemen</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2D1754] text-xs">
+                        <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1754] text-xs">
                           {filteredInCat.map(sub => {
                             const SubIcon = getIconComp(sub.icon);
                             const sIndex = allInCat.findIndex(s => s.id === sub.id);
@@ -1868,7 +1868,7 @@ export const NavigationConfigView: React.FC = () => {
                                     handleDropSubmenu(cat.id, sIndex);
                                   }
                                 }}
-                                className={`group transition-colors hover:bg-[#F8F1FF]/80 dark:hover:bg-[#1E1238]/75 ${
+                                className={`group transition-colors odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-[#1E1238]/75 ${
                                   sub.visible === false ? 'opacity-60' : ''
                                 }`}
                               >
@@ -1879,14 +1879,14 @@ export const NavigationConfigView: React.FC = () => {
                                         type="checkbox"
                                         checked={isSelected}
                                         onChange={() => handleToggleSelectSubmenu(sub.id)}
-                                        className="rounded border-[#C9B6EA] text-[#58149C] focus:ring-0 cursor-pointer"
+                                        className="rounded border-[#9E95DE] dark:border-[#C9B6EA] text-[#5145A6] dark:text-[#58149C] focus:ring-0 cursor-pointer"
                                         title="Pilih untuk pindah batch"
                                       />
                                     )}
                                     {isSuperadmin && !isSubmenuFiltered && (
-                                      <GripVertical className="w-3.5 h-3.5 text-[#CEC3D4] group-hover:text-[#58149C] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
+                                      <GripVertical className="w-3.5 h-3.5 text-[#A4B3C4] group-hover:text-[#5145A6] dark:text-purple-500/60 dark:group-hover:text-[#DAB9FF] cursor-grab" />
                                     )}
-                                    <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                                    <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                                       #{sIndex + 1}
                                     </span>
                                   </div>
@@ -1894,7 +1894,7 @@ export const NavigationConfigView: React.FC = () => {
 
                                 <td className="py-2.5 px-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="p-2 rounded-lg bg-[#F3EAFF] dark:bg-[#261547] text-[#58149C] dark:text-[#D8B4FE] border border-[#E8DDFF] dark:border-[#35105E] shrink-0">
+                                    <div className="p-2 rounded-lg bg-[#EAE8FF] dark:bg-[#261547] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#35105E] shrink-0">
                                       <SubIcon className="w-3.5 h-3.5" />
                                     </div>
                                     {isEditing ? (
@@ -1903,13 +1903,13 @@ export const NavigationConfigView: React.FC = () => {
                                           type="text"
                                           value={submenuDraftLabel}
                                           onChange={e => setSubmenuDraftLabel(e.target.value)}
-                                          className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-white rounded-lg focus:outline-hidden"
+                                          className="px-2.5 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                                           autoFocus
                                         />
                                         <select
                                           value={submenuDraftIcon}
                                           onChange={e => setSubmenuDraftIcon(e.target.value)}
-                                          className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#1F1638] dark:text-purple-200 rounded-lg focus:outline-hidden"
+                                          className="px-2 py-1 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-200 rounded-lg focus:outline-hidden"
                                         >
                                           {AVAILABLE_ICONS.map(i => (
                                             <option key={i.name} value={i.name}>
@@ -1943,10 +1943,10 @@ export const NavigationConfigView: React.FC = () => {
                                       </div>
                                     ) : (
                                       <div className="min-w-0">
-                                        <div className="font-bold text-[#1F1638] dark:text-white truncate">
+                                        <div className="font-bold text-[#26364A] dark:text-white truncate">
                                           {sub.label}
                                         </div>
-                                        <div className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                                        <div className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
                                           /{sub.id}
                                         </div>
                                       </div>
@@ -1961,8 +1961,8 @@ export const NavigationConfigView: React.FC = () => {
                                         key={role}
                                         className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase ${
                                           role === 'super_admin'
-                                            ? 'bg-[#58149C] text-white dark:bg-[#7135B5]'
-                                            : 'bg-[#F8F1FF] text-[#4B4452] border border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
+                                            ? 'bg-[#6657C8] text-white dark:bg-[#7135B5]'
+                                            : 'bg-[#F4F7FB] text-[#52647A] border border-[#DDE6F0] dark:bg-[#160D29] dark:text-[#CABDE8] dark:border-[#35105E]'
                                         }`}
                                       >
                                         {role.replace('_', ' ')}
@@ -1979,7 +1979,7 @@ export const NavigationConfigView: React.FC = () => {
                                         moveSubmenuToCategory(sub.id, e.target.value);
                                         toast.success('Submenu dipindahkan ke kategori baru.');
                                       }}
-                                      className="w-full px-2 py-1.5 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#D8CCF3] dark:border-[#35105E] text-[#1F1638] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
+                                      className="w-full px-2 py-1.5 text-[10.5px] font-semibold bg-white dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-purple-200 rounded-xl focus:outline-hidden cursor-pointer"
                                       title="Pindahkan ke Kategori Lain"
                                     >
                                       {sortedCategories.map(c => (
@@ -1989,7 +1989,7 @@ export const NavigationConfigView: React.FC = () => {
                                       ))}
                                     </select>
                                   ) : (
-                                    <span className="text-[11px] font-semibold text-[#4B4452] dark:text-[#CABDE8]">
+                                    <span className="text-[11px] font-semibold text-[#52647A] dark:text-[#CABDE8]">
                                       {cat.name}
                                     </span>
                                   )}
@@ -2080,15 +2080,15 @@ export const NavigationConfigView: React.FC = () => {
       {/* ================================================================ */}
       {/* BOTTOM DB INTEGRITY & QUICK STATS FOOTER BAR (STITCH TEMPLATES)  */}
       {/* ================================================================ */}
-      <div className="bg-[#160D29] text-white rounded-2xl border border-[#35105E] px-4 sm:px-5 py-3.5 shadow-[0_4px_0_#0d061b] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#CABDE8]">
-          <span className="inline-flex items-center gap-1.5 font-bold text-white">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+      <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-2xl border border-[#C5BEEF] dark:border-[#35105E] px-4 sm:px-5 py-3.5 shadow-[0_4px_12px_rgba(38,54,74,0.06)] dark:shadow-[0_4px_0_#0d061b] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#52647A] dark:text-[#CABDE8]">
+          <span className="inline-flex items-center gap-1.5 font-bold text-[#26364A] dark:text-white">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>PostgreSQL Realtime:</span>
-            <span className="font-mono text-[#DAB9FF]">app_settings / navigation_doc</span>
+            <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">app_settings / navigation_doc</span>
           </span>
-          <span className="text-[#4B386B]">|</span>
-          <span className="font-mono text-[11px] tabular-nums text-[#EEDBFF]">
+          <span className="text-[#C5BEEF] dark:text-[#4B386B]">|</span>
+          <span className="font-mono text-[11px] tabular-nums text-[#52647A] dark:text-[#EEDBFF]">
             {sortedCategories.length} Kategori · {sortedStandaloneMenus.length} Mandiri · {(submenuItems || []).length} Submenu · v{navDocVersion}
           </span>
         </div>
@@ -2112,7 +2112,7 @@ export const NavigationConfigView: React.FC = () => {
         isOpen={showAddCategoryModal}
         onClose={() => setShowAddCategoryModal(false)}
         title="Tambah Kategori Navigasi"
-        icon={<Plus className="w-4 h-4 text-[#D8B4FE]" />}
+        icon={<Plus className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -2122,7 +2122,7 @@ export const NavigationConfigView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddCategoryModal(false)}
-              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-purple-300 dark:hover:text-white rounded-xl cursor-pointer"
             >
               Batal
             </button>
@@ -2143,7 +2143,7 @@ export const NavigationConfigView: React.FC = () => {
                 setNewCategoryName('');
                 setShowAddCategoryModal(false);
               }}
-              className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-bold bg-[#6657C8] hover:bg-[#5145A6] dark:bg-[#7135B5] dark:hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
             >
               Tambah Kategori
             </button>
@@ -2152,7 +2152,7 @@ export const NavigationConfigView: React.FC = () => {
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Nama Kategori
             </label>
             <input
@@ -2160,18 +2160,18 @@ export const NavigationConfigView: React.FC = () => {
               value={newCategoryName}
               onChange={e => setNewCategoryName(e.target.value)}
               placeholder="Contoh: Operasional Khusus"
-              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+              className="w-full px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-xl focus:border-[#6657C8] dark:focus:border-[#7135B5] focus:outline-hidden"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Ikon Kategori
             </label>
             <select
               value={newCategoryIcon}
               onChange={e => setNewCategoryIcon(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+              className="w-full px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-xl focus:border-[#6657C8] dark:focus:border-[#7135B5] focus:outline-hidden"
             >
               {AVAILABLE_ICONS.map(i => (
                 <option key={i.name} value={i.name}>
@@ -2182,7 +2182,7 @@ export const NavigationConfigView: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Mode Tampilan
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -2191,8 +2191,8 @@ export const NavigationConfigView: React.FC = () => {
                 onClick={() => setNewCategoryMode('accordion')}
                 className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                   newCategoryMode === 'accordion'
-                    ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
-                    : 'bg-[#100921] border-[#35105E] text-purple-300'
+                    ? 'bg-[#EAE8FF] border-[#6657C8] text-[#5145A6] dark:bg-[#7135B5]/40 dark:border-[#D8B4FE] dark:text-white'
+                    : 'bg-[#F4F7FB] border-[#DDE6F0] text-[#52647A] dark:bg-[#100921] dark:border-[#35105E] dark:text-purple-300'
                 }`}
               >
                 Accordion (Collapsible)
@@ -2202,8 +2202,8 @@ export const NavigationConfigView: React.FC = () => {
                 onClick={() => setNewCategoryMode('static')}
                 className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                   newCategoryMode === 'static'
-                    ? 'bg-[#7135B5]/40 border-[#D8B4FE] text-white'
-                    : 'bg-[#100921] border-[#35105E] text-purple-300'
+                    ? 'bg-[#EAE8FF] border-[#6657C8] text-[#5145A6] dark:bg-[#7135B5]/40 dark:border-[#D8B4FE] dark:text-white'
+                    : 'bg-[#F4F7FB] border-[#DDE6F0] text-[#52647A] dark:bg-[#100921] dark:border-[#35105E] dark:text-purple-300'
                 }`}
               >
                 Static (Selalu Terbuka)
@@ -2221,7 +2221,7 @@ export const NavigationConfigView: React.FC = () => {
         onClose={() => setDeletingCategory(null)}
         title={deletingCategory ? `Hapus Kategori "${deletingCategory.name}"?` : 'Hapus Kategori'}
         subtitle="Pilih penanganan untuk submenu yang berada di dalam kategori ini"
-        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -2231,7 +2231,7 @@ export const NavigationConfigView: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeletingCategory(null)}
-              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-purple-300 dark:hover:text-white cursor-pointer"
             >
               Batal
             </button>
@@ -2252,23 +2252,23 @@ export const NavigationConfigView: React.FC = () => {
       >
         {deletingCategory && (
           <div className="space-y-3">
-            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] cursor-pointer">
               <input
                 type="radio"
                 name="delAction"
                 checked={deleteSubmenuAction === 'move'}
                 onChange={() => setDeleteSubmenuAction('move')}
-                className="mt-0.5 text-purple-500 focus:ring-0"
+                className="mt-0.5 text-[#6657C8] dark:text-purple-500 focus:ring-0"
               />
               <div className="flex-1 min-w-0">
-                <span className="text-xs font-bold text-white block">
+                <span className="text-xs font-bold text-[#26364A] dark:text-white block">
                   Pindahkan Submenu ke Kategori Lain
                 </span>
                 <select
                   value={deleteTargetCategoryId}
                   onChange={e => setDeleteTargetCategoryId(e.target.value)}
                   disabled={deleteSubmenuAction !== 'move'}
-                  className="mt-2 w-full px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#35105E] text-white rounded-lg focus:outline-hidden"
+                  className="mt-2 w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
                 >
                   {sortedCategories
                     .filter(c => c.id !== deletingCategory.id)
@@ -2281,19 +2281,19 @@ export const NavigationConfigView: React.FC = () => {
               </div>
             </label>
 
-            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#100921] border border-[#35105E] cursor-pointer">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] cursor-pointer">
               <input
                 type="radio"
                 name="delAction"
                 checked={deleteSubmenuAction === 'disable'}
                 onChange={() => setDeleteSubmenuAction('disable')}
-                className="mt-0.5 text-purple-500 focus:ring-0"
+                className="mt-0.5 text-[#6657C8] dark:text-purple-500 focus:ring-0"
               />
               <div>
-                <span className="text-xs font-bold text-white block">
+                <span className="text-xs font-bold text-[#26364A] dark:text-white block">
                   Nonaktifkan Seluruh Submenu
                 </span>
-                <span className="text-[11px] text-purple-300">
+                <span className="text-[11px] text-[#52647A] dark:text-purple-300">
                   Submenu akan disembunyikan dari navigasi tanpa menghapus fungsi atau halaman aslinya.
                 </span>
               </div>
@@ -2309,7 +2309,7 @@ export const NavigationConfigView: React.FC = () => {
         isOpen={Boolean(deletingSubmenu)}
         onClose={() => setDeletingSubmenu(null)}
         title={deletingSubmenu ? `Hapus Submenu "${deletingSubmenu.label}"?` : 'Hapus Submenu'}
-        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -2319,7 +2319,7 @@ export const NavigationConfigView: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeletingSubmenu(null)}
-              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-purple-300 dark:hover:text-white cursor-pointer"
             >
               Batal
             </button>
@@ -2338,7 +2338,7 @@ export const NavigationConfigView: React.FC = () => {
           </>
         }
       >
-        <p className="text-xs text-purple-300 leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-purple-300 leading-relaxed">
           Perubahan akan berlaku secara global setelah Anda menekan tombol Simpan Konfigurasi.
         </p>
       </ResponsiveModal>
@@ -2350,7 +2350,7 @@ export const NavigationConfigView: React.FC = () => {
         isOpen={showAddSubmenuModal}
         onClose={() => setShowAddSubmenuModal(false)}
         title="Tambah Submenu Baru"
-        icon={<Plus className="w-4 h-4 text-[#D8B4FE]" />}
+        icon={<Plus className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -2360,7 +2360,7 @@ export const NavigationConfigView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddSubmenuModal(false)}
-              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-purple-300 dark:hover:text-white rounded-xl cursor-pointer"
             >
               Batal
             </button>
@@ -2381,7 +2381,7 @@ export const NavigationConfigView: React.FC = () => {
                 setNewSubmenuLabel('');
                 setShowAddSubmenuModal(false);
               }}
-              className="px-4 py-2 text-xs font-bold bg-[#7135B5] hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-bold bg-[#6657C8] hover:bg-[#5145A6] dark:bg-[#7135B5] dark:hover:bg-[#8B4BC1] text-white rounded-xl cursor-pointer"
             >
               Tambah Submenu
             </button>
@@ -2390,7 +2390,7 @@ export const NavigationConfigView: React.FC = () => {
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Label Submenu
             </label>
             <input
@@ -2398,18 +2398,18 @@ export const NavigationConfigView: React.FC = () => {
               value={newSubmenuLabel}
               onChange={e => setNewSubmenuLabel(e.target.value)}
               placeholder="Contoh: Laporan Mingguan"
-              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+              className="w-full px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-xl focus:border-[#6657C8] dark:focus:border-[#7135B5] focus:outline-hidden"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Kategori Induk (Parent Category)
             </label>
             <select
               value={newSubmenuCategoryId}
               onChange={e => setNewSubmenuCategoryId(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+              className="w-full px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-xl focus:border-[#6657C8] dark:focus:border-[#7135B5] focus:outline-hidden"
             >
               {sortedCategories.map(c => (
                 <option key={c.id} value={c.id}>
@@ -2420,13 +2420,13 @@ export const NavigationConfigView: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Ikon Submenu
             </label>
             <select
               value={newSubmenuIcon}
               onChange={e => setNewSubmenuIcon(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#100921] border border-[#35105E] text-white rounded-xl focus:border-[#7135B5] focus:outline-hidden"
+              className="w-full px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#100921] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white rounded-xl focus:border-[#6657C8] dark:focus:border-[#7135B5] focus:outline-hidden"
             >
               {AVAILABLE_ICONS.map(i => (
                 <option key={i.name} value={i.name}>
@@ -2437,12 +2437,12 @@ export const NavigationConfigView: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-purple-200 block mb-1">
+            <label className="text-xs font-semibold text-[#26364A] dark:text-purple-200 block mb-1">
               Hak Akses Role
             </label>
             <div className="flex flex-wrap gap-2">
               {['super_admin', 'dispatch', 'leader', 'installer'].map(r => (
-                <label key={r} className="flex items-center gap-1.5 text-xs text-purple-300">
+                <label key={r} className="flex items-center gap-1.5 text-xs text-[#52647A] dark:text-purple-300">
                   <input
                     type="checkbox"
                     checked={newSubmenuRoles.includes(r)}
@@ -2453,7 +2453,7 @@ export const NavigationConfigView: React.FC = () => {
                         setNewSubmenuRoles(prev => prev.filter(x => x !== r));
                       }
                     }}
-                    className="rounded border-[#35105E] text-purple-600 focus:ring-0"
+                    className="rounded border-[#DDE6F0] dark:border-[#35105E] text-[#6657C8] dark:text-purple-600 focus:ring-0"
                   />
                   <span className="capitalize">{r.replace('_', ' ')}</span>
                 </label>
@@ -2470,7 +2470,7 @@ export const NavigationConfigView: React.FC = () => {
         isOpen={showResetConfirm}
         onClose={() => setShowResetConfirm(false)}
         title="Reset ke Default Navigasi?"
-        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -2480,7 +2480,7 @@ export const NavigationConfigView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowResetConfirm(false)}
-              className="px-4 py-2 text-xs font-semibold text-purple-300 hover:text-white cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-purple-300 dark:hover:text-white cursor-pointer"
             >
               Batal
             </button>
@@ -2495,7 +2495,7 @@ export const NavigationConfigView: React.FC = () => {
           </>
         }
       >
-        <p className="text-xs text-purple-300 leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-purple-300 leading-relaxed">
           Tindakan ini akan mengembalikan susunan 7 Menu Mandiri dan 3 Kategori Accordion (Contractor &amp; Area, Installer, Menu Tambahan) ke konfigurasi standar.
         </p>
       </ResponsiveModal>
@@ -2508,18 +2508,18 @@ export const NavigationConfigView: React.FC = () => {
         onClose={() => setShowPreviewModal(false)}
         title="Pratinjau Navigasi MoraJaws"
         subtitle="Pratinjau tampilan navigasi Sidebar dan Bottom Navigation Bright Theme dengan berbagai peran user."
-        icon={<Eye className="w-4 h-4 text-[#D8B4FE]" />}
+        icon={<Eye className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />}
         variant="dark_purple"
         size="xl"
         mobileVariant="fullscreen"
         zIndexClass="z-60"
         headerExtra={
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-xs text-purple-300 font-semibold whitespace-nowrap">Simulasikan Role:</span>
+            <span className="hidden sm:inline text-xs text-[#52647A] dark:text-purple-300 font-semibold whitespace-nowrap">Simulasikan Role:</span>
             <select
               value={previewRole}
               onChange={e => setPreviewRole(e.target.value as any)}
-              className="px-2.5 py-1.5 text-xs bg-[#160D29] border border-[#7135B5] text-white rounded-lg focus:outline-hidden"
+              className="px-2.5 py-1.5 text-xs bg-[#F4F7FB] dark:bg-[#160D29] border border-[#C5BEEF] dark:border-[#7135B5] text-[#26364A] dark:text-white rounded-lg focus:outline-hidden"
             >
               <option value="super_admin">Super Admin</option>
               <option value="dispatch">Dispatch</option>

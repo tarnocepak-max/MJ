@@ -251,24 +251,24 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
         {!hasDedicatedStitchHeader && (
           <div className="space-y-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="px-2.5 py-0.5 bg-[#7135b5] text-white text-[10px] font-extrabold font-mono uppercase tracking-wider rounded-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_#35105e] whitespace-nowrap">
+              <span className="px-2.5 py-0.5 bg-[#EAE8FF] dark:bg-[#7135b5] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-transparent text-[10px] font-extrabold font-mono uppercase tracking-wider rounded-md shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_2px_0_#CFDCE8] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_#35105e] whitespace-nowrap">
                 OPS COMMAND · V4.2
               </span>
-              <span className="text-[11px] font-mono font-semibold text-[#4b4452] dark:text-[#cabde8]">
+              <span className="text-[11px] font-mono font-semibold text-[#52647A] dark:text-[#cabde8]">
                 Canonical 46-Column Architecture
               </span>
-              <span className="hidden sm:inline text-[#cec3d4] dark:text-[#5b35b1]">|</span>
-              <span className="text-[11px] font-mono font-semibold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+              <span className="hidden sm:inline text-[#CFDCE8] dark:text-[#5b35b1]">|</span>
+              <span className="text-[11px] font-mono font-semibold text-[#2E7D8B] dark:text-[#dab9ff] tabular-nums">
                 todayWIB: {todayWIB} · Auto-Rollover Active
               </span>
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-tight">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#26364A] dark:text-white tracking-tight leading-tight">
               MoraJaws Ops Command &amp; Live Telemetry
             </h1>
-            <p className="text-xs sm:text-sm text-[#4b4452] dark:text-[#cabde8] max-w-2xl leading-relaxed">
-              Pusat kendali operasional Work Order FTTH real-time dengan sinkronisasi Express API &amp; Supabase PostgreSQL untuk{' '}
-              <span className="font-semibold text-[#58149c] dark:text-[#dab9ff]">
+            <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#cabde8] max-w-2xl leading-relaxed">
+              Pusat kendali operasional Work Order FTTH real-time untuk{' '}
+              <span className="font-semibold text-[#5145A6] dark:text-[#dab9ff]">
                 {currentUser.name}
               </span>
               .
@@ -290,10 +290,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               activeView === 'overview'
                 ? 'mj-tactile-tab-active'
-                : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+                : 'text-[#52647A] dark:text-[#cabde8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
             }`}
           >
-            <LayoutGrid className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
+            <LayoutGrid className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#dab9ff]" />
             <span>Operations Overview</span>
           </button>
 
@@ -306,13 +306,13 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 activeView === 'verification'
                   ? 'mj-tactile-tab-active'
-                  : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+                  : 'text-[#52647A] dark:text-[#cabde8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
               }`}
             >
-              <ClipboardCheck className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
+              <ClipboardCheck className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#dab9ff]" />
               <span>Antrean Verifikasi QC</span>
               {counts.butuhApproval > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-[#DC4C5A] text-white font-mono text-[10px] tabular-nums">
+                <span className="px-1.5 py-0.5 rounded bg-[#D45B66] dark:bg-[#DC4C5A] text-white font-mono text-[10px] tabular-nums">
                   {counts.butuhApproval}
                 </span>
               )}
@@ -327,12 +327,12 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               activeView === 'queue'
                 ? 'mj-tactile-tab-active'
-                : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+                : 'text-[#52647A] dark:text-[#cabde8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
+            <Layers className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#dab9ff]" />
             <span>Live Queue &amp; Dispatch</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#eee4ff] dark:bg-[#35105e] text-[#58149c] dark:text-[#dab9ff] font-mono text-[10px] tabular-nums">
+            <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105e] text-[#5145A6] dark:text-[#dab9ff] font-mono text-[10px] tabular-nums">
               {counts.totalToday}
             </span>
           </button>
@@ -345,10 +345,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               activeView === 'matrix'
                 ? 'mj-tactile-tab-active'
-                : 'text-[#4b4452] dark:text-[#cabde8] hover:text-[#1f1638] dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+                : 'text-[#52647A] dark:text-[#cabde8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#7135b5] dark:text-[#dab9ff]" />
+            <Sparkles className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#dab9ff]" />
             <span>Tactile Ops Matrix</span>
           </button>
         </div>
@@ -386,17 +386,17 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
           {/* 3-Card Telemetry Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Telemetry Card 1: Total Operational Today + SVG Sparkline */}
-            <div className="mj-tactile-card p-5 border border-[#e8ddff] dark:border-[#3b1d78] space-y-3">
+            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                     TODAY OPERATIONAL VOLUME
                   </span>
-                  <h2 className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white font-mono tabular-nums mt-0.5">
+                  <h2 className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white font-mono tabular-nums mt-0.5">
                     {counts.totalToday} WO
                   </h2>
                 </div>
-                <span className="px-2 py-0.5 rounded-md bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300 font-mono text-[10px] font-bold tabular-nums">
+                <span className="px-2 py-0.5 rounded-md bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 font-mono text-[10px] font-bold tabular-nums">
                   {completionPct}% Done
                 </span>
               </div>
@@ -404,82 +404,82 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               <svg viewBox="0 0 200 42" className="w-full h-11 overflow-visible" aria-label="Pipeline WO Sparkline">
                 <defs>
                   <linearGradient id="mj-ops-spark" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#7135b5" stopOpacity="0.28" />
-                    <stop offset="100%" stopColor="#7135b5" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor="#6657C8" stopOpacity="0.24" />
+                    <stop offset="100%" stopColor="#65B8C4" stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
                 <path d={sparklineData.areaPath} fill="url(#mj-ops-spark)" />
-                <path d={sparklineData.linePath} fill="none" stroke="#7135b5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={sparklineData.linePath} fill="none" stroke="#6657C8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                 {sparklineData.pts.map((pt, idx) => (
-                  <circle key={idx} cx={pt.x} cy={pt.y} r="2.5" className="fill-[#58149c] dark:fill-[#dab9ff]" />
+                  <circle key={idx} cx={pt.x} cy={pt.y} r="2.5" className="fill-[#5145A6] dark:fill-[#dab9ff]" />
                 ))}
               </svg>
 
-              <div className="flex items-center justify-between text-[11px] font-mono text-[#4b4452] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#f3eaff] dark:border-[#35105e]">
+              <div className="flex items-center justify-between text-[11px] font-mono text-[#52647A] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#DDE6F0] dark:border-[#35105e]">
                 <span>Assigned: {counts.assigned}</span>
                 <span>Belum Assign: {counts.unassigned}</span>
               </div>
             </div>
 
             {/* Telemetry Card 2: Dispatch Review & Approval Funnel */}
-            <div className="mj-tactile-card p-5 border border-[#e8ddff] dark:border-[#3b1d78] space-y-3">
+            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#6a46c1] dark:text-[#dab9ff]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#6657C8] dark:text-[#dab9ff]">
                     DISPATCH APPROVAL FUNNEL
                   </span>
-                  <h2 className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white font-mono tabular-nums mt-0.5">
+                  <h2 className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white font-mono tabular-nums mt-0.5">
                     {counts.butuhApproval} Antrean
                   </h2>
                 </div>
-                <span className="p-2 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff]">
+                <span className="p-2 rounded-xl bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff]">
                   <ClipboardCheck className="w-4 h-4" />
                 </span>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] font-semibold">
-                  <span className="text-[#4b4452] dark:text-[#cabde8]">Done / Closed Dispatch</span>
-                  <span className="font-mono font-bold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+                  <span className="text-[#52647A] dark:text-[#cabde8]">Done / Closed Dispatch</span>
+                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
                     {completedCount} Done · {counts.closed} Closed / {counts.totalToday}
                   </span>
                 </div>
                 <div className="mj-tactile-well h-2.5 w-full overflow-hidden p-0.5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#7135b5] to-[#16a36a] transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-[#6657C8] to-[#218A63] dark:from-[#7135b5] dark:to-[#16a36a] transition-all duration-500"
                     style={{ width: `${completionPct}%` }}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-[11px] font-mono text-[#4b4452] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#f3eaff] dark:border-[#35105e]">
-                <span className="text-[#15803D] dark:text-emerald-300">
+              <div className="flex items-center justify-between text-[11px] font-mono text-[#52647A] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#DDE6F0] dark:border-[#35105e]">
+                <span className="text-[#218A63] dark:text-emerald-300">
                   Approved: {counts.approved} ({approvalPct}%)
                 </span>
-                <span className="text-[#ba1a1a] dark:text-rose-300">Revisi: {counts.revisionRejected}</span>
+                <span className="text-[#9B2C37] dark:text-rose-300">Revisi: {counts.revisionRejected}</span>
               </div>
             </div>
 
             {/* Telemetry Card 3: Field Check-in & Sync Status */}
-            <div className="mj-tactile-card p-5 border border-[#e8ddff] dark:border-[#3b1d78] space-y-3 flex flex-col justify-between">
+            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3 flex flex-col justify-between">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#0d9488] dark:text-teal-300">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-teal-300">
                     FIELD EXECUTION &amp; SYNC
                   </span>
-                  <h2 className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white font-mono tabular-nums mt-0.5">
+                  <h2 className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white font-mono tabular-nums mt-0.5">
                     {counts.checkedInProgress} On-Site
                   </h2>
                 </div>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#eee4ff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] font-mono text-[10px] font-bold">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] font-mono text-[10px] font-bold">
                   <Database className="w-3 h-3" />
                   <span>{databaseStatus === 'connected' ? 'LIVE' : databaseStatus.toUpperCase()}</span>
                 </span>
               </div>
 
               <div className="mj-tactile-well p-2.5 flex items-center justify-between text-[11px] font-mono tabular-nums">
-                <span className="text-[#4b4452] dark:text-[#cabde8]">Belum Check-in:</span>
-                <span className="font-bold text-[#d97706] dark:text-amber-300">{counts.notCheckedIn} WO</span>
+                <span className="text-[#52647A] dark:text-[#cabde8]">Belum Check-in:</span>
+                <span className="font-bold text-[#9D661F] dark:text-amber-300">{counts.notCheckedIn} WO</span>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
@@ -506,13 +506,13 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
 
           {/* Live Work Order Queue Table / Mobile Priority Cards */}
           <div className="space-y-3">
-            <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] px-4 sm:px-5 py-3.5 bg-[#f8f1ff] dark:bg-[#1a0f30] flex flex-wrap items-center justify-between gap-3">
+            <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] px-4 sm:px-5 py-3.5 bg-[#F8FAFD] dark:bg-[#1a0f30] flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-white">
+                <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white">
                   Antrean Prioritas Work Order Aktif ({priorityQueueTickets.length} Teratas)
                 </h3>
-                <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
-                  Menampilkan tiket nyata sesuai scope peran {currentUser.role.replace('_', ' ')} untuk tindak lanjut cepat.
+                <p className="text-[11px] text-[#52647A] dark:text-[#cabde8]">
+                  Menampilkan tiket aktif sesuai scope peran {currentUser.role.replace('_', ' ')}.
                 </p>
               </div>
               <button
@@ -529,7 +529,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               data={priorityQueueTickets}
               getRowKey={t => t.id}
               stickyHeader={false}
-              mobileTitle={t => <span className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{t.woNumber}</span>}
+              mobileTitle={t => <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{t.woNumber}</span>}
               mobileSubtitle={t => `${t.customerName} • ${t.slotTime || t.appointmentDate || todayWIB}`}
               mobileStatus={t => (
                 <>
@@ -567,7 +567,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                           className="mj-tactile-btn-secondary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                           title="Buka LiveChat WO"
                         >
-                          <MessageSquare className="w-3 h-3 text-[#7135b5] dark:text-[#dab9ff]" />
+                          <MessageSquare className="w-3 h-3 text-[#6657C8] dark:text-[#dab9ff]" />
                           <span>LiveChat</span>
                         </button>
                         <button
@@ -594,7 +594,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                     key: 'woNumber',
                     label: 'WO Number',
                     priority: 'hidden_mobile',
-                    tdClassName: 'font-mono font-bold text-[#58149c] dark:text-[#dab9ff] whitespace-nowrap',
+                    tdClassName: 'font-mono font-bold text-[#5145A6] dark:text-[#dab9ff] whitespace-nowrap',
                     render: t => t.woNumber
                   },
                   {
@@ -603,10 +603,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                     priority: 'hidden_mobile',
                     render: t => (
                       <div>
-                        <div className="font-semibold text-[#1f1638] dark:text-white truncate max-w-[180px]">
+                        <div className="font-semibold text-[#26364A] dark:text-white truncate max-w-[180px]">
                           {t.customerName}
                         </div>
-                        <div className="text-[10.5px] font-mono text-[#7d7484] dark:text-[#cabde8]">
+                        <div className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#cabde8]">
                           {t.slotTime || t.appointmentDate || todayWIB}
                         </div>
                       </div>
@@ -617,9 +617,9 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                     label: 'Vendor & Area',
                     priority: 'primary',
                     render: t => (
-                      <div className="text-[#4b4452] dark:text-[#cabde8]">
+                      <div className="text-[#52647A] dark:text-[#cabde8]">
                         <div className="font-medium truncate max-w-[170px]">{t.contactorName || '-'}</div>
-                        <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8]/80">{t.area || '-'}</div>
+                        <div className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80">{t.area || '-'}</div>
                       </div>
                     )
                   },
@@ -629,9 +629,9 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                     priority: 'primary',
                     render: t =>
                       t.installerName ? (
-                        <span className="font-semibold text-[#1f1638] dark:text-white">{t.installerName}</span>
+                        <span className="font-semibold text-[#26364A] dark:text-white">{t.installerName}</span>
                       ) : (
-                        <span className="italic text-[#d97706] dark:text-amber-300 font-semibold">Belum Assign</span>
+                        <span className="italic text-[#C88735] dark:text-amber-300 font-semibold">Belum Assign</span>
                       )
                   },
                   {
@@ -663,39 +663,39 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
       {/* TAB 3: TACTILE OPS MATRIX (5-TIER CONTROL MATRIX + MICRO KEYS + FAB + LIVE STREAM) */}
       {activeView === 'matrix' && (
         <div className="space-y-5 animate-in fade-in duration-200">
-          {/* Dark Physics Telemetry Banner */}
-          <div className="rounded-xl bg-[#342b4e] dark:bg-[#160D29] text-white p-5 shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.28)] border border-[#4f4273] dark:border-[#3b1d78]">
+          {/* Unified Aqua-Violet Glass Banner (Light) / Dark Physics Telemetry Banner (Night) */}
+          <div className="rounded-xl bg-gradient-to-br from-white/95 via-[#F4F7FB]/92 to-[#DDF4F4]/80 dark:from-[#160D29] dark:via-[#160D29] dark:to-[#160D29] text-[#26364A] dark:text-white p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_4px_0_#DDE6F0,0_12px_24px_-8px_rgba(38,54,74,0.10)] dark:shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.28)] border border-[#CFDCE8] dark:border-[#3b1d78]">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="space-y-1.5 max-w-2xl">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-[#7135b5] text-white font-mono text-[10px] font-extrabold uppercase tracking-wider shadow-[0_2px_0_#35105e]">
+                  <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#7135b5] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-transparent font-mono text-[10px] font-extrabold uppercase tracking-wider shadow-[0_2px_0_#CFDCE8] dark:shadow-[0_2px_0_#35105e]">
                     TACTILE OPS KERNEL
                   </span>
-                  <span className="font-mono text-[11px] text-[#dab9ff]">
-                    Top Bevel: 1px Specular Highlight · Bottom Ledge: 4px Extruded Ridge
+                  <span className="font-mono text-[11px] text-[#2E7D8B] dark:text-[#dab9ff]">
+                    Crystal Water Glass · Unified 3D Action Matrix
                   </span>
                 </div>
-                <h2 className="font-display text-lg sm:text-xl font-extrabold text-white tracking-tight">
+                <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
                   Matriks Kendali Cepat &amp; Haptic Ops Feedback
                 </h2>
-                <p className="text-xs text-[#f5eeff]/80 leading-relaxed">
-                  Setiap tombol pada matriks ini terhubung ke modul operasional aktif MoraJaws sesuai izin peran{' '}
-                  <strong className="text-white">{currentUser.role}</strong>.
+                <p className="text-xs text-[#52647A] dark:text-[#f5eeff]/80 leading-relaxed">
+                  Setiap tombol terhubung ke modul operasional MoraJaws sesuai izin peran{' '}
+                  <strong className="text-[#5145A6] dark:text-white">{currentUser.role}</strong>.
                 </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2 shrink-0">
-                <div className="rounded-lg bg-[#1f1638]/70 border border-white/10 px-3 py-2 text-center">
-                  <div className="font-mono text-[9.5px] uppercase text-[#dab9ff]">WO HARI INI</div>
-                  <div className="font-mono text-base font-extrabold text-white tabular-nums">{counts.totalToday}</div>
+                <div className="rounded-lg bg-[#F8FAFD] dark:bg-[#1f1638]/70 border border-[#DDE6F0] dark:border-white/10 px-3 py-2 text-center">
+                  <div className="font-mono text-[9.5px] uppercase text-[#52647A] dark:text-[#dab9ff]">WO HARI INI</div>
+                  <div className="font-mono text-base font-extrabold text-[#26364A] dark:text-white tabular-nums">{counts.totalToday}</div>
                 </div>
-                <div className="rounded-lg bg-[#1f1638]/70 border border-white/10 px-3 py-2 text-center">
-                  <div className="font-mono text-[9.5px] uppercase text-[#dab9ff]">APPROVAL</div>
-                  <div className="font-mono text-base font-extrabold text-amber-300 tabular-nums">{counts.butuhApproval}</div>
+                <div className="rounded-lg bg-[#F8FAFD] dark:bg-[#1f1638]/70 border border-[#DDE6F0] dark:border-white/10 px-3 py-2 text-center">
+                  <div className="font-mono text-[9.5px] uppercase text-[#52647A] dark:text-[#dab9ff]">APPROVAL</div>
+                  <div className="font-mono text-base font-extrabold text-[#C88735] dark:text-amber-300 tabular-nums">{counts.butuhApproval}</div>
                 </div>
-                <div className="rounded-lg bg-[#1f1638]/70 border border-white/10 px-3 py-2 text-center">
-                  <div className="font-mono text-[9.5px] uppercase text-[#dab9ff]">SYNC STATE</div>
-                  <div className="font-mono text-xs font-extrabold text-emerald-300 mt-1">{syncStatus}</div>
+                <div className="rounded-lg bg-[#F8FAFD] dark:bg-[#1f1638]/70 border border-[#DDE6F0] dark:border-white/10 px-3 py-2 text-center">
+                  <div className="font-mono text-[9.5px] uppercase text-[#52647A] dark:text-[#dab9ff]">SYNC STATE</div>
+                  <div className="font-mono text-xs font-extrabold text-[#218A63] dark:text-emerald-300 mt-1">{syncStatus}</div>
                 </div>
               </div>
             </div>
@@ -703,25 +703,25 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
 
           {/* 5-Tier Tactile Action Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-            {/* Tier 01: Primary — Imperial Violet */}
-            <div className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            {/* Tier 01: Primary */}
+            <div className="mj-tactile-card p-4 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                     TIER 01 // PRIMARY
                   </span>
-                  <span className="w-2 h-2 rounded-full bg-[#7135b5]" />
+                  <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#7135b5]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
-                    Imperial Violet
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
+                    Crystal Violet
                   </h3>
-                  <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1 leading-snug">
-                    Aksi operasional utama seperti penugasan WO atau eksekusi daftar tiket hari ini.
+                  <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1 leading-snug">
+                    Penugasan WO atau eksekusi daftar tiket hari ini.
                   </p>
                 </div>
-                <div className="mj-tactile-well p-2 text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
-                  <span className="font-mono font-bold block text-[#58149c] dark:text-[#dab9ff]">ACTION ROUTE</span>
+                <div className="mj-tactile-well p-2 text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                  <span className="font-mono font-bold block text-[#5145A6] dark:text-[#dab9ff]">ACTION ROUTE</span>
                   <span>
                     {currentUser.role === 'leader' ? 'Assign WO Lapangan' : 'Daftar Work Orders'}
                   </span>
@@ -739,29 +739,29 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   <Wrench className="w-3.5 h-3.5" />
                   <span>{currentUser.role === 'leader' ? 'Assign WO' : 'Buka Tickets'}</span>
                 </button>
-                <div className="text-center font-mono text-[10px] text-[#7d7484] mt-2">Ridge: #35105E</div>
+                <div className="text-center font-mono text-[10px] text-[#8492A5] mt-2">Bevel: #5145A6</div>
               </div>
             </div>
 
-            {/* Tier 02: Secondary — Lilac Ceramic */}
-            <div className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            {/* Tier 02: Secondary */}
+            <div className="mj-tactile-card p-4 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#4b4452] dark:text-[#cabde8]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#cabde8]">
                     TIER 02 // SECONDARY
                   </span>
-                  <span className="w-2 h-2 rounded-full bg-[#cec3d4]" />
+                  <span className="w-2 h-2 rounded-full bg-[#65B8C4] dark:bg-[#cec3d4]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
-                    Lilac Ceramic
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
+                    Aqua Frosted
                   </h3>
-                  <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1 leading-snug">
-                    Inspeksi laporan progres, filter lanjutan, dan riwayat aktivitas historis.
+                  <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1 leading-snug">
+                    Inspeksi laporan progres, filter lanjutan, dan riwayat historis.
                   </p>
                 </div>
-                <div className="mj-tactile-well p-2 text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
-                  <span className="font-mono font-bold block text-[#4b4452] dark:text-[#dab9ff]">ACTION ROUTE</span>
+                <div className="mj-tactile-well p-2 text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                  <span className="font-mono font-bold block text-[#52647A] dark:text-[#dab9ff]">ACTION ROUTE</span>
                   <span>History Progress &amp; Rekap</span>
                 </div>
               </div>
@@ -772,34 +772,34 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                     recordTactileAction('NAV_REPORT', 'Membuka History Progress Report', 'info');
                     onNavigate('history_progress');
                   }}
-                  className="mj-tactile-btn-secondary w-full py-2.5 px-3 rounded-xl text-xs inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap border border-[#cec3d4] dark:border-[#4b386b]"
+                  className="mj-tactile-btn-secondary w-full py-2.5 px-3 rounded-xl text-xs inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap border border-[#DDE6F0] dark:border-[#4b386b]"
                 >
-                  <Filter className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  <Filter className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                   <span>History Progress</span>
                 </button>
-                <div className="text-center font-mono text-[10px] text-[#7d7484] mt-2">Ridge: #CEC3D4</div>
+                <div className="text-center font-mono text-[10px] text-[#8492A5] mt-2">Bevel: #CFDCE8</div>
               </div>
             </div>
 
-            {/* Tier 03: Success — Emerald Specular */}
-            <div className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            {/* Tier 03: Success */}
+            <div className="mj-tactile-card p-4 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#15803D] dark:text-emerald-300">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#218A63] dark:text-emerald-300">
                     TIER 03 // SUCCESS
                   </span>
-                  <span className="w-2 h-2 rounded-full bg-[#16a36a]" />
+                  <span className="w-2 h-2 rounded-full bg-[#218A63] dark:bg-[#16a36a]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
-                    Emerald Specular
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
+                    Emerald Glass
                   </h3>
-                  <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1 leading-snug">
-                    Verifikasi approval Dispatch, kelola ringkasan report, dan penyelesaian BAST.
+                  <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1 leading-snug">
+                    Verifikasi approval Dispatch, ringkasan report, dan penyelesaian BAST.
                   </p>
                 </div>
-                <div className="mj-tactile-well p-2 text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
-                  <span className="font-mono font-bold block text-[#15803D] dark:text-emerald-300">QUEUE COUNT</span>
+                <div className="mj-tactile-well p-2 text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                  <span className="font-mono font-bold block text-[#218A63] dark:text-emerald-300">QUEUE COUNT</span>
                   <span className="tabular-nums">{counts.butuhApproval} Menunggu Approval</span>
                 </div>
               </div>
@@ -816,29 +816,29 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{currentUser.role === 'installer' ? 'Laporan Saya' : 'Report & Review'}</span>
                 </button>
-                <div className="text-center font-mono text-[10px] text-[#7d7484] mt-2">Ridge: #0D6E45</div>
+                <div className="text-center font-mono text-[10px] text-[#8492A5] mt-2">Bevel: #1B6E4F</div>
               </div>
             </div>
 
-            {/* Tier 04: Destructive / Alert — Crimson Obsidian */}
-            <div className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            {/* Tier 04: Destructive / Alert */}
+            <div className="mj-tactile-card p-4 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#ba1a1a] dark:text-rose-300">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
                     TIER 04 // ESCALATION
                   </span>
-                  <span className="w-2 h-2 rounded-full bg-[#ba1a1a]" />
+                  <span className="w-2 h-2 rounded-full bg-[#D45B66] dark:bg-[#ba1a1a]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
-                    Crimson Obsidian
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
+                    Coral Crystal
                   </h3>
-                  <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1 leading-snug">
-                    Koordinasi revisi laporan, eskalasi kendala lapangan, dan penanganan penolakan.
+                  <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1 leading-snug">
+                    Koordinasi revisi laporan, eskalasi kendala lapangan, dan penolakan.
                   </p>
                 </div>
-                <div className="mj-tactile-well p-2 text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
-                  <span className="font-mono font-bold block text-[#ba1a1a] dark:text-rose-300">REVISION QUEUE</span>
+                <div className="mj-tactile-well p-2 text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                  <span className="font-mono font-bold block text-[#9B2C37] dark:text-rose-300">REVISION QUEUE</span>
                   <span className="tabular-nums">{counts.revisionRejected} Perlu Revisi</span>
                 </div>
               </div>
@@ -854,29 +854,29 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   <ShieldAlert className="w-3.5 h-3.5" />
                   <span>Coordination</span>
                 </button>
-                <div className="text-center font-mono text-[10px] text-[#7d7484] mt-2">Ridge: #7A0E0E</div>
+                <div className="text-center font-mono text-[10px] text-[#8492A5] mt-2">Bevel: #B13E49</div>
               </div>
             </div>
 
-            {/* Tier 05: Warning — Amber Crucible */}
-            <div className="mj-tactile-card p-4 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            {/* Tier 05: Warning */}
+            <div className="mj-tactile-card p-4 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#b45309] dark:text-amber-300">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9D661F] dark:text-amber-300">
                     TIER 05 // SLA ALERT
                   </span>
-                  <span className="w-2 h-2 rounded-full bg-[#d97706]" />
+                  <span className="w-2 h-2 rounded-full bg-[#C88735] dark:bg-[#d97706]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
-                    Amber Crucible
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
+                    Amber Prism
                   </h3>
-                  <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1 leading-snug">
-                    Pemantauan ambang SLA vendor, ketepatan waktu teknisi, dan notifikasi pelanggaran.
+                  <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1 leading-snug">
+                    Pemantauan ambang SLA vendor, ketepatan waktu teknisi, dan notifikasi.
                   </p>
                 </div>
-                <div className="mj-tactile-well p-2 text-[10.5px] text-[#4b4452] dark:text-[#cabde8]">
-                  <span className="font-mono font-bold block text-[#b45309] dark:text-amber-300">UNASSIGNED / DELAY</span>
+                <div className="mj-tactile-well p-2 text-[10.5px] text-[#52647A] dark:text-[#cabde8]">
+                  <span className="font-mono font-bold block text-[#9D661F] dark:text-amber-300">UNASSIGNED / DELAY</span>
                   <span className="tabular-nums">{counts.unassigned + counts.notCheckedIn} Perlu Pantau</span>
                 </div>
               </div>
@@ -893,7 +893,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   <TrendingUp className="w-3.5 h-3.5" />
                   <span>Monitor SLA</span>
                 </button>
-                <div className="text-center font-mono text-[10px] text-[#7d7484] mt-2">Ridge: #92400E</div>
+                <div className="text-center font-mono text-[10px] text-[#8492A5] mt-2">Bevel: #A16720</div>
               </div>
             </div>
           </div>
@@ -901,15 +901,15 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
           {/* Bottom 3-Column Interaction Deck: Micro Keys | Cloud Sync FAB | Live Event Console */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Micro Keys Tray */}
-            <div className="mj-tactile-card p-5 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-4">
+            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-4">
               <div>
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                   TACTILE SQUARE TRAYS
                 </span>
-                <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white mt-0.5">
+                <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
                   High-Precision Micro Keys
                 </h3>
-                <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1">
+                <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1">
                   Keypad taktil 44x44px untuk akses modul cepat dan sinkronisasi instan.
                 </p>
               </div>
@@ -967,29 +967,29 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                       onNavigate('settings');
                     }}
                     title="Setup Terpusat"
-                    className="mj-tactile-btn-secondary w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border border-[#cec3d4] dark:border-[#4b386b]"
+                    className="mj-tactile-btn-secondary w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border border-[#DDE6F0] dark:border-[#4b386b]"
                   >
                     <SlidersHorizontal className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
-              <div className="mj-tactile-well p-2.5 text-[10.5px] font-mono text-[#4b4452] dark:text-[#cabde8]">
-                Tekan micro-key di atas untuk memicu aksi modul nyata &amp; audit event.
+              <div className="mj-tactile-well p-2.5 text-[10.5px] font-mono text-[#52647A] dark:text-[#cabde8]">
+                Tekan micro-key di atas untuk memicu aksi modul &amp; audit event.
               </div>
             </div>
 
             {/* Cloud Sync High-Elevation Switch */}
-            <div className="mj-tactile-card p-5 border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col justify-between gap-4">
+            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col justify-between gap-4">
               <div>
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                   TACTILE HIGH-ELEVATION KEY
                 </span>
-                <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white mt-0.5">
+                <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
                   Sinkronisasi Cloud &amp; Live Queue
                 </h3>
-                <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] mt-1">
-                  Tombol sinkronisasi penuh ke Express API &amp; Supabase PostgreSQL.
+                <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] mt-1">
+                  Sinkronisasi penuh ke Express API &amp; Supabase PostgreSQL.
                 </p>
               </div>
 
@@ -998,10 +998,10 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                   type="button"
                   onClick={() => onChangeView('queue')}
                   title="Lihat Antrean Prioritas"
-                  className="relative w-14 h-14 rounded-2xl bg-[#7135b5] hover:bg-[#58149c] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_0_#35105e] active:translate-y-[4px] active:shadow-[0_1px_0_#35105e] transition-all flex items-center justify-center shrink-0 cursor-pointer"
+                  className="btn-3d-primary relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 cursor-pointer"
                 >
                   <Activity className="w-5 h-5" />
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-[#d97706] text-white font-mono text-[10px] font-extrabold flex items-center justify-center shadow-xs tabular-nums">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-[#C88735] dark:bg-[#d97706] text-white font-mono text-[10px] font-extrabold flex items-center justify-center shadow-xs tabular-nums">
                     {counts.butuhApproval}
                   </span>
                 </button>
@@ -1017,32 +1017,32 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                 </button>
               </div>
 
-              <div className="mj-tactile-well p-2.5 flex items-center justify-between text-[10.5px] font-mono text-[#4b4452] dark:text-[#cabde8]">
+              <div className="mj-tactile-well p-2.5 flex items-center justify-between text-[10.5px] font-mono text-[#52647A] dark:text-[#cabde8]">
                 <span>Status DB: {databaseStatus}</span>
-                <span className="text-[#58149c] dark:text-[#dab9ff] font-bold">{scopedTickets.length} WO</span>
+                <span className="text-[#5145A6] dark:text-[#dab9ff] font-bold">{scopedTickets.length} WO</span>
               </div>
             </div>
 
             {/* Live Audit & Tactile Event Stream */}
-            <div className="rounded-xl bg-[#342b4e] dark:bg-[#160D29] text-white p-5 shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.28)] border border-[#4f4273] dark:border-[#3b1d78] flex flex-col justify-between gap-3">
+            <div className="mj-tactile-card rounded-xl dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white p-5 border border-[#CFDCE8] dark:border-[#3b1d78] dark:shadow-[0_4px_0_#1f1638,0_12px_24px_-6px_rgba(31,22,56,0.28)] flex flex-col justify-between gap-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#dab9ff]">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#dab9ff]">
                     LIVE AUDIT &amp; EVENT STREAM
                   </span>
-                  <h3 className="font-display text-sm font-extrabold text-white mt-0.5 flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-[#a380fe]" />
+                  <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5 flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#a380fe]" />
                     <span>Activity Feedback Log</span>
                   </h3>
                 </div>
-                <span className="px-2 py-0.5 rounded bg-[#1f1638] font-mono text-[10px] text-emerald-300 font-bold">
+                <span className="px-2 py-0.5 rounded bg-[#E4F5EC] dark:bg-[#1f1638] border border-[#B7E4CC] dark:border-transparent font-mono text-[10px] text-[#218A63] dark:text-emerald-300 font-bold">
                   {syncStatus}
                 </span>
               </div>
 
-              <div className="rounded-lg bg-[#1f1638] border border-white/10 p-3 space-y-1.5 min-h-[120px] max-h-[148px] overflow-y-auto font-mono text-[10.5px]">
+              <div className="rounded-lg bg-[#F8FAFD] dark:bg-[#1f1638] border border-[#DDE6F0] dark:border-white/10 p-3 space-y-1.5 min-h-[120px] max-h-[148px] overflow-y-auto font-mono text-[10.5px]">
                 {consoleFeed.length === 0 ? (
-                  <div className="text-[#dab9ff]/70">
+                  <div className="text-[#8492A5] dark:text-[#dab9ff]/70">
                     Menunggu event interaksi atau audit database baru...
                   </div>
                 ) : (
@@ -1052,19 +1052,19 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                         <span
                           className={`font-bold mr-1.5 ${
                             entry.tone === 'success'
-                              ? 'text-emerald-300'
+                              ? 'text-[#218A63] dark:text-emerald-300'
                               : entry.tone === 'danger'
-                              ? 'text-rose-300'
+                              ? 'text-[#9B2C37] dark:text-rose-300'
                               : entry.tone === 'warning'
-                              ? 'text-amber-300'
-                              : 'text-[#dab9ff]'
+                              ? 'text-[#9D661F] dark:text-amber-300'
+                              : 'text-[#5145A6] dark:text-[#dab9ff]'
                           }`}
                         >
                           [{entry.tag}]
                         </span>
-                        <span className="text-[#f5eeff]/90">{entry.message}</span>
+                        <span className="text-[#26364A] dark:text-[#f5eeff]/90">{entry.message}</span>
                       </div>
-                      <span className="text-[#cabde8]/70 shrink-0 tabular-nums">{entry.time}</span>
+                      <span className="text-[#8492A5] dark:text-[#cabde8]/70 shrink-0 tabular-nums">{entry.time}</span>
                     </div>
                   ))
                 )}
@@ -1074,7 +1074,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                 <button
                   type="button"
                   onClick={() => setInteractionLogs([])}
-                  className="w-full py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-[11px] font-mono font-semibold text-[#f5eeff] transition-colors cursor-pointer"
+                  className="btn-3d-secondary dark:bg-none dark:bg-white/10 dark:hover:bg-white/15 dark:border-transparent dark:shadow-none dark:text-[#f5eeff] w-full py-1.5 px-3 rounded-lg text-[11px] font-mono font-semibold transition-colors cursor-pointer"
                 >
                   Clear Interactive Events
                 </button>

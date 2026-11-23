@@ -76,8 +76,8 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
             <TicketIcon className="w-[18px] h-[18px] shrink-0" />
             {totalActiveTickets > 0 && (
               <span
-                className={`absolute -top-1.5 -right-2.5 px-1 py-0.2 min-w-[16px] text-center bg-rose-500 text-white rounded-full text-[8.5px] font-mono font-bold leading-tight ring-2 ${
-                  activeTab === 'tickets' ? 'ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
+                className={`absolute -top-1.5 -right-2.5 px-1 py-0.2 min-w-[16px] text-center bg-[#D45B66] dark:bg-rose-500 text-white rounded-full text-[8.5px] font-mono font-bold leading-tight ring-2 ${
+                  activeTab === 'tickets' ? 'ring-[#6657C8] dark:ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
                 } tabular-nums`}
               >
                 {totalActiveTickets > 99 ? '99+' : totalActiveTickets}
@@ -133,8 +133,8 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
             <MessageCircle className="w-[18px] h-[18px] shrink-0" />
             {unreadMessages > 0 && (
               <span
-                className={`absolute -top-1.5 -right-2.5 min-w-[16px] rounded-full bg-emerald-500 px-1 text-center text-[8.5px] font-mono font-bold leading-4 text-white ring-2 ${
-                  activeTab === 'contact_centre' ? 'ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
+                className={`absolute -top-1.5 -right-2.5 min-w-[16px] rounded-full bg-[#218A63] dark:bg-emerald-500 px-1 text-center text-[8.5px] font-mono font-bold leading-4 text-white ring-2 ${
+                  activeTab === 'contact_centre' ? 'ring-[#6657C8] dark:ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
                 } tabular-nums`}
               >
                 {unreadMessages > 99 ? '99+' : unreadMessages}

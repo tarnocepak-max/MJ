@@ -1119,20 +1119,20 @@ const MainLayout: React.FC = () => {
         return <SetupHubView initialTab="workflows" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'offline_sync':
         return (
-          <div className="p-8 bg-white dark:bg-[#1a0f30] rounded-2xl shadow-sm border border-[#D8CCF3] dark:border-[#3B1D78] text-center space-y-4 max-w-2xl mx-auto">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner">
+          <div className="p-8 bg-white/88 dark:bg-[#1a0f30] backdrop-blur-xl rounded-2xl shadow-sm border border-[#DDE6F0] dark:border-[#3B1D78] text-center space-y-4 max-w-2xl mx-auto">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-[#DDF4F4] dark:bg-indigo-950/60 text-[#5145A6] dark:text-indigo-400 flex items-center justify-center shadow-inner">
               <Database className="w-8 h-8" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-[#21183A] dark:text-[#F5F1FF]">Pusat Sinkronisasi Database Offline</h2>
-              <p className="text-xs text-[#756B8D] dark:text-[#D8CCF3] mt-1">
+              <h2 className="text-lg font-bold text-[#26364A] dark:text-[#F5F1FF]">Pusat Sinkronisasi Database Offline</h2>
+              <p className="text-xs text-[#52647A] dark:text-[#D8CCF3] mt-1">
                 Sistem penyimpanan lokal IndexedDB dan antrean mutasi data saat berada di area tanpa sinyal internet.
               </p>
             </div>
             <div className="pt-2">
               <button
                 onClick={openOfflineSyncCenter}
-                className="px-6 py-2.5 bg-[#5B35B1] hover:bg-[#3B1D78] text-white font-bold text-xs rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className="px-6 py-2.5 mj-tactile-btn-primary text-white font-bold text-xs rounded-xl cursor-pointer"
               >
                 Buka Panel Kontrol Sinkronisasi
               </button>
@@ -1166,7 +1166,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <div
-      className="h-dvh flex flex-col overflow-hidden mj-aurora-bg text-[#1f1638] dark:text-[#f3effc] transition-colors relative"
+      className="h-dvh flex flex-col overflow-hidden mj-aurora-bg text-[#26364A] dark:text-[#f3effc] transition-colors relative"
     >
       {/* Main Workspace Frame */}
       <div className="flex-1 flex min-h-0 overflow-hidden">

@@ -16,24 +16,24 @@ const INLINE_STYLES: Record<
   { wrap: string; iconColor: string; text: string }
 > = {
   info: {
-    wrap: 'bg-[#EEE5FF]/70 dark:bg-[#2A1352]/80 border-[#D8C5FF] dark:border-[#8648F5]/45',
-    iconColor: 'text-[#5424A8] dark:text-[#C9A8FF]',
-    text: 'text-[#28203A] dark:text-[#EEE5FF]'
+    wrap: 'bg-[#EAE8FF]/75 dark:bg-[#2A1352]/80 border-[#DCE3F2] dark:border-[#8648F5]/45',
+    iconColor: 'text-[#5145A6] dark:text-[#C9A8FF]',
+    text: 'text-[#26364A] dark:text-[#EEE5FF]'
   },
   warning: {
-    wrap: 'bg-amber-50/90 dark:bg-amber-950/45 border-amber-200 dark:border-amber-700/60',
-    iconColor: 'text-amber-600 dark:text-amber-300',
-    text: 'text-amber-950 dark:text-amber-100'
+    wrap: 'bg-[#FFF2D9]/85 dark:bg-amber-950/45 border-[#F2CF95] dark:border-amber-700/60',
+    iconColor: 'text-[#C88735] dark:text-amber-300',
+    text: 'text-[#26364A] dark:text-amber-100'
   },
   error: {
-    wrap: 'bg-rose-50/90 dark:bg-rose-950/45 border-rose-200 dark:border-rose-700/60',
-    iconColor: 'text-rose-600 dark:text-rose-300',
-    text: 'text-rose-950 dark:text-rose-100'
+    wrap: 'bg-[#FCE9EB]/85 dark:bg-rose-950/45 border-[#F3C5CA] dark:border-rose-700/60',
+    iconColor: 'text-[#D45B66] dark:text-rose-300',
+    text: 'text-[#26364A] dark:text-rose-100'
   },
   success: {
-    wrap: 'bg-emerald-50/90 dark:bg-emerald-950/45 border-emerald-200 dark:border-emerald-700/60',
-    iconColor: 'text-emerald-600 dark:text-emerald-300',
-    text: 'text-emerald-950 dark:text-emerald-100'
+    wrap: 'bg-[#E4F5EC]/85 dark:bg-emerald-950/45 border-[#B7E4CC] dark:border-emerald-700/60',
+    iconColor: 'text-[#218A63] dark:text-emerald-300',
+    text: 'text-[#26364A] dark:text-emerald-100'
   }
 };
 
@@ -64,7 +64,7 @@ export const NotificationInline: React.FC<NotificationInlineProps> = ({
         <div className="min-w-0">
           <div className={`font-bold leading-snug ${s.text}`}>{message}</div>
           {detail && (
-            <div className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] mt-0.5 leading-snug">
+            <div className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] mt-0.5 leading-snug">
               {detail}
             </div>
           )}
@@ -76,7 +76,7 @@ export const NotificationInline: React.FC<NotificationInlineProps> = ({
           type="button"
           onClick={onDismiss}
           aria-label="Tutup pesan"
-          className="p-0.5 rounded-lg text-[#756C86] hover:text-[#28203A] dark:text-[#BFB2DC] dark:hover:text-white cursor-pointer shrink-0"
+          className="p-0.5 rounded-lg text-[#8492A5] hover:text-[#26364A] dark:text-[#BFB2DC] dark:hover:text-white cursor-pointer shrink-0"
         >
           <X className="w-3.5 h-3.5" />
         </button>

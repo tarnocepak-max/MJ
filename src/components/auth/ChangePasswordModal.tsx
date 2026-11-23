@@ -130,34 +130,34 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     policy.score >= 90
       ? 'bg-emerald-500'
       : policy.score >= 75
-      ? 'bg-[#7135B5]'
+      ? 'bg-[#6657C8] dark:bg-[#7135B5]'
       : policy.score >= 50
       ? 'bg-amber-500'
       : 'bg-rose-500';
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[130] bg-[#160D29]/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto pointer-events-auto"
+      className="fixed inset-0 z-[130] bg-slate-900/45 dark:bg-[#160D29]/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto pointer-events-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="change-password-modal-title"
       onClick={resetAndClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-[#FDF7FF] dark:bg-[#1E1338] border border-[#E8DDFF] dark:border-[#49258C] shadow-[0_24px_60px_rgba(18,8,38,0.55)] overflow-hidden"
+        className="w-full max-w-md rounded-2xl bg-white dark:bg-[#1E1338] border border-[#DDE6F0] dark:border-[#49258C] shadow-[0_24px_60px_rgba(38,54,74,0.22)] dark:shadow-[0_24px_60px_rgba(18,8,38,0.55)] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-[#58149C] via-[#7135B5] to-[#4A1285] text-white flex items-center justify-between gap-3">
+        <div className="px-5 py-4 bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#58149C] dark:via-[#7135B5] dark:to-[#4A1285] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-transparent flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-              <KeyRound className="w-4 h-4 text-[#F4EAFF]" />
+            <div className="w-9 h-9 rounded-xl bg-white/85 dark:bg-white/15 border border-[#C5BEEF] dark:border-white/25 flex items-center justify-center shrink-0">
+              <KeyRound className="w-4 h-4 text-[#5145A6] dark:text-[#F4EAFF]" />
             </div>
             <div className="min-w-0">
               <h2 id="change-password-modal-title" className="font-display text-base font-extrabold tracking-tight truncate">
                 Ganti Password Akun
               </h2>
-              <p className="text-[11px] text-[#EEDBFF] truncate">
+              <p className="text-[11px] text-[#52647A] dark:text-[#EEDBFF] truncate">
                 {user.name} (@{user.username})
               </p>
             </div>
@@ -168,15 +168,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             onClick={resetAndClose}
             disabled={submitting}
             aria-label="Tutup modal ganti password"
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer disabled:opacity-50"
+            className="w-8 h-8 rounded-lg bg-white/80 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-transparent flex items-center justify-center text-[#52647A] dark:text-white transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="p-3 rounded-xl bg-[#F4EAFF] dark:bg-[#2A194F] border border-[#DFCEFA] dark:border-[#532B9E] text-xs text-[#35105E] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+          <div className="p-3 rounded-xl bg-[#EAE8FF] dark:bg-[#2A194F] border border-[#C5BEEF] dark:border-[#532B9E] text-xs text-[#26364A] dark:text-[#E9D5FF] leading-relaxed flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <span>
               Gunakan kata sandi baru <strong>maksimal {MAX_PASSWORD_LENGTH} karakter</strong> (4–{MAX_PASSWORD_LENGTH} karakter tanpa spasi).
             </span>
@@ -191,11 +191,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
           {/* Current Password */}
           <div>
-            <label className="block text-xs font-bold text-[#1F1638] dark:text-white mb-1.5">
+            <label className="block text-xs font-bold text-[#26364A] dark:text-white mb-1.5">
               Password Saat Ini <span className="text-[#BA1A1A]">*</span>
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-[#8492A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type={showCurrent ? 'text' : 'password'}
                 required
@@ -204,12 +204,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 value={currentPassword}
                 onChange={e => setCurrentPassword(e.target.value)}
                 placeholder="Masukkan password saat ini"
-                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7135B5]/40"
+                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] rounded-xl text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/35 dark:focus:ring-[#7135B5]/40"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrent(v => !v)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
                 tabIndex={-1}
                 aria-label="Tampilkan atau sembunyikan password saat ini"
               >
@@ -221,15 +221,15 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           {/* New Password */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-[#1F1638] dark:text-white">
+              <label className="block text-xs font-bold text-[#26364A] dark:text-white">
                 Password Baru <span className="text-[#BA1A1A]">*</span>
               </label>
-              <span className="font-mono text-[10.5px] font-bold text-[#7135B5] dark:text-[#DAB9FF] tabular-nums">
+              <span className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                 {newPassword.length}/{MAX_PASSWORD_LENGTH} karakter
               </span>
             </div>
             <div className="relative">
-              <KeyRound className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <KeyRound className="w-4 h-4 text-[#8492A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type={showNew ? 'text' : 'password'}
                 required
@@ -238,12 +238,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                 placeholder={`Maksimal ${MAX_PASSWORD_LENGTH} karakter`}
-                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7135B5]/40"
+                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] rounded-xl text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/35 dark:focus:ring-[#7135B5]/40"
               />
               <button
                 type="button"
                 onClick={() => setShowNew(v => !v)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
                 tabIndex={-1}
                 aria-label="Tampilkan atau sembunyikan password baru"
               >
@@ -254,12 +254,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             {newPassword && (
               <div className="mt-2 space-y-1.5">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#4B4452] dark:text-[#CABDE8] font-semibold">Validitas Password</span>
-                  <span className="font-bold text-[#35105E] dark:text-[#DAB9FF] tabular-nums">
+                  <span className="text-[#52647A] dark:text-[#CABDE8] font-semibold">Validitas Password</span>
+                  <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                     {policy.strengthLabel} ({policy.score}%)
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2F1859] overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-[#DDE6F0] dark:bg-[#2F1859] overflow-hidden">
                   <div
                     className={`h-full transition-all duration-200 ${strengthColor}`}
                     style={{ width: `${policy.score}%` }}
@@ -271,11 +271,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
           {/* Confirm New Password */}
           <div>
-            <label className="block text-xs font-bold text-[#1F1638] dark:text-white mb-1.5">
+            <label className="block text-xs font-bold text-[#26364A] dark:text-white mb-1.5">
               Konfirmasi Password Baru <span className="text-[#BA1A1A]">*</span>
             </label>
             <div className="relative">
-              <KeyRound className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <KeyRound className="w-4 h-4 text-[#8492A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type={showConfirm ? 'text' : 'password'}
                 required
@@ -284,12 +284,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value.slice(0, MAX_PASSWORD_LENGTH))}
                 placeholder="Ketik ulang password baru"
-                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] rounded-xl text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7135B5]/40"
+                className="tactile-debossed-input w-full min-h-[42px] pl-10 pr-10 py-2 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] rounded-xl text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/35 dark:focus:ring-[#7135B5]/40"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(v => !v)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#7D7484] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
                 tabIndex={-1}
                 aria-label="Tampilkan atau sembunyikan konfirmasi password"
               >
@@ -299,14 +299,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           {/* Checklist */}
-          <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3B1D78] space-y-1 text-[11px]">
+          <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] space-y-1 text-[11px]">
             {policy.rules.map(rule => (
               <div
                 key={rule.id}
                 className={`flex items-center gap-2 ${
                   rule.passed
                     ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
-                    : 'text-[#6A5F78] dark:text-[#9D8FC2]'
+                    : 'text-[#52647A] dark:text-[#9D8FC2]'
                 }`}
               >
                 {rule.passed ? (
@@ -321,7 +321,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               className={`flex items-center gap-2 ${
                 passwordsMatch
                   ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
-                  : 'text-[#6A5F78] dark:text-[#9D8FC2]'
+                  : 'text-[#52647A] dark:text-[#9D8FC2]'
               }`}
             >
               {passwordsMatch ? (
@@ -334,7 +334,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#E8DDFF] dark:border-[#3B1D78]">
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DDE6F0] dark:border-[#3B1D78]">
             <button
               type="button"
               disabled={submitting}

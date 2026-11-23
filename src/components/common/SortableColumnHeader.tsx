@@ -63,16 +63,16 @@ export const SortableColumnHeader: React.FC<SortableColumnHeaderProps> = ({
       onClick={handleClick}
       title={tooltipText}
       aria-label={tooltipText}
-      className={`group/sort inline-flex items-center gap-1.5 font-bold transition-all select-none cursor-pointer hover:text-[#7135B5] dark:hover:text-[#D8B4FE] ${alignClass} ${className} ${
-        isSorted ? 'text-[#7135B5] dark:text-[#D8B4FE]' : ''
+      className={`group/sort inline-flex items-center gap-1.5 font-bold transition-all select-none cursor-pointer hover:text-[#5145A6] dark:hover:text-[#D8B4FE] ${alignClass} ${className} ${
+        isSorted ? 'text-[#5145A6] dark:text-[#D8B4FE]' : ''
       }`}
     >
       <span className="truncate">{children || label}</span>
       <span
         className={`inline-flex items-center justify-center p-0.5 rounded transition-colors ${
           isSorted
-            ? 'bg-[#7135B5]/15 dark:bg-[#D8B4FE]/20 text-[#7135B5] dark:text-[#E9D5FF]'
-            : 'text-slate-400 group-hover/sort:text-slate-600 dark:group-hover/sort:text-slate-300'
+            ? 'bg-[#EAE8FF] dark:bg-[#D8B4FE]/20 text-[#5145A6] dark:text-[#E9D5FF]'
+            : 'text-[#8492A5] group-hover/sort:text-[#26364A] dark:text-slate-400 dark:group-hover/sort:text-slate-300'
         }`}
       >
         {isAsc ? (

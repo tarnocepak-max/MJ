@@ -78,10 +78,10 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
               {isHouse ? <Home className="w-4 h-4" /> : <Radio className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
+              <div className="text-xs font-bold text-[#26364A] dark:text-white flex items-center gap-1.5">
                 <span>{title}</span>
               </div>
-              <div className="text-[10px] text-[#7D7484] dark:text-[#C5B3DF] truncate">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#C5B3DF] truncate">
                 {isHouse ? 'Sumber: 5. Foto Rumah Pelanggan' : 'Sumber: 6. Foto Redaman FAT'}
               </div>
             </div>
@@ -103,7 +103,7 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
               <span>{typeof loc.accuracyMeters === 'number' ? `±${Math.round(loc.accuracyMeters)}m` : 'GPS Valid'}</span>
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-md bg-[#F3EAFF] dark:bg-[#27104A] border border-[#E8DDFF] dark:border-[#4B386B] text-[#7D7484] dark:text-[#C5B3DF] font-mono text-[10px] font-semibold shrink-0">
+            <span className="px-2 py-0.5 rounded-md bg-[#EDF3F8] dark:bg-[#27104A] border border-[#DDE6F0] dark:border-[#4B386B] text-[#8492A5] dark:text-[#C5B3DF] font-mono text-[10px] font-semibold shrink-0">
               Belum Ada GPS
             </span>
           )}
@@ -116,7 +116,7 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setPreviewPhoto({ url: getSafePreviewUrl(fallbackPhotoUrl), title })}
-                  className="relative w-14 h-14 rounded-lg overflow-hidden border border-[#DFC7FF] dark:border-[#4B386B] shrink-0 group cursor-pointer bg-[#F8F1FF] dark:bg-[#160D29]"
+                  className="relative w-14 h-14 rounded-lg overflow-hidden border border-[#DDE6F0] dark:border-[#4B386B] shrink-0 group cursor-pointer bg-[#F4F7FB] dark:bg-[#160D29]"
                   title="Lihat Foto Bukti"
                 >
                   <img
@@ -124,23 +124,23 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
                     alt={title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
-                  <span className="absolute inset-0 bg-[#160D29]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <span className="absolute inset-0 bg-[#26364A]/45 dark:bg-[#160D29]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                     <Maximize2 className="w-3.5 h-3.5 text-white" />
                   </span>
                 </button>
               )}
 
               <div className="min-w-0 flex-1 space-y-1 text-[11px]">
-                <div className="font-mono font-bold text-[#1F1638] dark:text-white tabular-nums truncate">
+                <div className="font-mono font-bold text-[#26364A] dark:text-white tabular-nums truncate">
                   {formatCoordinates(loc.latitude, loc.longitude)}
                 </div>
-                <div className="text-[10.5px] text-[#7D7484] dark:text-[#C5B3DF] flex items-center gap-1 truncate">
+                <div className="text-[10.5px] text-[#8492A5] dark:text-[#C5B3DF] flex items-center gap-1 truncate">
                   <Clock className="w-3 h-3 shrink-0" />
                   <span>{formatCapturedDateTime(loc.capturedAt)}</span>
                 </div>
                 {loc.technicianName && (
-                  <div className="text-[10px] text-[#7D7484] dark:text-[#C5B3DF] truncate">
-                    Teknisi: <strong className="text-[#4B4452] dark:text-white">{loc.technicianName}</strong>
+                  <div className="text-[10px] text-[#8492A5] dark:text-[#C5B3DF] truncate">
+                    Teknisi: <strong className="text-[#26364A] dark:text-white">{loc.technicianName}</strong>
                   </div>
                 )}
               </div>
@@ -170,9 +170,9 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
             )}
           </>
         ) : (
-          <div className="mj-tactile-well border border-dashed border-[#CEC3D4] dark:border-[#4B386B] p-3 text-center space-y-2">
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-[#7135B5] dark:text-[#D8B4FE]" />
+          <div className="mj-tactile-well border border-dashed border-[#CBD5E1] dark:border-[#4B386B] p-3 text-center space-y-2">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#8492A5] dark:text-[#C5B3DF]">
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-[#6657C8] dark:text-[#D8B4FE]" />
               <span>Lokasi belum tersedia — menunggu dokumentasi teknisi</span>
             </div>
             {canQuickCapture && onQuickCapture && (
@@ -199,21 +199,21 @@ export const WorkOrderLocationsCard: React.FC<WorkOrderLocationsCardProps> = ({
 
       {previewPhoto && (
         <div
-          className="fixed inset-0 z-[120] bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[120] bg-slate-950/75 dark:bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
           onClick={() => setPreviewPhoto(null)}
         >
           <div className="relative max-w-3xl max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setPreviewPhoto(null)}
-              className="absolute -top-3 -right-3 p-2 rounded-full bg-[#27104A] text-white border border-[#D8B4FE]/35 hover:bg-rose-600 cursor-pointer"
+              className="absolute -top-3 -right-3 p-2 rounded-full bg-white text-[#26364A] border border-[#DDE6F0] dark:bg-[#27104A] dark:text-white dark:border-[#D8B4FE]/35 hover:bg-rose-600 hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
             <img
               src={previewPhoto.url}
               alt={previewPhoto.title}
-              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#D8B4FE]/25 shadow-2xl"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 shadow-2xl"
             />
             <div className="mt-2 text-center text-xs font-bold text-white">{previewPhoto.title}</div>
           </div>

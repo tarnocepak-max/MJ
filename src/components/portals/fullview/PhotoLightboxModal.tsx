@@ -68,16 +68,16 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white rounded-2xl border border-[#e8ddff] shadow-xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="w-full max-w-2xl bg-white/95 dark:bg-white rounded-2xl border border-[#DDE6F0] dark:border-[#e8ddff] shadow-xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Modal Header */}
-        <div className="px-4 py-3 border-b border-[#e8ddff] bg-[#fdf7ff] flex items-center justify-between gap-3 shrink-0">
+        <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#e8ddff] bg-[#EDF3F8] dark:bg-[#fdf7ff] flex items-center justify-between gap-3 shrink-0">
           <div className="flex flex-col min-w-0">
-            <span className="font-mono text-[10px] text-[#7135b5] font-bold tracking-wider uppercase">
+            <span className="font-mono text-[10px] text-[#2E7D8B] dark:text-[#7135b5] font-bold tracking-wider uppercase">
               {stepLabel}
             </span>
-            <h4 className="font-display text-base text-[#1f1638] font-bold truncate">
+            <h4 className="font-display text-base text-[#26364A] dark:text-[#1f1638] font-bold truncate">
               {titleLabel}
             </h4>
           </div>
@@ -93,7 +93,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
 
         {/* Preview Image Area */}
         <div className="p-3 sm:p-4 overflow-y-auto space-y-3">
-          <div className="relative w-full aspect-[4/3] max-h-[48vh] bg-[#f8f1ff] rounded-xl overflow-hidden border border-[#e8ddff] flex items-center justify-center">
+          <div className="relative w-full aspect-[4/3] max-h-[48vh] bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-[#e8ddff] flex items-center justify-center">
             <img
               src={getSafePreviewUrl(imageUrl)}
               alt={titleLabel}
@@ -102,28 +102,28 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
           </div>
 
           {/* GPS & Telemetry Card */}
-          <div className="bg-[#f8f1ff] rounded-xl p-3 space-y-2.5 border border-[#e8ddff]">
-            <div className="flex items-center justify-between gap-2 flex-wrap text-[#1f1638]">
+          <div className="bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl p-3 space-y-2.5 border border-[#DDE6F0] dark:border-[#e8ddff]">
+            <div className="flex items-center justify-between gap-2 flex-wrap text-[#26364A] dark:text-[#1f1638]">
               <div className="flex items-center gap-1.5 min-w-0">
-                <Satellite className="w-4 h-4 text-[#58149c] shrink-0" />
+                <Satellite className="w-4 h-4 text-[#2E7D8B] dark:text-[#58149c] shrink-0" />
                 {hasZoomGps && matchedSlot ? (
                   <a
                     href={buildGoogleMapsCoordinateUrl(matchedSlot.latitude!, matchedSlot.longitude!)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-[11px] font-bold text-[#58149c] hover:underline inline-flex items-center gap-1 truncate"
+                    className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#58149c] hover:underline inline-flex items-center gap-1 truncate"
                   >
                     <span>{formatCoordinates(matchedSlot.latitude!, matchedSlot.longitude!)}</span>
                     <ExternalLink className="w-3 h-3 shrink-0" />
                   </a>
                 ) : (
-                  <span className="font-mono text-[11px] font-semibold text-[#7d7484]">
+                  <span className="font-mono text-[11px] font-semibold text-[#8492A5] dark:text-[#7d7484]">
                     Koordinat GPS tidak terlampir
                   </span>
                 )}
               </div>
               {metaLine && (
-                <span className="font-mono text-[10.5px] text-[#4b4452] tabular-nums">
+                <span className="font-mono text-[10.5px] text-[#52647A] dark:text-[#4b4452] tabular-nums">
                   {metaLine}
                 </span>
               )}
@@ -151,7 +151,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="px-4 py-3 border-t border-[#e8ddff] bg-white flex gap-2 shrink-0">
+        <div className="px-4 py-3 border-t border-[#DDE6F0] dark:border-[#e8ddff] bg-white/95 dark:bg-white flex gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}

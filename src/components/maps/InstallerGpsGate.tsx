@@ -58,11 +58,11 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
   };
 
   return (
-    <div className="min-h-dvh w-full mj-aurora-bg text-[#1f1638] dark:text-[#f3effc] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-lg card-3d-lavender rounded-3xl p-5 sm:p-7 border border-[#D8C5FF] dark:border-[#35105E] shadow-2xl">
+    <div className="min-h-dvh w-full mj-aurora-bg text-[#26364A] dark:text-[#f3effc] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="w-full max-w-lg card-3d-lavender rounded-3xl p-5 sm:p-7 border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl">
         {/* Top Badge & Logout */}
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#E8DDFF] dark:border-[#35105E]">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-[#58149C]/10 dark:bg-[#7135B5]/25 border border-[#7135B5]/25 text-[#58149C] dark:text-[#DAB9FF]">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#E2E8F0] dark:border-[#35105E]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-[#EAE8FF] dark:bg-[#7135B5]/25 border border-[#C5BEEF] dark:border-[#7135B5]/25 text-[#5145A6] dark:text-[#DAB9FF]">
             <Radio className="w-3.5 h-3.5 animate-pulse" />
             <span className="text-[11px] font-extrabold uppercase tracking-wider">
               Wajib Koneksi GPS Realtime
@@ -72,7 +72,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
           <button
             type="button"
             onClick={onLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D8C5FF] dark:border-[#35105E] bg-white/70 dark:bg-[#22153D] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold text-[#4E4266] dark:text-[#CFC2E8] hover:text-rose-600 dark:hover:text-rose-300 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-white/85 dark:bg-[#22153D] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold text-[#52647A] dark:text-[#CFC2E8] hover:text-rose-600 dark:hover:text-rose-300 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Keluar
@@ -85,7 +85,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
               isDeniedOrUnsupported
                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-400/35'
-                : 'bg-gradient-to-br from-[#58149C] to-[#7135B5] text-white'
+                : 'bg-gradient-to-br from-[#6657C8] to-[#2E7D8B] dark:from-[#58149C] dark:to-[#7135B5] text-white'
             }`}
           >
             {isDeniedOrUnsupported ? (
@@ -95,24 +95,24 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#1f1638] dark:text-white">
+            <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#26364A] dark:text-white">
               Aktifkan GPS Sebelum Masuk Portal Installer
             </h1>
-            <p className="mt-1 text-xs leading-relaxed text-[#4E4266] dark:text-[#CFC2E8]">
+            <p className="mt-1 text-xs leading-relaxed text-[#52647A] dark:text-[#CFC2E8]">
               Demi akurasi penugasan lapangan dan pemantauan posisi pada{' '}
-              <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">Monitoring Maps</span>,
+              <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">Monitoring Maps</span>,
               portal kerja Installer hanya dapat diakses setelah perangkat terhubung dengan GPS aktif.
             </p>
           </div>
         </div>
 
         {/* Installer Profile Strip */}
-        <div className="mt-4 rounded-2xl bg-white/75 dark:bg-[#22153D]/80 border border-[#E8DDFF] dark:border-[#35105E] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-4 rounded-2xl bg-[#F4F7FB] dark:bg-[#22153D]/80 border border-[#DDE6F0] dark:border-[#35105E] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+            <p className="text-xs font-bold text-[#26364A] dark:text-white truncate">
               {currentUser.name}
             </p>
-            <p className="text-[11px] text-[#6A5A8C] dark:text-[#B6A5D8] truncate">
+            <p className="text-[11px] text-[#52647A] dark:text-[#B6A5D8] truncate">
               @{currentUser.username}
               {currentUser.contractor ? ` · ${currentUser.contractor}` : ''}
               {currentUser.area ? ` · ${currentUser.area}` : ''}
@@ -137,7 +137,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
         {/* 3-Step Verification Progress */}
         <div className="mt-4 space-y-2.5">
           {/* Step 1: Browser Location Permission */}
-          <div className="rounded-2xl bg-white/80 dark:bg-[#22153D]/70 border border-[#E8DDFF] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div className="rounded-2xl bg-white/90 dark:bg-[#22153D]/70 border border-[#DDE6F0] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
@@ -145,16 +145,16 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
                     : isDeniedOrUnsupported
                     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                    : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-[#1f1638] dark:text-white">
+                <p className="text-xs font-bold text-[#26364A] dark:text-white">
                   1. Izin Lokasi Browser
                 </p>
-                <p className="text-[11px] text-[#6A5A8C] dark:text-[#B6A5D8] truncate">
+                <p className="text-[11px] text-[#52647A] dark:text-[#B6A5D8] truncate">
                   {hasPermission
                     ? 'Izin lokasi diizinkan'
                     : isDeniedOrUnsupported
@@ -169,7 +169,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                   : isDeniedOrUnsupported
                   ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
               }`}
             >
               {hasPermission ? 'OK' : isDeniedOrUnsupported ? 'TERBLOKIR' : 'MENUNGGU'}
@@ -177,22 +177,22 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
           </div>
 
           {/* Step 2: Real Coordinates Lock */}
-          <div className="rounded-2xl bg-white/80 dark:bg-[#22153D]/70 border border-[#E8DDFF] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div className="rounded-2xl bg-white/90 dark:bg-[#22153D]/70 border border-[#DDE6F0] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
                   hasCoords
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                    : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                    : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                 }`}
               >
                 <Navigation className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-[#1f1638] dark:text-white">
+                <p className="text-xs font-bold text-[#26364A] dark:text-white">
                   2. Kunci Koordinat GPS Perangkat
                 </p>
-                <p className="text-[11px] font-mono text-[#6A5A8C] dark:text-[#B6A5D8] truncate">
+                <p className="text-[11px] font-mono text-[#52647A] dark:text-[#B6A5D8] truncate">
                   {hasCoords && gpsSnapshot.latitude !== null && gpsSnapshot.longitude !== null
                     ? `${gpsSnapshot.latitude.toFixed(6)}, ${gpsSnapshot.longitude.toFixed(6)} (±${gpsSnapshot.accuracyMeters ?? '?'}m)`
                     : 'Belum ada koordinat valid'}
@@ -203,7 +203,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
               className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-lg shrink-0 ${
                 hasCoords
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
               }`}
             >
               {hasCoords ? 'TERKUNCI' : 'MENUNGGU'}
@@ -211,22 +211,22 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
           </div>
 
           {/* Step 3: Realtime Sync to Monitoring Maps */}
-          <div className="rounded-2xl bg-white/80 dark:bg-[#22153D]/70 border border-[#E8DDFF] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div className="rounded-2xl bg-white/90 dark:bg-[#22153D]/70 border border-[#DDE6F0] dark:border-[#35105E] px-3.5 py-2.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
                   isSyncedToServer
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                    : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                    : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-[#1f1638] dark:text-white">
+                <p className="text-xs font-bold text-[#26364A] dark:text-white">
                   3. Sinkron Realtime ke Monitoring Maps
                 </p>
-                <p className="text-[11px] text-[#6A5A8C] dark:text-[#B6A5D8] truncate">
+                <p className="text-[11px] text-[#52647A] dark:text-[#B6A5D8] truncate">
                   {isSyncedToServer
                     ? 'Posisi aktif terhubung ke server & peta monitoring'
                     : 'Menunggu pengiriman koordinat pertama ke server'}
@@ -237,7 +237,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
               className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-lg shrink-0 ${
                 isSyncedToServer
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                  : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
               }`}
             >
               {isSyncedToServer ? 'LIVE' : 'BELUM'}
@@ -276,7 +276,7 @@ export const InstallerGpsGate: React.FC<InstallerGpsGateProps> = ({
             type="button"
             disabled={gpsSnapshot.isBusy}
             onClick={() => void handleConnectGps()}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#58149C] to-[#7135B5] hover:from-[#671EB3] hover:to-[#8142CA] disabled:opacity-65 disabled:cursor-wait text-white text-sm font-extrabold py-3.5 px-5 shadow-lg shadow-[#58149C]/25 transition-all cursor-pointer"
+            className="btn-3d-primary w-full inline-flex items-center justify-center gap-2 rounded-2xl disabled:opacity-65 disabled:cursor-wait text-white text-sm font-extrabold py-3.5 px-5 transition-all cursor-pointer"
           >
             {gpsSnapshot.isBusy ? (
               <>

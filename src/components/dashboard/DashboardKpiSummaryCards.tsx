@@ -111,9 +111,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: `Appointment ${todayWIB} (WIB)`,
         value: c.totalToday,
         icon: Layers,
-        accentBg: 'bg-[#F3EAFF] dark:bg-[#2E1459]',
-        accentText: 'text-[#58149C] dark:text-[#DAB9FF]',
-        borderHover: 'hover:border-[#7135B5]/60'
+        accentBg: 'bg-[#EAE8FF] dark:bg-[#2E1459]',
+        accentText: 'text-[#5145A6] dark:text-[#DAB9FF]',
+        borderHover: 'hover:border-[#65B8C4] dark:hover:border-[#7135B5]/60'
       },
       {
         key: 'unassigned',
@@ -121,9 +121,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Menunggu Leader pilih teknisi',
         value: c.unassigned,
         icon: UserX,
-        accentBg: 'bg-[#F8F1FF] dark:bg-[#241145]',
-        accentText: 'text-[#4B4452] dark:text-[#C5B3DF]',
-        borderHover: 'hover:border-[#A380FE]/60'
+        accentBg: 'bg-[#F4F7FB] dark:bg-[#241145]',
+        accentText: 'text-[#52647A] dark:text-[#C5B3DF]',
+        borderHover: 'hover:border-[#65B8C4] dark:hover:border-[#A380FE]/60'
       },
       {
         key: 'assigned',
@@ -131,9 +131,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Teknisi sudah ditugaskan',
         value: c.assigned,
         icon: UserCheck,
-        accentBg: 'bg-[#F3EAFF] dark:bg-[#2E1459]',
-        accentText: 'text-[#58149C] dark:text-[#D8B4FE]',
-        borderHover: 'hover:border-[#7135B5]/60'
+        accentBg: 'bg-[#EAE8FF] dark:bg-[#2E1459]',
+        accentText: 'text-[#5145A6] dark:text-[#D8B4FE]',
+        borderHover: 'hover:border-[#65B8C4] dark:hover:border-[#7135B5]/60'
       },
       {
         key: 'not_checked_in',
@@ -141,9 +141,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Belum kirim chat PROGRESS',
         value: c.notCheckedIn,
         icon: Clock,
-        accentBg: 'bg-[#F8F1FF] dark:bg-[#241145]',
-        accentText: 'text-[#4B4452] dark:text-[#C5B3DF]',
-        borderHover: 'hover:border-[#A380FE]/60'
+        accentBg: 'bg-[#F4F7FB] dark:bg-[#241145]',
+        accentText: 'text-[#52647A] dark:text-[#C5B3DF]',
+        borderHover: 'hover:border-[#65B8C4] dark:hover:border-[#A380FE]/60'
       },
       {
         key: 'checked_in_progress',
@@ -151,9 +151,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Sedang dikerjakan di lapangan',
         value: c.checkedInProgress,
         icon: Activity,
-        accentBg: 'bg-[#EEDBFF] dark:bg-[#35105E]',
-        accentText: 'text-[#58149C] dark:text-[#D8B4FE]',
-        borderHover: 'hover:border-[#7135B5]/60'
+        accentBg: 'bg-[#DDF4F4] dark:bg-[#35105E]',
+        accentText: 'text-[#2E7D8B] dark:text-[#D8B4FE]',
+        borderHover: 'hover:border-[#65B8C4] dark:hover:border-[#7135B5]/60'
       },
       {
         key: 'report_pending',
@@ -161,9 +161,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Status Pembaruan: PENDING',
         value: c.reportPending,
         icon: FileWarning,
-        accentBg: 'bg-[#FEF3C7] dark:bg-amber-950/60',
-        accentText: 'text-[#B45309] dark:text-amber-300',
-        borderHover: 'hover:border-amber-400'
+        accentBg: 'bg-[#FFF2D9] dark:bg-amber-950/60',
+        accentText: 'text-[#9D661F] dark:text-amber-300',
+        borderHover: 'hover:border-[#F2CF95] dark:hover:border-amber-400'
       },
       {
         key: 'report_complete',
@@ -171,9 +171,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Status Pembaruan: COMPLETE',
         value: c.reportComplete,
         icon: CheckCircle2,
-        accentBg: 'bg-[#ECFDF5] dark:bg-emerald-950/60',
-        accentText: 'text-[#15803D] dark:text-emerald-300',
-        borderHover: 'hover:border-emerald-400'
+        accentBg: 'bg-[#E4F5EC] dark:bg-emerald-950/60',
+        accentText: 'text-[#218A63] dark:text-emerald-300',
+        borderHover: 'hover:border-[#B7E4CC] dark:hover:border-emerald-400'
       },
       {
         key: 'report_reschedule',
@@ -181,9 +181,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Status Pembaruan: RESCHEDULE',
         value: c.reportReschedule,
         icon: CalendarClock,
-        accentBg: 'bg-sky-50 dark:bg-sky-950/60',
-        accentText: 'text-[#0284C7] dark:text-[#38BDF8]',
-        borderHover: 'hover:border-sky-400'
+        accentBg: 'bg-[#E7F1FB] dark:bg-sky-950/60',
+        accentText: 'text-[#3E81C6] dark:text-[#38BDF8]',
+        borderHover: 'hover:border-[#C6DDF6] dark:hover:border-sky-400'
       },
       {
         key: 'report_cancel',
@@ -191,9 +191,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Status Pembaruan: CANCEL',
         value: c.reportCancel,
         icon: XCircle,
-        accentBg: 'bg-[#FEF2F2] dark:bg-rose-950/60',
-        accentText: 'text-[#B91C1C] dark:text-rose-300',
-        borderHover: 'hover:border-rose-400'
+        accentBg: 'bg-[#FCE9EB] dark:bg-rose-950/60',
+        accentText: 'text-[#9B2C37] dark:text-rose-300',
+        borderHover: 'hover:border-[#F3C5CA] dark:hover:border-rose-400'
       },
       {
         key: 'butuh_approval',
@@ -201,9 +201,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Antrean review Dispatch',
         value: c.butuhApproval,
         icon: ClipboardCheck,
-        accentBg: 'bg-[#FFF7ED] dark:bg-orange-950/60',
-        accentText: 'text-[#C2410C] dark:text-orange-300',
-        borderHover: 'hover:border-orange-400'
+        accentBg: 'bg-[#FFF2D9] dark:bg-orange-950/60',
+        accentText: 'text-[#C88735] dark:text-orange-300',
+        borderHover: 'hover:border-[#F2CF95] dark:hover:border-orange-400'
       },
       {
         key: 'approved',
@@ -211,9 +211,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: `Approval Rate: ${c.approvalRatePct}%`,
         value: c.approved,
         icon: CheckCircle2,
-        accentBg: 'bg-[#ECFDF5] dark:bg-emerald-950/60',
-        accentText: 'text-[#15803D] dark:text-emerald-300',
-        borderHover: 'hover:border-emerald-400'
+        accentBg: 'bg-[#E4F5EC] dark:bg-emerald-950/60',
+        accentText: 'text-[#218A63] dark:text-emerald-300',
+        borderHover: 'hover:border-[#B7E4CC] dark:hover:border-emerald-400'
       },
       {
         key: 'approved_done',
@@ -221,9 +221,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: `Completion Rate: ${c.completionRatePct}% · Closed`,
         value: c.approvedDone,
         icon: CheckCircle2,
-        accentBg: 'bg-[#ECFDF5] dark:bg-emerald-950/60',
-        accentText: 'text-[#16A36A] dark:text-emerald-300',
-        borderHover: 'hover:border-emerald-500'
+        accentBg: 'bg-[#E4F5EC] dark:bg-emerald-950/60',
+        accentText: 'text-[#218A63] dark:text-emerald-300',
+        borderHover: 'hover:border-[#B7E4CC] dark:hover:border-emerald-500'
       },
       {
         key: 'approved_pending',
@@ -231,9 +231,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Approved - Pending · Closed',
         value: c.approvedPending,
         icon: Clock,
-        accentBg: 'bg-[#FEF3C7] dark:bg-amber-950/60',
-        accentText: 'text-[#B45309] dark:text-amber-300',
-        borderHover: 'hover:border-amber-400'
+        accentBg: 'bg-[#FFF2D9] dark:bg-amber-950/60',
+        accentText: 'text-[#9D661F] dark:text-amber-300',
+        borderHover: 'hover:border-[#F2CF95] dark:hover:border-amber-400'
       },
       {
         key: 'approved_reschedule',
@@ -241,9 +241,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Approved - Reschedule · Closed',
         value: c.approvedReschedule,
         icon: CalendarClock,
-        accentBg: 'bg-sky-50 dark:bg-sky-950/60',
-        accentText: 'text-[#0284C7] dark:text-[#38BDF8]',
-        borderHover: 'hover:border-sky-400'
+        accentBg: 'bg-[#E7F1FB] dark:bg-sky-950/60',
+        accentText: 'text-[#3E81C6] dark:text-[#38BDF8]',
+        borderHover: 'hover:border-[#C6DDF6] dark:hover:border-sky-400'
       },
       {
         key: 'approved_cancel',
@@ -251,9 +251,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Approved - Cancel · Closed',
         value: c.approvedCancel,
         icon: XCircle,
-        accentBg: 'bg-[#FEF2F2] dark:bg-rose-950/60',
-        accentText: 'text-[#B91C1C] dark:text-rose-300',
-        borderHover: 'hover:border-rose-400'
+        accentBg: 'bg-[#FCE9EB] dark:bg-rose-950/60',
+        accentText: 'text-[#9B2C37] dark:text-rose-300',
+        borderHover: 'hover:border-[#F3C5CA] dark:hover:border-rose-400'
       },
       {
         key: 'revision_rejected',
@@ -261,9 +261,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Dikembalikan ke teknisi',
         value: c.revisionRejected,
         icon: RotateCcw,
-        accentBg: 'bg-[#FEF2F2] dark:bg-rose-950/60',
-        accentText: 'text-[#B91C1C] dark:text-rose-300',
-        borderHover: 'hover:border-rose-400'
+        accentBg: 'bg-[#FCE9EB] dark:bg-rose-950/60',
+        accentText: 'text-[#9B2C37] dark:text-rose-300',
+        borderHover: 'hover:border-[#F3C5CA] dark:hover:border-rose-400'
       },
       {
         key: 'closed',
@@ -271,9 +271,9 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         sublabel: 'Finalisasi verifikasi Dispatch',
         value: c.closed,
         icon: Lock,
-        accentBg: 'bg-[#27104A] dark:bg-[#35105E]',
-        accentText: 'text-white',
-        borderHover: 'hover:border-[#58149C]'
+        accentBg: 'bg-[#EAE8FF] dark:bg-[#35105E]',
+        accentText: 'text-[#5145A6] dark:text-white',
+        borderHover: 'hover:border-[#6657C8] dark:hover:border-[#58149C]'
       }
     ],
     [c, isInstaller, todayWIB]
@@ -296,33 +296,33 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
   return (
     <section aria-label="WO Lifecycle KPI Summary" className="space-y-4">
-      {/* Stitch Deep Purple Business Command Banner */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#240C45] via-[#35105E] to-[#1A0933] text-white p-4 sm:p-5 border border-[#7135B5]/40 shadow-[0_6px_0_#130626,0_14px_28px_-8px_rgba(36,12,69,0.45)]">
+      {/* Unified Aqua-Violet Glass Command Banner (Light) / Deep Purple Command Banner (Night) */}
+      <div className="rounded-2xl bg-gradient-to-br from-white/95 via-[#F4F7FB]/92 to-[#EAE8FF]/88 dark:from-[#240C45] dark:via-[#35105E] dark:to-[#1A0933] text-[#26364A] dark:text-white p-4 sm:p-5 border border-[#CFDCE8] dark:border-[#7135B5]/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_4px_0_#DDE6F0,0_14px_28px_-10px_rgba(38,54,74,0.10)] dark:shadow-[0_6px_0_#130626,0_14px_28px_-8px_rgba(36,12,69,0.45)]">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-[#7135B5] text-white border border-white/15">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-[#EAE8FF] dark:bg-[#7135B5] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-white/15">
                 <Activity className="w-3.5 h-3.5" />
                 <span>WO Lifecycle Live KPI</span>
               </span>
-              <span className="text-xs font-mono tabular-nums text-[#D8B4FE]">
+              <span className="text-xs font-mono font-semibold tabular-nums text-[#2E7D8B] dark:text-[#D8B4FE]">
                 WIB: {todayWIB}
               </span>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10.5px] font-bold tabular-nums">
+              <span className="px-2 py-0.5 rounded bg-[#E4F5EC] dark:bg-emerald-500/20 text-[#218A63] dark:text-emerald-300 border border-[#B7E4CC] dark:border-transparent font-mono text-[10.5px] font-bold tabular-nums">
                 Approval: {c.approvalRatePct}% · Done: {c.completionRatePct}%
               </span>
               {isKpiLoading && (
-                <span className="text-[11px] text-[#E9D5FF] inline-flex items-center gap-1">
+                <span className="text-[11px] text-[#5145A6] dark:text-[#E9D5FF] inline-flex items-center gap-1">
                   <RefreshCw className="w-3 h-3 animate-spin" />
                   Menyinkronkan...
                 </span>
               )}
             </div>
-            <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white">
+            <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white">
               Monitoring Status Operasional &amp; Approval Work Order
             </h2>
-            <p className="text-xs text-[#CEC0E8]">
-              Klik kartu KPI manapun untuk drill-down langsung ke daftar Work Order yang sesuai.
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+              Klik kartu KPI untuk drill-down langsung ke daftar Work Order terkait.
             </p>
           </div>
 
@@ -331,12 +331,12 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             {isGlobalRole ? (
               <>
                 <div className="relative w-full sm:w-auto">
-                  <Building2 className="w-3.5 h-3.5 text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Building2 className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Vendor Kontraktor"
                     value={kpiContractorFilter}
                     onChange={(e) => setKpiContractorFilter(e.target.value)}
-                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#160D29]/90 border border-[#5B35B1] text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#D8B4FE]/50"
+                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
                   >
                     <option value="ALL">Semua Vendor / Kontraktor</option>
                     {contractorsList.map(vendor => (
@@ -348,12 +348,12 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 </div>
 
                 <div className="relative w-full sm:w-auto">
-                  <MapPin className="w-3.5 h-3.5 text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     aria-label="Filter Area"
                     value={kpiAreaFilter}
                     onChange={(e) => setKpiAreaFilter(e.target.value)}
-                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#160D29]/90 border border-[#5B35B1] text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#D8B4FE]/50"
+                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
                   >
                     <option value="ALL">Semua Area</option>
                     {areasList.map(area => (
@@ -365,11 +365,11 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 </div>
               </>
             ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl bg-[#160D29]/90 border border-[#5B35B1] text-xs text-[#E9D5FF]">
-                <Filter className="w-3.5 h-3.5 text-[#D8B4FE]" />
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs text-[#52647A] dark:text-[#E9D5FF]">
+                <Filter className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
                 <span>
                   Scope:{' '}
-                  <strong className="text-white">
+                  <strong className="text-[#26364A] dark:text-white">
                     {currentUser.contractor || 'Semua Vendor'} {currentUser.area ? `· ${currentUser.area}` : ''}
                   </strong>
                 </span>
@@ -401,7 +401,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
         {/* Perspective Tabs (for non-installer roles) — clean horizontal scroll on mobile */}
         {!isInstaller && !compact && (
-          <div className="mt-4 pt-3 border-t border-white/10 flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <div className="mt-4 pt-3 border-t border-[#DDE6F0] dark:border-white/10 flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
             {(
               [
                 { id: 'overview', label: `${visibleCards.length} KPI Summary Cards`, icon: Layers },
@@ -421,7 +421,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     active
                       ? 'btn-3d-primary text-white'
-                      : 'bg-white/10 text-[#E9D5FF] hover:bg-white/18 hover:text-white border border-white/10'
+                      : 'bg-white/85 dark:bg-white/10 text-[#52647A] dark:text-[#E9D5FF] hover:bg-[#F0EDFF] dark:hover:bg-white/18 hover:text-[#5145A6] dark:hover:text-white border border-[#DDE6F0] dark:border-white/10'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -435,7 +435,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
       {/* Error State Banner */}
       {kpiError && (
-        <div className="rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] px-4 py-3 flex items-center justify-between gap-3 text-xs text-[#B91C1C]">
+        <div className="rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800 px-4 py-3 flex items-center justify-between gap-3 text-xs text-[#9B2C37] dark:text-rose-200">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>Sinkronisasi KPI backend tertunda ({kpiError}). Menampilkan perhitungan sinkron lokal.</span>
@@ -443,7 +443,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           <button
             type="button"
             onClick={() => refreshKpiSummary()}
-            className="px-2.5 py-1 rounded-lg bg-white border border-[#FCA5A5] font-semibold hover:bg-rose-50"
+            className="btn-3d-secondary px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
           >
             Coba Lagi
           </button>
@@ -455,22 +455,22 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         <button
           type="button"
           onClick={() => handleCardClick('unmapped_distribution')}
-          className="w-full text-left rounded-xl bg-[#FFF7ED] dark:bg-orange-950/40 border border-[#FDBA74] dark:border-orange-800 px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#FFEDD5] transition-colors"
+          className="w-full text-left rounded-xl bg-[#FFF2D9] dark:bg-orange-950/40 border border-[#F2CF95] dark:border-orange-800 px-4 py-3 flex items-center justify-between gap-3 hover:brightness-[0.98] transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#C2410C]/10 text-[#C2410C] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#C88735]/15 text-[#9D661F] dark:text-orange-300 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-[#9A3412] dark:text-orange-200">
+              <p className="text-xs font-bold text-[#9D661F] dark:text-orange-200">
                 {c.unmappedDistribution} Work Order Belum Terdistribusi ke Leader
               </p>
-              <p className="text-[11px] text-[#C2410C] dark:text-orange-300">
-                Mapping Vendor + Area belum menemukan Leader aktif. Klik untuk meninjau & mendistribusikan manual.
+              <p className="text-[11px] text-[#9D661F]/90 dark:text-orange-300">
+                Mapping Vendor + Area belum menemukan Leader aktif. Klik untuk meninjau &amp; mendistribusikan manual.
               </p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#C2410C] shrink-0">
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#9D661F] dark:text-orange-300 shrink-0">
             Lihat Antrean <ChevronRight className="w-4 h-4" />
           </span>
         </button>
@@ -494,10 +494,10 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                 key={card.key}
                 type="button"
                 onClick={() => handleCardClick(card.key)}
-                className={`card-3d-lavender group text-left rounded-xl p-3.5 transition-all hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#7135B5] min-h-[96px] flex flex-col justify-between`}
+                className={`card-3d-lavender group text-left rounded-xl p-3.5 transition-all hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#6657C8] min-h-[96px] flex flex-col justify-between`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CEC0E8] leading-snug">
+                  <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] leading-snug">
                     {card.label}
                   </span>
                   <span
@@ -507,14 +507,14 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   </span>
                 </div>
                 <div className="mt-2 flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-extrabold tracking-tight text-[#1F1638] dark:text-white font-mono tabular-nums">
+                  <span className="text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white font-mono tabular-nums">
                     {card.value}
                   </span>
-                  <span className="text-[10px] font-bold text-[#58149C] dark:text-[#D8B4FE] opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
+                  <span className="text-[10px] font-bold text-[#5145A6] dark:text-[#D8B4FE] opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
                     Detail <ChevronRight className="w-3 h-3" />
                   </span>
                 </div>
-                <p className="mt-1 text-[10px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                <p className="mt-1 text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                   {card.sublabel}
                 </p>
               </button>
@@ -528,10 +528,10 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
         <div className="space-y-2.5">
           <div className="card-3d-lavender rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
-              <h3 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+              <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white">
                 Ringkasan Operasional Per Vendor / Kontraktor
               </h3>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                 Klik nama Vendor atau angka untuk filter &amp; drill-down daftar WO Vendor tersebut.
               </p>
             </div>
@@ -544,7 +544,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             mobileSubtitle={row => `${row.total} Total WO • ${row.closed} Closed`}
             mobileStatus={row =>
               row.unmapped > 0 ? (
-                <span className="px-2 py-0.5 rounded bg-[#FFF7ED] text-[#C2410C] text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded bg-[#FFF2D9] dark:bg-orange-950/60 text-[#9D661F] dark:text-orange-300 text-[10px] font-bold">
                   {row.unmapped} Unmapped
                 </span>
               ) : null
@@ -584,16 +584,16 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   key: 'contractorName',
                   label: 'Vendor / Kontraktor',
                   priority: 'hidden_mobile',
-                  tdClassName: 'font-semibold text-[#1F1638] dark:text-white',
+                  tdClassName: 'font-semibold text-[#26364A] dark:text-white',
                   render: row => (
                     <button
                       type="button"
                       onClick={() => onDrillDown('total_today', { contractor: row.contractorName })}
-                      className="text-left hover:text-[#58149C] dark:hover:text-[#D8B4FE] hover:underline flex items-center gap-2 cursor-pointer"
+                      className="text-left hover:text-[#5145A6] dark:hover:text-[#D8B4FE] hover:underline flex items-center gap-2 cursor-pointer"
                     >
                       <span>{row.contractorName}</span>
                       {row.unmapped > 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-[#FFF7ED] text-[#C2410C] text-[10px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded bg-[#FFF2D9] dark:bg-orange-950/60 text-[#9D661F] dark:text-orange-300 text-[10px] font-bold">
                           {row.unmapped} Unmapped
                         </span>
                       )}
@@ -642,7 +642,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('checked_in_progress', { contractor: row.contractorName })}
-                      className="text-[#58149C] dark:text-[#D8B4FE] font-semibold hover:underline cursor-pointer"
+                      className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold hover:underline cursor-pointer"
                     >
                       {row.checkedInProgress}
                     </button>
@@ -658,7 +658,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('report_pending', { contractor: row.contractorName })}
-                      className="text-[#B45309] dark:text-amber-300 font-semibold hover:underline cursor-pointer"
+                      className="text-[#9D661F] dark:text-amber-300 font-semibold hover:underline cursor-pointer"
                     >
                       {row.reportPending}
                     </button>
@@ -674,7 +674,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('report_complete', { contractor: row.contractorName })}
-                      className="text-[#15803D] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                      className="text-[#218A63] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
                     >
                       {row.reportComplete}
                     </button>
@@ -690,7 +690,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('report_reschedule', { contractor: row.contractorName })}
-                      className="text-[#0284C7] dark:text-[#38BDF8] font-semibold hover:underline cursor-pointer"
+                      className="text-[#3E81C6] dark:text-[#38BDF8] font-semibold hover:underline cursor-pointer"
                     >
                       {row.reportReschedule}
                     </button>
@@ -706,7 +706,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('report_cancel', { contractor: row.contractorName })}
-                      className="text-[#B91C1C] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
+                      className="text-[#9B2C37] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
                     >
                       {row.reportCancel}
                     </button>
@@ -722,7 +722,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('butuh_approval', { contractor: row.contractorName })}
-                      className="text-[#C2410C] dark:text-orange-300 font-bold hover:underline cursor-pointer"
+                      className="text-[#C88735] dark:text-orange-300 font-bold hover:underline cursor-pointer"
                     >
                       {row.butuhApproval}
                     </button>
@@ -738,7 +738,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('approved', { contractor: row.contractorName })}
-                      className="text-[#15803D] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                      className="text-[#218A63] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
                     >
                       {row.approved}
                     </button>
@@ -754,7 +754,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('revision_rejected', { contractor: row.contractorName })}
-                      className="text-[#B91C1C] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
+                      className="text-[#9B2C37] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
                     >
                       {row.revisionRejected}
                     </button>
@@ -786,7 +786,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
       {perspective === 'area' && (
         <div className="space-y-2.5">
           <div className="card-3d-lavender rounded-xl px-4 py-3">
-            <h3 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+            <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white">
               Ringkasan Per Area / Wilayah
             </h3>
           </div>
@@ -810,7 +810,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     <button
                       type="button"
                       onClick={() => onDrillDown('total_today', { area: a.area })}
-                      className="font-semibold text-[#1F1638] dark:text-white hover:text-[#58149C] hover:underline cursor-pointer"
+                      className="font-semibold text-[#26364A] dark:text-white hover:text-[#5145A6] dark:hover:text-[#D8B4FE] hover:underline cursor-pointer"
                     >
                       {a.area}
                     </button>
@@ -824,7 +824,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   align: 'right',
                   numeric: true,
                   priority: 'primary',
-                  render: a => <span className="text-[#58149C] dark:text-[#D8B4FE] font-semibold">{a.checkedInProgress}</span>
+                  render: a => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{a.checkedInProgress}</span>
                 },
                 {
                   key: 'butuhApproval',
@@ -832,7 +832,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   align: 'right',
                   numeric: true,
                   priority: 'primary',
-                  render: a => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{a.butuhApproval}</span>
+                  render: a => <span className="text-[#C88735] dark:text-orange-300 font-bold">{a.butuhApproval}</span>
                 },
                 {
                   key: 'approved',
@@ -840,7 +840,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   align: 'right',
                   numeric: true,
                   priority: 'secondary',
-                  render: a => <span className="text-[#15803D] dark:text-emerald-300 font-semibold">{a.approved}</span>
+                  render: a => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{a.approved}</span>
                 },
                 { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: a => <strong>{a.closed}</strong> }
               ] as ResponsiveColumn<(typeof effectiveSummary.byArea)[number]>[]
@@ -853,7 +853,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
       {perspective === 'leader' && (
         <div className="space-y-2.5">
           <div className="card-3d-lavender rounded-xl px-4 py-3">
-            <h3 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+            <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white">
               Distribusi &amp; Beban Kerja Leader
             </h3>
           </div>
@@ -868,13 +868,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             }}
             columns={
               [
-                { key: 'leaderName', label: 'Leader', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#1F1638] dark:text-white', render: l => l.leaderName },
-                { key: 'contractorName', label: 'Vendor', priority: 'hidden_mobile', tdClassName: 'text-[#4B4452] dark:text-[#CEC0E8]', render: l => l.contractorName },
+                { key: 'leaderName', label: 'Leader', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#26364A] dark:text-white', render: l => l.leaderName },
+                { key: 'contractorName', label: 'Vendor', priority: 'hidden_mobile', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: l => l.contractorName },
                 { key: 'total', label: 'Total', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.total}</strong> },
                 { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, priority: 'secondary', render: l => l.unassigned },
-                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, priority: 'secondary', render: l => <span className="text-[#58149C] dark:text-[#D8B4FE]">{l.assigned}</span> },
-                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#58149C] dark:text-[#D8B4FE] font-semibold">{l.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
+                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, priority: 'secondary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE]">{l.assigned}</span> },
+                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{l.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#C88735] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
                 { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.closed}</strong> }
               ] as ResponsiveColumn<(typeof effectiveSummary.byLeader)[number]>[]
             }
@@ -886,7 +886,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
       {perspective === 'installer' && (
         <div className="space-y-2.5">
           <div className="card-3d-lavender rounded-xl px-4 py-3">
-            <h3 className="font-display text-sm font-bold text-[#1F1638] dark:text-white">
+            <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white">
               Produktivitas &amp; Status Pekerjaan Teknisi
             </h3>
           </div>
@@ -902,14 +902,14 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             }}
             columns={
               [
-                { key: 'installerName', label: 'Teknisi / Installer', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#1F1638] dark:text-white', render: inst => inst.installerName },
-                { key: 'contractorName', label: 'Vendor', priority: 'secondary', tdClassName: 'text-[#4B4452] dark:text-[#CEC0E8]', render: inst => inst.contractorName },
-                { key: 'area', label: 'Area', priority: 'secondary', tdClassName: 'text-[#4B4452] dark:text-[#CEC0E8]', render: inst => inst.area },
+                { key: 'installerName', label: 'Teknisi / Installer', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#26364A] dark:text-white', render: inst => inst.installerName },
+                { key: 'contractorName', label: 'Vendor', priority: 'secondary', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: inst => inst.contractorName },
+                { key: 'area', label: 'Area', priority: 'secondary', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: inst => inst.area },
                 { key: 'total', label: 'Total WO', align: 'right', numeric: true, priority: 'primary', render: inst => <strong>{inst.total}</strong> },
-                { key: 'progress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#58149C] dark:text-[#D8B4FE] font-semibold">{inst.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#C2410C] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
-                { key: 'approved', label: 'Approved', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#15803D] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
-                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#B91C1C] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
+                { key: 'progress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{inst.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#C88735] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
+                { key: 'approved', label: 'Approved', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
+                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#9B2C37] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
                 {
                   key: 'closed',
                   label: 'Closed',

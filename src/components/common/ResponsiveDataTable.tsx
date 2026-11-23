@@ -125,22 +125,22 @@ export function ResponsiveDataTable<T>({
 
   return (
     <div
-      className={`bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden ${className}`}
+      className={`bg-white/88 dark:bg-[#0F172A] backdrop-blur-xl border border-[#DDE6F0] dark:border-slate-800 rounded-2xl shadow-[0_12px_28px_-10px_rgba(38,54,74,0.08)] dark:shadow-xs overflow-hidden ${className}`}
     >
       {useCardLayout ? (
         /* MOBILE PRIORITY CARDS WITH EXPANDABLE DETAILS & DROPDOWN ACTIONS */
-        <div className="p-3 space-y-2.5 bg-slate-50 dark:bg-[#0B1220]">
+        <div className="p-3 space-y-2.5 bg-[#F4F7FB]/80 dark:bg-[#0B1220]">
           {selectable && onToggleSelectAll && (
-            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 text-xs">
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#0F172A] border border-[#DDE6F0] dark:border-slate-800 text-xs">
               <button
                 type="button"
                 onClick={onToggleSelectAll}
-                className="inline-flex items-center gap-2 font-bold text-[#2563EB] dark:text-[#38BDF8] min-h-[42px] px-1 cursor-pointer"
+                className="inline-flex items-center gap-2 font-bold text-[#6657C8] dark:text-[#38BDF8] min-h-[42px] px-1 cursor-pointer"
               >
                 {allSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 opacity-70" />}
                 <span>{allSelected ? 'Batalkan Pilih Semua' : 'Pilih Semua Halaman Ini'}</span>
               </button>
-              <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
+              <span className="font-mono text-[11px] font-bold text-[#52647A] dark:text-slate-400 tabular-nums">
                 {selectedKeys?.size || 0} dipilih
               </span>
             </div>
@@ -156,10 +156,10 @@ export function ResponsiveDataTable<T>({
               <article
                 key={key}
                 onClick={() => onRowClick?.(row)}
-                className={`bg-white dark:bg-[#0F172A] rounded-xl border p-3.5 transition-all space-y-3 ${
+                className={`bg-white/95 dark:bg-[#0F172A] rounded-xl border p-3.5 transition-all space-y-3 ${
                   isSelected
-                    ? 'border-[#2563EB] ring-2 ring-[#2563EB]/20'
-                    : 'border-slate-200 dark:border-slate-800'
+                    ? 'border-[#6657C8] dark:border-[#2563EB] ring-2 ring-[#6657C8]/20 dark:ring-[#2563EB]/20'
+                    : 'border-[#DDE6F0] dark:border-slate-800'
                 } ${onRowClick ? 'cursor-pointer active:scale-[0.995]' : ''}`}
               >
                 {/* Card Header Row: Checkbox + Title/Subtitle + Status + Action Dropdown */}
@@ -173,18 +173,18 @@ export function ResponsiveDataTable<T>({
                           onToggleSelect(key);
                         }}
                         aria-label="Pilih item"
-                        className="min-w-[44px] min-h-[44px] -ml-1.5 -mt-1.5 flex items-center justify-center text-[#2563EB] dark:text-[#38BDF8] cursor-pointer shrink-0"
+                        className="min-w-[44px] min-h-[44px] -ml-1.5 -mt-1.5 flex items-center justify-center text-[#6657C8] dark:text-[#38BDF8] cursor-pointer shrink-0"
                       >
                         {isSelected ? <CheckSquare className="w-4.5 h-4.5" /> : <Square className="w-4.5 h-4.5 opacity-60" />}
                       </button>
                     )}
 
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white leading-snug break-words">
+                      <div className="font-bold text-xs sm:text-sm text-[#26364A] dark:text-white leading-snug break-words">
                         {mobileTitle(row)}
                       </div>
                       {mobileSubtitle && (
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug break-words">
+                        <div className="text-[11px] text-[#52647A] dark:text-slate-400 leading-snug break-words">
                           {mobileSubtitle(row)}
                         </div>
                       )}
@@ -197,13 +197,13 @@ export function ResponsiveDataTable<T>({
 
                 {/* Primary Highlights Grid */}
                 {primaryColumns.length > 0 && (
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t border-[#DDE6F0] dark:border-slate-800 text-xs">
                     {primaryColumns.map(col => (
                       <div key={col.key} className="min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-slate-400">
                           {col.label}
                         </div>
-                        <div className={`mt-0.5 text-slate-900 dark:text-slate-100 font-medium break-words ${col.numeric ? 'font-mono tabular-nums' : ''}`}>
+                        <div className={`mt-0.5 text-[#26364A] dark:text-slate-100 font-medium break-words ${col.numeric ? 'font-mono tabular-nums' : ''}`}>
                           {col.renderMobile ? col.renderMobile(row, index) : col.render(row, index)}
                         </div>
                       </div>
@@ -221,20 +221,20 @@ export function ResponsiveDataTable<T>({
                         toggleExpand(key);
                       }}
                       aria-expanded={isExpanded}
-                      className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#1E293B] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] cursor-pointer transition-colors"
+                      className="w-full min-h-[42px] px-3 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#1E293B] hover:bg-[#F0EDFF] dark:hover:bg-slate-800 border border-[#DDE6F0] dark:border-slate-700 flex items-center justify-between text-[11px] font-bold text-[#5145A6] dark:text-[#38BDF8] cursor-pointer transition-colors"
                     >
                       <span>{isExpanded ? 'Tutup Detail Tambahan' : `Lihat ${secondaryColumns.length} Detail Lainnya`}</span>
                       {isExpanded ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
                     </button>
 
                     {isExpanded && (
-                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-[#DDE6F0] dark:border-slate-800 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                         {secondaryColumns.map(col => (
                           <div key={col.key} className="min-w-0">
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-slate-400">
                               {col.label}
                             </div>
-                            <div className={`mt-0.5 text-slate-900 dark:text-slate-100 break-words ${col.numeric ? 'font-mono tabular-nums' : ''}`}>
+                            <div className={`mt-0.5 text-[#26364A] dark:text-slate-100 break-words ${col.numeric ? 'font-mono tabular-nums' : ''}`}>
                               {col.renderMobile ? col.renderMobile(row, index) : col.render(row, index)}
                             </div>
                           </div>
@@ -250,11 +250,11 @@ export function ResponsiveDataTable<T>({
       ) : (
         /* DESKTOP & TABLET STICKY-HEADER RESPONSIVE TABLE */
         <div className={`overflow-x-auto ${maxTableHeightClass}`}>
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs mj-zebra-table">
             <thead
               className={`${
                 stickyHeader ? 'sticky top-0 z-10' : ''
-              } bg-slate-50 dark:bg-[#1E293B] text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide border-b border-slate-200 dark:border-slate-800`}
+              } bg-[#EDF3F8] dark:bg-[#1E293B] text-[11px] font-bold text-[#52647A] dark:text-slate-300 uppercase tracking-wide border-b border-[#DDE6F0] dark:border-slate-800`}
             >
               <tr>
                 {selectable && (
@@ -263,7 +263,7 @@ export function ResponsiveDataTable<T>({
                       type="button"
                       onClick={onToggleSelectAll}
                       aria-label="Pilih semua baris"
-                      className="text-[#2563EB] dark:text-[#38BDF8] cursor-pointer inline-flex items-center justify-center"
+                      className="text-[#6657C8] dark:text-[#38BDF8] cursor-pointer inline-flex items-center justify-center"
                     >
                       {allSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 opacity-70" />}
                     </button>
@@ -283,8 +283,8 @@ export function ResponsiveDataTable<T>({
                         <button
                           type="button"
                           onClick={() => onSort(col.key)}
-                          className={`inline-flex items-center gap-1 cursor-pointer hover:text-[#2563EB] dark:hover:text-white transition-colors ${
-                            isSorted ? 'text-[#2563EB] dark:text-[#38BDF8] font-extrabold' : ''
+                          className={`inline-flex items-center gap-1 cursor-pointer hover:text-[#5145A6] dark:hover:text-white transition-colors ${
+                            isSorted ? 'text-[#5145A6] dark:text-[#38BDF8] font-extrabold' : ''
                           }`}
                         >
                           <span>{col.label}</span>
@@ -303,13 +303,13 @@ export function ResponsiveDataTable<T>({
                   );
                 })}
                 {hasActionsColumn && (
-                  <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-slate-50 dark:bg-[#1E293B] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)]">
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#EDF3F8] dark:bg-[#1E293B] shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.05)] dark:shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)]">
                     {desktopActionHeader}
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[#DDE6F0] dark:divide-slate-800">
               {data.map((row, index) => {
                 const key = getRowKey(row, index);
                 const isSelected = Boolean(selectedKeys?.has(key));
@@ -319,8 +319,8 @@ export function ResponsiveDataTable<T>({
                   <tr
                     key={key}
                     onClick={() => onRowClick?.(row)}
-                    className={`transition-colors hover:bg-slate-50/90 dark:hover:bg-[#1E293B]/70 ${
-                      isSelected ? 'bg-blue-50/70 dark:bg-blue-950/30' : 'bg-white dark:bg-[#0F172A]'
+                    className={`transition-colors hover:bg-[#F0EDFF]/65 dark:hover:bg-[#1E293B]/70 ${
+                      isSelected ? 'bg-[#EAE8FF]/70 dark:bg-blue-950/30' : 'bg-white odd:bg-white even:bg-[#F8FAFD] dark:bg-[#0F172A] dark:odd:bg-[#0F172A] dark:even:bg-[#0F172A]'
                     } ${onRowClick ? 'cursor-pointer' : ''} ${getRowClassName ? getRowClassName(row, index) : ''}`}
                   >
                     {selectable && (
@@ -334,7 +334,7 @@ export function ResponsiveDataTable<T>({
                         <button
                           type="button"
                           aria-label="Pilih baris"
-                          className="text-[#2563EB] dark:text-[#38BDF8] cursor-pointer inline-flex items-center justify-center"
+                          className="text-[#6657C8] dark:text-[#38BDF8] cursor-pointer inline-flex items-center justify-center"
                         >
                           {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 opacity-60" />}
                         </button>
@@ -356,7 +356,7 @@ export function ResponsiveDataTable<T>({
                     })}
                     {hasActionsColumn && (
                       <td
-                        className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-10 bg-inherit shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)]"
+                        className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-10 bg-inherit shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.04)] dark:shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)]"
                         onClick={e => e.stopPropagation()}
                       >
                         {renderDesktopActions ? (

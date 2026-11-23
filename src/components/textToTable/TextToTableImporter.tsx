@@ -529,15 +529,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-[#BA1A1A] dark:text-rose-300 rounded-2xl flex items-center justify-center mx-auto">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-display font-extrabold text-[#1F1638] dark:text-white text-base">
+        <h3 className="font-display font-extrabold text-[#26364A] dark:text-white text-base">
           Akses Ditolak: Otoritas Import Work Order Dibatasi
         </h3>
-        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
           Berdasarkan App Flow MoraJaws, proses import Work Order (Text-to-Table, XLSX, CSV)
           hanya dapat dilakukan oleh peran <strong>Superadmin</strong>.
         </p>
-        <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl text-xs text-[#4B4452] dark:text-[#CABDE8] font-medium">
-          Akun Anda: <span className="font-bold capitalize text-[#1F1638] dark:text-white">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
+        <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-xs text-[#52647A] dark:text-[#CABDE8] font-medium">
+          Akun Anda: <span className="font-bold capitalize text-[#26364A] dark:text-white">{currentUser.name} ({currentUser.role})</span>. Akses import ditolak pada level UI dan Backend Server.
         </div>
       </div>
     );
@@ -875,7 +875,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
             mainTab === 'import'
               ? 'btn-3d-primary font-bold'
-              : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
+              : 'text-[#52647A] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
           }`}
         >
           <Upload className="w-3.5 h-3.5" />
@@ -888,7 +888,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
             mainTab === 'export'
               ? 'btn-3d-primary font-bold'
-              : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
+              : 'text-[#52647A] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
           }`}
         >
           <Download className="w-3.5 h-3.5" />
@@ -902,7 +902,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             className={`px-4 py-2 min-h-[38px] rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               mainTab === 'history_delete'
                 ? 'btn-3d-maroon font-bold'
-                : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
+                : 'text-[#52647A] dark:text-[#CABDE8] font-semibold hover:bg-white/75 dark:hover:bg-[#261942]'
             }`}
           >
             <History className="w-3.5 h-3.5" />
@@ -931,20 +931,20 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
               <div className="space-y-2 min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_2px_0_#260112] whitespace-nowrap">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-gradient-to-b dark:from-[#6b103b] dark:to-[#480123] dark:text-white dark:shadow-[0_2px_0_#260112] whitespace-nowrap">
                     SUPERADMIN ONLY
                   </span>
-                  <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-[#4B4452] dark:text-[#CABDE8] truncate">
+                  <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-[#52647A] dark:text-[#CABDE8] truncate">
                     {sourceFileName !== 'Belum ada berkas' ? `${sourceFileName} • ` : ''}
                     {parseResult ? 'STAGING VALIDATION' : 'WOFIELD MAPPING ENGINE'}
                   </span>
                 </div>
 
-                <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#1F1638] dark:text-white">
+                <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white">
                   Import Data Work Order (WO)
                 </h2>
 
-                <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] max-w-2xl leading-relaxed">
+                <p className="text-xs text-[#52647A] dark:text-[#CABDE8] max-w-2xl leading-relaxed">
                   Unggah berkas CSV/Excel, sinkronisasi Google Sheets, atau gunakan Text-to-Table deterministik untuk validasi massal sebelum masuk ke antrean dispatch FTTH.
                 </p>
               </div>
@@ -996,12 +996,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
 
             {/* MoraJaws Quick Sample & Catalog Utility Strip */}
-            <div className="pt-3 border-t border-[#e8ddff] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleLoadBaseDataSample}
-                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF] flex items-center gap-1.5 cursor-pointer"
+                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] flex items-center gap-1.5 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>1. BASE_DATA_WO (46 Kolom)</span>
@@ -1018,7 +1018,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   type="button"
                   onClick={() => setShowMappingCatalog(!showMappingCatalog)}
                   className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${
-                    showMappingCatalog ? 'tactile-chip-active' : 'tactile-chip text-[#4B4452] dark:text-[#E9D5FF]'
+                    showMappingCatalog ? 'tactile-chip-active' : 'tactile-chip text-[#52647A] dark:text-[#E9D5FF]'
                   }`}
                 >
                   <Sliders className="w-3.5 h-3.5" />
@@ -1050,21 +1050,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               onClick={() => fileInputRef.current?.click()}
               className={`rounded-2xl border-2 border-dashed p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
                 isDragOver
-                  ? 'border-[#58149C] bg-[#f3eaff] dark:bg-[#2a154b] scale-[0.998]'
-                  : 'border-[#c9b6ea] dark:border-[#4b386b] bg-[#f8f1ff] dark:bg-[#160d29] hover:border-[#7135B5]'
+                  ? 'border-[#6657C8] bg-[#EAE8FF] dark:bg-[#2a154b] scale-[0.998]'
+                  : 'border-[#C5BEEF] dark:border-[#4b386b] bg-[#F4F7FB] dark:bg-[#160d29] hover:border-[#6657C8] dark:hover:border-[#7135B5]'
               }`}
             >
-              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] shadow-[0_3px_0_#d8ccf3] dark:shadow-[0_3px_0_#160d29] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#261942] border border-[#DDE6F0] dark:border-[#4b386b] shadow-[0_3px_0_#D2DAEA] dark:shadow-[0_3px_0_#160d29] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center mb-3">
                 <Upload className="w-5 h-5" />
               </div>
 
-              <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white">
+              <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white">
                 Tarik &amp; Lepas Berkas CSV atau Excel (.xlsx) di Sini
               </h3>
 
-              <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-1">
+              <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-1">
                 Berkas aktif saat ini:{' '}
-                <strong className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{sourceFileName}</strong>
+                <strong className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{sourceFileName}</strong>
                 {parseResult && (
                   <span className="ml-1 font-mono tabular-nums">
                     ({validationSummary.total} baris terdeteksi)
@@ -1077,7 +1077,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 {REQUIRED_FIELD_PILLS.map(fieldLabel => (
                   <span
                     key={fieldLabel}
-                    className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-white dark:bg-[#1e1238] border border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8] shadow-[0_1.5px_0_#e8ddff] dark:shadow-none"
+                    className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8] shadow-[0_1.5px_0_#E2E8F0] dark:shadow-none"
                   >
                     {fieldLabel}
                   </span>
@@ -1089,11 +1089,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             {(showTextEditor || Boolean(rawText.trim())) && (
               <div className="pt-2 space-y-2.5 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
-                    <ClipboardPaste className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <span className="font-bold text-[#26364A] dark:text-white flex items-center gap-1.5">
+                    <ClipboardPaste className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>Editor Text-to-Table (Paste dari Excel / Pipe-Separated)</span>
                   </span>
-                  <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0]">
+                  <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A79BC0]">
                     Customer ID wajib 7 digit (^[0-9]&#123;7&#125;$)
                   </span>
                 </div>
@@ -1106,7 +1106,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     setRawText(e.target.value);
                     setSourceFileName('Text_Input.txt');
                   }}
-                  className="tactile-debossed-input w-full p-3 font-mono text-xs bg-[#f8f1ff] dark:bg-[#160d29] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7135B5]/30"
+                  className="tactile-debossed-input w-full p-3 font-mono text-xs bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/30 dark:focus:ring-[#7135B5]/30"
                 />
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1144,21 +1144,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               type="button"
               onClick={() => setStatusFilter('ALL')}
               className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
-                statusFilter === 'ALL' && parseResult ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+                statusFilter === 'ALL' && parseResult ? 'ring-2 ring-[#6657C8] dark:ring-[#DAB9FF]' : 'hover:border-[#94A3B8] dark:hover:border-[#a78bfa]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#CABDE8]">
                   TOTAL BARIS
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                   <FileSpreadsheet className="w-4 h-4" />
                 </span>
               </div>
-              <div className="font-display text-3xl font-extrabold tabular-nums text-[#1F1638] dark:text-white leading-none my-1">
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#26364A] dark:text-white leading-none my-1">
                 {validationSummary.total}
               </div>
-              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+              <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                 {parseResult ? '100% terbaca sistem' : 'Menunggu berkas / teks'}
               </div>
             </button>
@@ -1168,21 +1168,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               type="button"
               onClick={() => setStatusFilter(statusFilter === 'VALID' ? 'ALL' : 'VALID')}
               className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
-                statusFilter === 'VALID' ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+                statusFilter === 'VALID' ? 'ring-2 ring-[#2E7D8B] dark:ring-[#DAB9FF]' : 'hover:border-[#94A3B8] dark:hover:border-[#a78bfa]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#CABDE8]">
                   SIAP IMPORT / VALID
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-xl bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-4 h-4" />
                 </span>
               </div>
-              <div className="font-display text-3xl font-extrabold tabular-nums text-[#58149C] dark:text-[#DAB9FF] leading-none my-1">
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#2E7D8B] dark:text-[#DAB9FF] leading-none my-1">
                 {validationSummary.valid}
               </div>
-              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+              <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                 {validationSummary.validPct}% lolos validasi
               </div>
             </button>
@@ -1192,21 +1192,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               type="button"
               onClick={() => setStatusFilter(statusFilter === 'DUPLICATE' ? 'ALL' : 'DUPLICATE')}
               className={`card-3d-lavender text-left rounded-2xl p-4 flex flex-col justify-between min-h-[116px] transition-all cursor-pointer ${
-                statusFilter === 'DUPLICATE' ? 'ring-2 ring-[#58149C] dark:ring-[#DAB9FF]' : 'hover:border-[#a78bfa]'
+                statusFilter === 'DUPLICATE' ? 'ring-2 ring-[#6657C8] dark:ring-[#DAB9FF]' : 'hover:border-[#94A3B8] dark:hover:border-[#a78bfa]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#4B4452] dark:text-[#CABDE8]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#CABDE8]">
                   DUPLIKAT / PERINGATAN
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4" />
                 </span>
               </div>
-              <div className="font-display text-3xl font-extrabold tabular-nums text-[#58149C] dark:text-[#DAB9FF] leading-none my-1">
+              <div className="font-display text-3xl font-extrabold tabular-nums text-[#5145A6] dark:text-[#DAB9FF] leading-none my-1">
                 {validationSummary.duplicate}
               </div>
-              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+              <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                 WO sudah terdaftar
               </div>
             </button>
@@ -1230,7 +1230,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               <div className="font-display text-3xl font-extrabold tabular-nums text-[#BA1A1A] dark:text-rose-300 leading-none my-1">
                 {validationSummary.error}
               </div>
-              <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+              <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                 Perlu perbaikan kolom
               </div>
             </button>
@@ -1239,13 +1239,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           {/* Katalog Master Canonical Fields */}
           {showMappingCatalog && (
             <div className="card-3d-lavender rounded-2xl p-5 space-y-3 text-xs">
-              <div className="flex items-center justify-between border-b border-[#e8ddff] dark:border-[#3b1d78] pb-2.5">
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-[#3b1d78] pb-2.5">
                 <div>
-                  <h4 className="font-display font-bold text-[#1F1638] dark:text-white flex items-center gap-2">
-                    <Database className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <h4 className="font-display font-bold text-[#26364A] dark:text-white flex items-center gap-2">
+                    <Database className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>Katalog Master Canonical Field WOFieldMappingEngine ({MASTER_CANONICAL_FIELDS.length} Master Fields)</span>
                   </h4>
-                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                     Baseline 46 kolom mencakup Identitas, Jadwal Appointment, Hardware Jaringan (OLT/FDT/FAT/ONT/STB), Kontraktor, Leader, dan Teknisi.
                   </p>
                 </div>
@@ -1262,7 +1262,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 data={MASTER_CANONICAL_FIELDS}
                 getRowKey={f => f.canonicalField}
                 maxTableHeightClass="max-h-72"
-                mobileTitle={f => <span className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
+                mobileTitle={f => <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
                 mobileSubtitle={f => f.displayLabel}
                 mobileStatus={f =>
                   f.required ? (
@@ -1270,7 +1270,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       Wajib
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#f3eaff] text-[#4B4452] dark:bg-[#261942] dark:text-[#CABDE8]">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#F4F7FB] text-[#52647A] border border-[#DDE6F0] dark:border-transparent dark:bg-[#261942] dark:text-[#CABDE8]">
                       Opsional
                     </span>
                   )
@@ -1281,33 +1281,33 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     label: '#',
                     priority: 'hidden_mobile',
                     numeric: true,
-                    render: (_f, i) => <span className="text-[#7D7484]">{i + 1}</span>
+                    render: (_f, i) => <span className="text-[#8492A5]">{i + 1}</span>
                   },
                   {
                     key: 'canonicalField',
                     label: 'Canonical Field',
                     priority: 'primary',
                     numeric: true,
-                    render: f => <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">{f.canonicalField}</span>
+                    render: f => <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{f.canonicalField}</span>
                   },
                   {
                     key: 'displayLabel',
                     label: 'Display Label',
                     priority: 'primary',
-                    render: f => <span className="text-[#1F1638] dark:text-white">{f.displayLabel}</span>
+                    render: f => <span className="text-[#26364A] dark:text-white">{f.displayLabel}</span>
                   },
                   {
                     key: 'category',
                     label: 'Kategori',
                     priority: 'secondary',
-                    render: f => <span className="capitalize text-[#4B4452] dark:text-[#CABDE8]">{f.category}</span>
+                    render: f => <span className="capitalize text-[#52647A] dark:text-[#CABDE8]">{f.category}</span>
                   },
                   {
                     key: 'dataType',
                     label: 'Tipe Data',
                     priority: 'secondary',
                     numeric: true,
-                    render: f => <span className="text-[#4B4452] dark:text-[#CABDE8]">{f.dataType}</span>
+                    render: f => <span className="text-[#52647A] dark:text-[#CABDE8]">{f.dataType}</span>
                   },
                   {
                     key: 'required',
@@ -1317,7 +1317,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       f.required ? (
                         <span className="text-[#BA1A1A] font-bold">Wajib</span>
                       ) : (
-                        <span className="text-[#7D7484]">Opsional</span>
+                        <span className="text-[#8492A5]">Opsional</span>
                       )
                   },
                   {
@@ -1325,7 +1325,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     label: 'Alias Terverifikasi',
                     priority: 'secondary',
                     render: f => (
-                      <span className="text-[10.5px] text-[#4B4452] dark:text-[#CABDE8] max-w-xs block truncate">
+                      <span className="text-[10.5px] text-[#52647A] dark:text-[#CABDE8] max-w-xs block truncate">
                         {f.aliases.join(', ')}
                       </span>
                     )
@@ -1364,12 +1364,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             <>
               <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 space-y-4">
                 {/* Header + 4 Status Filter Pills */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-[#3b1d78]">
                   <div>
-                    <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white">
+                    <h3 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                       Preview &amp; Validasi Data WO
                     </h3>
-                    <p className="text-xs text-[#4B4452] dark:text-[#CABDE8]">
+                    <p className="text-xs text-[#52647A] dark:text-[#CABDE8]">
                       Periksa status setiap baris sebelum mengeksekusi penyimpanan ke database produksi.
                     </p>
                   </div>
@@ -1382,7 +1382,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                         statusFilter === 'ALL'
                           ? 'btn-3d-primary'
-                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                          : 'text-[#52647A] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
                       }`}
                     >
                       Semua ({validationSummary.total})
@@ -1393,7 +1393,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                         statusFilter === 'VALID'
                           ? 'btn-3d-primary'
-                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                          : 'text-[#52647A] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
                       }`}
                     >
                       Valid ({validationSummary.valid})
@@ -1404,7 +1404,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                         statusFilter === 'DUPLICATE'
                           ? 'btn-3d-primary'
-                          : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                          : 'text-[#52647A] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
                       }`}
                     >
                       Duplikat ({validationSummary.duplicate})
@@ -1456,28 +1456,28 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
                 {/* Detected & Auto-Enrolled Contractors */}
                 {parseResult.detectedContractors && parseResult.detectedContractors.length > 0 && (
-                  <div className="p-4 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29] space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+                  <div className="p-4 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29] space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0] dark:border-[#3b1d78]">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#EAE8FF] to-[#DDF4F4] dark:from-[#7135B5] dark:to-[#58149C] border border-[#C5BEEF] dark:border-transparent text-[#5145A6] dark:text-white flex items-center justify-center shrink-0">
                           <Building2 className="w-4 h-4" />
                         </div>
                         <div>
-                          <h5 className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-2 flex-wrap">
+                          <h5 className="font-bold text-[#26364A] dark:text-white text-xs flex items-center gap-2 flex-wrap">
                             <span>Kategori Kontraktor Terdeteksi ({parseResult.detectedContractors.length} Mitra)</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] bg-[#e8ddff] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-transparent font-bold">
                               Auto-Enrolled
                             </span>
                           </h5>
-                          <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                          <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                             Mitra baru otomatis terdaftar ke Master Data MoraJaws saat import dieksekusi.
                           </p>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <div className="flex items-center gap-2 bg-white dark:bg-[#1e1238] px-3 py-1.5 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78]">
-                          <span className="text-[11px] font-semibold text-[#1F1638] dark:text-white">
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#1e1238] px-3 py-1.5 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78]">
+                          <span className="text-[11px] font-semibold text-[#26364A] dark:text-white">
                             Auto-register Mitra Baru:
                           </span>
                           <label className="relative inline-flex items-center cursor-pointer">
@@ -1487,9 +1487,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                               onChange={e => setAutoRegisterNewContractors(e.target.checked)}
                               className="sr-only peer"
                             />
-                            <div className="w-8 h-4 bg-[#cec3d4] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#cec3d4] after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#58149C]"></div>
+                            <div className="w-8 h-4 bg-[#CBD5E1] dark:bg-[#342b4e] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#CBD5E1] after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#6657C8] dark:peer-checked:bg-[#58149C]"></div>
                           </label>
-                          <span className={`text-[10px] font-bold ${autoRegisterNewContractors ? 'text-[#58149C] dark:text-[#DAB9FF]' : 'text-[#7D7484]'}`}>
+                          <span className={`text-[10px] font-bold ${autoRegisterNewContractors ? 'text-[#5145A6] dark:text-[#DAB9FF]' : 'text-[#8492A5]'}`}>
                             {autoRegisterNewContractors ? 'ON' : 'OFF'}
                           </span>
                         </div>
@@ -1521,37 +1521,37 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                           className={`p-3 rounded-xl border text-xs bg-white dark:bg-[#1e1238] ${
                             c.isNew
                               ? 'border-emerald-300 dark:border-emerald-800 ring-1 ring-emerald-400/30'
-                              : 'border-[#e8ddff] dark:border-[#3b1d78]'
+                              : 'border-[#DDE6F0] dark:border-[#3b1d78]'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <div className="font-bold text-[#1F1638] dark:text-white truncate" title={c.name}>
+                            <div className="font-bold text-[#26364A] dark:text-white truncate" title={c.name}>
                               {c.name}
                             </div>
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                                 c.isNew
                                   ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF]'
+                                  : 'bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#DAB9FF]'
                               }`}
                             >
                               {c.isNew ? 'Baru' : 'Terdaftar'}
                             </span>
                           </div>
-                          <div className="space-y-1 text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                          <div className="space-y-1 text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                             <div className="flex items-center justify-between">
-                              <span className="text-[#7D7484]">Kode Vendor:</span>
-                              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">[{c.code}]</span>
+                              <span className="text-[#8492A5]">Kode Vendor:</span>
+                              <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">[{c.code}]</span>
                             </div>
                             <div className="flex items-start justify-between gap-1">
-                              <span className="text-[#7D7484] shrink-0">Cakupan Area:</span>
-                              <span className="font-medium text-[#1F1638] dark:text-white text-right truncate">
+                              <span className="text-[#8492A5] shrink-0">Cakupan Area:</span>
+                              <span className="font-medium text-[#26364A] dark:text-white text-right truncate">
                                 {c.coverageAreas.length > 0 ? c.coverageAreas.join(', ') : 'Semua Area'}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between pt-1 border-t border-[#e8ddff] dark:border-[#3b1d78]">
-                              <span className="text-[#7D7484]">Alokasi WO:</span>
-                              <span className="font-bold text-[#1F1638] dark:text-white">{c.woCount} Work Orders</span>
+                            <div className="flex items-center justify-between pt-1 border-t border-[#E2E8F0] dark:border-[#3b1d78]">
+                              <span className="text-[#8492A5]">Alokasi WO:</span>
+                              <span className="font-bold text-[#26364A] dark:text-white">{c.woCount} Work Orders</span>
                             </div>
                           </div>
                         </div>
@@ -1561,27 +1561,27 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 )}
 
                 {/* Search & Category Filter Toolbar */}
-                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+                <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
                     <div className="relative flex-1 max-w-sm">
-                      <Search className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Search className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
                         placeholder="Cari Kategori Tiket, WO, Pelanggan, Mitra..."
                         value={previewCategorySearch}
                         onChange={e => setPreviewCategorySearch(e.target.value)}
-                        className="tactile-debossed-input w-full pl-8.5 pr-3 py-1.5 text-xs bg-white dark:bg-[#1e1238] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white"
+                        className="tactile-debossed-input w-full pl-8.5 pr-3 py-1.5 text-xs bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white"
                       />
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CABDE8] shrink-0">
+                      <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CABDE8] shrink-0">
                         Kategori:
                       </span>
                       <select
                         value={previewCategoryFilter}
                         onChange={e => setPreviewCategoryFilter(e.target.value)}
-                        className="tactile-debossed-input px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-[#1e1238] border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl text-[#1F1638] dark:text-white"
+                        className="tactile-debossed-input px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white"
                       >
                         <option value="ALL">Semua Kategori ({detectedTicketCategories.length})</option>
                         {detectedTicketCategories.map((cat: string) => (
@@ -1604,8 +1604,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] shrink-0 self-end sm:self-auto font-mono tabular-nums">
-                    Menampilkan <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">{displayedPreviewRows.length}</span> dari {parseResult.parsedRows.length} baris
+                  <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8] shrink-0 self-end sm:self-auto font-mono tabular-nums">
+                    Menampilkan <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{displayedPreviewRows.length}</span> dari {parseResult.parsedRows.length} baris
                   </div>
                 </div>
 
@@ -1627,21 +1627,21 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
                     if (status === 'VALID') {
                       return (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-emerald-950 dark:text-emerald-300 border border-[#BDE4E8] dark:border-emerald-800">
                           <CheckCircle2 className="w-3 h-3" /> VALID
                         </span>
                       );
                     }
                     if (status === 'WO DUPLIKAT') {
                       return (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#7135B5] dark:bg-purple-950 dark:text-purple-300 border border-[#d8ccf3] dark:border-purple-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950 dark:text-purple-300 border border-[#C5BEEF] dark:border-purple-800">
                           <AlertTriangle className="w-3 h-3" /> WO DUPLIKAT
                         </span>
                       );
                     }
                     if (status === 'HEADER TIDAK DITEMUKAN') {
                       return (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950 dark:text-purple-300 border border-[#C5BEEF] dark:border-purple-800">
                           <ShieldAlert className="w-3 h-3" /> HEADER TIDAK DITEMUKAN
                         </span>
                       );
@@ -1667,7 +1667,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         priority: 'hidden_mobile',
                         numeric: true,
                         render: row => (
-                          <span className="font-mono text-[#7D7484] dark:text-[#A79BC0] font-bold">
+                          <span className="font-mono text-[#8492A5] dark:text-[#A79BC0] font-bold">
                             {String(row.rowIndex + 1).padStart(2, '0')}
                           </span>
                         )
@@ -1683,12 +1683,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                               type="text"
                               value={editingRowData.woNumber || ''}
                               onChange={e => setEditingRowData({ ...editingRowData, woNumber: e.target.value })}
-                              className="p-1.5 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                              className="p-1.5 border border-[#DDE6F0] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
                             />
                           ) : (
                             <span
                               className={`font-mono font-bold ${
-                                !row.isValid && !row.isDuplicate ? 'text-[#BA1A1A] dark:text-rose-300' : 'text-[#58149C] dark:text-[#DAB9FF]'
+                                !row.isValid && !row.isDuplicate ? 'text-[#BA1A1A] dark:text-rose-300' : 'text-[#5145A6] dark:text-[#DAB9FF]'
                               }`}
                             >
                               {row.mapped.woNumber || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
@@ -1708,23 +1708,23 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                                 value={editingRowData.idCustomer || ''}
                                 onChange={e => setEditingRowData({ ...editingRowData, idCustomer: e.target.value })}
                                 placeholder="ID 7 digit"
-                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
+                                className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
                               />
                               <input
                                 type="text"
                                 value={editingRowData.customerPhone || ''}
                                 onChange={e => setEditingRowData({ ...editingRowData, customerPhone: e.target.value })}
                                 placeholder="Telepon"
-                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
+                                className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-28 text-xs bg-white dark:bg-[#160d29]"
                               />
                             </div>
                           ) : (
                             <div>
-                              <div className="font-bold text-[#1F1638] dark:text-white">
+                              <div className="font-bold text-[#26364A] dark:text-white">
                                 {row.mapped.customerName || <span className="text-[#BA1A1A]">[Nama Kosong]</span>}
                               </div>
-                              <div className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0]">
-                                <span className={row.mapped.idCustomer?.length === 7 ? 'text-[#58149C] dark:text-[#DAB9FF] font-semibold' : 'text-[#BA1A1A] font-bold'}>
+                              <div className="text-[11px] font-mono text-[#8492A5] dark:text-[#A79BC0]">
+                                <span className={row.mapped.idCustomer?.length === 7 ? 'text-[#5145A6] dark:text-[#DAB9FF] font-semibold' : 'text-[#BA1A1A] font-bold'}>
                                   {row.mapped.idCustomer || '[ID Kosong]'}
                                 </span>
                                 {' · '}
@@ -1745,30 +1745,30 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                                 value={editingRowData.area || ''}
                                 onChange={e => setEditingRowData({ ...editingRowData, area: e.target.value })}
                                 placeholder="Area"
-                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                                className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
                               />
                               <input
                                 type="text"
                                 value={editingRowData.clusterName || ''}
                                 onChange={e => setEditingRowData({ ...editingRowData, clusterName: e.target.value })}
                                 placeholder="Cluster"
-                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                                className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
                               />
                               <input
                                 type="text"
                                 value={editingRowData.contactorName || ''}
                                 onChange={e => setEditingRowData({ ...editingRowData, contactorName: e.target.value })}
                                 placeholder="Kontraktor"
-                                className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
+                                className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-32 text-xs bg-white dark:bg-[#160d29]"
                               />
                             </div>
                           ) : (
                             <div>
-                              <div className="font-medium text-[#1F1638] dark:text-white">
+                              <div className="font-medium text-[#26364A] dark:text-white">
                                 {row.mapped.area || <span className="text-[#BA1A1A] font-bold">[Area Kosong]</span>}
                                 {row.mapped.clusterName ? ` / ${row.mapped.clusterName}` : ''}
                               </div>
-                              <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                              <div className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
                                 {row.mapped.contactorName || row.mapped.contractorName || '[Mitra Kosong]'}
                                 {(row.mapped.fatCode || row.mapped.fdtCode) && ` · ${row.mapped.fatCode || row.mapped.fdtCode}`}
                               </div>
@@ -1785,15 +1785,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                               type="date"
                               value={editingRowData.appointmentDate || ''}
                               onChange={e => setEditingRowData({ ...editingRowData, appointmentDate: e.target.value })}
-                              className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-auto text-xs bg-white dark:bg-[#160d29]"
+                              className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-auto text-xs bg-white dark:bg-[#160d29]"
                             />
                           ) : (
                             <div>
-                              <div className="font-semibold text-[#1F1638] dark:text-[#E9D5FF] font-mono tabular-nums">
+                              <div className="font-semibold text-[#26364A] dark:text-[#E9D5FF] font-mono tabular-nums">
                                 {row.mapped.appointmentDate || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
                               </div>
                               {row.mapped.slotTime && (
-                                <div className="text-[10.5px] text-[#7D7484]">{row.mapped.slotTime}</div>
+                                <div className="text-[10.5px] text-[#8492A5]">{row.mapped.slotTime}</div>
                               )}
                             </div>
                           )
@@ -1805,17 +1805,17 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         render: row => {
                           const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
                           return status === 'VALID' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800 whitespace-nowrap">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#7135B5] dark:bg-emerald-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-emerald-950 dark:text-emerald-300 border border-[#BDE4E8] dark:border-emerald-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D8B] dark:bg-emerald-400" />
                               VALID
                             </span>
                           ) : status === 'WO DUPLIKAT' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#f3eaff] text-[#7135B5] dark:bg-purple-950 dark:text-purple-300 border border-[#d8ccf3] dark:border-purple-800 whitespace-nowrap">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#A380FE]" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950 dark:text-purple-300 border border-[#C5BEEF] dark:border-purple-800 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#6657C8] dark:bg-[#A380FE]" />
                               WO DUPLIKAT
                             </span>
                           ) : status === 'HEADER TIDAK DITEMUKAN' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-[#4C1D95] dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950 dark:text-purple-300 border border-[#C5BEEF] dark:border-purple-800 whitespace-nowrap">
                               <ShieldAlert className="w-3 h-3" />
                               HEADER HILANG
                             </span>
@@ -1838,11 +1838,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         priority: 'primary',
                         render: row =>
                           row.isValid && !row.isDuplicate ? (
-                            <span className="text-[11px] font-medium text-[#4B4452] dark:text-[#CABDE8]">
+                            <span className="text-[11px] font-medium text-[#52647A] dark:text-[#CABDE8]">
                               Siap diproses ke sistem dispatch
                             </span>
                           ) : (
-                            <div className={`text-[11px] font-semibold max-w-xs ${row.isDuplicate ? 'text-[#58149C] dark:text-[#DAB9FF]' : 'text-[#BA1A1A] dark:text-rose-300'}`}>
+                            <div className={`text-[11px] font-semibold max-w-xs ${row.isDuplicate ? 'text-[#5145A6] dark:text-[#DAB9FF]' : 'text-[#BA1A1A] dark:text-rose-300'}`}>
                               {row.validationErrors[0] || (row.problematicColumns?.length ? `Periksa: ${row.problematicColumns.join(', ')}` : 'Perlu perbaikan kolom')}
                             </div>
                           )
@@ -1858,10 +1858,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                               value={editingRowData.streetName || ''}
                               onChange={e => setEditingRowData({ ...editingRowData, streetName: e.target.value })}
                               placeholder="Alamat / Street Name"
-                              className="p-1 border border-[#d8ccf3] rounded-lg w-full sm:w-44 text-xs bg-white dark:bg-[#160d29]"
+                              className="p-1 border border-[#DDE6F0] rounded-lg w-full sm:w-44 text-xs bg-white dark:bg-[#160d29]"
                             />
                           ) : (
-                            <span className="max-w-[180px] block truncate text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                            <span className="max-w-[180px] block truncate text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                               {row.mapped.streetName || <span className="text-[#BA1A1A] font-bold">[Kosong]</span>}
                             </span>
                           )
@@ -1952,15 +1952,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 scroll-mt-20"
               >
                 <div className="flex items-start sm:items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5b35b1] flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white">
+                    <h4 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
                       Konfirmasi Eksekusi Batch
                     </h4>
-                    <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
-                      Hanya <strong className="font-mono text-[#58149C] dark:text-[#DAB9FF]">{validationSummary.valid} baris berstatus VALID</strong> yang akan diproses ke sistem dispatch &amp; Supabase PostgreSQL.
+                    <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5">
+                      Hanya <strong className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{validationSummary.valid} baris berstatus VALID</strong> yang akan diproses ke sistem dispatch &amp; Supabase PostgreSQL.
                     </p>
                   </div>
                 </div>
@@ -2017,18 +2017,18 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           {/* Riwayat Import Terakhir Card (100% Real Data from Tickets & AuditLogs) */}
           <div className="card-3d-lavender rounded-2xl p-5 space-y-3.5">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="font-display font-extrabold text-sm text-[#1F1638] dark:text-white flex items-center gap-2">
-                <History className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+              <h4 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white flex items-center gap-2">
+                <History className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>Riwayat Import Terakhir</span>
               </h4>
-              <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                 LOG SUPERADMIN &amp; DATA
               </span>
             </div>
 
             {recentImportBatches.length === 0 ? (
-              <div className="p-5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] text-center text-xs text-[#7D7484] dark:text-[#A79BC0] flex flex-col items-center gap-1.5">
-                <Inbox className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF] opacity-75" />
+              <div className="p-5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-center text-xs text-[#8492A5] dark:text-[#A79BC0] flex flex-col items-center gap-1.5">
+                <Inbox className="w-5 h-5 text-[#5145A6] dark:text-[#DAB9FF] opacity-75" />
                 <span>Belum ada riwayat batch import yang tercatat pada database aktif saat ini.</span>
               </div>
             ) : (
@@ -2036,17 +2036,17 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 {recentImportBatches.map(batch => (
                   <div
                     key={batch.key}
-                    className="p-3.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] flex items-center justify-between gap-3"
+                    className="p-3.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#261942] border border-[#e8ddff] dark:border-[#4b386b] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#261942] border border-[#DDE6F0] dark:border-[#4b386b] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                         <FileSpreadsheet className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-display font-bold text-xs text-[#1F1638] dark:text-white truncate">
+                        <div className="font-display font-bold text-xs text-[#26364A] dark:text-white truncate">
                           {batch.label}
                         </div>
-                        <div className="text-[11px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                        <div className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                           {new Date(batch.timeLabel).toLocaleString('id-ID', {
                             day: '2-digit',
                             month: 'short',
@@ -2060,11 +2060,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     </div>
 
                     <div className="text-right shrink-0 space-y-1">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase bg-[#f3eaff] text-[#58149C] dark:bg-emerald-950/70 dark:text-emerald-300 border border-[#e8ddff] dark:border-emerald-800">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase bg-[#DDF4F4] text-[#2E7D8B] dark:bg-emerald-950/70 dark:text-emerald-300 border border-[#BDE4E8] dark:border-emerald-800">
                         {batch.statusLabel}
                       </span>
                       {batch.count > 0 && (
-                        <div className="text-xs font-extrabold font-mono tabular-nums text-[#58149C] dark:text-[#DAB9FF]">
+                        <div className="text-xs font-extrabold font-mono tabular-nums text-[#5145A6] dark:text-[#DAB9FF]">
                           {batch.count} WO Masuk
                         </div>
                       )}
@@ -2129,9 +2129,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             >
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  <div className="p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl">
-                    <div className="text-[10.5px] text-[#7D7484]">Total Baris Dibaca</div>
-                    <div className="text-base font-extrabold text-[#1F1638] dark:text-white">{parseResult.parsedRows.length}</div>
+                  <div className="p-2.5 bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl">
+                    <div className="text-[10.5px] text-[#8492A5]">Total Baris Dibaca</div>
+                    <div className="text-base font-extrabold text-[#26364A] dark:text-white">{parseResult.parsedRows.length}</div>
                   </div>
                   <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                     <div className="text-[10.5px] text-emerald-700 dark:text-emerald-300">Baris Valid</div>
@@ -2143,15 +2143,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     <div className="text-[10.5px] text-amber-700 dark:text-amber-300">Gagal Validasi</div>
                     <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">{parseResult.problematicCount}</div>
                   </div>
-                  <div className="p-2.5 bg-[#f3eaff] dark:bg-[#2a154b] border border-[#d8ccf3] dark:border-[#5b35b1] rounded-xl">
-                    <div className="text-[10.5px] text-[#58149C] dark:text-[#DAB9FF]">Kontraktor Baru</div>
-                    <div className="text-base font-extrabold text-[#58149C] dark:text-[#DAB9FF]">
+                  <div className="p-2.5 bg-[#EAE8FF] dark:bg-[#2a154b] border border-[#C5BEEF] dark:border-[#5b35b1] rounded-xl">
+                    <div className="text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF]">Kontraktor Baru</div>
+                    <div className="text-base font-extrabold text-[#5145A6] dark:text-[#DAB9FF]">
                       {parseResult.detectedContractors?.filter(c => c.isNew).length || newContractorsFound.length}
                     </div>
                   </div>
-                  <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl">
-                    <div className="text-[10.5px] text-purple-700 dark:text-purple-300">Kontraktor Terdaftar</div>
-                    <div className="text-base font-extrabold text-purple-700 dark:text-purple-300">
+                  <div className="p-2.5 bg-[#DDF4F4] dark:bg-purple-950/40 border border-[#BDE4E8] dark:border-purple-800 rounded-xl">
+                    <div className="text-[10.5px] text-[#2E7D8B] dark:text-purple-300">Kontraktor Terdaftar</div>
+                    <div className="text-base font-extrabold text-[#2E7D8B] dark:text-purple-300">
                       {parseResult.detectedContractors?.filter(c => !c.isNew).length || 0}
                     </div>
                   </div>
@@ -2161,14 +2161,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
                 </div>
 
-                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-1.5 text-xs">
+                <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] space-y-1.5 text-xs">
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-[#7D7484]">File Sumber:</span>
-                    <span className="font-mono font-bold text-[#1F1638] dark:text-white truncate">{sourceFileName}</span>
+                    <span className="text-[#8492A5]">File Sumber:</span>
+                    <span className="font-mono font-bold text-[#26364A] dark:text-white truncate">{sourceFileName}</span>
                   </div>
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-[#7D7484]">Operator:</span>
-                    <span className="font-bold text-[#1F1638] dark:text-white truncate">{currentUser.name} ({currentUser.role})</span>
+                    <span className="text-[#8492A5]">Operator:</span>
+                    <span className="font-bold text-[#26364A] dark:text-white truncate">{currentUser.name} ({currentUser.role})</span>
                   </div>
                 </div>
 
@@ -2191,15 +2191,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 {((parseResult.detectedContractors && parseResult.detectedContractors.length > 0) || newContractorsFound.length > 0) && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#1F1638] dark:text-white flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                      <span className="font-bold text-[#26364A] dark:text-white flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                         <span>Daftar Kontraktor Terdeteksi:</span>
                       </span>
-                      <span className="text-[11px] text-[#7D7484]">
+                      <span className="text-[11px] text-[#8492A5]">
                         {parseResult.detectedContractors?.length || newContractorsFound.length} Mitra
                       </span>
                     </div>
-                    <div className="max-h-36 overflow-y-auto p-2.5 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-wrap gap-1.5">
+                    <div className="max-h-36 overflow-y-auto p-2.5 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-wrap gap-1.5">
                       {parseResult.detectedContractors && parseResult.detectedContractors.length > 0
                         ? parseResult.detectedContractors.map((c, cIdx) => (
                             <span
@@ -2207,7 +2207,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                               className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 ${
                                 c.isNew
                                   ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                                  : 'bg-[#e8ddff] dark:bg-[#2e1459] text-[#58149C] dark:text-[#DAB9FF]'
+                                  : 'bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#DAB9FF]'
                               }`}
                             >
                               <span>{c.name}</span>
@@ -2229,11 +2229,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
                 )}
 
-                <div className="p-3 bg-[#f3eaff] dark:bg-[#2a154b] border border-[#d8ccf3] dark:border-[#5b35b1] rounded-xl space-y-1.5">
+                <div className="p-3 bg-[#EAE8FF]/70 dark:bg-[#2a154b] border border-[#C5BEEF] dark:border-[#5b35b1] rounded-xl space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
-                      <span className="font-bold text-[#1F1638] dark:text-white text-xs">
+                      <Building2 className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                      <span className="font-bold text-[#26364A] dark:text-white text-xs">
                         Pendaftaran Otomatis Kontraktor Baru
                       </span>
                     </div>
@@ -2244,26 +2244,26 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         onChange={e => setAutoRegisterNewContractors(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-9 h-5 bg-[#cec3d4] dark:bg-[#342b4e] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#cec3d4] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#58149C]"></div>
+                      <div className="w-9 h-5 bg-[#CBD5E1] dark:bg-[#342b4e] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#CBD5E1] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#6657C8] dark:peer-checked:bg-[#58149C]"></div>
                     </label>
                   </div>
-                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                     {autoRegisterNewContractors
                       ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan otomatis saat import disimpan.'
                       : 'Nonaktif — Kontraktor baru tidak ditambahkan ke Master Database.'}
                   </p>
                 </div>
 
-                <div className="p-3 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] space-y-2">
-                  <span className="font-bold text-[#1F1638] dark:text-white text-xs block">
+                <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] space-y-2">
+                  <span className="font-bold text-[#26364A] dark:text-white text-xs block">
                     Kebijakan Duplikasi Nomor WO:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <label
                       className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
                         duplicatePolicy === 'skip'
-                          ? 'bg-white dark:bg-[#1e1238] border-[#58149C] font-bold text-[#58149C] dark:text-[#DAB9FF] ring-1 ring-[#58149C]/30'
-                          : 'bg-[#f8f1ff] dark:bg-[#160d29] border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8]'
+                          ? 'bg-white dark:bg-[#1e1238] border-[#6657C8] font-bold text-[#5145A6] dark:text-[#DAB9FF] ring-1 ring-[#6657C8]/30'
+                          : 'bg-[#F4F7FB] dark:bg-[#160d29] border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8]'
                       }`}
                     >
                       <input
@@ -2271,15 +2271,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         name="dupPolicy"
                         checked={duplicatePolicy === 'skip'}
                         onChange={() => setDuplicatePolicy('skip')}
-                        className="text-[#58149C]"
+                        className="text-[#5145A6]"
                       />
                       <span>Lewati Duplikat (Skip)</span>
                     </label>
                     <label
                       className={`p-2.5 rounded-xl border text-[11px] cursor-pointer flex items-center gap-2 transition-colors ${
                         duplicatePolicy === 'update_allowed'
-                          ? 'bg-white dark:bg-[#1e1238] border-[#58149C] font-bold text-[#58149C] dark:text-[#DAB9FF] ring-1 ring-[#58149C]/30'
-                          : 'bg-[#f8f1ff] dark:bg-[#160d29] border-[#e8ddff] dark:border-[#3b1d78] text-[#4B4452] dark:text-[#CABDE8]'
+                          ? 'bg-white dark:bg-[#1e1238] border-[#6657C8] font-bold text-[#5145A6] dark:text-[#DAB9FF] ring-1 ring-[#6657C8]/30'
+                          : 'bg-[#F4F7FB] dark:bg-[#160d29] border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8]'
                       }`}
                     >
                       <input
@@ -2287,7 +2287,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         name="dupPolicy"
                         checked={duplicatePolicy === 'update_allowed'}
                         onChange={() => setDuplicatePolicy('update_allowed')}
-                        className="text-[#58149C]"
+                        className="text-[#5145A6]"
                       />
                       <span>Perbarui WO (Update)</span>
                     </label>
@@ -2305,13 +2305,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       {mainTab === 'history_delete' && canDeleteImportedData && (
         <div className="space-y-5">
           <div className="card-3d-lavender rounded-2xl p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e8ddff] dark:border-[#3b1d78] pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2E8F0] dark:border-[#3b1d78] pb-4">
               <div>
-                <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white flex items-center gap-2">
+                <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white flex items-center gap-2">
                   <History className="w-4 h-4 text-[#BA1A1A]" />
                   <span>Riwayat &amp; Hapus Data Import per Tanggal</span>
                 </h3>
-                <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-1">
+                <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-1">
                   Filter dan hapus data tiket hasil import berdasarkan tanggal import. Batas rentang data yang dapat dihapus adalah <strong>maksimal 7 hari kalender</strong> sejak data diimpor.
                 </p>
               </div>
@@ -2322,16 +2322,16 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               </div>
             </div>
 
-            <div className="p-4 bg-[#f8f1ff] dark:bg-[#160d29] rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="p-4 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="flex-1">
-                <label className="block text-[11px] font-bold text-[#1F1638] dark:text-white mb-1">
+                <label className="block text-[11px] font-bold text-[#26364A] dark:text-white mb-1">
                   Pilih / Filter Tanggal Import untuk Dihapus
                 </label>
                 <input
                   type="date"
                   value={selectedPurgeDate}
                   onChange={e => setSelectedPurgeDate(e.target.value)}
-                  className="tactile-debossed-input w-full px-3 py-2 text-xs border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white"
+                  className="tactile-debossed-input w-full px-3 py-2 text-xs border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl bg-white dark:bg-[#1e1238] text-[#26364A] dark:text-white"
                 />
               </div>
 
@@ -2380,7 +2380,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-extrabold text-[#4B4452] dark:text-[#CABDE8] uppercase tracking-wider">
+              <h4 className="text-xs font-extrabold text-[#52647A] dark:text-[#CABDE8] uppercase tracking-wider">
                 Daftar Tanggal Import Tersimpan di Sistem
               </h4>
 
@@ -2398,14 +2398,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
                 if (sortedDates.length === 0) {
                   return (
-                    <div className="p-6 text-center text-[#7D7484] italic text-xs border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl">
+                    <div className="p-6 text-center text-[#8492A5] italic text-xs border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl">
                       Belum ada data tiket yang tersimpan di sistem.
                     </div>
                   );
                 }
 
                 return (
-                  <div className="border border-[#e8ddff] dark:border-[#3b1d78] rounded-xl overflow-hidden divide-y divide-[#e8ddff] dark:divide-[#3b1d78]">
+                  <div className="border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl overflow-hidden divide-y divide-[#E2E8F0] dark:divide-[#3b1d78]">
                     {sortedDates.map(dateStr => {
                       const count = dateMap[dateStr];
                       const target = new Date(dateStr);
@@ -2416,20 +2416,20 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       return (
                         <div
                           key={dateStr}
-                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#f8f1ff] dark:hover:bg-[#160d29] transition-colors"
+                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 odd:bg-white even:bg-[#F8FAFD] dark:odd:bg-transparent dark:even:bg-transparent hover:bg-[#EDF3F8] dark:hover:bg-[#160d29] transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                                 isEligible
                                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
-                                  : 'bg-[#f3eaff] dark:bg-[#261942] text-[#7D7484]'
+                                  : 'bg-[#F4F7FB] dark:bg-[#261942] text-[#8492A5]'
                               }`}
                             >
                               <Calendar className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="font-bold text-[#1F1638] dark:text-white text-xs flex items-center gap-2 flex-wrap">
+                              <div className="font-bold text-[#26364A] dark:text-white text-xs flex items-center gap-2 flex-wrap">
                                 <span className="font-mono">{dateStr}</span>
                                 {isEligible ? (
                                   <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
@@ -2437,13 +2437,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                                     <span>Dalam Rentang 7 Hari ({diffDays === 0 ? 'Hari Ini' : `${diffDays} hari lalu`})</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] bg-[#f3eaff] dark:bg-[#261942] text-[#7D7484] dark:text-[#A79BC0] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                  <span className="text-[10px] bg-[#F4F7FB] dark:bg-[#261942] text-[#8492A5] dark:text-[#A79BC0] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                                     <Lock className="w-3 h-3" />
                                     <span>Terkunci ({diffDays} hari lalu, &gt; 7 hari)</span>
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                              <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] mt-0.5">
                                 Total {count} data Work Order tersimpan pada tanggal ini.
                               </p>
                             </div>
@@ -2468,7 +2468,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                             ) : (
                               <span
                                 title="Data telah melewati batas retensi 7 hari kalender dan dilindungi dari penghapusan massal"
-                                className="px-3 py-1.5 bg-[#f8f1ff] dark:bg-[#160d29] text-[#7D7484] text-xs rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] flex items-center gap-1.5 cursor-not-allowed"
+                                className="px-3 py-1.5 bg-[#F4F7FB] dark:bg-[#160d29] text-[#8492A5] text-xs rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] flex items-center gap-1.5 cursor-not-allowed"
                               >
                                 <Lock className="w-3.5 h-3.5" />
                                 <span>Terkunci (Proteksi Audit)</span>
@@ -2543,7 +2543,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
 
             <div>
-              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">
+              <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                 Alasan Penghapusan (Wajib diisi):
               </label>
               <textarea
@@ -2551,12 +2551,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 placeholder="misal: Salah input file import, data duplikat dari vendor..."
                 value={purgeReason}
                 onChange={e => setPurgeReason(e.target.value)}
-                className="tactile-debossed-input w-full p-2.5 border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] text-[#1F1638] dark:text-white"
+                className="tactile-debossed-input w-full p-2.5 border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] text-[#26364A] dark:text-white"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-[#1F1638] dark:text-white mb-1">
+              <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                 Ketik <span className="font-mono text-[#BA1A1A] font-bold">HAPUS IMPORT</span> untuk konfirmasi:
               </label>
               <input
@@ -2564,7 +2564,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 placeholder="HAPUS IMPORT"
                 value={purgeConfirmPhrase}
                 onChange={e => setPurgeConfirmPhrase(e.target.value)}
-                className="tactile-debossed-input w-full px-3 py-2 border border-[#d8ccf3] dark:border-[#3b1d78] rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] text-[#1F1638] dark:text-white font-mono"
+                className="tactile-debossed-input w-full px-3 py-2 border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] text-[#26364A] dark:text-white font-mono"
               />
             </div>
           </div>
@@ -2577,24 +2577,24 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       {mainTab === 'export' && (
         <div className="space-y-5">
           <div className="card-3d-lavender rounded-2xl p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E2E8F0] dark:border-[#3b1d78]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center font-bold shadow-[0_2px_0_#35105E] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#EAE8FF] to-[#DDF4F4] dark:from-[#7135B5] dark:to-[#58149C] border border-[#C5BEEF] dark:border-transparent text-[#5145A6] dark:text-white flex items-center justify-center font-bold shadow-[0_2px_0_#D2DAEA] dark:shadow-[0_2px_0_#35105E] shrink-0">
                   <Download className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white">
+                  <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white">
                     Pusat Ekspor Data Work Order &amp; Template Blank Lapangan
                   </h3>
-                  <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5">
+                  <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5">
                     Ekspor seluruh data Work Order ke format Excel (.xlsx) atau CSV deterministik, serta unduh template penugasan Korlap &amp; Teknisi.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-[#4B4452] dark:text-[#CABDE8]">Total Tiket Tersimpan:</span>
-                <span className="px-3 py-1 rounded-full bg-[#f3eaff] dark:bg-[#2e1459] font-mono font-bold text-xs text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#5b35b1]">
+                <span className="text-xs text-[#52647A] dark:text-[#CABDE8]">Total Tiket Tersimpan:</span>
+                <span className="px-3 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2e1459] font-mono font-bold text-xs text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5b35b1]">
                   {tickets.filter(t => !t.isArchived).length} WO
                 </span>
               </div>
@@ -2610,7 +2610,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'lg:grid-cols-3'} gap-6 pt-5 text-xs`}>
               {/* Card 1: Format Template Ekspor */}
               <div className="space-y-3">
-                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#26364A] dark:text-white uppercase tracking-wider text-[11px]">
                   1. Pilih Format Kolom Ekspor:
                 </label>
                 <div className="space-y-2.5">
@@ -2619,14 +2619,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     onClick={() => setExportFormat('full_46')}
                     className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'full_46'
-                        ? 'border-[#58149C] bg-[#f3eaff] dark:bg-[#2e1459] text-[#1F1638] dark:text-white ring-2 ring-[#7135B5]/30'
-                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
+                        ? 'border-[#6657C8] bg-[#EAE8FF] dark:bg-[#2e1459] text-[#26364A] dark:text-white ring-2 ring-[#6657C8]/30 dark:ring-[#7135B5]/30'
+                        : 'border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29] hover:border-[#94A3B8] dark:hover:border-[#a78bfa] text-[#52647A] dark:text-[#CABDE8]'
                     }`}
                   >
-                    <FileSpreadsheet className="w-5 h-5 text-[#58149C] dark:text-[#DAB9FF] mt-0.5 shrink-0" />
+                    <FileSpreadsheet className="w-5 h-5 text-[#5145A6] dark:text-[#DAB9FF] mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1F1638] dark:text-white">Format Master 46 Kolom</div>
-                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                      <div className="font-bold text-[#26364A] dark:text-white">Format Master 46 Kolom</div>
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                         Sesuai standar template BASE_DATA_WO (semua field identitas, teknis, jadwal, mitra).
                       </div>
                     </div>
@@ -2638,13 +2638,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'korlap_template'
                         ? 'border-amber-600 bg-amber-50/70 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/30'
-                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
+                        : 'border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29] hover:border-[#94A3B8] dark:hover:border-[#a78bfa] text-[#52647A] dark:text-[#CABDE8]'
                     }`}
                   >
                     <Building2 className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1F1638] dark:text-white">Template WO Korlap</div>
-                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                      <div className="font-bold text-[#26364A] dark:text-white">Template WO Korlap</div>
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                         Format ringkas koordinator: WO Number, ID Cust, Lokasi, Mitra, Leader, Slot Time.
                       </div>
                     </div>
@@ -2656,13 +2656,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     className={`w-full text-left p-3.5 rounded-xl border flex items-start gap-3 transition-all cursor-pointer ${
                       exportFormat === 'teknisi_template'
                         ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/30'
-                        : 'border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff]/60 dark:bg-[#160d29] hover:border-[#a78bfa] text-[#4B4452] dark:text-[#CABDE8]'
+                        : 'border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29] hover:border-[#94A3B8] dark:hover:border-[#a78bfa] text-[#52647A] dark:text-[#CABDE8]'
                     }`}
                   >
                     <Wrench className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1F1638] dark:text-white">Template Assigned Teknisi</div>
-                      <div className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                      <div className="font-bold text-[#26364A] dark:text-white">Template Assigned Teknisi</div>
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                         Format penugasan teknisi: WO Number, FAT/Port, Installer Name, Slot Time, Status.
                       </div>
                     </div>
@@ -2672,18 +2672,18 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
               {/* Card 2: Filter Data yang Diekspor */}
               <div className="space-y-3">
-                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#26364A] dark:text-white uppercase tracking-wider text-[11px]">
                   2. Filter Data Work Order:
                 </label>
-                <div className="space-y-3 p-4 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29]">
+                <div className="space-y-3 p-4 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29]">
                   <div>
-                    <label className="block text-[#4B4452] dark:text-[#CABDE8] font-bold mb-1">
+                    <label className="block text-[#52647A] dark:text-[#CABDE8] font-bold mb-1">
                       Filter Mitra Kontraktor:
                     </label>
                     <select
                       value={exportContractor}
                       onChange={e => setExportContractor(e.target.value)}
-                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white font-semibold"
+                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#26364A] dark:text-white font-semibold"
                     >
                       <option value="ALL">Semua Mitra Kontraktor</option>
                       {contractors.map((c, cIdx) => (
@@ -2693,13 +2693,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
 
                   <div>
-                    <label className="block text-[#4B4452] dark:text-[#CABDE8] font-bold mb-1">
+                    <label className="block text-[#52647A] dark:text-[#CABDE8] font-bold mb-1">
                       Filter Status Penugasan:
                     </label>
                     <select
                       value={exportStatus}
                       onChange={e => setExportStatus(e.target.value)}
-                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#d8ccf3] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#1F1638] dark:text-white font-semibold"
+                      className="tactile-debossed-input w-full px-3 py-2 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] bg-white dark:bg-[#1e1238] text-[#26364A] dark:text-white font-semibold"
                     >
                       <option value="ALL">Semua Status</option>
                       <option value="UNASSIGNED">Belum Ditugaskan ke Teknisi</option>
@@ -2708,10 +2708,10 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     </select>
                   </div>
 
-                  <div className="pt-2 border-t border-[#e8ddff] dark:border-[#3b1d78] text-[11.5px] text-[#4B4452] dark:text-[#CABDE8]">
+                  <div className="pt-2 border-t border-[#E2E8F0] dark:border-[#3b1d78] text-[11.5px] text-[#52647A] dark:text-[#CABDE8]">
                     <div>
                       WO Siap Ekspor:{' '}
-                      <strong className="text-[#58149C] dark:text-[#DAB9FF] font-mono font-bold">
+                      <strong className="text-[#5145A6] dark:text-[#DAB9FF] font-mono font-bold">
                         {
                           tickets.filter(t => {
                             if (t.isArchived) return false;
@@ -2751,11 +2751,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
               {/* Card 3: Download Blank Templates */}
               <div className="space-y-3">
-                <label className="block font-extrabold text-[#1F1638] dark:text-white uppercase tracking-wider text-[11px]">
+                <label className="block font-extrabold text-[#26364A] dark:text-white uppercase tracking-wider text-[11px]">
                   3. Unduh Template Blank:
                 </label>
-                <div className="space-y-2.5 p-4 rounded-xl border border-[#e8ddff] dark:border-[#3b1d78] bg-[#f8f1ff] dark:bg-[#160d29]">
-                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                <div className="space-y-2.5 p-4 rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] bg-[#F4F7FB] dark:bg-[#160d29]">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                     Unduh file spreadsheet template kosong berheader resmi untuk diisi secara offline sebelum diimpor kembali:
                   </p>
 
@@ -2765,13 +2765,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     className="btn-3d-lilac w-full text-left p-2.5 rounded-xl flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <FileDown className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                      <FileDown className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                       <div>
-                        <div className="font-bold text-[#1F1638] dark:text-white">Template Master BASE_DATA_WO</div>
-                        <div className="text-[10px] text-[#7D7484]">46 Kolom resmi standar</div>
+                        <div className="font-bold text-[#26364A] dark:text-white">Template Master BASE_DATA_WO</div>
+                        <div className="text-[10px] text-[#8492A5]">46 Kolom resmi standar</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                   </button>
 
                   <button
@@ -2782,11 +2782,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     <div className="flex items-center gap-2">
                       <FileDown className="w-4 h-4 text-amber-600" />
                       <div>
-                        <div className="font-bold text-[#1F1638] dark:text-white">Template WO Korlap</div>
-                        <div className="text-[10px] text-[#7D7484]">Untuk bulk assign Leader / Korlap</div>
+                        <div className="font-bold text-[#26364A] dark:text-white">Template WO Korlap</div>
+                        <div className="text-[10px] text-[#8492A5]">Untuk bulk assign Leader / Korlap</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                   </button>
 
                   <button
@@ -2797,11 +2797,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     <div className="flex items-center gap-2">
                       <FileDown className="w-4 h-4 text-emerald-600" />
                       <div>
-                        <div className="font-bold text-[#1F1638] dark:text-white">Template Assigned Teknisi</div>
-                        <div className="text-[10px] text-[#7D7484]">Untuk bulk assign teknisi di lapangan</div>
+                        <div className="font-bold text-[#26364A] dark:text-white">Template Assigned Teknisi</div>
+                        <div className="text-[10px] text-[#8492A5]">Untuk bulk assign teknisi di lapangan</div>
                       </div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                   </button>
                 </div>
               </div>

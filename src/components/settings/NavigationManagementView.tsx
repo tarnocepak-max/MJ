@@ -116,14 +116,14 @@ export const NavigationManagementView: React.FC = () => {
   // Security check: Only Superadmin can modify navigation
   if (currentUser.role !== 'super_admin') {
     return (
-      <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8 shadow-xl">
-        <div className="w-12 h-12 bg-rose-950/60 text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/30">
+      <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 my-8 shadow-xl">
+        <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-500/30">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-white text-base">
+        <h3 className="font-bold text-[#26364A] dark:text-white text-base">
           Akses Dibatasi: Otoritas Navigation Management
         </h3>
-        <p className="text-xs text-[#D8B4FE]/80 leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 leading-relaxed">
           Pengaturan susunan menu, accordion kategori, dan menu mandiri dilindungi dan hanya dapat dikonfigurasi oleh <strong>Super Admin</strong>.
         </p>
       </div>
@@ -282,51 +282,51 @@ export const NavigationManagementView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Dark Purple Gloss + Lilac Header with Supabase status */}
-      <div className="bg-gradient-to-r from-[#160D29] via-[#2D124D] to-[#160D29] border border-[#35105E] rounded-2xl p-5 shadow-xl relative overflow-hidden">
+      {/* Top Banner: Soft Crystal Mist (Light) / Dark Purple Gloss (Night) */}
+      <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#2D124D] dark:to-[#160D29] border border-[#C5BEEF] dark:border-[#35105E] rounded-2xl p-5 shadow-lg dark:shadow-xl relative overflow-hidden">
         {/* Subtle decorative glow */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#A855F7]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#6657C8]/10 dark:bg-[#A855F7]/15 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#7135B5] to-[#A855F7] text-white flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(168,85,247,0.5)] border border-[#E9D5FF]/30">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#7135B5] dark:to-[#A855F7] text-white flex items-center justify-center shrink-0 shadow-md dark:shadow-[0_0_20px_rgba(168,85,247,0.5)] border border-white/40 dark:border-[#E9D5FF]/30">
               <FolderTree className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-base font-extrabold text-white tracking-wide">
+                <h2 className="text-base font-extrabold text-[#26364A] dark:text-white tracking-wide">
                   Navigation Management
                 </h2>
                 {/* Supabase PostgreSQL Status Badge */}
-                <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border bg-[#160D29]/80 border-[#35105E]">
+                <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border bg-white/85 border-[#DDE6F0] dark:bg-[#160D29]/80 dark:border-[#35105E]">
                   {isCloudSyncing ? (
                     <>
-                      <RefreshCw className="w-3 h-3 text-[#A855F7] animate-spin" />
-                      <span className="text-[#D8B4FE]">Sinkronisasi Cloud...</span>
+                      <RefreshCw className="w-3 h-3 text-[#5145A6] dark:text-[#A855F7] animate-spin" />
+                      <span className="text-[#5145A6] dark:text-[#D8B4FE]">Sinkronisasi Cloud...</span>
                     </>
                   ) : cloudSyncStatus === 'synced' ? (
                     <>
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span className="text-emerald-300 font-bold">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-emerald-700 dark:text-emerald-300 font-bold">
                         Supabase PostgreSQL (app_settings/navigation)
                         {lastSyncTime ? ` · ${new Date(lastSyncTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : ''}
                       </span>
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="w-3 h-3 text-rose-400" />
-                      <span className="text-rose-300">Gagal Sinkronisasi</span>
+                      <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                      <span className="text-rose-700 dark:text-rose-300">Gagal Sinkronisasi</span>
                     </>
                   )}
                 </div>
 
                 {isDraftDirty && (
-                  <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full animate-pulse">
+                  <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-400/20 dark:text-amber-300 dark:border-amber-400/30 rounded-full animate-pulse">
                     Ada Perubahan Belum Disimpan
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#D8B4FE]/80 mt-1">
+              <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 mt-1">
                 Kelola 3 Kategori Accordion, 7 Menu Mandiri, susunan submenu, mode accordion, serta drag &amp; drop reordering. Seluruh konfigurasi tersimpan permanen di Supabase PostgreSQL.
               </p>
             </div>
@@ -368,18 +368,18 @@ export const NavigationManagementView: React.FC = () => {
       </div>
 
       {/* Nav Tabs for Section Switcher */}
-      <div className="flex items-center gap-2 border-b border-[#35105E] overflow-x-auto pb-1 text-xs font-bold">
+      <div className="flex items-center gap-2 border-b border-[#DDE6F0] dark:border-[#35105E] overflow-x-auto pb-1 text-xs font-bold">
         <button
           onClick={() => setActiveSection('standalone')}
           className={`px-4 py-2.5 rounded-t-xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
             activeSection === 'standalone'
-              ? 'bg-[#35105E] text-white border-t-2 border-[#A855F7] shadow-inner'
-              : 'text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E]/40'
+              ? 'bg-[#EAE8FF] text-[#26364A] border-t-2 border-[#6657C8] dark:bg-[#35105E] dark:text-white dark:border-[#A855F7] shadow-inner'
+              : 'text-[#52647A] hover:text-[#26364A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE]/70 dark:hover:text-white dark:hover:bg-[#35105E]/40'
           }`}
         >
-          <LayoutDashboard className="w-4 h-4 text-[#A855F7]" />
+          <LayoutDashboard className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />
           <span>Menu Mandiri (7 Menu)</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#160D29] text-[10px] text-[#D8B4FE]">
+          <span className="px-1.5 py-0.2 rounded-full bg-white border border-[#C5BEEF] text-[#5145A6] dark:border-transparent dark:bg-[#160D29] text-[10px] dark:text-[#D8B4FE]">
             {draftConfig.standaloneMenus.length}
           </span>
         </button>
@@ -388,13 +388,13 @@ export const NavigationManagementView: React.FC = () => {
           onClick={() => setActiveSection('categories')}
           className={`px-4 py-2.5 rounded-t-xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
             activeSection === 'categories'
-              ? 'bg-[#35105E] text-white border-t-2 border-[#A855F7] shadow-inner'
-              : 'text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E]/40'
+              ? 'bg-[#EAE8FF] text-[#26364A] border-t-2 border-[#6657C8] dark:bg-[#35105E] dark:text-white dark:border-[#A855F7] shadow-inner'
+              : 'text-[#52647A] hover:text-[#26364A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE]/70 dark:hover:text-white dark:hover:bg-[#35105E]/40'
           }`}
         >
-          <Layers className="w-4 h-4 text-[#A855F7]" />
+          <Layers className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />
           <span>Kategori Accordion (3 Kategori)</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#160D29] text-[10px] text-[#D8B4FE]">
+          <span className="px-1.5 py-0.2 rounded-full bg-white border border-[#C5BEEF] text-[#5145A6] dark:border-transparent dark:bg-[#160D29] text-[10px] dark:text-[#D8B4FE]">
             {draftConfig.categories.length}
           </span>
         </button>
@@ -403,13 +403,13 @@ export const NavigationManagementView: React.FC = () => {
           onClick={() => setActiveSection('submenus')}
           className={`px-4 py-2.5 rounded-t-xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
             activeSection === 'submenus'
-              ? 'bg-[#35105E] text-white border-t-2 border-[#A855F7] shadow-inner'
-              : 'text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E]/40'
+              ? 'bg-[#EAE8FF] text-[#26364A] border-t-2 border-[#6657C8] dark:bg-[#35105E] dark:text-white dark:border-[#A855F7] shadow-inner'
+              : 'text-[#52647A] hover:text-[#26364A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE]/70 dark:hover:text-white dark:hover:bg-[#35105E]/40'
           }`}
         >
-          <FolderTree className="w-4 h-4 text-[#A855F7]" />
+          <FolderTree className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />
           <span>Pengaturan Submenu</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#160D29] text-[10px] text-[#D8B4FE]">
+          <span className="px-1.5 py-0.2 rounded-full bg-white border border-[#C5BEEF] text-[#5145A6] dark:border-transparent dark:bg-[#160D29] text-[10px] dark:text-[#D8B4FE]">
             {draftConfig.submenuItems.length}
           </span>
         </button>
@@ -418,11 +418,11 @@ export const NavigationManagementView: React.FC = () => {
           onClick={() => setActiveSection('settings')}
           className={`px-4 py-2.5 rounded-t-xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
             activeSection === 'settings'
-              ? 'bg-[#35105E] text-white border-t-2 border-[#A855F7] shadow-inner'
-              : 'text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E]/40'
+              ? 'bg-[#EAE8FF] text-[#26364A] border-t-2 border-[#6657C8] dark:bg-[#35105E] dark:text-white dark:border-[#A855F7] shadow-inner'
+              : 'text-[#52647A] hover:text-[#26364A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE]/70 dark:hover:text-white dark:hover:bg-[#35105E]/40'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-[#A855F7]" />
+          <Sparkles className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />
           <span>Pengaturan Accordion &amp; Animasi</span>
         </button>
       </div>
@@ -431,17 +431,17 @@ export const NavigationManagementView: React.FC = () => {
       {/* SECTION 1: STANDALONE MENUS CONFIGURATION */}
       {/* ======================================================== */}
       {activeSection === 'standalone' && (
-        <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#35105E]">
+        <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-6 shadow-md dark:shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-[#35105E]">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
                 <span>Pengaturan Menu Mandiri (Standalone Menu)</span>
               </h3>
-              <p className="text-xs text-[#D8B4FE]/70 mt-0.5">
+              <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                 7 menu utama yang berdiri sendiri, tampil sejajar di navigasi tanpa parent category dan tanpa accordion. Anda dapat mengubah nama, ikon, urutan, serta visibilitasnya.
               </p>
             </div>
-            <div className="text-[11px] text-[#D8B4FE]/80 font-mono bg-[#35105E]/60 px-3 py-1 rounded-lg">
+            <div className="text-[11px] text-[#5145A6] dark:text-[#D8B4FE]/80 font-mono bg-[#EAE8FF] border border-[#C5BEEF] dark:border-transparent dark:bg-[#35105E]/60 px-3 py-1 rounded-lg">
               Total: {draftConfig.standaloneMenus.length} Menu Mandiri
             </div>
           </div>
@@ -461,23 +461,23 @@ export const NavigationManagementView: React.FC = () => {
                     onDrop={(e) => handleStandaloneDrop(e, index)}
                     className={`flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${
                       isOver
-                        ? 'border-[#A855F7] bg-[#7135B5]/30'
+                        ? 'border-[#6657C8] bg-[#EAE8FF] dark:border-[#A855F7] dark:bg-[#7135B5]/30'
                         : menu.visible
-                        ? 'border-[#35105E] bg-[#24133F]/70 hover:bg-[#35105E]/50'
-                        : 'border-[#35105E]/40 bg-[#160D29]/60 opacity-60'
+                        ? 'border-[#DDE6F0] bg-[#F4F7FB] hover:bg-[#EDF3F8] dark:border-[#35105E] dark:bg-[#24133F]/70 dark:hover:bg-[#35105E]/50'
+                        : 'border-[#E2E8F0] bg-[#F8FAFD] dark:border-[#35105E]/40 dark:bg-[#160D29]/60 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {/* Drag Handle */}
                       <div
-                        className="cursor-grab active:cursor-grabbing p-1 text-[#D8B4FE]/60 hover:text-white"
+                        className="cursor-grab active:cursor-grabbing p-1 text-[#8492A5] hover:text-[#26364A] dark:text-[#D8B4FE]/60 dark:hover:text-white"
                         title="Tahan & geser untuk mengubah urutan (Drag & Drop)"
                       >
                         <GripVertical className="w-4 h-4" />
                       </div>
 
                       {/* Order Badge */}
-                      <span className="w-6 text-[11px] font-mono text-[#D8B4FE]/60 text-center">
+                      <span className="w-6 text-[11px] font-mono text-[#8492A5] dark:text-[#D8B4FE]/60 text-center">
                         #{menu.order}
                       </span>
 
@@ -485,7 +485,7 @@ export const NavigationManagementView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIconPickerTarget({ type: 'standalone', id: menu.id })}
-                        className="w-8 h-8 rounded-lg bg-[#35105E] hover:bg-[#7135B5]/60 text-[#D8B4FE] hover:text-white flex items-center justify-center border border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
+                        className="w-8 h-8 rounded-lg bg-[#EAE8FF] hover:bg-[#DDF4F4] text-[#5145A6] hover:text-[#2E7D8B] border border-[#C5BEEF] dark:bg-[#35105E] dark:hover:bg-[#7135B5]/60 dark:text-[#D8B4FE] dark:hover:text-white flex items-center justify-center dark:border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
                         title="Klik untuk memilih ikon baru"
                       >
                         <NavigationIcon name={menu.icon} className="w-4 h-4" />
@@ -497,10 +497,10 @@ export const NavigationManagementView: React.FC = () => {
                           type="text"
                           value={menu.name || (menu as any).label || ''}
                           onChange={(e) => updateStandaloneMenuInDraft(menu.id, { name: e.target.value })}
-                          className="w-full max-w-sm px-2.5 py-1 text-xs font-bold text-white bg-[#160D29] border border-[#35105E] rounded-lg focus:border-[#A855F7] focus:ring-1 focus:ring-[#A855F7]"
+                          className="w-full max-w-sm px-2.5 py-1 text-xs font-bold text-[#26364A] bg-white border border-[#DDE6F0] focus:border-[#6657C8] focus:ring-1 focus:ring-[#6657C8] dark:text-white dark:bg-[#160D29] dark:border-[#35105E] rounded-lg dark:focus:border-[#A855F7] dark:focus:ring-[#A855F7]"
                         />
-                        <div className="text-[10px] text-[#D8B4FE]/60 font-mono mt-0.5">
-                          ID: <span className="text-[#A855F7]">{menu.id}</span>
+                        <div className="text-[10px] text-[#52647A] dark:text-[#D8B4FE]/60 font-mono mt-0.5">
+                          ID: <span className="text-[#5145A6] dark:text-[#A855F7]">{menu.id}</span>
                           {menu.roles && ` · Roles: ${menu.roles.join(', ')}`}
                         </div>
                       </div>
@@ -511,7 +511,7 @@ export const NavigationManagementView: React.FC = () => {
                       <button
                         onClick={() => moveStandaloneMenuInDraft(menu.id, 'up')}
                         disabled={index === 0}
-                        className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                        className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                         title="Geser Naik"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
@@ -519,7 +519,7 @@ export const NavigationManagementView: React.FC = () => {
                       <button
                         onClick={() => moveStandaloneMenuInDraft(menu.id, 'down')}
                         disabled={index === draftConfig.standaloneMenus.length - 1}
-                        className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                        className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                         title="Geser Turun"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
@@ -529,8 +529,8 @@ export const NavigationManagementView: React.FC = () => {
                         onClick={() => updateStandaloneMenuInDraft(menu.id, { visible: !menu.visible })}
                         className={`p-1.5 rounded-lg border cursor-pointer ${
                           menu.visible
-                            ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30'
-                            : 'border-slate-700 text-slate-500 bg-slate-900/40'
+                            ? 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:bg-emerald-950/30'
+                            : 'border-[#DDE6F0] text-[#8492A5] bg-[#F4F7FB] dark:border-slate-700 dark:text-slate-500 dark:bg-slate-900/40'
                         }`}
                         title={menu.visible ? 'Sembunyikan menu dari navigasi' : 'Tampilkan menu di navigasi'}
                       >
@@ -545,7 +545,7 @@ export const NavigationManagementView: React.FC = () => {
                             name: menu.name || (menu as any).label || menu.id
                           })
                         }
-                        className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 cursor-pointer"
+                        className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
                         title="Hapus dari konfigurasi"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -562,19 +562,19 @@ export const NavigationManagementView: React.FC = () => {
       {/* SECTION 2: ACCORDION CATEGORIES CONFIGURATION */}
       {/* ======================================================== */}
       {activeSection === 'categories' && (
-        <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#35105E]">
+        <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-6 shadow-md dark:shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-[#35105E]">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
                 <span>Pengaturan Kategori Accordion (3 Kategori Utama)</span>
               </h3>
-              <p className="text-xs text-[#D8B4FE]/70 mt-0.5">
+              <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                 Kategori utama: Contractor &amp; Area, Installer, dan Menu Tambahan. Setiap kategori menggunakan accordion collapse independen.
               </p>
             </div>
             <button
               onClick={() => setShowAddCategoryModal(true)}
-              className="px-3.5 py-1.5 bg-[#7135B5] hover:bg-[#A855F7] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all self-start sm:self-auto"
+              className="btn-3d-primary px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Kategori</span>
@@ -597,24 +597,24 @@ export const NavigationManagementView: React.FC = () => {
                     onDrop={(e) => handleCategoryDrop(e, index)}
                     className={`p-4 rounded-xl border transition-all ${
                       isOver
-                        ? 'border-[#A855F7] bg-[#7135B5]/30'
+                        ? 'border-[#6657C8] bg-[#EAE8FF] dark:border-[#A855F7] dark:bg-[#7135B5]/30'
                         : cat.visible
-                        ? 'border-[#35105E] bg-[#24133F]/70'
-                        : 'border-[#35105E]/40 bg-[#160D29]/60 opacity-60'
+                        ? 'border-[#DDE6F0] bg-[#F4F7FB] dark:border-[#35105E] dark:bg-[#24133F]/70'
+                        : 'border-[#E2E8F0] bg-[#F8FAFD] dark:border-[#35105E]/40 dark:bg-[#160D29]/60 opacity-60'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Drag Handle */}
                         <div
-                          className="cursor-grab active:cursor-grabbing p-1 text-[#D8B4FE]/60 hover:text-white"
+                          className="cursor-grab active:cursor-grabbing p-1 text-[#8492A5] hover:text-[#26364A] dark:text-[#D8B4FE]/60 dark:hover:text-white"
                           title="Tahan & geser untuk mengubah urutan kategori"
                         >
                           <GripVertical className="w-4 h-4" />
                         </div>
 
                         {/* Order Badge */}
-                        <span className="w-6 text-[11px] font-mono text-[#D8B4FE]/60 text-center">
+                        <span className="w-6 text-[11px] font-mono text-[#8492A5] dark:text-[#D8B4FE]/60 text-center">
                           #{cat.order}
                         </span>
 
@@ -622,7 +622,7 @@ export const NavigationManagementView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIconPickerTarget({ type: 'category', id: cat.id })}
-                          className="w-9 h-9 rounded-lg bg-[#35105E] hover:bg-[#7135B5]/60 text-[#D8B4FE] hover:text-white flex items-center justify-center border border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
+                          className="w-9 h-9 rounded-lg bg-[#EAE8FF] hover:bg-[#DDF4F4] text-[#5145A6] hover:text-[#2E7D8B] border border-[#C5BEEF] dark:bg-[#35105E] dark:hover:bg-[#7135B5]/60 dark:text-[#D8B4FE] dark:hover:text-white flex items-center justify-center dark:border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
                           title="Ganti Ikon Kategori"
                         >
                           <NavigationIcon name={cat.icon} className="w-4 h-4" />
@@ -634,10 +634,10 @@ export const NavigationManagementView: React.FC = () => {
                             type="text"
                             value={cat.name || cat.title || (cat as any).label || ''}
                             onChange={(e) => updateCategoryInDraft(cat.id, { name: e.target.value })}
-                            className="w-full max-w-sm px-2.5 py-1 text-xs font-bold text-white bg-[#160D29] border border-[#35105E] rounded-lg focus:border-[#A855F7]"
+                            className="w-full max-w-sm px-2.5 py-1 text-xs font-bold text-[#26364A] bg-white border border-[#DDE6F0] focus:border-[#6657C8] dark:text-white dark:bg-[#160D29] dark:border-[#35105E] rounded-lg dark:focus:border-[#A855F7]"
                           />
-                          <div className="text-[10px] text-[#D8B4FE]/60 font-mono mt-0.5">
-                            ID: <span className="text-[#A855F7]">{cat.id}</span> · Memiliki {submenusCount} submenu
+                          <div className="text-[10px] text-[#52647A] dark:text-[#D8B4FE]/60 font-mono mt-0.5">
+                            ID: <span className="text-[#5145A6] dark:text-[#A855F7]">{cat.id}</span> · Memiliki {submenusCount} submenu
                           </div>
                         </div>
                       </div>
@@ -648,7 +648,7 @@ export const NavigationManagementView: React.FC = () => {
                         <select
                           value={cat.mode}
                           onChange={(e) => updateCategoryInDraft(cat.id, { mode: e.target.value as any })}
-                          className="px-2.5 py-1 text-xs bg-[#160D29] text-[#D8B4FE] border border-[#35105E] rounded-lg cursor-pointer font-semibold"
+                          className="px-2.5 py-1 text-xs bg-white text-[#26364A] border border-[#DDE6F0] dark:bg-[#160D29] dark:text-[#D8B4FE] dark:border-[#35105E] rounded-lg cursor-pointer font-semibold"
                         >
                           <option value="accordion">Accordion (Collapse)</option>
                           <option value="static">Static (Selalu Buka)</option>
@@ -658,7 +658,7 @@ export const NavigationManagementView: React.FC = () => {
                         <button
                           onClick={() => moveCategoryInDraft(cat.id, 'up')}
                           disabled={index === 0}
-                          className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                          className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                           title="Geser Naik"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -666,7 +666,7 @@ export const NavigationManagementView: React.FC = () => {
                         <button
                           onClick={() => moveCategoryInDraft(cat.id, 'down')}
                           disabled={index === draftConfig.categories.length - 1}
-                          className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                          className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                           title="Geser Turun"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
@@ -677,8 +677,8 @@ export const NavigationManagementView: React.FC = () => {
                           onClick={() => updateCategoryInDraft(cat.id, { visible: !cat.visible })}
                           className={`p-1.5 rounded-lg border cursor-pointer ${
                             cat.visible
-                              ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30'
-                              : 'border-slate-700 text-slate-500 bg-slate-900/40'
+                              ? 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:bg-emerald-950/30'
+                              : 'border-[#DDE6F0] text-[#8492A5] bg-[#F4F7FB] dark:border-slate-700 dark:text-slate-500 dark:bg-slate-900/40'
                           }`}
                           title={cat.visible ? 'Sembunyikan kategori' : 'Tampilkan kategori'}
                         >
@@ -688,7 +688,7 @@ export const NavigationManagementView: React.FC = () => {
                         {/* Delete Category */}
                         <button
                           onClick={() => setCategoryToDelete(cat)}
-                          className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 cursor-pointer"
+                          className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
                           title="Hapus Kategori"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -707,18 +707,18 @@ export const NavigationManagementView: React.FC = () => {
       {/* ======================================================== */}
       {activeSection === 'submenus' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#160D29] border border-[#35105E] rounded-2xl p-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-5 shadow-md dark:shadow-xl">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
                 <span>Pengaturan Submenu Per Kategori</span>
               </h3>
-              <p className="text-xs text-[#D8B4FE]/70 mt-0.5">
+              <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                 Atur urutan submenu dalam kategori, pindahkan submenu ke kategori lain (dropdown / drag &amp; drop), ubah nama &amp; ikon submenu.
               </p>
             </div>
             <button
               onClick={() => setShowAddSubmenuModal(true)}
-              className="px-3.5 py-1.5 bg-[#7135B5] hover:bg-[#A855F7] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all self-start sm:self-auto"
+              className="btn-3d-primary px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Tambah Submenu</span>
@@ -746,32 +746,32 @@ export const NavigationManagementView: React.FC = () => {
                   e.preventDefault();
                   setDragOverCategory(category.id);
                 }}
-                className={`bg-[#160D29] border rounded-2xl overflow-hidden shadow-xl transition-all ${
+                className={`bg-white/95 dark:bg-[#160D29] border rounded-2xl overflow-hidden shadow-md dark:shadow-xl transition-all ${
                   dragOverCategory === category.id && draggedItem?.type === 'submenu' && draggedItem.categoryId !== category.id
-                    ? 'border-[#A855F7] ring-2 ring-[#A855F7]/30'
-                    : 'border-[#35105E]'
+                    ? 'border-[#6657C8] ring-2 ring-[#6657C8]/25 dark:border-[#A855F7] dark:ring-[#A855F7]/30'
+                    : 'border-[#DDE6F0] dark:border-[#35105E]'
                 }`}
               >
                 {/* Category Group Header */}
-                <div className="bg-gradient-to-r from-[#24133F] to-[#160D29] px-5 py-3 border-b border-[#35105E] flex items-center justify-between">
+                <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#24133F] dark:to-[#160D29] px-5 py-3 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <NavigationIcon name={category.icon} className="w-4 h-4 text-[#A855F7]" />
-                    <span className="font-extrabold text-white text-xs uppercase tracking-wider">
+                    <NavigationIcon name={category.icon} className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />
+                    <span className="font-extrabold text-[#26364A] dark:text-white text-xs uppercase tracking-wider">
                       {category.name}
                     </span>
-                    <span className="text-[10px] bg-[#35105E] text-[#D8B4FE] px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] bg-white border border-[#C5BEEF] text-[#5145A6] dark:border-transparent dark:bg-[#35105E] dark:text-[#D8B4FE] px-2 py-0.5 rounded-full font-bold">
                       {submenus.length} submenu
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#D8B4FE]/60 font-mono">
+                  <span className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/60 font-mono">
                     Mode: {category.mode === 'accordion' ? 'Accordion' : 'Static'}
                   </span>
                 </div>
 
                 {/* Submenus List */}
-                <div className="divide-y divide-[#35105E]/50">
+                <div className="divide-y divide-[#E2E8F0] dark:divide-[#35105E]/50">
                   {submenus.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-[#D8B4FE]/50 italic">
+                    <div className="p-6 text-center text-xs text-[#8492A5] dark:text-[#D8B4FE]/50 italic">
                       Belum ada submenu di kategori ini. Anda dapat menggeser (drag &amp; drop) submenu dari kategori lain ke sini.
                     </div>
                   ) : (
@@ -787,23 +787,23 @@ export const NavigationManagementView: React.FC = () => {
                           onDrop={(e) => handleSubmenuDrop(e, subIndex, category.id)}
                           className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
                             isOver
-                              ? 'bg-[#7135B5]/25 border-t border-[#A855F7]'
+                              ? 'bg-[#EAE8FF] border-t border-[#6657C8] dark:bg-[#7135B5]/25 dark:border-[#A855F7]'
                               : sub.visible
-                              ? 'hover:bg-[#35105E]/30'
-                              : 'opacity-50 bg-[#160D29]/40'
+                              ? 'odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-[#35105E]/30'
+                              : 'opacity-50 bg-[#F4F7FB] dark:bg-[#160D29]/40'
                           }`}
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             {/* Drag Handle */}
                             <div
-                              className="cursor-grab active:cursor-grabbing p-1 text-[#D8B4FE]/60 hover:text-white"
+                              className="cursor-grab active:cursor-grabbing p-1 text-[#8492A5] hover:text-[#26364A] dark:text-[#D8B4FE]/60 dark:hover:text-white"
                               title="Tahan & geser untuk memindahkan atau mengubah urutan"
                             >
                               <GripVertical className="w-4 h-4" />
                             </div>
 
                             {/* Order */}
-                            <span className="w-6 text-[11px] font-mono text-[#D8B4FE]/60 text-center">
+                            <span className="w-6 text-[11px] font-mono text-[#8492A5] dark:text-[#D8B4FE]/60 text-center">
                               #{sub.order}
                             </span>
 
@@ -811,7 +811,7 @@ export const NavigationManagementView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setIconPickerTarget({ type: 'submenu', id: sub.id })}
-                              className="w-8 h-8 rounded-lg bg-[#35105E] hover:bg-[#7135B5]/60 text-[#D8B4FE] hover:text-white flex items-center justify-center border border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
+                              className="w-8 h-8 rounded-lg bg-[#EAE8FF] hover:bg-[#DDF4F4] text-[#5145A6] hover:text-[#2E7D8B] border border-[#C5BEEF] dark:bg-[#35105E] dark:hover:bg-[#7135B5]/60 dark:text-[#D8B4FE] dark:hover:text-white flex items-center justify-center dark:border-[#7135B5]/40 transition-colors cursor-pointer shrink-0"
                               title="Ganti Ikon Submenu"
                             >
                               <NavigationIcon name={sub.icon} className="w-3.5 h-3.5" />
@@ -823,10 +823,10 @@ export const NavigationManagementView: React.FC = () => {
                                 type="text"
                                 value={sub.name || (sub as any).label || ''}
                                 onChange={(e) => updateSubmenuInDraft(sub.id, { name: e.target.value })}
-                                className="w-full max-w-sm px-2.5 py-1 text-xs font-semibold text-white bg-[#160D29] border border-[#35105E] rounded-lg focus:border-[#A855F7]"
+                                className="w-full max-w-sm px-2.5 py-1 text-xs font-semibold text-[#26364A] bg-white border border-[#DDE6F0] focus:border-[#6657C8] dark:text-white dark:bg-[#160D29] dark:border-[#35105E] rounded-lg dark:focus:border-[#A855F7]"
                               />
-                              <div className="text-[10px] text-[#D8B4FE]/60 font-mono mt-0.5">
-                                ID: <span className="text-[#A855F7]">{sub.id}</span>
+                              <div className="text-[10px] text-[#52647A] dark:text-[#D8B4FE]/60 font-mono mt-0.5">
+                                ID: <span className="text-[#5145A6] dark:text-[#A855F7]">{sub.id}</span>
                                 {sub.roles && ` · Roles: ${sub.roles.join(', ')}`}
                               </div>
                             </div>
@@ -836,11 +836,11 @@ export const NavigationManagementView: React.FC = () => {
                           <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
                             {/* Target Category Selector */}
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-[#D8B4FE]/60">Kategori:</span>
+                              <span className="text-[10px] text-[#52647A] dark:text-[#D8B4FE]/60">Kategori:</span>
                               <select
                                 value={sub.categoryId}
                                 onChange={(e) => moveSubmenuToCategoryInDraft(sub.id, e.target.value)}
-                                className="text-xs px-2 py-1 bg-[#160D29] border border-[#35105E] rounded-lg text-[#D8B4FE] font-medium cursor-pointer"
+                                className="text-xs px-2 py-1 bg-white border border-[#DDE6F0] text-[#26364A] dark:bg-[#160D29] dark:border-[#35105E] rounded-lg dark:text-[#D8B4FE] font-medium cursor-pointer"
                               >
                                 {draftConfig.categories.map(c => (
                                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -852,7 +852,7 @@ export const NavigationManagementView: React.FC = () => {
                             <button
                               onClick={() => moveSubmenuInDraft(sub.id, 'up')}
                               disabled={subIndex === 0}
-                              className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                              className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                               title="Geser Naik"
                             >
                               <ArrowUp className="w-3.5 h-3.5" />
@@ -860,7 +860,7 @@ export const NavigationManagementView: React.FC = () => {
                             <button
                               onClick={() => moveSubmenuInDraft(sub.id, 'down')}
                               disabled={subIndex === submenus.length - 1}
-                              className="p-1.5 rounded-lg border border-[#35105E] text-[#D8B4FE] hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
+                              className="p-1.5 rounded-lg border border-[#DDE6F0] text-[#52647A] bg-white hover:bg-[#EDF3F8] dark:bg-transparent dark:border-[#35105E] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] disabled:opacity-20 cursor-pointer"
                               title="Geser Turun"
                             >
                               <ArrowDown className="w-3.5 h-3.5" />
@@ -871,8 +871,8 @@ export const NavigationManagementView: React.FC = () => {
                               onClick={() => updateSubmenuInDraft(sub.id, { visible: !sub.visible })}
                               className={`p-1.5 rounded-lg border cursor-pointer ${
                                 sub.visible
-                                  ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30'
-                                  : 'border-slate-700 text-slate-500 bg-slate-900/40'
+                                  ? 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:bg-emerald-950/30'
+                                  : 'border-[#DDE6F0] text-[#8492A5] bg-[#F4F7FB] dark:border-slate-700 dark:text-slate-500 dark:bg-slate-900/40'
                               }`}
                               title={sub.visible ? 'Sembunyikan submenu' : 'Tampilkan submenu'}
                             >
@@ -888,7 +888,7 @@ export const NavigationManagementView: React.FC = () => {
                                   name: sub.name || (sub as any).label || sub.id
                                 })
                               }
-                              className="p-1.5 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 cursor-pointer"
+                              className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-transparent dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
                               title="Hapus Submenu"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -909,49 +909,49 @@ export const NavigationManagementView: React.FC = () => {
       {/* SECTION 4: ACCORDION & ANIMATION SETTINGS */}
       {/* ======================================================== */}
       {activeSection === 'settings' && (
-        <div className="bg-[#160D29] border border-[#35105E] rounded-2xl p-6 shadow-xl space-y-6">
-          <div className="pb-3 border-b border-[#35105E]">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+        <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-6 shadow-md dark:shadow-xl space-y-6">
+          <div className="pb-3 border-b border-[#E2E8F0] dark:border-[#35105E]">
+            <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
               <span>Pengaturan Perilaku Accordion &amp; Animasi</span>
             </h3>
-            <p className="text-xs text-[#D8B4FE]/70 mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
               Atur apakah beberapa kategori accordion dapat dibuka bersamaan secara independen, serta animasi transisi expand/collapse.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Setting 1: Allow Multiple Open */}
-            <div className="p-4 rounded-xl border border-[#35105E] bg-[#24133F]/50 space-y-2">
+            <div className="p-4 rounded-xl border border-[#DDE6F0] bg-[#F4F7FB] dark:border-[#35105E] dark:bg-[#24133F]/50 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="font-bold text-xs text-white">
+                <label className="font-bold text-xs text-[#26364A] dark:text-white">
                   Multi-Submenu Collapse (Buka Bersamaan)
                 </label>
                 <input
                   type="checkbox"
                   checked={draftConfig.accordionSettings?.allowMultipleOpen ?? true}
                   onChange={(e) => updateAccordionSettingsInDraft({ allowMultipleOpen: e.target.checked })}
-                  className="rounded text-[#A855F7] w-4 h-4 cursor-pointer focus:ring-[#A855F7]"
+                  className="rounded text-[#6657C8] dark:text-[#A855F7] w-4 h-4 cursor-pointer focus:ring-[#6657C8] dark:focus:ring-[#A855F7]"
                 />
               </div>
-              <p className="text-[11px] text-[#D8B4FE]/70 leading-relaxed">
+              <p className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 leading-relaxed">
                 Ketika aktif, pengguna dapat membuka beberapa kategori secara independen tanpa otomatis menutup kategori lain yang sedang terbuka.
               </p>
             </div>
 
             {/* Setting 2: Smooth Animation */}
-            <div className="p-4 rounded-xl border border-[#35105E] bg-[#24133F]/50 space-y-2">
+            <div className="p-4 rounded-xl border border-[#DDE6F0] bg-[#F4F7FB] dark:border-[#35105E] dark:bg-[#24133F]/50 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="font-bold text-xs text-white">
+                <label className="font-bold text-xs text-[#26364A] dark:text-white">
                   Animasi Halus Expand / Collapse
                 </label>
                 <input
                   type="checkbox"
                   checked={draftConfig.accordionSettings?.smoothAnimation ?? true}
                   onChange={(e) => updateAccordionSettingsInDraft({ smoothAnimation: e.target.checked })}
-                  className="rounded text-[#A855F7] w-4 h-4 cursor-pointer focus:ring-[#A855F7]"
+                  className="rounded text-[#6657C8] dark:text-[#A855F7] w-4 h-4 cursor-pointer focus:ring-[#6657C8] dark:focus:ring-[#A855F7]"
                 />
               </div>
-              <p className="text-[11px] text-[#D8B4FE]/70 leading-relaxed">
+              <p className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 leading-relaxed">
                 Mengaktifkan transisi CSS halus untuk chevron dan rotasi panah indikator saat kategori dibuka atau ditutup.
               </p>
             </div>
@@ -966,35 +966,35 @@ export const NavigationManagementView: React.FC = () => {
         isOpen={showAddCategoryModal}
         onClose={() => setShowAddCategoryModal(false)}
         title="Tambah Kategori Navigasi Baru"
-        icon={<FolderPlus className="w-4 h-4 text-[#A855F7]" />}
+        icon={<FolderPlus className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
         zIndexClass="z-60"
       >
-        <form onSubmit={handleAddCategorySubmit} className="space-y-4 text-xs text-white">
+        <form onSubmit={handleAddCategorySubmit} className="space-y-4 text-xs text-[#26364A] dark:text-white">
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Nama Kategori</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Nama Kategori</label>
             <input
               type="text"
               placeholder="misal: Operasional Khusus"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              className="w-full px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] focus:border-[#6657C8] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white dark:focus:border-[#A855F7]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Ikon Kategori</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Ikon Kategori</label>
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7] shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#24133F] dark:border-[#35105E] flex items-center justify-center dark:text-[#A855F7] shrink-0">
                 <NavigationIcon name={newCatIcon} className="w-4 h-4" />
               </div>
               <select
                 value={newCatIcon}
                 onChange={(e) => setNewCatIcon(e.target.value)}
-                className="flex-1 min-w-0 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+                className="flex-1 min-w-0 px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white font-medium"
               >
                 {AVAILABLE_ICON_NAMES.map(name => (
                   <option key={name} value={name}>{name}</option>
@@ -1004,28 +1004,28 @@ export const NavigationManagementView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Mode Kategori</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Mode Kategori</label>
             <select
               value={newCatMode}
               onChange={(e) => setNewCatMode(e.target.value as any)}
-              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+              className="w-full px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white font-medium"
             >
               <option value="accordion">Accordion (Dapat di-collapse)</option>
               <option value="static">Static (Selalu terbuka)</option>
             </select>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#35105E]">
+          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#E2E8F0] dark:border-[#35105E]">
             <button
               type="button"
               onClick={() => setShowAddCategoryModal(false)}
-              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
+              className="px-4 py-2 bg-[#EDF3F8] hover:bg-[#DDE6F0] text-[#52647A] dark:bg-[#24133F] dark:hover:bg-[#35105E] dark:text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
+              className="btn-3d-primary px-4 py-2 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
             >
               Tambah Kategori
             </button>
@@ -1040,15 +1040,15 @@ export const NavigationManagementView: React.FC = () => {
         isOpen={showAddSubmenuModal}
         onClose={() => setShowAddSubmenuModal(false)}
         title="Tambah Submenu Baru"
-        icon={<Plus className="w-4 h-4 text-[#A855F7]" />}
+        icon={<Plus className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
         zIndexClass="z-60"
       >
-        <form onSubmit={handleAddSubmenuSubmit} className="space-y-4 text-xs text-white">
+        <form onSubmit={handleAddSubmenuSubmit} className="space-y-4 text-xs text-[#26364A] dark:text-white">
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Nama Submenu</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Nama Submenu</label>
             <input
               type="text"
               placeholder="misal: Laporan Tambahan"
@@ -1059,32 +1059,32 @@ export const NavigationManagementView: React.FC = () => {
                   setNewSubId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
                 }
               }}
-              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              className="w-full px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] focus:border-[#6657C8] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white dark:focus:border-[#A855F7]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">ID Submenu (Route/Key)</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">ID Submenu (Route/Key)</label>
             <input
               type="text"
               placeholder="misal: extra_reports"
               value={newSubId}
               onChange={(e) => setNewSubId(e.target.value)}
-              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-mono focus:border-[#A855F7]"
+              className="w-full px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] focus:border-[#6657C8] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white font-mono dark:focus:border-[#A855F7]"
               required
             />
-            <p className="text-[10px] text-[#D8B4FE]/60 mt-0.5">
+            <p className="text-[10px] text-[#8492A5] dark:text-[#D8B4FE]/60 mt-0.5">
               Gunakan ID yang unik, tidak boleh bertabrakan dengan ID menu lain.
             </p>
           </div>
 
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Parent Category</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Parent Category</label>
             <select
               value={newSubCatId || draftConfig.categories[0]?.id}
               onChange={(e) => setNewSubCatId(e.target.value)}
-              className="w-full px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+              className="w-full px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white font-medium"
             >
               {draftConfig.categories.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -1093,15 +1093,15 @@ export const NavigationManagementView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[#D8B4FE] font-bold mb-1">Ikon</label>
+            <label className="block text-[#52647A] dark:text-[#D8B4FE] font-bold mb-1">Ikon</label>
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-[#24133F] border border-[#35105E] flex items-center justify-center text-[#A855F7] shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#24133F] dark:border-[#35105E] flex items-center justify-center dark:text-[#A855F7] shrink-0">
                 <NavigationIcon name={newSubIcon} className="w-4 h-4" />
               </div>
               <select
                 value={newSubIcon}
                 onChange={(e) => setNewSubIcon(e.target.value)}
-                className="flex-1 min-w-0 px-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white font-medium"
+                className="flex-1 min-w-0 px-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white font-medium"
               >
                 {AVAILABLE_ICON_NAMES.map(name => (
                   <option key={name} value={name}>{name}</option>
@@ -1110,17 +1110,17 @@ export const NavigationManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#35105E]">
+          <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-[#E2E8F0] dark:border-[#35105E]">
             <button
               type="button"
               onClick={() => setShowAddSubmenuModal(false)}
-              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
+              className="px-4 py-2 bg-[#EDF3F8] hover:bg-[#DDE6F0] text-[#52647A] dark:bg-[#24133F] dark:hover:bg-[#35105E] dark:text-[#D8B4FE] font-bold rounded-xl cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:scale-105 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
+              className="btn-3d-primary px-4 py-2 text-white font-extrabold rounded-xl shadow-md cursor-pointer"
             >
               Simpan Submenu
             </button>
@@ -1135,7 +1135,7 @@ export const NavigationManagementView: React.FC = () => {
         isOpen={Boolean(categoryToDelete)}
         onClose={() => setCategoryToDelete(null)}
         title={categoryToDelete ? `Konfirmasi Hapus Kategori "${categoryToDelete.name}"` : 'Hapus Kategori'}
-        icon={<AlertCircle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -1145,7 +1145,7 @@ export const NavigationManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setCategoryToDelete(null)}
-              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+              className="px-4 py-2 bg-[#EDF3F8] hover:bg-[#DDE6F0] text-[#52647A] dark:bg-[#24133F] dark:hover:bg-[#35105E] dark:text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
             >
               Batal
             </button>
@@ -1159,32 +1159,32 @@ export const NavigationManagementView: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-4 text-xs text-white">
-          <p className="text-[#D8B4FE]/80 leading-relaxed">
+        <div className="space-y-4 text-xs text-[#26364A] dark:text-white">
+          <p className="text-[#52647A] dark:text-[#D8B4FE]/80 leading-relaxed">
             Kategori ini mungkin memiliki beberapa submenu. Apa yang ingin Anda lakukan terhadap submenu di dalam kategori ini?
           </p>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
+            <label className="flex items-center gap-2.5 p-2.5 bg-[#F4F7FB] border-[#DDE6F0] dark:bg-[#24133F] rounded-xl border dark:border-[#35105E] cursor-pointer">
               <input
                 type="radio"
                 name="del_action"
                 checked={submenusActionOnDelete === 'move_to_tambahan'}
                 onChange={() => setSubmenusActionOnDelete('move_to_tambahan')}
-                className="text-[#A855F7]"
+                className="text-[#6657C8] dark:text-[#A855F7]"
               />
-              <span className="font-semibold text-white">Pindahkan submenu ke "Menu Tambahan"</span>
+              <span className="font-semibold text-[#26364A] dark:text-white">Pindahkan submenu ke "Menu Tambahan"</span>
             </label>
 
-            <label className="flex items-center gap-2.5 p-2.5 bg-[#24133F] rounded-xl border border-[#35105E] cursor-pointer">
+            <label className="flex items-center gap-2.5 p-2.5 bg-[#F4F7FB] border-[#DDE6F0] dark:bg-[#24133F] rounded-xl border dark:border-[#35105E] cursor-pointer">
               <input
                 type="radio"
                 name="del_action"
                 checked={submenusActionOnDelete === 'disable'}
                 onChange={() => setSubmenusActionOnDelete('disable')}
-                className="text-[#A855F7]"
+                className="text-[#6657C8] dark:text-[#A855F7]"
               />
-              <span className="font-semibold text-white">Nonaktifkan (sembunyikan) semua submenu</span>
+              <span className="font-semibold text-[#26364A] dark:text-white">Nonaktifkan (sembunyikan) semua submenu</span>
             </label>
           </div>
         </div>
@@ -1197,7 +1197,7 @@ export const NavigationManagementView: React.FC = () => {
         isOpen={Boolean(iconPickerTarget)}
         onClose={() => setIconPickerTarget(null)}
         title="Pilih Ikon Lucide"
-        icon={<Sparkles className="w-4 h-4 text-[#A855F7]" />}
+        icon={<Sparkles className="w-4 h-4 text-[#5145A6] dark:text-[#A855F7]" />}
         variant="dark_purple"
         size="md"
         mobileVariant="sheet"
@@ -1206,37 +1206,37 @@ export const NavigationManagementView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIconPickerTarget(null)}
-            className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+            className="px-4 py-2 bg-[#EDF3F8] hover:bg-[#DDE6F0] text-[#52647A] dark:bg-[#24133F] dark:hover:bg-[#35105E] dark:text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
           >
             Tutup
           </button>
         }
       >
-        <div className="space-y-4 text-xs text-white">
+        <div className="space-y-4 text-xs text-[#26364A] dark:text-white">
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-[#D8B4FE]/60 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#8492A5] dark:text-[#D8B4FE]/60 absolute left-3 top-2.5" />
             <input
               type="text"
               placeholder="Cari nama ikon..."
               value={iconSearchQuery}
               onChange={(e) => setIconSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#24133F] border border-[#35105E] rounded-xl text-white focus:border-[#A855F7]"
+              className="w-full pl-9 pr-3 py-2 bg-[#F4F7FB] border border-[#DDE6F0] text-[#26364A] focus:border-[#6657C8] dark:bg-[#24133F] dark:border-[#35105E] rounded-xl dark:text-white dark:focus:border-[#A855F7]"
               autoFocus
             />
           </div>
 
           {/* Icons Grid */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 p-0.5 max-h-[45vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[#35105E]">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 p-0.5 max-h-[45vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[#C5BEEF] dark:scrollbar-thumb-[#35105E]">
             {filteredIcons.map(iconName => (
               <button
                 key={iconName}
                 type="button"
                 onClick={() => handleSelectIcon(iconName)}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-[#24133F]/70 hover:bg-[#7135B5]/50 border border-[#35105E] hover:border-[#A855F7] transition-all cursor-pointer group"
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-[#F4F7FB] hover:bg-[#EAE8FF] border border-[#DDE6F0] hover:border-[#9E95DE] dark:bg-[#24133F]/70 dark:hover:bg-[#7135B5]/50 dark:border-[#35105E] dark:hover:border-[#A855F7] transition-all cursor-pointer group"
               >
-                <NavigationIcon name={iconName} className="w-5 h-5 text-[#D8B4FE] group-hover:text-white group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] text-[#D8B4FE]/70 truncate max-w-full text-center group-hover:text-white font-mono">
+                <NavigationIcon name={iconName} className="w-5 h-5 text-[#5145A6] group-hover:text-[#2E7D8B] dark:text-[#D8B4FE] dark:group-hover:text-white group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] text-[#52647A] group-hover:text-[#26364A] dark:text-[#D8B4FE]/70 truncate max-w-full text-center dark:group-hover:text-white font-mono">
                   {iconName}
                 </span>
               </button>
@@ -1260,7 +1260,7 @@ export const NavigationManagementView: React.FC = () => {
             ? `Hapus Submenu "${confirmDialog.name}"?`
             : 'Konfirmasi'
         }
-        icon={<AlertCircle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -1270,7 +1270,7 @@ export const NavigationManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setConfirmDialog(null)}
-              className="px-4 py-2 bg-[#24133F] hover:bg-[#35105E] text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
+              className="px-4 py-2 bg-[#EDF3F8] hover:bg-[#DDE6F0] text-[#52647A] dark:bg-[#24133F] dark:hover:bg-[#35105E] dark:text-[#D8B4FE] font-bold rounded-xl cursor-pointer text-xs"
             >
               Batal
             </button>
@@ -1284,7 +1284,7 @@ export const NavigationManagementView: React.FC = () => {
           </>
         }
       >
-        <p className="text-xs text-[#D8B4FE]/85 leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/85 leading-relaxed">
           {confirmDialog?.type === 'reset'
             ? 'Kembalikan konfigurasi seluruh navigasi MoraJaws (3 Kategori Accordion & 7 Menu Mandiri) ke standar awal? Pengaturan di Supabase PostgreSQL akan diperbarui.'
             : confirmDialog?.type === 'delete_standalone'

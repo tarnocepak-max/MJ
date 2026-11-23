@@ -232,29 +232,29 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
     <div className="space-y-5">
       {/* 1. Dispatch Context Hero Banner */}
       <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-gradient-to-br from-[#7135b5]/10 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-gradient-to-br from-[#65B8C4]/14 to-transparent blur-3xl pointer-events-none" />
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
           <div className="space-y-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10.5px] font-extrabold uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#7135b5] animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[10.5px] font-extrabold uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D8B] dark:bg-[#7135b5] animate-pulse" />
                 <span>ACTIVE ROLE: DISPATCH OPERATOR</span>
               </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 OPERATIONAL TRIAGE &amp; SLA WORKSPACE
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded bg-[#eee4ff] dark:bg-[#2a194b] text-[#58149c] dark:text-[#dab9ff] font-mono text-[10.5px] font-bold">
+              <span className="px-2.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2a194b] text-[#5145A6] dark:text-[#dab9ff] font-mono text-[10.5px] font-bold">
                 ZONE: {scopeZoneLabel}
               </span>
-              <span className="px-2.5 py-0.5 rounded bg-[#f8f1ff] dark:bg-[#160d29] text-[#4b4452] dark:text-[#cabde8] font-mono text-[10.5px] font-semibold tabular-nums">
+              <span className="px-2.5 py-0.5 rounded bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] font-mono text-[10.5px] font-semibold tabular-nums">
                 WIB: {todayWIB}
               </span>
             </div>
 
-            <p className="text-xs sm:text-sm text-[#4b4452] dark:text-[#cabde8] max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#cabde8] max-w-2xl leading-relaxed">
               Pantau SLA kontraktor secara real-time, percepat appointment terlambat, dan verifikasi kualitas foto rumah
               &amp; redaman optik sebelum penutupan WO.
             </p>
@@ -265,38 +265,38 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
             <button
               type="button"
               onClick={() => onDrillDown('total_today')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] text-left hover:border-[#7135b5] transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 ACTIVE WOS
               </div>
-              <div className="font-display text-xl font-extrabold text-[#1f1638] dark:text-white mt-0.5 tabular-nums">
-                {c.totalToday} <span className="text-[11px] font-medium text-[#7d7484]">total</span>
+              <div className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-0.5 tabular-nums">
+                {c.totalToday} <span className="text-[11px] font-medium text-[#8492A5]">total</span>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => onDrillDown('assigned')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] text-left hover:border-[#7135b5] transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 WITH LEADERS
               </div>
-              <div className="font-display text-xl font-extrabold text-[#58149c] dark:text-[#dab9ff] mt-0.5 tabular-nums">
-                {c.assigned} <span className="text-[11px] font-medium text-[#7d7484]">assigned</span>
+              <div className="font-display text-xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] mt-0.5 tabular-nums">
+                {c.assigned} <span className="text-[11px] font-medium text-[#8492A5]">assigned</span>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => onDrillDown('unassigned')}
-              className="px-3.5 py-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-left hover:border-rose-400 transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/30 border border-[#F3C5CA] dark:border-rose-900/50 text-left hover:border-[#D45B66] transition-colors cursor-pointer"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
                 PENDING DISPATCH
               </div>
-              <div className="font-display text-xl font-extrabold text-rose-700 dark:text-rose-300 mt-0.5 tabular-nums">
+              <div className="font-display text-xl font-extrabold text-[#9B2C37] dark:text-rose-300 mt-0.5 tabular-nums">
                 {c.unassigned} <span className="text-[11px] font-medium">open</span>
               </div>
             </button>
@@ -304,13 +304,13 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
             <button
               type="button"
               onClick={() => onDrillDown('checked_in_progress')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#3b1d78] text-left hover:border-[#7135b5] transition-colors cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 ON-SITE
               </div>
-              <div className="font-display text-xl font-extrabold text-sky-700 dark:text-sky-300 mt-0.5 tabular-nums">
-                {c.checkedInProgress} <span className="text-[11px] font-medium text-[#7d7484]">techs</span>
+              <div className="font-display text-xl font-extrabold text-[#3E81C6] dark:text-sky-300 mt-0.5 tabular-nums">
+                {c.checkedInProgress} <span className="text-[11px] font-medium text-[#8492A5]">techs</span>
               </div>
             </button>
           </div>
@@ -323,18 +323,18 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
         <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between space-y-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 text-[10.5px] font-extrabold uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[#9B2C37] dark:text-rose-300 text-[10.5px] font-extrabold uppercase tracking-wider">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>CRITICAL BREACH RISK</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-200 text-[10px] font-extrabold tabular-nums">
+              <span className="px-2 py-0.5 rounded-md bg-[#FCE9EB] dark:bg-rose-950/70 text-[#9B2C37] dark:text-rose-200 text-[10px] font-extrabold tabular-nums">
                 {overdueSummary.totalOverdue} Tiket
               </span>
             </div>
-            <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+            <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
               Urgent Overdue WO
             </h2>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] leading-relaxed">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] leading-relaxed">
               Tiket melewati Appointment Date hari ini dan belum selesai dieksekusi di lapangan. Perlu tindak lanjut ke Leader.
             </p>
           </div>
@@ -352,20 +352,20 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
         <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between space-y-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 text-[#58149c] dark:text-[#dab9ff] text-[10.5px] font-extrabold uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[#5145A6] dark:text-[#dab9ff] text-[10.5px] font-extrabold uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4 shrink-0" />
                 <span>PHOTO QC STREAM</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-extrabold tabular-nums">
+              <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] text-[10px] font-extrabold tabular-nums">
                 {c.butuhApproval} Queue
               </span>
             </div>
-            <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+            <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
               Verification Desk
             </h2>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] leading-relaxed">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] leading-relaxed">
               Antrean validasi foto redaman optical power meter (OPM) &amp; geotag rumah.{' '}
-              <span className="font-bold text-[#1f1638] dark:text-white tabular-nums">
+              <span className="font-bold text-[#26364A] dark:text-white tabular-nums">
                 Rerata tunggu: {avgApprovalWaitMin !== null ? `${avgApprovalWaitMin}m` : 'Real-time'}
               </span>
             </p>
@@ -384,18 +384,18 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
         <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between space-y-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 text-[#4b4452] dark:text-[#cabde8] text-[10.5px] font-extrabold uppercase tracking-wider">
-                <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+              <div className="flex items-center gap-2 text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-extrabold uppercase tracking-wider">
+                <Zap className="w-4 h-4 text-[#C88735] dark:text-amber-500 shrink-0" />
                 <span>SINGLE TICKET INPUT</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] text-[10px] font-bold">
                 Express WIB
               </span>
             </div>
-            <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+            <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
               Sameday Quick Entry
             </h2>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] leading-relaxed">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] leading-relaxed">
               Entri manual single-ticket insiden darurat pelanggan prioritas untuk slot hari ini ({todayWIB}).
             </p>
           </div>
@@ -413,18 +413,18 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
         <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between space-y-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 text-[#4b4452] dark:text-[#cabde8] text-[10.5px] font-extrabold uppercase tracking-wider">
-                <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex items-center gap-2 text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-extrabold uppercase tracking-wider">
+                <MessageCircle className="w-4 h-4 text-[#218A63] dark:text-emerald-600 shrink-0" />
                 <span>OUTREACH CENTER</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200 text-[10px] font-extrabold tabular-nums">
+              <span className="px-2 py-0.5 rounded-md bg-[#E4F5EC] dark:bg-emerald-950/70 text-[#218A63] dark:text-emerald-200 text-[10px] font-extrabold tabular-nums">
                 {waQueueCount} Ready
               </span>
             </div>
-            <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+            <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
               WhatsApp Dispatch
             </h2>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] leading-relaxed">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] leading-relaxed">
               Kirim notifikasi estimasi kedatangan teknisi &amp; koordinasi lapangan langsung ke nomor pelanggan.
             </p>
           </div>
@@ -446,7 +446,7 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
           {/* Dynamic Filter Bar */}
           <div className="card-3d-lavender rounded-xl p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8] mr-1 inline-flex items-center gap-1">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8] mr-1 inline-flex items-center gap-1">
                 <Filter className="w-3 h-3" />
                 <span>FILTER ISSUE:</span>
               </span>
@@ -455,8 +455,8 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                 onClick={() => setSelectedCategory('ALL')}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer ${
                   selectedCategory === 'ALL'
-                    ? 'bg-[#240c45] text-white'
-                    : 'bg-[#f3eaff] dark:bg-[#2a194b] text-[#58149c] dark:text-[#dab9ff] hover:bg-[#e8ddff]'
+                    ? 'bg-[#6657C8] dark:bg-[#240c45] text-white'
+                    : 'bg-[#EAE8FF] dark:bg-[#2a194b] text-[#5145A6] dark:text-[#dab9ff] hover:bg-[#DCE3F2]'
                 }`}
               >
                 All Active ({baseTodayTickets.length})
@@ -468,8 +468,8 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                   onClick={() => setSelectedCategory(prev => (prev === cat ? 'ALL' : cat))}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer max-w-[190px] truncate ${
                     selectedCategory === cat
-                      ? 'bg-[#58149c] text-white'
-                      : 'bg-[#f8f1ff] dark:bg-[#160d29] text-[#4b4452] dark:text-[#cabde8] border border-[#e8ddff] dark:border-[#3b1d78] hover:border-[#7135b5]'
+                      ? 'bg-[#6657C8] dark:bg-[#58149c] text-white'
+                      : 'bg-[#F8FAFD] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-[#3b1d78] hover:border-[#65B8C4]'
                   }`}
                   title={cat}
                 >
@@ -481,14 +481,14 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
             <div className="flex flex-wrap items-center gap-1.5 shrink-0">
               {slotOptions.length > 0 && (
                 <>
-                  <span className="text-[10px] font-bold uppercase text-[#7d7484] dark:text-[#cabde8]">SLOT:</span>
+                  <span className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">SLOT:</span>
                   <button
                     type="button"
                     onClick={() => setSelectedSlot('ALL')}
                     className={`px-2 py-1 rounded-md text-[10.5px] font-bold cursor-pointer ${
                       selectedSlot === 'ALL'
-                        ? 'bg-[#58149c] text-white'
-                        : 'bg-[#f8f1ff] dark:bg-[#160d29] text-[#4b4452] dark:text-[#cabde8]'
+                        ? 'bg-[#6657C8] dark:bg-[#58149c] text-white'
+                        : 'bg-[#F8FAFD] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8]'
                     }`}
                   >
                     Semua
@@ -500,8 +500,8 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                       onClick={() => setSelectedSlot(prev => (prev === slot ? 'ALL' : slot))}
                       className={`px-2 py-1 rounded-md text-[10.5px] font-mono font-bold cursor-pointer ${
                         selectedSlot === slot
-                          ? 'bg-[#58149c] text-white'
-                          : 'bg-[#f8f1ff] dark:bg-[#160d29] text-[#4b4452] dark:text-[#cabde8]'
+                          ? 'bg-[#6657C8] dark:bg-[#58149c] text-white'
+                          : 'bg-[#F8FAFD] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8]'
                       }`}
                     >
                       {slot.replace(/\s*WIB/i, '')}
@@ -524,11 +524,11 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
           {/* Triage Cards List */}
           {visibleFeed.length === 0 ? (
             <div className="card-3d-lavender rounded-2xl p-10 text-center space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-              <div className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+              <CheckCircle2 className="w-8 h-8 text-[#218A63] dark:text-emerald-500 mx-auto" />
+              <div className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                 Tidak ada Work Order yang cocok dengan filter
               </div>
-              <p className="text-xs text-[#4b4452] dark:text-[#cabde8]">
+              <p className="text-xs text-[#52647A] dark:text-[#cabde8]">
                 Ubah filter kategori atau slot waktu untuk menampilkan seluruh antrean aktif hari ini.
               </p>
             </div>
@@ -547,18 +547,18 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                 return (
                   <div
                     key={ticket.id}
-                    className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-[#a78bfa] transition-all"
+                    className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-[#65B8C4] transition-all"
                   >
                     <div className="flex items-start gap-3.5 min-w-0 flex-1">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                           approval === 'BUTUH APPROVAL'
-                            ? 'bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff]'
+                            ? 'bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff]'
                             : !assigned
-                            ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                            ? 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300'
                             : checkedIn
-                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300'
-                            : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                            ? 'bg-[#E7F1FB] dark:bg-sky-950/60 text-[#3E81C6] dark:text-sky-300'
+                            : 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300'
                         }`}
                       >
                         {!assigned ? (
@@ -577,12 +577,12 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                             onClick={() =>
                               onSelectTicket ? onSelectTicket(ticket, 'overview') : onNavigate('tickets')
                             }
-                            className="font-mono text-base font-extrabold text-[#1f1638] dark:text-white hover:text-[#58149c] dark:hover:text-[#dab9ff] hover:underline cursor-pointer"
+                            className="font-mono text-base font-extrabold text-[#26364A] dark:text-white hover:text-[#5145A6] dark:hover:text-[#dab9ff] hover:underline cursor-pointer"
                           >
                             {ticket.woNumber}
                           </button>
                           {ticket.ticketCategory && (
-                            <span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[10px] font-extrabold uppercase">
+                            <span className="px-2 py-0.5 rounded bg-[#FCE9EB] dark:bg-rose-950/50 text-[#9B2C37] dark:text-rose-300 text-[10px] font-extrabold uppercase">
                               {ticket.ticketCategory}
                             </span>
                           )}
@@ -592,13 +592,13 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                           )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[#4b4452] dark:text-[#cabde8]">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[#52647A] dark:text-[#cabde8]">
                           <span className="inline-flex items-center gap-1 font-semibold">
-                            <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                            <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                             <span>Slot: {ticket.slotTime || '-'}</span>
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <MapPin className="w-3.5 h-3.5 text-[#D45B66] dark:text-rose-500 shrink-0" />
                             <span className="truncate max-w-[340px]">
                               {fullAddress}
                               {fatFdt ? ` (${fatFdt})` : ''}
@@ -606,23 +606,23 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                           </span>
                         </div>
 
-                        <div className="text-xs font-semibold text-[#1f1638] dark:text-white">
+                        <div className="text-xs font-semibold text-[#26364A] dark:text-white">
                           Pelanggan: {ticket.customerName} ·{' '}
-                          <span className="font-mono text-[#58149c] dark:text-[#dab9ff]">
+                          <span className="font-mono text-[#5145A6] dark:text-[#dab9ff]">
                             {ticket.idCustomer}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#7d7484] dark:text-[#cabde8]">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#8492A5] dark:text-[#cabde8]">
                           <span>Routing: {contractor}</span>
                           <span>•</span>
                           {assigned ? (
-                            <span className="font-semibold text-[#58149c] dark:text-[#dab9ff]">
+                            <span className="font-semibold text-[#5145A6] dark:text-[#dab9ff]">
                               Teknisi: {ticket.installerName}{' '}
                               {ticket.leaderName ? `(Lead: ${ticket.leaderName})` : ''}
                             </span>
                           ) : (
-                            <span className="font-bold text-rose-600 dark:text-rose-300">
+                            <span className="font-bold text-[#9B2C37] dark:text-rose-300">
                               Leader Belum Meneruskan ke Teknisi
                             </span>
                           )}
@@ -732,7 +732,7 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
 
               {triageFeed.length > FEED_LIMIT && (
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-[#7d7484] dark:text-[#cabde8] tabular-nums">
+                  <span className="text-xs text-[#8492A5] dark:text-[#cabde8] tabular-nums">
                     Menampilkan {visibleFeed.length} dari {triageFeed.length} tiket triage
                   </span>
                   <div className="flex items-center gap-2">
@@ -762,57 +762,57 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
         <div className="xl:col-span-4 card-3d-lavender rounded-2xl p-5 space-y-5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
-              <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+              <Building2 className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
+              <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                 Vendor Workload
               </h2>
             </div>
-            <span className="px-2 py-0.5 rounded bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-bold uppercase">
+            <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] text-[10px] font-bold uppercase">
               READ-ONLY
             </span>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] space-y-3">
+          <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
+                <div className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
                   {primaryVendor ? primaryVendor.contractorName : 'Semua Mitra Kontraktor'}
                 </div>
-                <div className="text-[11px] text-[#7d7484] dark:text-[#cabde8]">
+                <div className="text-[11px] text-[#8492A5] dark:text-[#cabde8]">
                   {effectiveSummary.byVendor.length} Mitra Aktif · Area {scopeZoneLabel}
                 </div>
               </div>
-              <span className="w-2 h-2 rounded-full bg-[#58149c] mt-1.5 shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#58149c] mt-1.5 shrink-0" />
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center pt-1">
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#e8ddff] dark:border-[#35105e]">
-                <div className="font-display text-lg font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+                <div className="font-display text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums">
                   {primaryVendor ? primaryVendor.total : c.totalToday}
                 </div>
-                <div className="text-[10px] font-semibold text-[#7d7484]">Active WO</div>
+                <div className="text-[10px] font-semibold text-[#8492A5]">Active WO</div>
               </div>
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#e8ddff] dark:border-[#35105e]">
-                <div className="font-display text-lg font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+                <div className="font-display text-lg font-extrabold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
                   {effectiveSummary.byLeader.length}
                 </div>
-                <div className="text-[10px] font-semibold text-[#7d7484]">Leaders Duty</div>
+                <div className="text-[10px] font-semibold text-[#8492A5]">Leaders Duty</div>
               </div>
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#e8ddff] dark:border-[#35105e]">
-                <div className="font-display text-lg font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+                <div className="font-display text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums">
                   {activeTechCount}
                 </div>
-                <div className="text-[10px] font-semibold text-[#7d7484]">Techs Active</div>
+                <div className="text-[10px] font-semibold text-[#8492A5]">Techs Active</div>
               </div>
             </div>
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
               FIELD LEADERS ON DUTY
             </div>
             {activeLeaders.length === 0 ? (
-              <div className="p-3 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] text-xs text-[#7d7484]">
+              <div className="p-3 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] text-xs text-[#8492A5]">
                 Belum ada leader yang terpetakan pada WO hari ini.
               </div>
             ) : (
@@ -822,26 +822,26 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                     key={ld.leaderName}
                     type="button"
                     onClick={() => onDrillDown('assigned', { contractor: ld.contractorName })}
-                    className="w-full flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#faf5ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] hover:border-[#a78bfa] transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#65B8C4] transition-colors text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-[#e8ddff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] font-extrabold text-[11px] flex items-center justify-center shrink-0">
                         {getInitials(ld.leaderName)}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                        <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                           {ld.leaderName}
                         </div>
-                        <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8] truncate">
+                        <div className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8] truncate">
                           {ld.contractorName || 'Vendor Roster'}
                         </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0 tabular-nums">
-                      <div className="text-xs font-extrabold text-[#1f1638] dark:text-white">
+                      <div className="text-xs font-extrabold text-[#26364A] dark:text-white">
                         {ld.total} Tiket
                       </div>
-                      <div className="text-[10px] font-bold text-[#58149c] dark:text-[#dab9ff]">
+                      <div className="text-[10px] font-bold text-[#5145A6] dark:text-[#dab9ff]">
                         {ld.assigned} Assigned
                       </div>
                     </div>
@@ -851,12 +851,12 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
             )}
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#f3eaff]/70 dark:bg-[#2a194b]/60 border border-[#d8ccf3] dark:border-[#4b386b] space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#58149c] dark:text-[#dab9ff]">
+          <div className="p-3.5 rounded-xl bg-[#DDF4F4]/65 dark:bg-[#2a194b]/60 border border-[#BDE4E8] dark:border-[#4b386b] space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#2E7D8B] dark:text-[#dab9ff]">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Auto-Distribution Policy</span>
             </div>
-            <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] leading-relaxed tabular-nums">
+            <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] leading-relaxed tabular-nums">
               <strong>{mappedCount}</strong> dari <strong>{c.totalToday}</strong> WO hari ini telah terdistribusi
               otomatis ke Vendor &amp; Area Leader. Gunakan eskalasi apabila masih terdapat {c.unassigned} WO belum
               ditugaskan ke teknisi.
@@ -866,14 +866,14 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
           <button
             type="button"
             onClick={() => onNavigate('monitoring_maps')}
-            className="w-full p-3.5 rounded-xl bg-gradient-to-br from-[#240c45] to-[#3f186d] text-white flex items-center justify-between gap-3 hover:brightness-110 transition-all cursor-pointer shadow-[0_3px_0_#120624]"
+            className="btn-3d-primary dark:bg-none dark:bg-gradient-to-br dark:from-[#240c45] dark:to-[#3f186d] w-full p-3.5 rounded-xl text-white flex items-center justify-between gap-3 hover:brightness-105 transition-all cursor-pointer dark:shadow-[0_3px_0_#120624]"
           >
             <div className="flex items-center gap-2.5 text-left min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                <MapPin className="w-4 h-4 text-[#DAB9FF]" />
+              <div className="w-9 h-9 rounded-lg bg-white/15 dark:bg-white/10 flex items-center justify-center shrink-0">
+                <MapPin className="w-4 h-4 text-white dark:text-[#DAB9FF]" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#DAB9FF]">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-white/80 dark:text-[#DAB9FF]">
                   SECTOR COVERAGE
                 </div>
                 <div className="text-xs font-extrabold text-white truncate">
@@ -881,7 +881,7 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                 </div>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-[#DAB9FF] shrink-0" />
+            <ArrowRight className="w-4 h-4 text-white dark:text-[#DAB9FF] shrink-0" />
           </button>
         </div>
       </div>
@@ -889,10 +889,10 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
       {/* 4. Bottom 7-Stage MoraJaws End-to-End Operational Lifecycle Bar */}
       <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#4b4452] dark:text-[#cabde8]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#cabde8]">
             MORAJAWS END-TO-END OPERATIONAL LIFECYCLE
           </span>
-          <span className="text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff]">
+          <span className="text-[11px] font-bold text-[#5145A6] dark:text-[#dab9ff]">
             Strict Dispatch Verification Scope
           </span>
         </div>
@@ -957,23 +957,23 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
                 onClick={() => onDrillDown(stage.filter)}
                 className={`p-3 rounded-xl text-left transition-all cursor-pointer border ${
                   isHighlighted
-                    ? 'bg-[#f3eaff] dark:bg-[#2e1459] border-[#7135b5] shadow-[0_2px_0_#d8ccf3] dark:shadow-[0_2px_0_#120624]'
-                    : 'bg-[#faf5ff] dark:bg-[#160d29] border-[#e8ddff] dark:border-[#35105e] hover:border-[#a78bfa]'
+                    ? 'bg-[#EAE8FF] dark:bg-[#2e1459] border-[#6657C8] dark:border-[#7135b5] shadow-[0_2px_0_#C7C3EA] dark:shadow-[0_2px_0_#120624]'
+                    : 'bg-[#F8FAFD] dark:bg-[#160d29] border-[#DDE6F0] dark:border-[#35105e] hover:border-[#65B8C4]'
                 }`}
               >
                 <div
                   className={`text-[10px] font-bold truncate ${
-                    isHighlighted ? 'text-[#58149c] dark:text-[#dab9ff]' : 'text-[#7d7484] dark:text-[#cabde8]'
+                    isHighlighted ? 'text-[#5145A6] dark:text-[#dab9ff]' : 'text-[#8492A5] dark:text-[#cabde8]'
                   }`}
                 >
                   {stage.tag}
                 </div>
-                <div className="font-display text-xs font-extrabold text-[#1f1638] dark:text-white mt-0.5 truncate">
+                <div className="font-display text-xs font-extrabold text-[#26364A] dark:text-white mt-0.5 truncate">
                   {stage.title}
                 </div>
                 <div
                   className={`text-[10.5px] font-bold mt-1 truncate tabular-nums ${
-                    isHighlighted ? 'text-rose-600 dark:text-rose-300' : 'text-[#7d7484] dark:text-[#cabde8]'
+                    isHighlighted ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#8492A5] dark:text-[#cabde8]'
                   }`}
                 >
                   {stage.sub}

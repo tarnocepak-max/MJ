@@ -115,34 +115,34 @@ function getReassignBadge(t: Ticket): { label: string; cls: string; tone: 'probl
     return {
       label: 'UNASSIGNED',
       tone: 'unassigned',
-      cls: 'bg-[#FEF3C7] dark:bg-amber-950/60 border border-[#FCD34D] dark:border-amber-700 text-[#B45309] dark:text-amber-300'
+      cls: 'bg-[#FFF2D9] dark:bg-amber-950/60 border border-[#F2CF95] dark:border-amber-700 text-[#9D661F] dark:text-amber-300'
     };
   }
   if (isTicketCompletedOrClosed(t)) {
     return {
       label: (t.statusWOInstaller || 'COMPLETED').toUpperCase(),
       tone: 'done',
-      cls: 'bg-[#DCFCE7] dark:bg-emerald-950/60 border border-[#86EFAC] dark:border-emerald-700 text-[#15803D] dark:text-emerald-300'
+      cls: 'bg-[#E4F5EC] dark:bg-emerald-950/60 border border-[#B7E4CC] dark:border-emerald-700 text-[#218A63] dark:text-emerald-300'
     };
   }
   if (t.statusWOInstaller === 'Pending Technical' || t.statusWOInstaller === 'Failed / Cancelled') {
     return {
       label: t.statusWOInstaller.toUpperCase(),
       tone: 'problem',
-      cls: 'bg-[#FFDAD6] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#93000A] dark:text-rose-300'
+      cls: 'bg-[#FCE9EB] dark:bg-rose-950/60 border border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-300'
     };
   }
   if (t.statusWOInstaller === 'On Site' || t.statusWOInstaller === 'En Route' || t.statusWOAgent === 'In Progress') {
     return {
       label: (t.statusWOInstaller || 'IN PROGRESS').toUpperCase(),
       tone: 'active',
-      cls: 'bg-[#EEDBFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#5B35B1] text-[#58149C] dark:text-[#DAB9FF]'
+      cls: 'bg-[#DDF4F4] dark:bg-[#2E1B59] border border-[#BDE4E8] dark:border-[#5B35B1] text-[#2E7D8B] dark:text-[#DAB9FF]'
     };
   }
   return {
     label: (t.statusWOInstaller || 'ASSIGNED').toUpperCase(),
     tone: 'waiting',
-    cls: 'bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#5B35B1] text-[#58149C] dark:text-[#DAB9FF]'
+    cls: 'bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#DCE3F2] dark:border-[#5B35B1] text-[#5145A6] dark:text-[#DAB9FF]'
   };
 }
 
@@ -423,18 +423,18 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
                 <span>{displayContractor}</span>
                 <span>·</span>
                 <span>{displayArea}</span>
               </div>
               <h2
-                className="text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight mt-0.5"
+                className="text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight mt-0.5"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 Reassign WO
               </h2>
-              <p className="text-[11.5px] text-[#7D7484] dark:text-[#CEC0E8]">
+              <p className="text-[11.5px] text-[#8492A5] dark:text-[#CEC0E8]">
                 Kelola &amp; redistribusi penugasan tim ({todayAppointmentDisplay})
               </p>
             </div>
@@ -444,7 +444,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               disabled={!isLeaderRole || eligibleCount === 0}
               onClick={onOpenBulkReassign}
               title="Bulk Reassign WO"
-              className="w-11 h-11 rounded-2xl bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] border border-[#D0BCFF] dark:border-[#5B35B1] flex items-center justify-center shrink-0 disabled:opacity-45 cursor-pointer"
+              className="w-11 h-11 rounded-2xl bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#5B35B1] flex items-center justify-center shrink-0 disabled:opacity-45 cursor-pointer"
             >
               <ArrowRightLeft className="w-5 h-5" />
             </button>
@@ -452,18 +452,18 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
           {/* Mobile Horizontal Metrics Strip */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[11px] font-bold text-[#1F1638] dark:text-white whitespace-nowrap shrink-0 tabular-nums">
-              Total <span className="text-[#58149C] dark:text-[#DAB9FF] ml-0.5">{summaryMetrics.total}</span>
+            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-[11px] font-bold text-[#26364A] dark:text-white whitespace-nowrap shrink-0 tabular-nums">
+              Total <span className="text-[#5145A6] dark:text-[#DAB9FF] ml-0.5">{summaryMetrics.total}</span>
             </div>
-            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[11px] font-bold text-[#1F1638] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#6A46C1]" />
+            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-[11px] font-bold text-[#26364A] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#6657C8]" />
               Assigned <span>{summaryMetrics.assigned}</span>
             </div>
-            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[11px] font-bold text-[#1F1638] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#16A36A]" />
+            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-[11px] font-bold text-[#26364A] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#218A63] dark:bg-[#16A36A]" />
               Reassigned <span>{reassignedTodayCount}</span>
             </div>
-            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[11px] font-bold text-[#1F1638] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
+            <div className="px-3 py-1.5 rounded-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-[11px] font-bold text-[#26364A] dark:text-white whitespace-nowrap shrink-0 tabular-nums flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#D97706]" />
               Kendala <span>{problemCount}</span>
             </div>
@@ -472,7 +472,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           {/* Mobile Search + Filter Drawer Trigger */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -481,14 +481,14 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   setCurrentPage(1);
                 }}
                 placeholder="Cari ID WO, pelanggan, atau teknisi..."
-                className="w-full pl-10 pr-8 py-2.5 min-h-[44px] rounded-2xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                className="w-full pl-10 pr-8 py-2.5 min-h-[44px] rounded-2xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="Hapus pencarian"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#7D7484] hover:text-[#1F1638] cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#8492A5] dark:text-[#7D7484] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -500,8 +500,8 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               aria-label="Filter lanjutan"
               className={`min-w-[44px] min-h-[44px] rounded-2xl border flex items-center justify-center cursor-pointer transition-colors ${
                 showMobileAdvancedFilters
-                  ? 'bg-[#58149C] text-white border-[#58149C]'
-                  : 'bg-white dark:bg-[#1E1238] text-[#58149C] dark:text-[#DAB9FF] border-[#E8DDFF] dark:border-[#3E246F]'
+                  ? 'bg-[#6657C8] dark:bg-[#58149C] text-white border-[#6657C8] dark:border-[#58149C]'
+                  : 'bg-white dark:bg-[#1E1238] text-[#5145A6] dark:text-[#DAB9FF] border-[#DDE6F0] dark:border-[#3E246F]'
               }`}
             >
               <SlidersHorizontal className="w-4 h-4" />
@@ -509,14 +509,14 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           </div>
 
           {showMobileAdvancedFilters && (
-            <div className="p-3 rounded-2xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] grid grid-cols-1 gap-2 text-xs">
+            <div className="p-3 rounded-2xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] grid grid-cols-1 gap-2 text-xs">
               <select
                 value={statusFilter}
                 onChange={e => {
                   setStatusFilter(e.target.value as ReassignStatusFilter);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#1F1638] dark:text-white"
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="eligible">Aktif / Siap Reassign ({eligibleCount})</option>
                 <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
@@ -532,7 +532,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   setInstallerFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#1F1638] dark:text-white"
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="ALL">Semua Teknisi</option>
                 {installers.map(inst => (
@@ -548,7 +548,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   setCategoryFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#1F1638] dark:text-white"
+                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="ALL">Semua Kategori</option>
                 {categoryOptions.map(cat => (
@@ -586,7 +586,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 >
                   {chip.dot && <span className={`w-2 h-2 rounded-full ${chip.dot}`} />}
                   <span>{chip.label}</span>
-                  <span className={`font-mono text-[10.5px] ${active ? 'text-[#EEDBFF]' : 'text-[#7D7484]'}`}>
+                  <span className={`font-mono text-[10.5px] ${active ? 'text-[#5145A6] dark:text-[#EEDBFF]' : 'text-[#8492A5] dark:text-[#7D7484]'}`}>
                     {chip.count}
                   </span>
                 </button>
@@ -600,10 +600,10 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3.5">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-md bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] text-[10.5px] font-extrabold uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] text-[10.5px] font-extrabold uppercase tracking-wider">
                   CLUSTER DISPATCH CONTROL
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#15803D] dark:text-emerald-300">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#218A63] dark:text-emerald-300">
                   <RefreshCw className={`w-3 h-3 ${syncStatus === 'SYNCING' ? 'animate-spin' : ''}`} />
                   <span>
                     {databaseStatus === 'connected' ? 'Live Sync Active' : 'Mode Offline'} · {todayAppointmentDisplay}
@@ -612,13 +612,13 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               </div>
 
               <h2
-                className="text-2xl font-extrabold text-[#1F1638] dark:text-white tracking-tight"
+                className="text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 Reassign WO
               </h2>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
-                Kelola dan alihkan penugasan Work Order untuk <strong className="text-[#1F1638] dark:text-white">{displayContractor}</strong> ({displayArea}) tanpa menghilangkan riwayat kerja teknisi.
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+                Kelola dan alihkan penugasan Work Order untuk <strong className="text-[#26364A] dark:text-white">{displayContractor}</strong> ({displayArea}) tanpa menghilangkan riwayat kerja teknisi.
               </p>
             </div>
 
@@ -628,7 +628,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 onClick={onOpenAuditTrail}
                 className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <History className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                <History className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>Riwayat Audit ({auditFeed.length})</span>
               </button>
 
@@ -637,7 +637,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 onClick={onExportExcel}
                 className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>Ekspor Data</span>
               </button>
 
@@ -662,27 +662,27 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 setStatusFilter('all');
                 setCurrentPage(1);
               }}
-              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#58149C] transition-all cursor-pointer"
+              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(38,54,74,0.04)] hover:border-[#6657C8] dark:hover:border-[#58149C] transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   Total Work Orders
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2C1A4E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2C1A4E] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center">
                   <ClipboardList className="w-4 h-4" />
                 </span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-2xl font-extrabold text-[#1F1638] dark:text-white font-display tabular-nums">
+                <span className="text-2xl font-extrabold text-[#26364A] dark:text-white font-display tabular-nums">
                   {summaryMetrics.total}
                 </span>
-                <span className="text-xs font-semibold text-[#7D7484] dark:text-[#A79BC0]">Tiket</span>
+                <span className="text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">Tiket</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E] flex items-center justify-between text-[11px]">
-                <span className="text-[#15803D] dark:text-emerald-300 font-semibold">
+              <div className="mt-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-[11px]">
+                <span className="text-[#218A63] dark:text-emerald-300 font-semibold">
                   {eligibleCount} siap reassign
                 </span>
-                <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">Hari Ini</span>
+                <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">Hari Ini</span>
               </div>
             </button>
 
@@ -693,17 +693,17 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 setStatusFilter('problem');
                 setCurrentPage(1);
               }}
-              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#D97706] transition-all cursor-pointer"
+              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(38,54,74,0.04)] hover:border-[#D97706] transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   Kendala / Pending
                 </span>
                 <span
                   className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                     problemCount > 0
-                      ? 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300'
-                      : 'bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300'
+                      ? 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300'
+                      : 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300'
                   }`}
                 >
                   {problemCount > 0 ? (
@@ -717,21 +717,21 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 <span
                   className={`text-2xl font-extrabold font-display tabular-nums ${
                     problemCount > 0
-                      ? 'text-[#B45309] dark:text-amber-300'
-                      : 'text-[#15803D] dark:text-emerald-300'
+                      ? 'text-[#9D661F] dark:text-amber-300'
+                      : 'text-[#218A63] dark:text-emerald-300'
                   }`}
                 >
                   {problemCount}
                 </span>
-                <span className="text-xs font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">
                   {problemCount > 0 ? 'Tiket' : 'Lancar'}
                 </span>
               </div>
-              <div className="mt-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E] flex items-center justify-between text-[11px]">
-                <span className="text-[#4B4452] dark:text-[#CEC0E8] font-medium">
+              <div className="mt-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-[11px]">
+                <span className="text-[#52647A] dark:text-[#CEC0E8] font-medium">
                   {problemCount > 0 ? 'Perlu evaluasi alih teknisi' : 'Tidak ada kendala lapangan'}
                 </span>
-                <span className="font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                   Filter
                 </span>
               </div>
@@ -744,29 +744,29 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 setStatusFilter('eligible');
                 setCurrentPage(1);
               }}
-              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#6A46C1] transition-all cursor-pointer"
+              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(38,54,74,0.04)] hover:border-[#6657C8] dark:hover:border-[#6A46C1] transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   WO In Field (Active)
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center">
                   <Users2 className="w-4 h-4" />
                 </span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-2xl font-extrabold text-[#58149C] dark:text-[#DAB9FF] font-display tabular-nums">
+                <span className="text-2xl font-extrabold text-[#5145A6] dark:text-[#DAB9FF] font-display tabular-nums">
                   {summaryMetrics.assigned}
                 </span>
-                <span className="text-xs font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">
                   / {totalMaxSlots} Slot
                 </span>
               </div>
-              <div className="mt-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E] flex items-center justify-between text-[11px]">
-                <span className="text-[#4B4452] dark:text-[#CEC0E8] font-medium">
+              <div className="mt-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-[11px]">
+                <span className="text-[#52647A] dark:text-[#CEC0E8] font-medium">
                   {summaryMetrics.activeInstallers} Teknisi Aktif
                 </span>
-                <span className="font-bold font-mono text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                <span className="font-bold font-mono text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                   {quotaUtilizationPct}% Load
                 </span>
               </div>
@@ -779,29 +779,29 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                 setStatusFilter('reassigned');
                 setCurrentPage(1);
               }}
-              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] hover:border-[#58149C] transition-all cursor-pointer"
+              className="text-left bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(38,54,74,0.04)] hover:border-[#6657C8] dark:hover:border-[#58149C] transition-all cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   WO Reassigned
                 </span>
-                <span className="w-8 h-8 rounded-xl bg-[#F3EAFF] dark:bg-[#2C1A4E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-[#EAE8FF] dark:bg-[#2C1A4E] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center">
                   <ArrowRightLeft className="w-4 h-4" />
                 </span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-2xl font-extrabold text-[#1F1638] dark:text-white font-display tabular-nums">
+                <span className="text-2xl font-extrabold text-[#26364A] dark:text-white font-display tabular-nums">
                   {reassignedTodayCount}
                 </span>
-                <span className="text-xs font-semibold text-[#7D7484] dark:text-[#A79BC0]">Tiket Hari Ini</span>
+                <span className="text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">Tiket Hari Ini</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E] flex items-center justify-between text-[11px]">
-                <span className="text-[#4B4452] dark:text-[#CEC0E8] truncate">
+              <div className="mt-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-[11px]">
+                <span className="text-[#52647A] dark:text-[#CEC0E8] truncate">
                   {latestReassignEntry
                     ? `Terakhir: ${latestReassignEntry.woNumber || '-'}`
                     : 'Belum ada alihan hari ini'}
                 </span>
-                <span className="font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+                <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                   Audit Log
                 </span>
               </div>
@@ -809,10 +809,10 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           </div>
 
           {/* MULTI-FILTER TOOLBAR */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
               <div className="md:col-span-4 relative">
-                <Search className="w-4 h-4 text-[#7D7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7D7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -821,14 +821,14 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCurrentPage(1);
                   }}
                   placeholder="Cari Nomor WO, Pelanggan, ODP/FAT, atau Teknisi..."
-                  className="w-full pl-9 pr-8 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                  className="w-full pl-9 pr-8 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
                     aria-label="Bersihkan pencarian"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7D7484] hover:text-[#1F1638] cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] dark:text-[#7D7484] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -843,7 +843,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCurrentPage(1);
                   }}
                   aria-label="Filter Status WO"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
                 >
                   <option value="eligible">Siap Reassign ({eligibleCount})</option>
                   <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
@@ -862,7 +862,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCurrentPage(1);
                   }}
                   aria-label="Filter Slot Jadwal"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
                 >
                   <option value="ALL">Semua Slot Waktu</option>
                   <option value="09:00">Slot 1 (09:00 - 11:00)</option>
@@ -880,7 +880,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCurrentPage(1);
                   }}
                   aria-label="Filter Kategori Tiket"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
                 >
                   <option value="ALL">Semua Kategori</option>
                   {categoryOptions.map(cat => (
@@ -899,7 +899,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     setCurrentPage(1);
                   }}
                   aria-label="Filter Teknisi Saat Ini"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
+                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
                 >
                   <option value="ALL">Semua Teknisi</option>
                   {installers.map(inst => (
@@ -912,13 +912,13 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             </div>
 
             {/* Active Filter Tags Row */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#F3EAFF] dark:border-[#35105E]">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="font-semibold text-[#7D7484] dark:text-[#A79BC0] mr-1">
+                <span className="font-semibold text-[#8492A5] dark:text-[#A79BC0] mr-1">
                   Filter Aktif:
                 </span>
                 {activeFilterTags.length === 0 ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#F8F1FF] dark:bg-[#261942] text-[#58149C] dark:text-[#DAB9FF] font-semibold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#261942] text-[#5145A6] dark:text-[#DAB9FF] font-semibold">
                     WO Aktif Siap Reassign ({todayAppointmentDisplay})
                   </span>
                 ) : (
@@ -927,7 +927,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       key={tag.key}
                       type="button"
                       onClick={tag.onClear}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-bold hover:bg-[#DAB9FF]/60 cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-bold hover:bg-[#DDF4F4] dark:hover:bg-[#DAB9FF]/60 cursor-pointer"
                     >
                       <span>{tag.label}</span>
                       <X className="w-3 h-3" />
@@ -942,7 +942,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       setStatusFilter('problem');
                       setCurrentPage(1);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300 border border-[#FCD34D] dark:border-amber-800 font-bold cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-800 font-bold cursor-pointer"
                   >
                     <AlertTriangle className="w-3 h-3" />
                     <span>Kendala / Catatan ({problemCount})</span>
@@ -951,7 +951,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-[#7D7484] dark:text-[#A79BC0] tabular-nums">
+                <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                   {filteredTickets.length} dari {assignedTodayTickets.length} WO
                 </span>
                 {hasActiveCustomFilter && (
@@ -974,27 +974,27 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
       {/* 2. MAIN CONTENT: EMPTY STATE OR TABLE (DESKTOP) / CARDS (MOBILE) */}
       {/* ============================================================ */}
       {filteredTickets.length === 0 ? (
-        <div className="bg-white dark:bg-[#1E1238] rounded-3xl border border-[#E8DDFF] dark:border-[#3E246F] p-6 sm:p-10 shadow-[0_4px_18px_rgba(31,22,56,0.05)] space-y-6">
+        <div className="bg-white dark:bg-[#1E1238] rounded-3xl border border-[#DDE6F0] dark:border-[#3E246F] p-6 sm:p-10 shadow-[0_4px_18px_rgba(38,54,74,0.05)] space-y-6">
           <div className="max-w-xl mx-auto text-center space-y-4">
             <div className="relative inline-flex items-center justify-center">
-              <div className="w-20 h-20 rounded-3xl bg-[#F3EAFF] dark:bg-[#2C1A4E] border border-[#E8DDFF] dark:border-[#4B386B] flex items-center justify-center text-[#58149C] dark:text-[#DAB9FF] shadow-inner">
+              <div className="w-20 h-20 rounded-3xl bg-[#EAE8FF] dark:bg-[#2C1A4E] border border-[#DCE3F2] dark:border-[#4B386B] flex items-center justify-center text-[#5145A6] dark:text-[#DAB9FF] shadow-inner">
                 <CheckCircle2 className="w-9 h-9" />
               </div>
-              <span className="absolute -bottom-2 px-2.5 py-0.5 rounded-full bg-[#58149C] text-white font-mono text-[10px] font-extrabold shadow-sm">
+              <span className="absolute -bottom-2 px-2.5 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#58149C] text-white font-mono text-[10px] font-extrabold shadow-sm">
                 0 ANTREAN
               </span>
             </div>
 
             <div className="space-y-1.5 pt-1">
               <h3
-                className="text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white"
+                className="text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 {hasActiveCustomFilter
                   ? 'Tidak Ada Work Order yang Cocok'
                   : 'Tidak Ada Work Order yang Memerlukan Reassign'}
               </h3>
-              <p className="text-xs sm:text-sm text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 {hasActiveCustomFilter
                   ? 'Tidak ditemukan Work Order dalam cakupan Anda yang sesuai dengan kombinasi filter atau kata kunci pencarian saat ini.'
                   : `Semua Work Order dalam tanggung jawab ${displayContractor} (${displayArea}) berjalan sesuai penjadwalan atau telah diselesaikan.`}
@@ -1002,13 +1002,13 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             </div>
 
             {activeFilterTags.length > 0 && (
-              <div className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] text-[11px]">
-                <Info className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
-                <span className="font-semibold text-[#4B4452] dark:text-[#CEC0E8]">Kriteria aktif:</span>
+              <div className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11px]">
+                <Info className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
+                <span className="font-semibold text-[#52647A] dark:text-[#CEC0E8]">Kriteria aktif:</span>
                 {activeFilterTags.map(tag => (
                   <span
                     key={tag.key}
-                    className="px-2 py-0.5 rounded-md bg-white dark:bg-[#261942] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]"
+                    className="px-2 py-0.5 rounded-md bg-white dark:bg-[#261942] font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]"
                   >
                     {tag.label}
                   </span>
@@ -1036,51 +1036,51 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   isRefreshing ? 'mj-btn-loading' : ''
                 }`}
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF] ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? 'Menyegarkan...' : 'Segarkan Data WO'}</span>
               </button>
             </div>
           </div>
 
           {/* 3 Real Quick-Glance Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E]">
-            <div className="p-3.5 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+            <div className="p-3.5 rounded-2xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-xs">
                 <Activity className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10.5px] font-bold text-[#7D7484] dark:text-[#A79BC0]">
+                <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#A79BC0]">
                   Utilisasi Kuota Tim
                 </div>
-                <div className="font-bold text-xs text-[#1F1638] dark:text-white font-mono tabular-nums mt-0.5">
+                <div className="font-bold text-xs text-[#26364A] dark:text-white font-mono tabular-nums mt-0.5">
                   {quotaUtilizationPct}% ({summaryMetrics.assigned}/{totalMaxSlots} Slot)
                 </div>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-xs">
+            <div className="p-3.5 rounded-2xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 shadow-xs">
                 <MapPin className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10.5px] font-bold text-[#7D7484] dark:text-[#A79BC0]">
+                <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#A79BC0]">
                   Distribusi Wilayah
                 </div>
-                <div className="font-bold text-xs text-[#1F1638] dark:text-white truncate mt-0.5">
+                <div className="font-bold text-xs text-[#26364A] dark:text-white truncate mt-0.5">
                   {clusterOptions.length || 1} Cluster · {displayArea}
                 </div>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#15803D] dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+            <div className="p-3.5 rounded-2xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#261942] text-[#218A63] dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
                 <UserCheck className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10.5px] font-bold text-[#7D7484] dark:text-[#A79BC0]">
+                <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#A79BC0]">
                   Status Tim Lapangan
                 </div>
-                <div className="font-bold text-xs text-[#15803D] dark:text-emerald-300 font-mono tabular-nums mt-0.5">
+                <div className="font-bold text-xs text-[#218A63] dark:text-emerald-300 font-mono tabular-nums mt-0.5">
                   {summaryMetrics.activeInstallers} Aktif · {summaryMetrics.idleInstallers} Siaga
                 </div>
               </div>
@@ -1088,17 +1088,17 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           </div>
 
           {/* Leader Tips Banner */}
-          <div className="p-3.5 rounded-2xl bg-[#F3EAFF] dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#EAE8FF] dark:bg-[#261942] border border-[#DCE3F2] dark:border-[#4B386B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                 <Lightbulb className="w-4 h-4" />
               </div>
-              <p className="text-[11.5px] text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
-                <strong className="text-[#58149C] dark:text-[#DAB9FF]">Tips Leader:</strong> Pantau tab{' '}
+              <p className="text-[11.5px] text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
+                <strong className="text-[#5145A6] dark:text-[#DAB9FF]">Tips Leader:</strong> Pantau tab{' '}
                 <button
                   type="button"
                   onClick={onJumpToProgressTab}
-                  className="font-bold underline text-[#58149C] dark:text-[#DAB9FF] cursor-pointer"
+                  className="font-bold underline text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"
                 >
                   Progress Live
                 </button>{' '}
@@ -1108,7 +1108,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             <button
               type="button"
               onClick={onJumpToProgressTab}
-              className="text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF] flex items-center gap-1 whitespace-nowrap shrink-0 hover:underline cursor-pointer"
+              className="text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] flex items-center gap-1 whitespace-nowrap shrink-0 hover:underline cursor-pointer"
             >
               <span>Buka Progress Live</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1130,22 +1130,22 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               const workStat = getTicketWorkStatus(t);
               const accentClass =
                 badge.tone === 'problem'
-                  ? 'border-[#FCD34D] dark:border-amber-700'
+                  ? 'border-[#F2CF95] dark:border-amber-700'
                   : badge.tone === 'unassigned'
-                  ? 'border-[#FCA5A5] dark:border-rose-800'
-                  : 'border-[#E8DDFF] dark:border-[#3E246F]';
+                  ? 'border-[#F3C5CA] dark:border-rose-800'
+                  : 'border-[#DDE6F0] dark:border-[#3E246F]';
 
               return (
                 <article
                   key={t.id}
-                  className={`bg-white dark:bg-[#1E1238] rounded-2xl border p-4 shadow-[0_3px_12px_rgba(31,22,56,0.05)] space-y-3 ${accentClass}`}
+                  className={`bg-white dark:bg-[#1E1238] rounded-2xl border p-4 shadow-[0_3px_12px_rgba(38,54,74,0.05)] space-y-3 ${accentClass}`}
                 >
                   {/* Card Top Row */}
                   <div className="flex items-start justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => onSelectTicket(t)}
-                      className="inline-flex items-center gap-1.5 font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1.5 font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                     >
                       <Wrench className="w-3.5 h-3.5 shrink-0" />
                       <span>{t.woNumber}</span>
@@ -1158,10 +1158,10 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                   {/* Customer Info */}
                   <div>
-                    <h3 className="font-bold text-sm text-[#1F1638] dark:text-white leading-snug">
+                    <h3 className="font-bold text-sm text-[#26364A] dark:text-white leading-snug">
                       {t.customerName}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[#7D7484] dark:text-[#A79BC0] mt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[#8492A5] dark:text-[#A79BC0] mt-0.5">
                       {t.customerPhone && (
                         <span className="inline-flex items-center gap-1 font-mono">
                           <Phone className="w-3 h-3" />
@@ -1176,29 +1176,29 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   </div>
 
                   {/* Inner Tinted Specs Box */}
-                  <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2 text-xs">
+                  <div className="p-3 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[#7D7484] dark:text-[#A79BC0]">Kategori:</span>
-                      <strong className="text-[#1F1638] dark:text-white text-right truncate">
+                      <span className="text-[#8492A5] dark:text-[#A79BC0]">Kategori:</span>
+                      <strong className="text-[#26364A] dark:text-white text-right truncate">
                         {t.ticketCategory || '-'}
                       </strong>
                     </div>
 
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[#7D7484] dark:text-[#A79BC0]">Jadwal / Slot:</span>
-                      <strong className="text-[#1F1638] dark:text-white font-mono text-[11px] tabular-nums">
+                      <span className="text-[#8492A5] dark:text-[#A79BC0]">Jadwal / Slot:</span>
+                      <strong className="text-[#26364A] dark:text-white font-mono text-[11px] tabular-nums">
                         {formatAppointmentDateDisplay(t.appointmentDate)} · {t.slotTime || '-'}
                       </strong>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#E8DDFF] dark:border-[#35105E]">
-                      <span className="text-[#7D7484] dark:text-[#A79BC0]">Teknisi Saat Ini:</span>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                      <span className="text-[#8492A5] dark:text-[#A79BC0]">Teknisi Saat Ini:</span>
                       <div className="text-right">
-                        <strong className="text-[#1F1638] dark:text-white block">
+                        <strong className="text-[#26364A] dark:text-white block">
                           {t.installerName || 'Belum Ditugaskan'}
                         </strong>
                         {techInfo && (
-                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[10px] font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-white dark:bg-[#261942] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                             Beban {techInfo.assignedCount}/{techInfo.maxLimit} WO
                           </span>
                         )}
@@ -1206,14 +1206,14 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     </div>
 
                     {t.remarksWOInstaller?.trim() && (
-                      <div className="flex items-start gap-1.5 text-[11px] text-[#B45309] dark:text-amber-300 font-semibold pt-1">
+                      <div className="flex items-start gap-1.5 text-[11px] text-[#9D661F] dark:text-amber-300 font-semibold pt-1">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span className="line-clamp-2">{t.remarksWOInstaller}</span>
                       </div>
                     )}
 
                     {t.checkInAt && (
-                      <div className="text-[10.5px] font-mono text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-between pt-0.5">
+                      <div className="text-[10.5px] font-mono text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-between pt-0.5">
                         <span>Sesi Kerja: {workStat.status}</span>
                         <span>Check-in {formatJakartaTimeOnly(t.checkInAt)}</span>
                       </div>
@@ -1233,7 +1233,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                         <span>Reassign WO</span>
                       </button>
                     ) : (
-                      <div className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-[#F3EAFF] dark:bg-[#261942] text-[11px] font-bold text-[#7D7484] dark:text-[#CEC0E8] flex items-center justify-center">
+                      <div className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-[#EDF3F8] dark:bg-[#261942] text-[11px] font-bold text-[#8492A5] dark:text-[#CEC0E8] flex items-center justify-center">
                         WO Selesai / Terkunci
                       </div>
                     )}
@@ -1244,7 +1244,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       aria-label={`Detail ${t.woNumber}`}
                       className="mj-btn-icon-3d-leader min-w-[44px] min-h-[44px] px-3 flex items-center justify-center cursor-pointer"
                     >
-                      <Eye className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                      <Eye className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                     </button>
                   </div>
                 </article>
@@ -1252,7 +1252,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             })}
           </div>
 
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] overflow-hidden">
+          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] overflow-hidden">
             <PaginationBar
               currentPage={safePage}
               totalPages={totalPages}
@@ -1273,10 +1273,10 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
         /* 3B. DESKTOP MODE: SPLIT TABLE (8 COL) + SNAPSHOT PANEL (4 COL)*/
         /* ============================================================ */
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-          <div className="xl:col-span-8 min-w-0 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] shadow-[0_3px_14px_rgba(31,22,56,0.05)] overflow-hidden">
+          <div className="xl:col-span-8 min-w-0 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] shadow-[0_3px_14px_rgba(38,54,74,0.05)] overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#F8F1FF] dark:bg-[#160D29] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+              <table className="w-full text-left text-xs border-collapse mj-zebra-table">
+                <thead className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
                   <tr>
                     <th className="py-3 px-4 min-w-[140px]">WO Number</th>
                     <th className="py-3 px-4 min-w-[185px]">Customer Details</th>
@@ -1287,7 +1287,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     <th className="py-3 px-4 text-right min-w-[140px]">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#2E1859]">
+                <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#2E1859]">
                   {paginatedTickets.map(t => {
                     const badge = getReassignBadge(t);
                     const eligible = isTicketEligibleForReassign(t);
@@ -1306,8 +1306,8 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                         onClick={() => setPreviewTicketId(t.id)}
                         className={`transition-colors cursor-pointer ${
                           isPreviewSelected
-                            ? 'bg-[#F3EAFF]/85 dark:bg-[#2E1B59]/75'
-                            : 'hover:bg-[#F8F1FF]/60 dark:hover:bg-[#261942]/70'
+                            ? 'bg-[#EAE8FF]/70 dark:bg-[#2E1B59]/75'
+                            : 'hover:bg-[#EDF3F8]/70 dark:hover:bg-[#261942]/70'
                         }`}
                       >
                       {/* 1. WO NUMBER */}
@@ -1315,15 +1315,15 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onSelectTicket(t)}
-                          className="font-mono font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline text-left block cursor-pointer"
+                          className="font-mono font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline text-left block cursor-pointer"
                         >
                           {t.woNumber}
                         </button>
-                        <div className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A79BC0] mt-0.5">
+                        <div className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A79BC0] mt-0.5">
                           {t.fatCode || t.fdtCode || t.idCustomer || '-'}
                         </div>
                         {reassignCount > 0 && (
-                          <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-mono text-[9.5px] font-bold">
+                          <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[9.5px] font-bold">
                             <History className="w-2.5 h-2.5" />
                             {reassignCount}x dialihkan
                           </span>
@@ -1332,14 +1332,14 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                       {/* 2. CUSTOMER DETAILS */}
                       <td className="py-3 px-4 align-top">
-                        <div className="font-bold text-[#1F1638] dark:text-white">
+                        <div className="font-bold text-[#26364A] dark:text-white">
                           {t.customerName}
                         </div>
-                        <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-1 mt-0.5">
+                        <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-1 mt-0.5">
                           {t.clusterName || t.streetName || t.area || '-'}
                         </div>
                         {t.customerPhone && (
-                          <div className="inline-flex items-center gap-1 font-mono text-[10.5px] text-[#58149C] dark:text-[#DAB9FF] mt-0.5">
+                          <div className="inline-flex items-center gap-1 font-mono text-[10.5px] text-[#2E7D8B] dark:text-[#DAB9FF] mt-0.5">
                             <Phone className="w-3 h-3" />
                             <span>{t.customerPhone}</span>
                           </div>
@@ -1348,12 +1348,12 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                       {/* 3. CATEGORY */}
                       <td className="py-3 px-4 align-top">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F3EAFF] dark:bg-[#2C1A4E] text-[#58149C] dark:text-[#DAB9FF] font-bold text-[11px]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#2C1A4E] text-[#5145A6] dark:text-[#DAB9FF] font-bold text-[11px]">
                           <Wrench className="w-3 h-3 shrink-0" />
                           <span>{t.ticketCategory || '-'}</span>
                         </span>
                         {(t.ontModel || t.fdtCode) && (
-                          <div className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] mt-1 font-mono truncate max-w-[170px]">
+                          <div className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] mt-1 font-mono truncate max-w-[170px]">
                             {t.ontModel || `FDT ${t.fdtCode}`}
                           </div>
                         )}
@@ -1361,17 +1361,17 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                       {/* 4. APPOINTMENT & SLOT */}
                       <td className="py-3 px-4 align-top">
-                        <div className="font-semibold text-[#1F1638] dark:text-white font-mono text-[11px] tabular-nums">
+                        <div className="font-semibold text-[#26364A] dark:text-white font-mono text-[11px] tabular-nums">
                           {formatAppointmentDateDisplay(t.appointmentDate)}
                         </div>
-                        <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] font-mono tabular-nums mt-0.5">
+                        <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums mt-0.5">
                           {t.slotTime || '-'}
                         </div>
                         <div
                           className={`text-[10px] font-bold mt-1 flex items-center gap-1 ${
                             t.checkInAt
-                              ? 'text-[#15803D] dark:text-emerald-300'
-                              : 'text-[#7D7484] dark:text-[#A79BC0]'
+                              ? 'text-[#218A63] dark:text-emerald-300'
+                              : 'text-[#8492A5] dark:text-[#A79BC0]'
                           }`}
                         >
                           <Clock className="w-3 h-3 shrink-0" />
@@ -1387,11 +1387,11 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       <td className="py-3 px-4 align-top">
                         {t.installerName ? (
                           <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-display font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-display font-extrabold text-[11px] flex items-center justify-center shrink-0">
                               {getInitials(t.installerName)}
                             </div>
                             <div className="min-w-0">
-                              <div className="font-bold text-[#1F1638] dark:text-white truncate">
+                              <div className="font-bold text-[#26364A] dark:text-white truncate">
                                 {t.installerName}
                               </div>
                               <div className="flex flex-wrap items-center gap-1 mt-0.5">
@@ -1399,8 +1399,8 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                                   <span
                                     className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold tabular-nums ${
                                       techInfo.isFull
-                                        ? 'bg-[#FFDAD6] dark:bg-rose-950/60 text-[#93000A] dark:text-rose-300'
-                                        : 'bg-[#F3EAFF] dark:bg-[#2C1A4E] text-[#58149C] dark:text-[#DAB9FF]'
+                                        ? 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300'
+                                        : 'bg-[#EAE8FF] dark:bg-[#2C1A4E] text-[#5145A6] dark:text-[#DAB9FF]'
                                     }`}
                                   >
                                     Beban {techInfo.assignedCount}/{techInfo.maxLimit} Tiket
@@ -1409,7 +1409,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                                 {t.remarksWOInstaller?.trim() && (
                                   <span
                                     title={t.remarksWOInstaller}
-                                    className="px-2 py-0.5 rounded-md bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300 text-[10px] font-bold truncate max-w-[140px]"
+                                    className="px-2 py-0.5 rounded-md bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 text-[10px] font-bold truncate max-w-[140px]"
                                   >
                                     {t.remarksWOInstaller}
                                   </span>
@@ -1418,7 +1418,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                             </div>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300 font-bold text-[11px]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 font-bold text-[11px]">
                             Belum Ditugaskan
                           </span>
                         )}
@@ -1454,7 +1454,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                               <span>Reassign</span>
                             </button>
                           ) : (
-                            <span className="text-[10.5px] font-semibold text-[#7D7484] dark:text-[#A79BC0] px-2">
+                            <span className="text-[10.5px] font-semibold text-[#8492A5] dark:text-[#A79BC0] px-2">
                               Terkunci
                             </span>
                           )}
@@ -1486,12 +1486,12 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
           <aside className="xl:col-span-4 space-y-4 xl:sticky xl:top-4">
             {selectedPreviewTicket && (
               <div className="card-3d-lavender rounded-2xl overflow-hidden">
-                <div className="bg-gradient-to-br from-[#1F1638] to-[#35105E] text-white p-4 space-y-2">
+                <div className="bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:from-[#1F1638] dark:to-[#35105E] border-b border-[#DDE6F0] dark:border-transparent text-[#26364A] dark:text-white p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-white/15 text-[#EEDBFF] text-[10px] font-extrabold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-white/15 text-[#5145A6] dark:text-[#EEDBFF] text-[10px] font-extrabold uppercase tracking-wider">
                       Panel Snapshot Reassign
                     </span>
-                    <span className="font-mono text-[11px] font-bold text-[#DAB9FF]">
+                    <span className="font-mono text-[11px] font-bold text-[#2E7D8B] dark:text-[#DAB9FF]">
                       {selectedPreviewTicket.slotTime || 'Standar'}
                     </span>
                   </div>
@@ -1499,7 +1499,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectTicket(selectedPreviewTicket)}
-                      className="font-mono text-base font-extrabold text-white hover:underline cursor-pointer text-left"
+                      className="font-mono text-base font-extrabold text-[#26364A] dark:text-white hover:underline cursor-pointer text-left"
                     >
                       {selectedPreviewTicket.woNumber}
                     </button>
@@ -1507,17 +1507,17 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       {getReassignBadge(selectedPreviewTicket).label}
                     </span>
                   </div>
-                  <div className="text-xs text-[#EEDBFF] font-semibold truncate">
+                  <div className="text-xs text-[#26364A] dark:text-[#EEDBFF] font-semibold truncate">
                     {selectedPreviewTicket.customerName}
                   </div>
-                  <div className="text-[11px] text-[#CEC0E8] truncate">
+                  <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                     {selectedPreviewTicket.clusterName || selectedPreviewTicket.streetName || selectedPreviewTicket.area || '-'}
                   </div>
                 </div>
 
                 <div className="p-4 space-y-3 text-xs">
                   {(selectedPreviewTicket.rejectionReason || selectedPreviewTicket.remarksWOInstaller) && (
-                    <div className="p-2.5 rounded-xl bg-[#FFF8F6] dark:bg-rose-950/30 border border-[#FCA5A5]/70 dark:border-rose-800/60 text-[11px] text-[#93000A] dark:text-rose-200 flex items-start gap-2">
+                    <div className="p-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/30 border border-[#F3C5CA] dark:border-rose-800/60 text-[11px] text-[#9B2C37] dark:text-rose-200 flex items-start gap-2">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span className="line-clamp-3">
                         {selectedPreviewTicket.rejectionReason || selectedPreviewTicket.remarksWOInstaller}
@@ -1527,37 +1527,37 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                   {/* Perbandingan Beban Teknisi */}
                   <div className="space-y-1.5">
-                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                       Perbandingan Beban Teknisi
                     </span>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#3E246F] min-w-0">
-                        <span className="text-[9.5px] font-bold uppercase text-[#93000A] dark:text-rose-300 block">
+                      <div className="p-2.5 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3E246F] min-w-0">
+                        <span className="text-[9.5px] font-bold uppercase text-[#9B2C37] dark:text-rose-300 block">
                           Teknisi Asal
                         </span>
-                        <strong className="text-[#1F1638] dark:text-white truncate block mt-0.5">
+                        <strong className="text-[#26364A] dark:text-white truncate block mt-0.5">
                           {selectedPreviewTicket.installerName || 'Unassigned'}
                         </strong>
                         {selectedPreviewTicket.installerName &&
                           techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim()) && (
-                            <span className="font-mono text-[10.5px] text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                            <span className="font-mono text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                               {techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim())!.assignedCount}/
                               {techMap.get(selectedPreviewTicket.installerName.toLowerCase().trim())!.maxLimit} WO
                             </span>
                           )}
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-[#ECFDF5] dark:bg-emerald-950/30 border border-[#86EFAC] dark:border-emerald-800/60 min-w-0">
-                        <span className="text-[9.5px] font-bold uppercase text-[#15803D] dark:text-emerald-300 block">
+                      <div className="p-2.5 rounded-xl bg-[#E4F5EC] dark:bg-emerald-950/30 border border-[#B7E4CC] dark:border-emerald-800/60 min-w-0">
+                        <span className="text-[9.5px] font-bold uppercase text-[#218A63] dark:text-emerald-300 block">
                           Rekomendasi
                         </span>
-                        <strong className="text-[#1F1638] dark:text-white truncate block mt-0.5">
+                        <strong className="text-[#26364A] dark:text-white truncate block mt-0.5">
                           {recommendedReplacementForPreview
                             ? recommendedReplacementForPreview.installer.name
                             : 'Semua Penuh'}
                         </strong>
                         {recommendedReplacementForPreview && (
-                          <span className="font-mono text-[10.5px] text-[#15803D] dark:text-emerald-300 tabular-nums">
+                          <span className="font-mono text-[10.5px] text-[#218A63] dark:text-emerald-300 tabular-nums">
                             {recommendedReplacementForPreview.assignedCount}/
                             {recommendedReplacementForPreview.maxLimit} WO
                           </span>
@@ -1577,7 +1577,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                       <span>Buka Form Reassign 2-Langkah</span>
                     </button>
                   ) : (
-                    <div className="p-2.5 rounded-xl bg-[#F3EAFF] dark:bg-[#261942] text-center text-[11px] font-semibold text-[#7D7484] dark:text-[#CEC0E8]">
+                    <div className="p-2.5 rounded-xl bg-[#EDF3F8] dark:bg-[#261942] text-center text-[11px] font-semibold text-[#8492A5] dark:text-[#CEC0E8]">
                       WO berstatus selesai / terkunci.
                     </div>
                   )}
@@ -1586,23 +1586,23 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             )}
 
             {/* Ketersediaan Cadangan Basecamp */}
-            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#E8DDFF] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(31,22,56,0.04)] space-y-3">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#F3EAFF] dark:border-[#35105E]">
+            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-4 shadow-[0_2px_10px_rgba(38,54,74,0.04)] space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                 <div>
-                  <h3 className="text-xs font-extrabold text-[#1F1638] dark:text-white">
+                  <h3 className="text-xs font-extrabold text-[#26364A] dark:text-white">
                     Ketersediaan Cadangan Basecamp
                   </h3>
-                  <p className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                  <p className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
                     Teknisi sektor dengan sisa slot terbanyak
                   </p>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950/70 text-[#15803D] dark:text-emerald-300 font-mono text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/70 text-[#218A63] dark:text-emerald-300 font-mono text-[10px] font-bold">
                   {basecampReserveTechs.length} Siap
                 </span>
               </div>
 
               {basecampReserveTechs.length === 0 ? (
-                <div className="py-4 text-center text-[11px] text-[#7D7484] dark:text-[#A79BC0]">
+                <div className="py-4 text-center text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
                   Seluruh teknisi sektor sedang mencapai batas kuota harian.
                 </div>
               ) : (
@@ -1610,22 +1610,22 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                   {basecampReserveTechs.map(cand => (
                     <div
                       key={cand.installer.id}
-                      className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-2"
+                      className="p-2.5 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-lg bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-extrabold text-[10px] flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-extrabold text-[10px] flex items-center justify-center shrink-0">
                           {getInitials(cand.installer.name)}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+                          <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                             {cand.installer.name}
                           </div>
-                          <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                          <div className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                             {cand.liveStatusLabel} • Sisa {cand.remainingSlots} slot
                           </div>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[10px] font-extrabold text-[#58149C] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#261942] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-extrabold text-[#5145A6] dark:text-[#DAB9FF] shrink-0 tabular-nums">
                         {cand.assignedCount}/{cand.maxLimit}
                       </span>
                     </div>

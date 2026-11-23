@@ -496,7 +496,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#58149C] to-[#2D115B] text-white font-display font-extrabold text-sm flex items-center justify-center shrink-0 shadow-sm border border-[#A380FE]/30">
+            <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5145A6] via-[#6657C8] to-[#2E7D8B] dark:from-[#58149C] dark:to-[#2D115B] text-white font-display font-extrabold text-sm flex items-center justify-center shrink-0 shadow-sm border border-[#BDE4E8]/60 dark:border-[#A380FE]/30">
               {getInitials(currentUser.name)}
               <span
                 className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#1E1238] ${
@@ -506,14 +506,14 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="font-display font-extrabold text-base sm:text-lg text-[#1f1638] dark:text-[#f5eeff] truncate">
+                <h1 className="font-display font-extrabold text-base sm:text-lg text-[#26364A] dark:text-[#f5eeff] truncate">
                   Halo, {firstName}
                 </h1>
-                <span className="px-2 py-0.5 rounded-md bg-[#F3EAFF] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[10px] font-bold shrink-0">
+                <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-bold shrink-0">
                   @{currentUser.username}
                 </span>
               </div>
-              <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] truncate mt-0.5 font-medium">
+              <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate mt-0.5 font-medium">
                 {getWibGreeting()} · {derivedArea}
                 {currentUser.contractor ? ` · ${currentUser.contractor}` : ''}
               </p>
@@ -532,7 +532,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
               <span>{isOnline ? 'SIAP KERJA · ONLINE' : 'MODE OFFLINE'}</span>
             </button>
-            <span className="text-[10.5px] text-[#7d7484] dark:text-[#A79BC0] font-mono font-semibold">
+            <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] font-mono font-semibold">
               {shortTodayLabel}
             </span>
           </div>
@@ -540,48 +540,48 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
         {/* 3-Tile Compact Field Performance Strip */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-          <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 sm:p-3 space-y-1.5">
+          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 sm:p-3 space-y-1.5">
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] truncate">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] truncate">
                 Target Hari Ini
               </span>
-              <span className="font-mono text-[10px] font-extrabold text-[#58149c] dark:text-[#DAB9FF] tabular-nums">
+              <span className="font-mono text-[10px] font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                 {summary.progressPct}%
               </span>
             </div>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff] tabular-nums">
-              {summary.selesai}/{summary.totalToday} <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0]">WO</span>
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-[#f5eeff] tabular-nums">
+              {summary.selesai}/{summary.totalToday} <span className="text-[11px] font-semibold text-[#8492A5] dark:text-[#A79BC0]">WO</span>
             </div>
-            <div className="w-full h-1.5 rounded-full bg-[#E8DDFF] dark:bg-[#2A194B] overflow-hidden">
+            <div className="w-full h-1.5 rounded-full bg-[#EDF3F8] dark:bg-[#2A194B] overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#58149C] to-[#A380FE] transition-all duration-300"
+                className="h-full rounded-full bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:from-[#58149C] dark:to-[#A380FE] transition-all duration-300"
                 style={{ width: `${summary.progressPct}%` }}
               />
             </div>
           </div>
 
-          <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 sm:p-3 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1 truncate">
-              <Clock className="w-3 h-3 text-[#7135B5] dark:text-[#A380FE] shrink-0" />
+          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 sm:p-3 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] flex items-center gap-1 truncate">
+              <Clock className="w-3 h-3 text-[#2E7D8B] dark:text-[#A380FE] shrink-0" />
               <span>Rata SLA</span>
             </span>
-            <div className="font-display font-extrabold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff] tabular-nums truncate mt-1">
+            <div className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-[#f5eeff] tabular-nums truncate mt-1">
               {summary.avgSlaLabel}
             </div>
-            <span className="text-[10px] text-[#7d7484] dark:text-[#A79BC0] truncate">
+            <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
               Target ≤ 90m
             </span>
           </div>
 
-          <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 sm:p-3 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1 truncate">
-              <Gauge className="w-3 h-3 text-[#7135B5] dark:text-[#A380FE] shrink-0" />
+          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 sm:p-3 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] flex items-center gap-1 truncate">
+              <Gauge className="w-3 h-3 text-[#5145A6] dark:text-[#A380FE] shrink-0" />
               <span>OPM Avg</span>
             </span>
-            <div className="font-mono font-extrabold text-sm sm:text-base text-[#15803D] dark:text-emerald-400 tabular-nums truncate mt-1">
+            <div className="font-mono font-extrabold text-sm sm:text-base text-[#218A63] dark:text-emerald-400 tabular-nums truncate mt-1">
               {summary.avgOpmLabel}
             </div>
-            <span className="text-[10px] text-[#7d7484] dark:text-[#A79BC0] truncate">
+            <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
               SOP -15..-24
             </span>
           </div>
@@ -596,11 +596,11 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           aria-label="Pekerjaan Aktif"
           className="card-3d-lavender rounded-2xl overflow-hidden"
         >
-          {/* Dark Purple Header Strip */}
-          <div className="bg-gradient-to-r from-[#160D29] via-[#2D115B] to-[#35105E] text-white px-4 py-3 flex items-center justify-between gap-2">
+          {/* Crystal Aqua-Violet / Dark Purple Header Strip */}
+          <div className="bg-gradient-to-r from-[#5145A6] via-[#6657C8] to-[#2E7D8B] dark:from-[#160D29] dark:via-[#2D115B] dark:to-[#35105E] text-white px-4 py-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#DAB9FF] animate-pulse shrink-0" />
-              <span className="font-mono text-[10.5px] font-extrabold uppercase tracking-wider text-[#EEDBFF]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#DDF4F4] dark:bg-[#DAB9FF] animate-pulse shrink-0" />
+              <span className="font-mono text-[10.5px] font-extrabold uppercase tracking-wider text-[#DDF4F4] dark:text-[#EEDBFF]">
                 PEKERJAAN AKTIF
               </span>
               <span className="text-white/40">·</span>
@@ -608,7 +608,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 {activeHeroTicket.woNumber}
               </span>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-white/15 border border-white/20 font-mono text-[10px] font-bold text-[#EEDBFF] shrink-0">
+            <span className="px-2 py-0.5 rounded-full bg-white/15 border border-white/20 font-mono text-[10px] font-bold text-[#DDF4F4] dark:text-[#EEDBFF] shrink-0">
               {activeHeroTicket.slotTime || 'Hari Ini'}
             </span>
           </div>
@@ -617,11 +617,11 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             {/* Customer & Category Row */}
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="font-display font-extrabold text-base sm:text-lg text-[#1f1638] dark:text-[#f5eeff] truncate">
+                <h2 className="font-display font-extrabold text-base sm:text-lg text-[#26364A] dark:text-[#f5eeff] truncate">
                   {activeHeroTicket.customerName}
                 </h2>
-                <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] flex items-start gap-1.5 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] flex items-start gap-1.5 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
                   <span className="line-clamp-2">
                     {[activeHeroTicket.streetName || activeHeroTicket.address, activeHeroTicket.clusterName, activeHeroTicket.area]
                       .filter(Boolean)
@@ -629,18 +629,18 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   </span>
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-lg bg-[#F3EAFF] dark:bg-[#2A194B] border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149c] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0">
+              <span className="px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0">
                 {activeHeroTicket.ticketCategory || activeHeroTicket.appointmentType || 'PSB'}
               </span>
             </div>
 
             {/* 4-Step Progres Lapangan Tracker */}
-            <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3 space-y-2">
+            <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-2">
               <div className="flex items-center justify-between text-[10.5px] font-bold">
-                <span className="uppercase tracking-wider text-[#58149c] dark:text-[#DAB9FF]">
+                <span className="uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   Progres Lapangan
                 </span>
-                <span className="font-mono text-[#4b4452] dark:text-[#C4B5D6]">
+                <span className="font-mono text-[#52647A] dark:text-[#C4B5D6]">
                   {heroGuidance.stageLabel}
                 </span>
               </div>
@@ -650,8 +650,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                     key={step.label}
                     className={`px-1.5 py-1.5 rounded-lg border text-center text-[10px] font-bold truncate ${
                       step.done
-                        ? 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300 border-[#86EFAC] dark:border-emerald-700/60'
-                        : 'bg-white dark:bg-[#1E1238] text-[#4b4452] dark:text-[#A79BC0] border-[#E8DDFF] dark:border-[#35105E]'
+                        ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
+                        : 'bg-white dark:bg-[#1E1238] text-[#52647A] dark:text-[#A79BC0] border-[#DDE6F0] dark:border-[#35105E]'
                     }`}
                   >
                     {step.label}
@@ -662,20 +662,20 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
             {/* Distribution Point + DW Strip */}
             <div className="grid grid-cols-2 gap-2.5 text-xs">
-              <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] px-3 py-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] block">
+              <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] block">
                   Titik Distribusi (ODP/FAT)
                 </span>
-                <span className="font-mono font-extrabold text-xs text-[#1f1638] dark:text-[#f5eeff] truncate block mt-0.5">
+                <span className="font-mono font-extrabold text-xs text-[#26364A] dark:text-[#f5eeff] truncate block mt-0.5">
                   {activeHeroTicket.fatCode || activeHeroTicket.fdtCode || 'Belum Diset'}
                   {activeHeroTicket.fatPort ? ` · P${activeHeroTicket.fatPort}` : ''}
                 </span>
               </div>
-              <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] px-3 py-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0] block">
+              <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] block">
                   Est. DW / Redaman
                 </span>
-                <span className="font-mono font-extrabold text-xs text-[#58149c] dark:text-[#DAB9FF] truncate block mt-0.5">
+                <span className="font-mono font-extrabold text-xs text-[#5145A6] dark:text-[#DAB9FF] truncate block mt-0.5">
                   {activeHeroTicket.dropcoreLength ? `${activeHeroTicket.dropcoreLength}m DW` : 'DW -'}
                   {heroOpmVal !== null ? ` · ${heroOpmVal} dBm` : ''}
                 </span>
@@ -749,25 +749,25 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* 3. ALERT PENUGASAN BARU MASUK (IF UNSTARTED TASK EXISTS)        */}
       {/* =============================================================== */}
       {newestAssignedTicket && (
-        <section className="rounded-2xl bg-gradient-to-r from-[#2D115B] via-[#35105E] to-[#480123] text-white p-4 shadow-md border border-[#A380FE]/30 space-y-2.5">
+        <section className="rounded-2xl bg-gradient-to-r from-[#5145A6] via-[#6657C8] to-[#2E7D8B] dark:from-[#2D115B] dark:via-[#35105E] dark:to-[#480123] text-white p-4 shadow-md border border-[#BDE4E8]/40 dark:border-[#A380FE]/30 space-y-2.5">
           <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#EEDBFF]">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#DDF4F4] dark:text-[#EEDBFF]">
               <Sparkles className="w-3 h-3" />
               <span>Penugasan Baru Masuk ({summary.tugasBaru} WO)</span>
             </div>
-            <span className="font-mono text-[11px] font-bold text-[#DAB9FF]">
+            <span className="font-mono text-[11px] font-bold text-[#DDF4F4] dark:text-[#DAB9FF]">
               {newestAssignedTicket.slotTime || 'Hari Ini'}
             </span>
           </div>
 
           <div className="min-w-0">
-            <div className="font-mono text-xs font-bold text-[#DAB9FF]">
+            <div className="font-mono text-xs font-bold text-[#DDF4F4] dark:text-[#DAB9FF]">
               {newestAssignedTicket.woNumber}
             </div>
             <h3 className="font-display font-extrabold text-sm sm:text-base text-white truncate">
               {newestAssignedTicket.customerName}
             </h3>
-            <p className="text-[11.5px] text-white/80 truncate">
+            <p className="text-[11.5px] text-white/85 dark:text-white/80 truncate">
               {[newestAssignedTicket.clusterName, newestAssignedTicket.streetName || newestAssignedTicket.address]
                 .filter(Boolean)
                 .join(' · ') || 'Alamat siap dicek di detail WO'}
@@ -802,31 +802,31 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         <div className="flex items-center justify-between gap-2 px-0.5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-display font-extrabold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff] leading-tight">
+              <h2 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-[#f5eeff] leading-tight">
                 Field Dispatch
               </h2>
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider border ${
                   !isOnline
-                    ? 'bg-[#FEF3C7] dark:bg-amber-950/50 text-[#B45309] dark:text-amber-300 border-[#FCD34D] dark:border-amber-700/60'
+                    ? 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60'
                     : isKpiLoading
-                    ? 'bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] border-[#d8ccf3] dark:border-[#4B386B]'
-                    : 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300 border-[#86EFAC] dark:border-emerald-700/60'
+                    ? 'bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border-[#DCE3F2] dark:border-[#4B386B]'
+                    : 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
                 }`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
                     !isOnline
-                      ? 'bg-[#B45309]'
+                      ? 'bg-[#D4933E] dark:bg-[#B45309]'
                       : isKpiLoading
-                      ? 'bg-[#58149c] dark:bg-[#DAB9FF] animate-pulse'
-                      : 'bg-[#15803D] dark:bg-emerald-400 animate-pulse'
+                      ? 'bg-[#6657C8] dark:bg-[#DAB9FF] animate-pulse'
+                      : 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
                   }`}
                 />
                 <span>{!isOnline ? 'Offline' : isKpiLoading ? 'Syncing' : 'Live'}</span>
               </span>
             </div>
-            <p className="text-[11px] text-[#7d7484] dark:text-[#A79BC0] mt-0.5">
+            <p className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] mt-0.5">
               Matriks 6 Status Work Order · {shortTodayLabel}
             </p>
           </div>
@@ -840,13 +840,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               isKpiLoading ? 'mj-btn-loading' : ''
             }`}
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF] ${isKpiLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] ${isKpiLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
 
         {kpiError && !kpiSummary && (
-          <div className="rounded-xl bg-[#FEF3C7] dark:bg-amber-950/40 border border-[#FCD34D] dark:border-amber-700/60 px-3 py-2 flex items-center justify-between gap-2 text-xs text-[#B45309] dark:text-amber-300">
+          <div className="rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-700/60 px-3 py-2 flex items-center justify-between gap-2 text-xs text-[#9D661F] dark:text-amber-300">
             <span className="truncate font-semibold">Sinkronisasi server tertunda: {kpiError}</span>
             <button
               type="button"
@@ -867,10 +867,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Foto Rumah + GPS Valid',
               value: fieldDispatchCounts.checkIn,
               icon: Camera,
-              accentBg: 'bg-[#F3EAFF] dark:bg-[#2A194B]',
-              accentBorder: 'border-[#D8CCF3] dark:border-[#4B386B]',
-              accentText: 'text-[#58149C] dark:text-[#DAB9FF]',
-              dotBg: 'bg-[#7135B5]'
+              accentBg: 'bg-[#DDF4F4] dark:bg-[#2A194B]',
+              accentBorder: 'border-[#BDE4E8] dark:border-[#4B386B]',
+              accentText: 'text-[#2E7D8B] dark:text-[#DAB9FF]',
+              dotBg: 'bg-[#2E7D8B] dark:bg-[#7135B5]'
             },
             {
               key: 'field_complete' as WOKpiFilterKey,
@@ -878,10 +878,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Teknisi Report = Done',
               value: fieldDispatchCounts.complete,
               icon: CheckCircle2,
-              accentBg: 'bg-[#ECFDF5] dark:bg-emerald-950/50',
-              accentBorder: 'border-[#86EFAC] dark:border-emerald-700/60',
-              accentText: 'text-[#15803D] dark:text-emerald-300',
-              dotBg: 'bg-[#16A36A]'
+              accentBg: 'bg-[#E4F5EC] dark:bg-emerald-950/50',
+              accentBorder: 'border-[#B7E4CC] dark:border-emerald-700/60',
+              accentText: 'text-[#218A63] dark:text-emerald-300',
+              dotBg: 'bg-[#218A63] dark:bg-[#16A36A]'
             },
             {
               key: 'field_requested' as WOKpiFilterKey,
@@ -889,10 +889,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Status: Assigned',
               value: fieldDispatchCounts.requested,
               icon: ClipboardList,
-              accentBg: 'bg-[#F5F1FF] dark:bg-[#2A194B]',
-              accentBorder: 'border-[#D8B4FE] dark:border-[#5B35B1]',
-              accentText: 'text-[#6D28D9] dark:text-[#DAB9FF]',
-              dotBg: 'bg-[#6D28D9]'
+              accentBg: 'bg-[#EAE8FF] dark:bg-[#2A194B]',
+              accentBorder: 'border-[#DCE3F2] dark:border-[#5B35B1]',
+              accentText: 'text-[#5145A6] dark:text-[#DAB9FF]',
+              dotBg: 'bg-[#6657C8] dark:bg-[#6D28D9]'
             },
             {
               key: 'field_reschedule' as WOKpiFilterKey,
@@ -900,10 +900,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Report: Reschedule',
               value: fieldDispatchCounts.reschedule,
               icon: CalendarClock,
-              accentBg: 'bg-[#F3EAFF] dark:bg-[#2A194B]',
-              accentBorder: 'border-[#CEC3D4] dark:border-[#4B386B]',
-              accentText: 'text-[#35105E] dark:text-[#EEDBFF]',
-              dotBg: 'bg-[#35105E] dark:bg-[#A380FE]'
+              accentBg: 'bg-[#F0EDFF] dark:bg-[#2A194B]',
+              accentBorder: 'border-[#DCE3F2] dark:border-[#4B386B]',
+              accentText: 'text-[#5145A6] dark:text-[#EEDBFF]',
+              dotBg: 'bg-[#5145A6] dark:bg-[#A380FE]'
             },
             {
               key: 'field_pending' as WOKpiFilterKey,
@@ -911,10 +911,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Report: Pending',
               value: fieldDispatchCounts.pending,
               icon: Hourglass,
-              accentBg: 'bg-[#FEF3C7] dark:bg-amber-950/50',
-              accentBorder: 'border-[#FCD34D] dark:border-amber-700/60',
-              accentText: 'text-[#B45309] dark:text-amber-300',
-              dotBg: 'bg-[#D97706]'
+              accentBg: 'bg-[#FFF2D9] dark:bg-amber-950/50',
+              accentBorder: 'border-[#F2CF95] dark:border-amber-700/60',
+              accentText: 'text-[#9D661F] dark:text-amber-300',
+              dotBg: 'bg-[#D4933E] dark:bg-[#D97706]'
             },
             {
               key: 'field_cancel' as WOKpiFilterKey,
@@ -922,10 +922,10 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               sublabel: 'Report: Cancel',
               value: fieldDispatchCounts.cancel,
               icon: XCircle,
-              accentBg: 'bg-[#FEF2F2] dark:bg-rose-950/50',
-              accentBorder: 'border-[#FCA5A5] dark:border-rose-800/60',
-              accentText: 'text-[#BA1A1A] dark:text-rose-300',
-              dotBg: 'bg-[#BA1A1A]'
+              accentBg: 'bg-[#FCE9EB] dark:bg-rose-950/50',
+              accentBorder: 'border-[#F3C5CA] dark:border-rose-800/60',
+              accentText: 'text-[#9B2C37] dark:text-rose-300',
+              dotBg: 'bg-[#D45B66] dark:bg-[#BA1A1A]'
             }
           ].map(card => {
             const IconComp = card.icon;
@@ -935,12 +935,12 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 key={card.key}
                 type="button"
                 onClick={() => handleFieldKpiDrillDown(card.key)}
-                className="card-3d-lavender rounded-2xl p-3 sm:p-3.5 text-left hover:border-[#7135b5]/60 dark:hover:border-[#A380FE]/60 active:scale-[0.985] transition-all cursor-pointer flex flex-col justify-between gap-2"
+                className="card-3d-lavender rounded-2xl p-3 sm:p-3.5 text-left hover:border-[#65B8C4]/70 dark:hover:border-[#A380FE]/60 active:scale-[0.985] transition-all cursor-pointer flex flex-col justify-between gap-2"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${card.dotBg}`} />
-                    <span className="font-display font-bold text-xs sm:text-[13px] text-[#1f1638] dark:text-[#f5eeff] truncate">
+                    <span className="font-display font-bold text-xs sm:text-[13px] text-[#26364A] dark:text-[#f5eeff] truncate">
                       {card.label}
                     </span>
                   </div>
@@ -953,7 +953,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
                 <div className="flex items-baseline justify-between gap-1.5">
                   {showSkeleton ? (
-                    <span className="inline-block h-7 w-10 rounded-lg bg-[#f3eaff] dark:bg-[#2A194B] animate-pulse" />
+                    <span className="inline-block h-7 w-10 rounded-lg bg-[#EDF3F8] dark:bg-[#2A194B] animate-pulse" />
                   ) : (
                     <span
                       className={`font-display text-2xl sm:text-[26px] font-extrabold tabular-nums leading-none ${card.accentText}`}
@@ -961,12 +961,12 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       {card.value}
                     </span>
                   )}
-                  <span className="text-[10px] font-semibold text-[#7d7484] dark:text-[#A79BC0] truncate">
+                  <span className="text-[10px] font-semibold text-[#8492A5] dark:text-[#A79BC0] truncate">
                     WO
                   </span>
                 </div>
 
-                <span className="text-[10.5px] font-medium text-[#4b4452] dark:text-[#C4B5D6] truncate block">
+                <span className="text-[10.5px] font-medium text-[#52647A] dark:text-[#C4B5D6] truncate block">
                   {card.sublabel}
                 </span>
               </button>
@@ -979,16 +979,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* 5. OPERATIONAL BUCKET SUMMARY + PROGRESS PEKERJAAN HARI INI     */}
       {/* =============================================================== */}
       <section className="card-3d-lavender rounded-2xl p-3.5 space-y-2.5">
-        <div className="grid grid-cols-3 gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
+        <div className="grid grid-cols-3 gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
           <button
             type="button"
             onClick={() => handleNavigateBucket('tugas_baru')}
-            className="rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] hover:bg-[#f3eaff] dark:hover:bg-[#2A194B] border border-[#e8ddff] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
+            className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] hover:bg-[#EDF3F8] dark:hover:bg-[#2A194B] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
           >
-            <span className="text-[10px] font-bold text-[#4b4452] dark:text-[#A79BC0] uppercase block truncate">
+            <span className="text-[10px] font-bold text-[#52647A] dark:text-[#A79BC0] uppercase block truncate">
               Tugas Baru
             </span>
-            <span className="font-display text-lg font-extrabold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+            <span className="font-display text-lg font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
               {summary.tugasBaru}
             </span>
           </button>
@@ -996,12 +996,12 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           <button
             type="button"
             onClick={() => handleNavigateBucket('dalam_proses')}
-            className="rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] hover:bg-[#f3eaff] dark:hover:bg-[#2A194B] border border-[#e8ddff] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
+            className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] hover:bg-[#EDF3F8] dark:hover:bg-[#2A194B] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
           >
-            <span className="text-[10px] font-bold text-[#4b4452] dark:text-[#A79BC0] uppercase block truncate">
+            <span className="text-[10px] font-bold text-[#52647A] dark:text-[#A79BC0] uppercase block truncate">
               Dalam Proses
             </span>
-            <span className="font-display text-lg font-extrabold text-[#B45309] dark:text-amber-300 tabular-nums">
+            <span className="font-display text-lg font-extrabold text-[#9D661F] dark:text-amber-300 tabular-nums">
               {summary.dalamProses}
             </span>
           </button>
@@ -1009,44 +1009,44 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           <button
             type="button"
             onClick={() => handleNavigateBucket('selesai')}
-            className="rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] hover:bg-[#f3eaff] dark:hover:bg-[#2A194B] border border-[#e8ddff] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
+            className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] hover:bg-[#EDF3F8] dark:hover:bg-[#2A194B] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-2 text-left transition-colors cursor-pointer"
           >
-            <span className="text-[10px] font-bold text-[#4b4452] dark:text-[#A79BC0] uppercase block truncate">
+            <span className="text-[10px] font-bold text-[#52647A] dark:text-[#A79BC0] uppercase block truncate">
               WO Selesai
             </span>
-            <span className="font-display text-lg font-extrabold text-[#15803D] dark:text-emerald-400 tabular-nums">
+            <span className="font-display text-lg font-extrabold text-[#218A63] dark:text-emerald-400 tabular-nums">
               {summary.totalSelesaiAll}
             </span>
           </button>
         </div>
 
         <div className="flex items-center justify-between gap-2 text-xs">
-          <div className="font-display font-bold text-[#1f1638] dark:text-[#f5eeff] flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF]" />
+          <div className="font-display font-bold text-[#26364A] dark:text-[#f5eeff] flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF]" />
             <span>Progress Pekerjaan Hari Ini</span>
           </div>
-          <span className="font-mono font-extrabold text-[#58149c] dark:text-[#DAB9FF] tabular-nums">
+          <span className="font-mono font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
             {summary.selesai}/{summary.totalToday} WO ({summary.progressPct}%)
           </span>
         </div>
 
-        <div className="w-full h-2.5 bg-[#f3eaff] dark:bg-[#160D29] rounded-full overflow-hidden border border-[#e8ddff] dark:border-[#35105E]">
+        <div className="w-full h-2.5 bg-[#EDF3F8] dark:bg-[#160D29] rounded-full overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#58149C] to-[#A380FE] transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:from-[#58149C] dark:to-[#A380FE] transition-all duration-300"
             style={{ width: `${summary.progressPct}%` }}
           />
         </div>
 
-        <div className="flex items-center justify-between gap-2 text-[11px] text-[#4b4452] dark:text-[#C4B5D6] flex-wrap pt-0.5">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-[#52647A] dark:text-[#C4B5D6] flex-wrap pt-0.5">
           <span>
-            Appointment Hari Ini: <strong className="text-[#1f1638] dark:text-[#f5eeff]">{summary.totalToday}</strong> · Check-In Foto:{' '}
-            <strong className="text-[#1f1638] dark:text-[#f5eeff]">{fieldDispatchCounts.checkIn}</strong>
+            Appointment Hari Ini: <strong className="text-[#26364A] dark:text-[#f5eeff]">{summary.totalToday}</strong> · Check-In Foto:{' '}
+            <strong className="text-[#26364A] dark:text-[#f5eeff]">{fieldDispatchCounts.checkIn}</strong>
           </span>
           {summary.awaitingApproval > 0 && (
             <button
               type="button"
               onClick={() => handleNavigateBucket('selesai')}
-              className="font-bold text-[#58149c] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+              className="font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
             >
               {summary.awaitingApproval} Menunggu QC Dispatch →
             </button>
@@ -1058,9 +1058,9 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* 6. NOTIFIKASI PENTING (ONLY SHOWN WHEN RELEVANT)                */}
       {/* =============================================================== */}
       {hasImportantNotifications && (
-        <section className="card-3d-lavender rounded-2xl p-3.5 space-y-2 border-[#FCD34D] dark:border-amber-700/60">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#1f1638] dark:text-[#f5eeff]">
-            <Bell className="w-4 h-4 text-[#B45309] dark:text-amber-300" />
+        <section className="card-3d-lavender rounded-2xl p-3.5 space-y-2 border-[#F2CF95] dark:border-amber-700/60">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
+            <Bell className="w-4 h-4 text-[#9D661F] dark:text-amber-300" />
             <span>Notifikasi Penting</span>
           </div>
 
@@ -1068,13 +1068,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             {summary.revisionList.map(t => (
               <div
                 key={`rev_${t.id}`}
-                className="flex items-center justify-between gap-2 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/40 border border-[#FCA5A5] dark:border-rose-800/60 px-3 py-2 text-xs"
+                className="flex items-center justify-between gap-2 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800/60 px-3 py-2 text-xs"
               >
                 <div className="min-w-0">
-                  <span className="font-bold text-[#BA1A1A] dark:text-rose-300 block truncate">
+                  <span className="font-bold text-[#9B2C37] dark:text-rose-300 block truncate">
                     Revisi Report: {t.woNumber} · {t.customerName}
                   </span>
-                  <span className="text-[11px] text-[#93000a] dark:text-rose-200 block truncate">
+                  <span className="text-[11px] text-[#9B2C37]/90 dark:text-rose-200 block truncate">
                     {t.rejectionReason || t.progressReports?.[0]?.revisionReason || 'Perlu perbaikan laporan oleh teknisi'}
                   </span>
                 </div>
@@ -1091,13 +1091,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             {summary.highAttenuationList.map(t => (
               <div
                 key={`opm_${t.id}`}
-                className="flex items-center justify-between gap-2 rounded-xl bg-[#FEF3C7] dark:bg-amber-950/40 border border-[#FCD34D] dark:border-amber-700/60 px-3 py-2 text-xs"
+                className="flex items-center justify-between gap-2 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-700/60 px-3 py-2 text-xs"
               >
                 <div className="min-w-0">
-                  <span className="font-bold text-[#B45309] dark:text-amber-300 block truncate">
+                  <span className="font-bold text-[#9D661F] dark:text-amber-300 block truncate">
                     Redaman OPM Tinggi ({t.technicalReport?.opticalPowerDbm || t.rosetRedamanDbm} dBm)
                   </span>
-                  <span className="text-[11px] text-[#B45309] dark:text-amber-200 block truncate">
+                  <span className="text-[11px] text-[#9D661F] dark:text-amber-200 block truncate">
                     {t.woNumber} · {t.customerName}
                   </span>
                 </div>
@@ -1112,8 +1112,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             ))}
 
             {(!isOnline || pendingCount > 0) && (
-              <div className="flex items-center justify-between gap-2 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] px-3 py-2 text-xs">
-                <span className="text-[#1f1638] dark:text-[#f5eeff] font-medium truncate">
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2 text-xs">
+                <span className="text-[#26364A] dark:text-[#f5eeff] font-medium truncate">
                   {!isOnline
                     ? `Offline (${pendingCount} antrean tersimpan lokal)`
                     : `${pendingCount} antrean sinkronisasi menunggu koneksi`}
@@ -1137,15 +1137,15 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       <section className="space-y-2.5">
         <div className="flex items-center justify-between gap-2 px-0.5">
           <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-[#58149c] dark:text-[#DAB9FF]" />
-            <h2 className="font-display font-bold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff]">
+            <Calendar className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF]" />
+            <h2 className="font-display font-bold text-sm sm:text-base text-[#26364A] dark:text-[#f5eeff]">
               Jadwal Tugas Hari Ini ({prioritizedTodayTickets.length})
             </h2>
           </div>
           <button
             type="button"
             onClick={() => handleNavigateBucket('tugas_baru')}
-            className="text-xs font-bold text-[#58149c] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
           >
             <span>Semua WO</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -1155,20 +1155,20 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         {/* Debossed Search */}
         {todayTickets.length > 0 && (
           <div className="relative">
-            <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari No. WO, Customer, Alamat, ID Pelanggan..."
-              className="tactile-debossed-input w-full min-h-[42px] pl-9 pr-8 py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl text-xs text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
+              className="tactile-debossed-input w-full min-h-[42px] pl-9 pr-8 py-1.5 bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl text-xs text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1178,13 +1178,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
         {prioritizedTodayTickets.length === 0 ? (
           <div className="card-3d-lavender rounded-2xl p-6 text-center space-y-2.5">
-            <div className="w-11 h-11 mx-auto rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center border border-[#e8ddff] dark:border-[#4B386B]">
+            <div className="w-11 h-11 mx-auto rounded-xl bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center border border-[#DCE3F2] dark:border-[#4B386B]">
               <Wrench className="w-5 h-5" />
             </div>
-            <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
+            <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff]">
               {todayTickets.length === 0 ? 'Belum Ada Appointment Hari Ini' : 'Tidak Ada WO yang Cocok'}
             </h3>
-            <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] max-w-sm mx-auto">
+            <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] max-w-sm mx-auto">
               {todayTickets.length === 0
                 ? 'WO yang didistribusikan Leader untuk hari ini akan muncul otomatis di sini.'
                 : 'Ubah kata kunci pencarian atau buka daftar lengkap Work Order.'}
@@ -1223,17 +1223,17 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   onClick={() =>
                     handleOpenFullview(ticket, bucket === 'dalam_proses' ? guidance.section : undefined)
                   }
-                  className="card-3d-lavender rounded-2xl p-3.5 space-y-2.5 hover:border-[#A380FE] transition-colors cursor-pointer"
+                  className="card-3d-lavender rounded-2xl p-3.5 space-y-2.5 hover:border-[#65B8C4] dark:hover:border-[#A380FE] transition-colors cursor-pointer"
                 >
                   {/* Top Row: Left Slot Time / Checkmark Block + Main WO Meta + Right Chevron */}
                   <div className="flex items-start gap-2.5">
                     <div
                       className={`w-14 shrink-0 rounded-xl px-1.5 py-2 text-center border ${
                         bucket === 'selesai'
-                          ? 'bg-[#ECFDF5] dark:bg-emerald-950/50 border-[#86EFAC] dark:border-emerald-700/60 text-[#15803D] dark:text-emerald-300'
+                          ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 border-[#B7E4CC] dark:border-emerald-700/60 text-[#218A63] dark:text-emerald-300'
                           : bucket === 'dalam_proses'
-                          ? 'bg-[#2D115B] border-[#58149C] text-white'
-                          : 'bg-[#F8F1FF] dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                          ? 'bg-gradient-to-br from-[#5145A6] to-[#2E7D8B] dark:bg-none dark:bg-[#2D115B] border-[#6657C8] dark:border-[#58149C] text-white'
+                          : 'bg-[#F8FAFD] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                       }`}
                     >
                       {bucket === 'selesai' ? (
@@ -1248,7 +1248,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-1.5">
-                        <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] truncate">
+                        <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] truncate">
                           {ticket.woNumber}
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
@@ -1256,29 +1256,29 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                             <span
                               className={`px-1.5 py-0.5 rounded font-mono text-[9.5px] font-bold border ${
                                 opmMeasured < -24 || opmMeasured > -15
-                                  ? 'bg-rose-50 dark:bg-rose-950/50 text-[#BA1A1A] dark:text-rose-300 border-rose-200 dark:border-rose-800/60'
-                                  : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
+                                  ? 'bg-[#FCE9EB] dark:bg-rose-950/50 text-[#9B2C37] dark:text-rose-300 border-[#F3C5CA] dark:border-rose-800/60'
+                                  : 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-800/60'
                               }`}
                             >
                               {opmMeasured} dBm
                             </span>
                           )}
-                          <ChevronRight className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0]" />
+                          <ChevronRight className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0]" />
                         </div>
                       </div>
 
-                      <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                      <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
                         {ticket.customerName}
                       </h3>
-                      <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] truncate flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0" />
+                      <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0" />
                         <span className="truncate">{addressDisplay}</span>
                       </p>
                     </div>
                   </div>
 
                   {/* Status Badges + Tech Strip */}
-                  <div className="flex items-center justify-between gap-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl px-2.5 py-1.5 text-[11px] text-[#4b4452] dark:text-[#C4B5D6]">
+                  <div className="flex items-center justify-between gap-2 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl px-2.5 py-1.5 text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <StatusInstallerBadge status={ticket.statusWOInstaller || 'Assigned'} />
                       {canonicalApproval === 'REVISION' && <StatusApprovalBadge status="REVISION" />}
@@ -1287,7 +1287,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       )}
                       <span className="truncate font-medium hidden sm:inline">· {workTypeLabel}</span>
                     </div>
-                    <span className="font-mono shrink-0 text-[#58149c] dark:text-[#DAB9FF] font-bold">
+                    <span className="font-mono shrink-0 text-[#5145A6] dark:text-[#DAB9FF] font-bold">
                       {bucket === 'dalam_proses'
                         ? `Foto ${photoCount}/${PHOTO_SLOT_DEFINITIONS.length}`
                         : bucket === 'selesai' && ticket.checkOutAt
@@ -1392,7 +1392,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             }}
             className="mj-btn-installer-neutral px-3.5 py-2.5 text-xs font-bold gap-2 cursor-pointer"
           >
-            <QrCode className="w-4 h-4 shrink-0 text-[#58149C] dark:text-[#DAB9FF]" />
+            <QrCode className="w-4 h-4 shrink-0 text-[#5145A6] dark:text-[#DAB9FF]" />
             <span className="truncate">Scan Serial ONT</span>
           </button>
 
@@ -1407,7 +1407,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             }}
             className="mj-btn-installer-neutral px-3.5 py-2.5 text-xs font-bold gap-2 cursor-pointer"
           >
-            <Gauge className="w-4 h-4 shrink-0 text-[#58149C] dark:text-[#DAB9FF]" />
+            <Gauge className="w-4 h-4 shrink-0 text-[#2E7D8B] dark:text-[#DAB9FF]" />
             <span className="truncate">Kalibrasi OPM</span>
           </button>
         </div>
@@ -1450,7 +1450,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
         size="sm"
         mobileVariant="sheet"
         zIndexClass="z-60"
-        icon={<HelpCircle className="w-5 h-5 text-[#58149c] dark:text-[#DAB9FF]" />}
+        icon={<HelpCircle className="w-5 h-5 text-[#5145A6] dark:text-[#DAB9FF]" />}
         title="Bantuan Korlap & Kendala"
         subtitle={
           modalTargetTicket
@@ -1460,14 +1460,14 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       >
         {modalTargetTicket && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#f3eaff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
               <button
                 type="button"
                 onClick={() => setHelpMode('korlap')}
                 className={`min-h-[38px] py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer ${
                   helpMode === 'korlap'
-                    ? 'bg-white dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] shadow-2xs'
-                    : 'text-[#4b4452] dark:text-[#A79BC0]'
+                    ? 'bg-white dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] shadow-2xs'
+                    : 'text-[#52647A] dark:text-[#A79BC0]'
                 }`}
               >
                 <HelpCircle className="w-3.5 h-3.5" />
@@ -1478,8 +1478,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 onClick={() => setHelpMode('reschedule')}
                 className={`min-h-[38px] py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer ${
                   helpMode === 'reschedule'
-                    ? 'bg-white dark:bg-[#2A194B] text-[#B45309] dark:text-amber-300 shadow-2xs'
-                    : 'text-[#4b4452] dark:text-[#A79BC0]'
+                    ? 'bg-white dark:bg-[#2A194B] text-[#9D661F] dark:text-amber-300 shadow-2xs'
+                    : 'text-[#52647A] dark:text-[#A79BC0]'
                 }`}
               >
                 <CalendarClock className="w-3.5 h-3.5" />
@@ -1490,8 +1490,8 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 onClick={() => setHelpMode('darurat')}
                 className={`min-h-[38px] py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer ${
                   helpMode === 'darurat'
-                    ? 'bg-white dark:bg-[#2A194B] text-[#BA1A1A] dark:text-rose-300 shadow-2xs'
-                    : 'text-[#4b4452] dark:text-[#A79BC0]'
+                    ? 'bg-white dark:bg-[#2A194B] text-[#9B2C37] dark:text-rose-300 shadow-2xs'
+                    : 'text-[#52647A] dark:text-[#A79BC0]'
                 }`}
               >
                 <ShieldAlert className="w-3.5 h-3.5" />
@@ -1502,7 +1502,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             {derivedLeader.phone && (
               <a
                 href={`tel:${derivedLeader.phone}`}
-                className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-xs font-bold text-[#58149c] dark:text-[#DAB9FF]"
+                className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF]"
               >
                 <span className="inline-flex items-center gap-2 truncate">
                   <Phone className="w-4 h-4 shrink-0" />
@@ -1514,7 +1514,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
             <form onSubmit={handleSubmitHelp} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+                <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
                   {helpMode === 'darurat'
                     ? 'Laporan Darurat (Kirim ke Dispatch & Korlap)'
                     : helpMode === 'reschedule'
@@ -1527,7 +1527,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   value={helpNote}
                   onChange={e => setHelpNote(e.target.value)}
                   placeholder="Tuliskan detail kondisi lapangan secara jelas..."
-                  className="w-full p-3 rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff] dark:bg-[#160D29] text-xs text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#58149c]"
+                  className="w-full p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#EDF3F8] dark:bg-[#160D29] text-xs text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149c]"
                 />
               </div>
 

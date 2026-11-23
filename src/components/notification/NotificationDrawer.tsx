@@ -90,7 +90,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     <div className="fixed inset-0 z-[80] flex justify-end">
       {/* Backdrop overlay */}
       <div
-        className="fixed inset-0 bg-[#30104B]/35 dark:bg-black/60 backdrop-blur-[3px] transition-opacity"
+        className="fixed inset-0 bg-[#26364A]/35 dark:bg-black/60 backdrop-blur-[3px] transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -102,11 +102,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         aria-label="Full Notification Drawer"
         className="mj-notif-drawer-enter mj-notif-glass-panel relative z-10 m-2.5 sm:m-3.5 mb-[84px] sm:mb-3.5 w-[calc(100vw-1.25rem)] sm:w-[460px] max-w-[480px] rounded-[22px] overflow-hidden flex flex-col"
       >
-        {/* Purple Glass Header */}
+        {/* Crystal Aqua-Violet Glass Header */}
         <div className="mj-notif-header-glass px-4 sm:px-5 py-4 text-white flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-[14px] bg-white/16 border border-white/25 flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] shrink-0">
-              <Bell className="w-5 h-5 text-[#EEE5FF]" />
+              <Bell className="w-5 h-5 text-[#EAE8FF]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                   {counts.unread} Unread
                 </span>
               </div>
-              <p className="text-[11px] text-[#EEE5FF]/85 mt-1 truncate">
+              <p className="text-[11px] text-white/85 dark:text-[#EEE5FF]/85 mt-1 truncate">
                 Prioritas Live Chat &amp; antrean notifikasi operasional MoraJaws
               </p>
             </div>
@@ -149,7 +149,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         </div>
 
         {/* Sticky Filter & Controls Area */}
-        <div className="p-3.5 sm:p-4 bg-white/75 dark:bg-[#190C30]/80 border-b border-[#EEE5FF] dark:border-[#3D1D72] space-y-3 shrink-0">
+        <div className="p-3.5 sm:p-4 bg-white/75 dark:bg-[#190C30]/80 border-b border-[#DDE6F0] dark:border-[#3D1D72] space-y-3 shrink-0">
           {showSettings && (
             <NotificationSettings
               onOpenFullAudioEngine={
@@ -170,16 +170,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           />
 
           {(liveChatUnreadCount > 0 || isLiveChatFilterActive) && (
-            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[13px] bg-blue-50/90 dark:bg-blue-950/45 border border-blue-200/80 dark:border-blue-700/50">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[13px] bg-[#E7F1FB]/90 dark:bg-blue-950/45 border border-[#C6DDF6] dark:border-blue-700/50">
               <div className="flex items-center gap-2 min-w-0">
-                <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-300 shrink-0" />
+                <MessageSquare className="w-4 h-4 text-[#3E81C6] dark:text-blue-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[11.5px] font-extrabold text-blue-900 dark:text-blue-100 truncate">
+                  <p className="text-[11.5px] font-extrabold text-[#26364A] dark:text-blue-100 truncate">
                     {liveChatUnreadCount > 0
                       ? `Prioritas Live Chat · ${liveChatUnreadCount} WO belum dibaca`
                       : 'Filter Aktif: Live Chat'}
                   </p>
-                  <p className="text-[10px] text-blue-700/85 dark:text-blue-300/85 truncate">
+                  <p className="text-[10px] text-[#52647A] dark:text-blue-300/85 truncate">
                     Pesan Live Chat selalu ditampilkan di urutan paling atas
                   </p>
                 </div>
@@ -193,8 +193,8 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                 }
                 className={`px-2.5 py-1.5 rounded-[10px] text-[10.5px] font-extrabold cursor-pointer transition-colors shrink-0 ${
                   isLiveChatFilterActive
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-white dark:bg-[#231245] text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-700/70 hover:bg-blue-100/70'
+                    ? 'bg-[#3E81C6] dark:bg-blue-600 text-white hover:bg-[#316FAD] dark:hover:bg-blue-700'
+                    : 'bg-white dark:bg-[#231245] text-[#3E81C6] dark:text-blue-200 border border-[#C6DDF6] dark:border-blue-700/70 hover:bg-[#DDF4F4]/50'
                 }`}
               >
                 {isLiveChatFilterActive ? 'Semua Kategori' : 'Hanya Live Chat'}
@@ -234,7 +234,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         </div>
 
         {/* Scrollable Notification Feed Body */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 bg-[#F7F4FC] dark:bg-[#140929]">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 bg-[#F4F7FB] dark:bg-[#140929]">
           {isLoading ? (
             <NotificationEmptyState mode="loading" />
           ) : error && items.length === 0 ? (
@@ -253,11 +253,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           ) : showGroupedSections && liveChatItems.length > 0 ? (
             <>
               <div className="flex items-center justify-between px-1 pt-0.5 pb-1">
-                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#3E81C6] dark:text-blue-300">
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Prioritas Live Chat</span>
                 </span>
-                <span className="font-mono text-[10.5px] font-bold text-blue-700 dark:text-blue-300 tabular-nums">
+                <span className="font-mono text-[10.5px] font-bold text-[#3E81C6] dark:text-blue-300 tabular-nums">
                   {liveChatItems.length}
                 </span>
               </div>
@@ -272,10 +272,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               {otherItems.length > 0 && (
                 <>
                   <div className="flex items-center justify-between px-1 pt-2.5 pb-1">
-                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#756C86] dark:text-[#BFB2DC]">
+                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#BFB2DC]">
                       Notifikasi Operasional Lainnya
                     </span>
-                    <span className="font-mono text-[10.5px] font-bold text-[#756C86] dark:text-[#BFB2DC] tabular-nums">
+                    <span className="font-mono text-[10.5px] font-bold text-[#8492A5] dark:text-[#BFB2DC] tabular-nums">
                       {otherItems.length}
                     </span>
                   </div>

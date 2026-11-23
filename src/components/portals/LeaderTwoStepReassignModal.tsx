@@ -221,29 +221,29 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
       title={
         <span className="flex flex-wrap items-center gap-2">
           <span>{modalTitle}</span>
-          <span className="px-2 py-0.5 rounded-lg bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-mono text-xs font-extrabold">
+          <span className="px-2 py-0.5 rounded-lg bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-xs font-extrabold">
             {ticket.woNumber}
           </span>
         </span>
       }
       subtitle={modalSubtitle}
       headerExtra={
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] text-[10.5px] font-bold">
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-[#261942] border border-[#DDE6F0] dark:border-[#4B386B] text-[10.5px] font-bold">
           <span
             className={`px-2 py-0.5 rounded-md ${
               step === 'form'
-                ? 'bg-[#58149C] text-white'
-                : 'bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300'
+                ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                : 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300'
             }`}
           >
             1. Pilih Teknisi
           </span>
-          <ArrowRight className="w-3 h-3 text-[#7D7484]" />
+          <ArrowRight className="w-3 h-3 text-[#8492A5] dark:text-[#7D7484]" />
           <span
             className={`px-2 py-0.5 rounded-md ${
               step === 'confirm'
-                ? 'bg-[#58149C] text-white'
-                : 'text-[#7D7484] dark:text-[#A79BC0]'
+                ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                : 'text-[#8492A5] dark:text-[#A79BC0]'
             }`}
           >
             2. Konfirmasi
@@ -263,9 +263,9 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
               {selectedCandidate && (
-                <span className="text-[11px] font-medium text-[#4B4452] dark:text-[#CEC0E8] text-center sm:text-right">
+                <span className="text-[11px] font-medium text-[#52647A] dark:text-[#CEC0E8] text-center sm:text-right">
                   Tujuan:{' '}
-                  <strong className="text-[#58149C] dark:text-[#DAB9FF]">
+                  <strong className="text-[#5145A6] dark:text-[#DAB9FF]">
                     {selectedCandidate.installer.name}
                   </strong>
                 </span>
@@ -311,10 +311,10 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
       {step === 'form' ? (
         <div className="space-y-4 text-xs">
           {/* WO Context Header Banner */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-3">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#58149C] text-white font-bold text-[11px]">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#6657C8] dark:bg-[#58149C] text-white font-bold text-[11px]">
                   <Wrench className="w-3 h-3" />
                   <span>{ticket.ticketCategory || 'Work Order'}</span>
                 </span>
@@ -322,56 +322,56 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border ${
                     ticket.statusWOInstaller === 'Pending Technical' ||
                     ticket.statusWOInstaller === 'Failed / Cancelled'
-                      ? 'bg-[#FFDAD6] dark:bg-rose-950/60 border-[#FCA5A5] dark:border-rose-800 text-[#93000A] dark:text-rose-300'
-                      : 'bg-white dark:bg-[#261942] border-[#D8CCF3] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF]'
+                      ? 'bg-[#FCE9EB] dark:bg-rose-950/60 border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-300'
+                      : 'bg-white dark:bg-[#261942] border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF]'
                   }`}
                 >
                   {ticket.statusWOInstaller || 'Assigned'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] text-[11px] font-mono font-bold text-[#1F1638] dark:text-[#F5EEFF] tabular-nums">
-                <Clock className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#261942] border border-[#DDE6F0] dark:border-[#4B386B] text-[11px] font-mono font-bold text-[#26364A] dark:text-[#F5EEFF] tabular-nums">
+                <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>
                   {formatAppointmentDateDisplay(ticket.appointmentDate)} · {ticket.slotTime || '-'}
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
               <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   Pelanggan
                 </span>
-                <span className="font-bold text-[#1F1638] dark:text-white block truncate mt-0.5">
+                <span className="font-bold text-[#26364A] dark:text-white block truncate mt-0.5">
                   {ticket.customerName}
                 </span>
-                <span className="font-mono text-[10.5px] text-[#58149C] dark:text-[#DAB9FF]">
+                <span className="font-mono text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF]">
                   ID: {ticket.idCustomer || '-'}
                 </span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   Alamat / Cluster &amp; Area
                 </span>
-                <span className="font-semibold text-[#1F1638] dark:text-slate-200 block truncate mt-0.5">
+                <span className="font-semibold text-[#26364A] dark:text-slate-200 block truncate mt-0.5">
                   {ticket.clusterName || ticket.streetName || '-'}
                 </span>
-                <span className="text-[10.5px] text-[#4B4452] dark:text-[#CEC0E8] truncate block">
+                <span className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] truncate block">
                   {ticket.area || displayArea}
                   {ticket.fatCode ? ` · FAT ${ticket.fatCode}` : ''}
                 </span>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                   Status Sesi &amp; Check-In
                 </span>
-                <span className="font-semibold text-[#1F1638] dark:text-slate-200 block mt-0.5">
+                <span className="font-semibold text-[#26364A] dark:text-slate-200 block mt-0.5">
                   {workStatus?.status || 'Belum Check-in'}
                 </span>
-                <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] tabular-nums">
+                <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                   {ticket.checkInAt ? `Check-in ${formatJakartaTimeOnly(ticket.checkInAt)}` : 'Belum ada Check-in'}
                 </span>
               </div>
@@ -379,7 +379,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
           </div>
 
           {validationError && (
-            <div className="p-3 rounded-xl bg-[#FFDAD6] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#93000A] dark:text-rose-200 flex items-start gap-2 font-semibold">
+            <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/60 border border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-200 flex items-start gap-2 font-semibold">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{validationError}</span>
             </div>
@@ -389,32 +389,32 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             {/* LEFT COLUMN: Current Tech + Obstacles + Optical Telemetry + History */}
             <div className="lg:col-span-5 space-y-3">
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-3">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                     Teknisi Saat Ini (Asal)
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300 border border-[#FCD34D] dark:border-amber-800">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-800">
                     {ticket.statusWOInstaller || 'Assigned'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF] font-display font-extrabold text-sm flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-display font-extrabold text-sm flex items-center justify-center shrink-0">
                     {getInitials(ticket.installerName)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-sm text-[#1F1638] dark:text-white truncate">
+                    <div className="font-bold text-sm text-[#26364A] dark:text-white truncate">
                       {ticket.installerName || 'Belum Ditugaskan'}
                     </div>
-                    <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                    <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                       {currentInstallerSummary && (
                         <span className="font-mono font-bold tabular-nums">
                           Beban: {currentInstallerSummary.assignedCount}/{currentInstallerSummary.maxLimit} WO
                         </span>
                       )}
                       {currentInstallerSummary?.installer.phone && (
-                        <span className="font-mono text-[#7D7484] dark:text-[#A79BC0]">
+                        <span className="font-mono text-[#8492A5] dark:text-[#A79BC0]">
                           · {currentInstallerSummary.installer.phone}
                         </span>
                       )}
@@ -422,38 +422,38 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F]">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+                <div className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F]">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
                     Catatan / Kendala Lapangan
                   </span>
-                  <p className="text-[11px] text-[#1F1638] dark:text-slate-200 leading-relaxed">
+                  <p className="text-[11px] text-[#26364A] dark:text-slate-200 leading-relaxed">
                     {currentObstacles || 'Tidak ada catatan kendala khusus yang tercatat pada tiket.'}
                   </p>
                 </div>
               </div>
 
-              {/* Dark Purple Optical Trace & Network Card (100% Real Ticket Fields) */}
-              <div className="p-3.5 rounded-2xl bg-[#160D29] text-white border border-[#35105E] space-y-2.5">
+              {/* Optical Trace & Network Card (100% Real Ticket Fields) */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white border border-[#BDE4E8] dark:border-[#35105E] space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#DAB9FF]">
+                  <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
                     <Radio className="w-3.5 h-3.5" />
                     <span>Data Jaringan &amp; OPM</span>
                   </span>
-                  <span className="font-mono text-[10px] text-[#A78BFA]">
+                  <span className="font-mono text-[10px] text-[#5145A6] dark:text-[#A78BFA]">
                     {ticket.oltCode || ticket.fdtCode || 'FTTH NODE'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                    <span className="text-[10px] text-[#CEC0E8]/75 block">Redaman OPM</span>
-                    <strong className="font-mono font-bold text-sm text-white tabular-nums">
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-white/5 border border-[#DCE3F2] dark:border-white/10">
+                    <span className="text-[10px] text-[#52647A] dark:text-[#CEC0E8]/75 block">Redaman OPM</span>
+                    <strong className="font-mono font-bold text-sm text-[#26364A] dark:text-white tabular-nums">
                       {opmValue ? `${opmValue} dBm` : 'Belum diukur'}
                     </strong>
                   </div>
-                  <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                    <span className="text-[10px] text-[#CEC0E8]/75 block">FDT / FAT Port</span>
-                    <strong className="font-mono font-bold text-white truncate block">
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-white/5 border border-[#DCE3F2] dark:border-white/10">
+                    <span className="text-[10px] text-[#52647A] dark:text-[#CEC0E8]/75 block">FDT / FAT Port</span>
+                    <strong className="font-mono font-bold text-[#26364A] dark:text-white truncate block">
                       {ticket.fatCode || ticket.fdtCode || '-'}
                       {ticket.fatPort ? ` / P${ticket.fatPort}` : ''}
                     </strong>
@@ -461,7 +461,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                 </div>
 
                 {(ticket.ontModel || ticket.dropcoreLength) && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-[#CEC0E8] pt-1 border-t border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] pt-1 border-t border-[#DCE3F2] dark:border-white/10">
                     <span>ONT: {ticket.ontModel || '-'}</span>
                     {ticket.dropcoreLength && (
                       <span className="font-mono">Dropcore: {ticket.dropcoreLength}m</span>
@@ -472,8 +472,8 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
               {/* Existing Append-Only History */}
               {ticket.assignmentHistory && ticket.assignmentHistory.length > 0 && (
-                <div className="p-3 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+                <div className="p-3 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                     <History className="w-3.5 h-3.5" />
                     <span>Riwayat Penugasan ({ticket.assignmentHistory.length})</span>
                   </div>
@@ -481,14 +481,14 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                     {ticket.assignmentHistory.map((h, idx) => (
                       <div
                         key={h.id || idx}
-                        className="p-2 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] text-[10.5px]"
+                        className="p-2 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-[10.5px]"
                       >
-                        <div className="flex items-center justify-between gap-2 font-bold text-[#1F1638] dark:text-white">
+                        <div className="flex items-center justify-between gap-2 font-bold text-[#26364A] dark:text-white">
                           <span className="truncate">
                             {h.previousInstallerName || h.previousInstaller || 'Unassigned'} &rarr;{' '}
                             {h.newInstallerName || h.assignedInstaller}
                           </span>
-                          <span className="font-mono text-[9.5px] text-[#7D7484] shrink-0">
+                          <span className="font-mono text-[9.5px] text-[#8492A5] dark:text-[#7D7484] shrink-0">
                             {new Date(h.timestamp).toLocaleTimeString('id-ID', {
                               hour: '2-digit',
                               minute: '2-digit'
@@ -496,7 +496,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                           </span>
                         </div>
                         {h.reason && (
-                          <p className="text-[#4B4452] dark:text-[#CEC0E8] mt-0.5 line-clamp-2">
+                          <p className="text-[#52647A] dark:text-[#CEC0E8] mt-0.5 line-clamp-2">
                             "{h.reason}" &mdash; {h.performedBy || h.leaderName}
                           </p>
                         )}
@@ -509,21 +509,21 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
             {/* RIGHT COLUMN: Candidate Search, Filter Chips, Radio Cards, Audit Reason */}
             <div className="lg:col-span-7 space-y-3">
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-3">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <label className="text-xs font-extrabold text-[#1F1638] dark:text-white flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <label className="text-xs font-extrabold text-[#26364A] dark:text-white flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>Pilih Teknisi Pengganti ({filteredCandidates.length} kandidat)</span>
                   </label>
 
                   <div className="relative flex-1 sm:max-w-[230px]">
-                    <Search className="w-3.5 h-3.5 text-[#7D7484] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#7D7484] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={candidateSearch}
                       onChange={e => setCandidateSearch(e.target.value)}
                       placeholder="Cari teknisi / area..."
-                      className="tactile-debossed-input w-full pl-8 pr-3 py-1.5 min-h-[36px] rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                      className="tactile-debossed-input w-full pl-8 pr-3 py-1.5 min-h-[36px] rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
                     />
                   </div>
                 </div>
@@ -563,7 +563,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                 {/* Candidate Radio List */}
                 <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
                   {filteredCandidates.length === 0 ? (
-                    <div className="p-6 text-center rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-dashed border-[#D8CCF3] dark:border-[#4B386B] text-[#7D7484] dark:text-[#CEC0E8]">
+                    <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-dashed border-[#DCE3F2] dark:border-[#4B386B] text-[#8492A5] dark:text-[#CEC0E8]">
                       Tidak ada teknisi aktif yang cocok dengan filter kandidat saat ini.
                     </div>
                   ) : (
@@ -583,16 +583,16 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                             isBlocked
                               ? 'opacity-55 cursor-not-allowed bg-slate-50 dark:bg-[#1E1238]/50 border-slate-200 dark:border-[#35105E]'
                               : isSelected
-                              ? 'bg-[#F8F1FF] dark:bg-[#2E1B59] border-[#58149C] ring-2 ring-[#58149C]/25 cursor-pointer'
-                              : 'bg-white dark:bg-[#1E1238] border-[#E8DDFF] dark:border-[#3E246F] hover:border-[#A380FE] cursor-pointer'
+                              ? 'bg-[#EAE8FF] dark:bg-[#2E1B59] border-[#6657C8] dark:border-[#58149C] ring-2 ring-[#6657C8]/25 dark:ring-[#58149C]/25 cursor-pointer'
+                              : 'bg-white dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#3E246F] hover:border-[#6657C8] dark:hover:border-[#A380FE] cursor-pointer'
                           }`}
                         >
                           <div className="flex items-start gap-2.5 min-w-0 flex-1">
                             <div
                               className={`w-9 h-9 rounded-xl font-display font-extrabold text-xs flex items-center justify-center shrink-0 ${
                                 isSelected
-                                  ? 'bg-[#58149C] text-white'
-                                  : 'bg-[#EEDBFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                                  ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                                  : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                               }`}
                             >
                               {getInitials(cand.installer.name)}
@@ -600,25 +600,25 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-bold text-xs text-[#1F1638] dark:text-white truncate">
+                                <span className="font-bold text-xs text-[#26364A] dark:text-white truncate">
                                   {cand.installer.name}
                                 </span>
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold ${
                                     cand.liveTone === 'standby'
-                                      ? 'bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300'
+                                      ? 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300'
                                       : cand.liveTone === 'onsite'
-                                      ? 'bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF]'
+                                      ? 'bg-[#EAE8FF] dark:bg-[#2E1B59] text-[#5145A6] dark:text-[#DAB9FF]'
                                       : cand.liveTone === 'enroute'
-                                      ? 'bg-[#FEF3C7] dark:bg-amber-950/60 text-[#B45309] dark:text-amber-300'
-                                      : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                                      ? 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300'
+                                      : 'bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#DAB9FF]'
                                   }`}
                                 >
                                   {cand.liveStatusLabel}
                                 </span>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] mt-1">
+                              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] mt-1">
                                 <span className="inline-flex items-center gap-1 truncate">
                                   <MapPin className="w-3 h-3 shrink-0" />
                                   {cand.installer.clusterName || cand.installer.area || displayArea}
@@ -637,13 +637,13 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                             <span
                               className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold tabular-nums ${
                                 cand.isFull
-                                  ? 'bg-[#FFDAD6] dark:bg-rose-950/70 text-[#93000A] dark:text-rose-300'
-                                  : 'bg-[#DCFCE7] dark:bg-emerald-950/70 text-[#15803D] dark:text-emerald-300'
+                                  ? 'bg-[#FCE9EB] dark:bg-rose-950/70 text-[#9B2C37] dark:text-rose-300'
+                                  : 'bg-[#E4F5EC] dark:bg-emerald-950/70 text-[#218A63] dark:text-emerald-300'
                               }`}
                             >
                               {cand.assignedCount}/{cand.maxLimit} WO
                             </span>
-                            <div className="text-[10px] font-semibold text-[#7D7484] dark:text-[#A79BC0] tabular-nums">
+                            <div className="text-[10px] font-semibold text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                               {cand.isFull
                                 ? quotaConfig.enforceStrictLimit
                                   ? 'Kuota Penuh'
@@ -659,9 +659,9 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
               </div>
 
               {/* Reason Box with Presets */}
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2.5">
-                <label className="block text-xs font-extrabold text-[#1F1638] dark:text-white">
-                  Alasan Pengalihan Tugas / Audit Reason <span className="text-[#BA1A1A]">*</span>
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
+                <label className="block text-xs font-extrabold text-[#26364A] dark:text-white">
+                  Alasan Pengalihan Tugas / Audit Reason <span className="text-[#9B2C37] dark:text-[#BA1A1A]">*</span>
                 </label>
 
                 <div className="flex flex-wrap gap-1.5">
@@ -692,11 +692,11 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                     if (validationError) setValidationError('');
                   }}
                   placeholder="Tuliskan alasan operasional reassign minimal 5 karakter (tercatat di append-only history)..."
-                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
                 />
-                <div className="flex items-center justify-between text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                <div className="flex items-center justify-between text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
                   <span>Wajib untuk jejak audit Leader &amp; riwayat WO.</span>
-                  <span className={`font-mono tabular-nums ${isReasonValid ? 'text-[#16A36A] font-bold' : ''}`}>
+                  <span className={`font-mono tabular-nums ${isReasonValid ? 'text-[#218A63] dark:text-[#16A36A] font-bold' : ''}`}>
                     {reason.trim().length}/5+ karakter
                   </span>
                 </div>
@@ -710,24 +710,24 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
           {/* Asal <-> Tujuan Transfer Matrix */}
           <div className="grid grid-cols-1 md:grid-cols-11 gap-3 items-stretch">
             {/* Previous Technician Card */}
-            <div className="md:col-span-5 p-4 rounded-2xl bg-[#FFF8F6] dark:bg-rose-950/20 border border-[#FCA5A5]/70 dark:border-rose-900/50 space-y-2">
+            <div className="md:col-span-5 p-4 rounded-2xl bg-[#FFF6F7] dark:bg-rose-950/20 border border-[#F3C5CA] dark:border-rose-900/50 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#93000A] dark:text-rose-300">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
                   Teknisi Asal (Dilepas)
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#261942] border border-[#FCA5A5] dark:border-rose-800 text-[#93000A] dark:text-rose-300">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#261942] border border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-300">
                   {ticket.statusWOInstaller || 'Assigned'}
                 </span>
               </div>
               <div className="flex items-center gap-3 pt-1">
-                <div className="w-10 h-10 rounded-xl bg-[#FFDAD6] dark:bg-rose-900/50 text-[#93000A] dark:text-rose-200 font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#FCE9EB] dark:bg-rose-900/50 text-[#9B2C37] dark:text-rose-200 font-display font-extrabold text-xs flex items-center justify-center shrink-0">
                   {getInitials(ticket.installerName)}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-extrabold text-sm text-[#1F1638] dark:text-white truncate">
+                  <div className="font-extrabold text-sm text-[#26364A] dark:text-white truncate">
                     {ticket.installerName}
                   </div>
-                  <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] font-mono tabular-nums">
+                  <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums">
                     {currentInstallerSummary
                       ? `Beban saat ini: ${currentInstallerSummary.assignedCount}/${currentInstallerSummary.maxLimit} WO`
                       : displayArea}
@@ -738,30 +738,30 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
             {/* Center Swap Arrow */}
             <div className="md:col-span-1 flex items-center justify-center py-1">
-              <div className="w-10 h-10 rounded-2xl bg-[#58149C] text-white flex items-center justify-center shadow-md">
+              <div className="w-10 h-10 rounded-2xl bg-[#6657C8] dark:bg-[#58149C] text-white flex items-center justify-center shadow-md">
                 <ArrowRightLeft className="w-4 h-4" />
               </div>
             </div>
 
             {/* Target Technician Card */}
-            <div className="md:col-span-5 p-4 rounded-2xl bg-[#F4FBF7] dark:bg-emerald-950/20 border border-[#86EFAC] dark:border-emerald-800/60 space-y-2">
+            <div className="md:col-span-5 p-4 rounded-2xl bg-[#F2FBF6] dark:bg-emerald-950/20 border border-[#B7E4CC] dark:border-emerald-800/60 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#15803D] dark:text-emerald-300">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#218A63] dark:text-emerald-300">
                   Teknisi Tujuan (Penerima)
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] dark:bg-emerald-950/70 text-[#15803D] dark:text-emerald-300">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E4F5EC] dark:bg-emerald-950/70 text-[#218A63] dark:text-emerald-300">
                   {selectedCandidate?.liveStatusLabel || 'Aktif'}
                 </span>
               </div>
               <div className="flex items-center gap-3 pt-1">
-                <div className="w-10 h-10 rounded-xl bg-[#58149C] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#6657C8] dark:bg-[#58149C] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
                   {getInitials(selectedCandidate?.installer.name)}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-extrabold text-sm text-[#1F1638] dark:text-white truncate">
+                  <div className="font-extrabold text-sm text-[#26364A] dark:text-white truncate">
                     {selectedCandidate?.installer.name}
                   </div>
-                  <div className="text-[11px] text-[#15803D] dark:text-emerald-300 font-mono font-bold tabular-nums">
+                  <div className="text-[11px] text-[#218A63] dark:text-emerald-300 font-mono font-bold tabular-nums">
                     Proyeksi beban:{' '}
                     {selectedCandidate
                       ? `${selectedCandidate.assignedCount + 1}/${selectedCandidate.maxLimit} WO`
@@ -774,38 +774,38 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
           {/* Ticket & Audit Details Split */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2.5">
+            <div className="p-4 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   Detail Tiket Lapangan
                 </span>
-                <span className="text-[10.5px] font-bold text-[#4B4452] dark:text-[#CEC0E8]">
+                <span className="text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
                   {ticket.ticketCategory}
                 </span>
               </div>
 
-              <div className="space-y-1 text-[#1F1638] dark:text-white">
-                <div className="font-mono font-extrabold text-sm text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="space-y-1 text-[#26364A] dark:text-white">
+                <div className="font-mono font-extrabold text-sm text-[#5145A6] dark:text-[#DAB9FF]">
                   {ticket.woNumber}
                 </div>
                 <div className="font-bold">{ticket.customerName}</div>
-                <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] flex items-start gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                   <span>
                     {ticket.streetName || ticket.clusterName || '-'} · {ticket.area || displayArea}
                   </span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] grid grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <span className="text-[10px] text-[#7D7484] block">Jadwal &amp; Slot</span>
+                  <span className="text-[10px] text-[#8492A5] dark:text-[#7D7484] block">Jadwal &amp; Slot</span>
                   <strong className="font-mono tabular-nums">
                     {formatAppointmentDateDisplay(ticket.appointmentDate)} · {ticket.slotTime || '-'}
                   </strong>
                 </div>
                 <div>
-                  <span className="text-[10px] text-[#7D7484] block">FDT / FAT Code</span>
+                  <span className="text-[10px] text-[#8492A5] dark:text-[#7D7484] block">FDT / FAT Code</span>
                   <strong className="font-mono">
                     {ticket.fatCode || ticket.fdtCode || '-'}
                     {ticket.fatPort ? ` / Port ${ticket.fatPort}` : ''}
@@ -814,63 +814,63 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2.5">
+            <div className="p-4 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   Audit &amp; Otorisasi Leader
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-300 text-[10px] font-bold">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 text-[10px] font-bold">
                   <ShieldCheck className="w-3 h-3" />
                   <span>Leader Scope Verified</span>
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3E246F] space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D7484] block">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#7D7484] block">
                   Alasan Pengalihan Tercatat
                 </span>
-                <p className="text-xs font-semibold text-[#1F1638] dark:text-white italic">
+                <p className="text-xs font-semibold text-[#26364A] dark:text-white italic">
                   "{reason.trim()}"
                 </p>
               </div>
 
-              <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] space-y-1">
+              <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] space-y-1">
                 <div className="flex items-center justify-between">
                   <span>Pelaksana Otorisasi:</span>
-                  <strong className="text-[#1F1638] dark:text-white">
+                  <strong className="text-[#26364A] dark:text-white">
                     {currentUser.name} ({currentUser.role})
                   </strong>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Cakupan Mitra:</span>
-                  <strong className="text-[#1F1638] dark:text-white">{displayContractor}</strong>
+                  <strong className="text-[#26364A] dark:text-white">{displayContractor}</strong>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Preservation & Notification Callout */}
-          <div className="p-3.5 rounded-2xl bg-[#EEDBFF]/55 dark:bg-[#261942] border border-[#D0BCFF] dark:border-[#4B386B] space-y-2.5">
+          <div className="p-3.5 rounded-2xl bg-[#EAE8FF]/70 dark:bg-[#261942] border border-[#DCE3F2] dark:border-[#4B386B] space-y-2.5">
             <div className="flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <div className="font-bold text-[#1F1638] dark:text-white">
+                <div className="font-bold text-[#26364A] dark:text-white">
                   Jaminan Integritas Data &amp; Notifikasi Penugasan
                 </div>
-                <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] leading-relaxed">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                   Pengalihan teknisi mencatat log append-only pada <code className="font-mono">assignmentHistory</code> tanpa menghapus Check-in, LiveChat, Evidence, maupun versi Report yang sudah ada.
                 </p>
               </div>
             </div>
 
-            <label className="flex items-center gap-2 pt-2 border-t border-[#D0BCFF]/70 dark:border-[#4B386B] cursor-pointer text-[11px] font-semibold text-[#1F1638] dark:text-[#F5EEFF]">
+            <label className="flex items-center gap-2 pt-2 border-t border-[#DCE3F2] dark:border-[#4B386B] cursor-pointer text-[11px] font-semibold text-[#26364A] dark:text-[#F5EEFF]">
               <input
                 type="checkbox"
                 checked={prepareWhatsAppNotice}
                 onChange={e => setPrepareWhatsAppNotice(e.target.checked)}
-                className="w-4 h-4 accent-[#58149C] rounded cursor-pointer"
+                className="w-4 h-4 accent-[#6657C8] dark:accent-[#58149C] rounded cursor-pointer"
               />
-              <MessageSquare className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+              <MessageSquare className="w-3.5 h-3.5 text-[#218A63] dark:text-[#16A36A] shrink-0" />
               <span>Siapkan pratinjau pesan WhatsApp untuk teknisi pengganti setelah konfirmasi</span>
             </label>
           </div>

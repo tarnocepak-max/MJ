@@ -200,7 +200,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       shortLabel: 'Super Admin',
       desc: 'Otoritas tunggal pengelolaan sistem: manajemen user & RBAC, database, sinkronisasi, import/backup/hapus WO, konfigurasi UI & navigasi, Audit Log, serta System Health.',
       icon: ShieldCheck,
-      color: 'text-purple-700 bg-purple-100 dark:text-purple-200 dark:bg-purple-950/60'
+      color: 'text-[#5145A6] bg-[#EAE8FF] dark:text-purple-200 dark:bg-purple-950/60'
     },
     {
       role: 'dispatch',
@@ -406,7 +406,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
     }
     if (tone === 'lock') {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold font-mono uppercase bg-[#F3EAFF] text-[#58149C] border border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold font-mono uppercase bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]">
           <Lock className="w-3 h-3" />
           {text}
         </span>
@@ -443,30 +443,30 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white flex items-center justify-center font-bold shadow-[0_3px_0_#35105E] shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#6657C8] to-[#5145A6] dark:from-[#7135B5] dark:to-[#58149C] text-white flex items-center justify-center font-bold shadow-[0_3px_0_#3E3484] dark:shadow-[0_3px_0_#35105E] shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_1.5px_0_#260112]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#881337] to-[#6B103B] dark:from-[#6b103b] dark:to-[#480123] text-white shadow-[0_1.5px_0_#4c0519] dark:shadow-[0_1.5px_0_#260112]">
                 RBAC ENFORCEMENT ENGINE
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E9E1FF] text-[#3B1D78] dark:bg-purple-900/60 dark:text-purple-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-purple-900/60 dark:text-purple-200">
                 4 Peran Resmi · 11 Tab Setup
               </span>
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
                 v{rolePermissionsVersion} · PostgreSQL DB-First
               </span>
               {lastVerifiedAt && (
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono text-[#58149C] dark:text-[#DAB9FF] bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#D8CCF3] dark:border-[#5B35B1]">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono text-[#2E7D8B] dark:text-[#DAB9FF] bg-[#DDF4F4] dark:bg-[#2E1459] border border-[#BDE4E8] dark:border-[#5B35B1]">
                   Terverifikasi {lastVerifiedAt}
                 </span>
               )}
             </div>
-            <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+            <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
               Manajemen Role &amp; Matriks Hak Akses (RBAC)
             </h2>
-            <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] mt-0.5 max-w-2xl">
+            <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5 max-w-2xl">
               Pratinjau isolasi 11 tab Setup Terpusat per persona role, pengawasan guardrails, dan pengaturan 21 izin granular yang tersinkron real-time ke PostgreSQL.
             </p>
           </div>
@@ -479,7 +479,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
             onClick={handleExportRbacMatrix}
             className="mj-btn-superadmin-lilac px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold gap-2 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+            <Download className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
             <span>Ekspor Matriks Hak Akses</span>
           </button>
 
@@ -528,13 +528,13 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       {/* 2. ROLE PERSONA SWITCHER & DUAL PARTITION WORKSPACE SHOWCASE     */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3.5 border-b border-[#e8ddff] dark:border-[#3b1d78]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3.5 border-b border-[#DDE6F0] dark:border-[#3b1d78]">
           <div>
-            <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF] flex items-center gap-1.5">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF] flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5" />
               <span>Simulasi Tampilan &amp; Isolasi Setup Terpusat Per Persona</span>
             </div>
-            <h3 className="font-display text-sm sm:text-base font-extrabold text-[#1F1638] dark:text-white mt-0.5">
+            <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Inspector Ruang Kerja &amp; Guardrails RBAC
             </h3>
           </div>
@@ -556,7 +556,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                   className={`px-3 py-1.5 min-h-[36px] rounded-lg text-[11px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer ${
                     isActive
                       ? 'btn-3d-primary text-white'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:bg-white/75 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <span>{p.label}</span>
@@ -564,7 +564,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                     className={`px-1.5 py-0.2 rounded-full text-[9.5px] font-mono tabular-nums ${
                       isActive
                         ? 'bg-white/20 text-white'
-                        : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                        : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
                     }`}
                   >
                     {p.count}
@@ -578,17 +578,17 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
         {/* Dual Partition Showcase */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* LEFT 5 COLS: Live Filtered Setup Navigation Preview */}
-          <div className="lg:col-span-5 rounded-2xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-4 space-y-3.5">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#E8DDFF] dark:border-[#35105E]">
+          <div className="lg:col-span-5 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-4 space-y-3.5">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div className="min-w-0">
-                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   Pratinjau Tree Navigasi Setup
                 </div>
-                <div className="font-display text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                <div className="font-display text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                   {personaStats.activeRoleObj.label}
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-extrabold bg-white dark:bg-[#251245] text-[#58149C] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1] shrink-0 tabular-nums">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-extrabold bg-white dark:bg-[#251245] text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1] shrink-0 tabular-nums">
                 {personaStats.allowedSetupTabs.length}/11 Aktif
               </span>
             </div>
@@ -596,7 +596,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
             <div className="space-y-3">
               {groupedSetupMatrix.map(group => (
                 <div key={group.category} className="space-y-1.5">
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] px-1">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] px-1">
                     {group.category}
                   </div>
                   <div className="space-y-1">
@@ -608,17 +608,17 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                           key={item.id}
                           className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
                             isAllowed
-                              ? 'bg-white dark:bg-[#1E1238] border-[#D8CCF3] dark:border-[#5B35B1]/60 text-[#1F1638] dark:text-white shadow-[0_1.5px_0_#E8DDFF] dark:shadow-none'
-                              : 'bg-[#F3EAFF]/55 dark:bg-[#140827]/70 border-dashed border-[#D8CCF3]/80 dark:border-[#35105E]/70 text-[#7D7484] dark:text-[#8A7EA6] opacity-75'
+                              ? 'bg-white dark:bg-[#1E1238] border-[#C5BEEF] dark:border-[#5B35B1]/60 text-[#26364A] dark:text-white shadow-[0_1.5px_0_#DDE6F0] dark:shadow-none'
+                              : 'bg-[#EDF3F8]/70 dark:bg-[#140827]/70 border-dashed border-[#DDE6F0] dark:border-[#35105E]/70 text-[#8492A5] dark:text-[#8A7EA6] opacity-75'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-mono text-[10px] font-bold text-[#7D7484] dark:text-[#A79BC0] shrink-0">
+                            <span className="font-mono text-[10px] font-bold text-[#8492A5] dark:text-[#A79BC0] shrink-0">
                               {item.num}
                             </span>
                             <ItemIcon
                               className={`w-3.5 h-3.5 shrink-0 ${
-                                isAllowed ? 'text-[#58149C] dark:text-[#DAB9FF]' : 'text-[#8B8495]'
+                                isAllowed ? 'text-[#5145A6] dark:text-[#DAB9FF]' : 'text-[#8492A5]'
                               }`}
                             />
                             <span className={`truncate font-semibold ${isAllowed ? '' : 'line-through'}`}>
@@ -648,41 +648,41 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
           {/* RIGHT 7 COLS: Guardrails Comparison + Live Persona Metrics */}
           <div className="lg:col-span-7 space-y-4">
             {/* Persona Snapshot Telemetry Card */}
-            <div className="rounded-2xl bg-[#160D29] text-white border border-[#35105E] p-4 sm:p-5 space-y-4 shadow-[0_4px_0_#0e071d]">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#35105E]">
+            <div className="rounded-2xl bg-gradient-to-br from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#160D29] dark:to-[#160D29] text-[#26364A] dark:text-white border border-[#C5BEEF] dark:border-[#35105E] p-4 sm:p-5 space-y-4 shadow-[0_4px_0_#C5BEEF] dark:shadow-[0_4px_0_#0e071d]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#C5BEEF]/70 dark:border-[#35105E]">
                 <div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#DAB9FF]">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                     Profil Keamanan Persona Terpilih
                   </span>
-                  <h4 className="font-display text-sm sm:text-base font-extrabold text-white">
+                  <h4 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white">
                     {personaStats.activeRoleObj.label}
                   </h4>
                 </div>
-                <span className="px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-extrabold bg-[#35105E] border border-[#7135B5]/50 text-[#EEDBFF] self-start sm:self-auto">
+                <span className="px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-extrabold bg-white/85 dark:bg-[#35105E] border border-[#C5BEEF] dark:border-[#7135B5]/50 text-[#5145A6] dark:text-[#EEDBFF] self-start sm:self-auto">
                   {personaStats.staffCount} Akun Staf Terdaftar
                 </span>
               </div>
 
-              <p className="text-xs text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 {personaStats.activeRoleObj.desc}
               </p>
 
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-3 rounded-xl bg-[#22123F] border border-[#35105E]">
-                  <div className="text-[10px] text-[#A78BFA] uppercase font-bold">Akses Tab Setup</div>
-                  <div className="font-mono text-lg font-extrabold text-white tabular-nums mt-0.5">
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <div className="text-[10px] text-[#5145A6] dark:text-[#A78BFA] uppercase font-bold">Akses Tab Setup</div>
+                  <div className="font-mono text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums mt-0.5">
                     {personaStats.allowedSetupTabs.length} / 11
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-[#22123F] border border-[#35105E]">
-                  <div className="text-[10px] text-[#A78BFA] uppercase font-bold">Izin Granular Aktif</div>
-                  <div className="font-mono text-lg font-extrabold text-emerald-300 tabular-nums mt-0.5">
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <div className="text-[10px] text-[#2E7D8B] dark:text-[#A78BFA] uppercase font-bold">Izin Granular Aktif</div>
+                  <div className="font-mono text-lg font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums mt-0.5">
                     {personaStats.granularPerms.length} / {permissionsList.length}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-[#22123F] border border-[#35105E]">
-                  <div className="text-[10px] text-[#A78BFA] uppercase font-bold">Tab Terkunci</div>
-                  <div className="font-mono text-lg font-extrabold text-rose-300 tabular-nums mt-0.5">
+                <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <div className="text-[10px] text-[#5145A6] dark:text-[#A78BFA] uppercase font-bold">Tab Terkunci</div>
+                  <div className="font-mono text-lg font-extrabold text-rose-700 dark:text-rose-300 tabular-nums mt-0.5">
                     {personaStats.restrictedSetupTabs.length}
                   </div>
                 </div>
@@ -692,18 +692,18 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
             {/* Side-by-Side RBAC Guardrails Comparison Panel */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Superadmin System & Data Governance Card */}
-              <div className="rounded-2xl bg-[#F8F1FF] dark:bg-[#1A1032] border border-[#D8CCF3] dark:border-[#3B1D78] p-4 space-y-3 flex flex-col justify-between">
+              <div className="rounded-2xl bg-[#F4F7FB] dark:bg-[#1A1032] border border-[#DDE6F0] dark:border-[#3B1D78] p-4 space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-200">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950/60 dark:text-purple-200">
                       SUPERADMIN · 11 TAB FULL
                     </span>
-                    <Database className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <Database className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                   </div>
-                  <h5 className="font-display font-bold text-xs text-[#1F1638] dark:text-white">
+                  <h5 className="font-display font-bold text-xs text-[#26364A] dark:text-white">
                     Kendali Penuh Data, Sistem &amp; Keamanan
                   </h5>
-                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
                     Pemegang otoritas penuh untuk <strong>Konfigurasi Sistem</strong>, <strong>Menu Navigasi ({(standaloneMenus?.length || 0) + (submenuItems?.length || 0)})</strong>, <strong>Kolom UI ({config.ticketsTable.columns.length})</strong>, <strong>Database &amp; Sync</strong>, <strong>Import/Hapus WO</strong>, <strong>Manajemen User &amp; RBAC</strong>, serta <strong>Audit Log &amp; System Health</strong>.
                   </p>
                 </div>
@@ -720,18 +720,18 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
               </div>
 
               {/* Dispatch Guardrail Card */}
-              <div className="rounded-2xl bg-[#F8F1FF] dark:bg-[#1A1032] border border-[#D8CCF3] dark:border-[#3B1D78] p-4 space-y-3 flex flex-col justify-between">
+              <div className="rounded-2xl bg-[#F4F7FB] dark:bg-[#1A1032] border border-[#DDE6F0] dark:border-[#3B1D78] p-4 space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-indigo-950/60 dark:text-indigo-300">
                       DISPATCH · 4 TAB
                     </span>
-                    <MessageSquare className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <MessageSquare className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF]" />
                   </div>
-                  <h5 className="font-display font-bold text-xs text-[#1F1638] dark:text-white">
+                  <h5 className="font-display font-bold text-xs text-[#26364A] dark:text-white">
                     Isolasi Operasional, WA &amp; Otomasi
                   </h5>
-                  <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
                     Akses fokus ke <strong>Kategori Report ({rootCauseCategories.length} taksonomi)</strong>, <strong>Template WhatsApp</strong>, <strong>Workflows &amp; Otomasi</strong>, dan <strong>Audio Notifikasi</strong>. Terkunci penuh dari Database, RBAC, dan Akun Staf.
                   </p>
                 </div>
@@ -755,50 +755,50 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       {/* 3. MATRIKS PEMETAAN 11 TAB SETUP TERPUSAT (COMPARATIVE TABLE)    */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-[#e8ddff] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#DDE6F0] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="font-display text-sm font-extrabold text-[#1F1638] dark:text-white">
+            <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
               Matriks Pemetaan 11 Tab Setup Terpusat MoraJaws
             </h3>
-            <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
               Perbandingan otoritas modul Setup Hub antara Superadmin (11), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
             </p>
           </div>
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1]">
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]">
             RBAC Guardrails Aktif
           </span>
         </div>
 
         {isCompactUI ? (
-          <div className="p-3.5 space-y-2.5 bg-[#FDF7FF] dark:bg-[#140827]/60">
+          <div className="p-3.5 space-y-2.5 bg-[#F4F7FB] dark:bg-[#140827]/60">
             {SETUP_TAB_MATRIX.map(row => {
               const RowIcon = row.icon;
               return (
                 <div
                   key={row.id}
-                  className="p-3.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] space-y-2.5"
+                  className="p-3.5 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[10px] font-bold text-[#7D7484] dark:text-[#A79BC0]">
+                      <span className="font-mono text-[10px] font-bold text-[#8492A5] dark:text-[#A79BC0]">
                         {row.num}
                       </span>
-                      <RowIcon className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
-                      <span className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                      <RowIcon className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                      <span className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                         {row.label}
                       </span>
                     </div>
-                    <span className="text-[10px] text-[#7D7484] dark:text-[#CABDE8] shrink-0">
+                    <span className="text-[10px] text-[#8492A5] dark:text-[#CABDE8] shrink-0">
                       {row.category.split('·')[0]}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-[#F3EAFF] dark:border-[#35105E]/70 text-[10px]">
+                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-[#E2E8F0] dark:border-[#35105E]/70 text-[10px]">
                     <div className="space-y-1">
-                      <div className="text-[#7D7484] dark:text-[#A79BC0] font-semibold">Superadmin</div>
+                      <div className="text-[#8492A5] dark:text-[#A79BC0] font-semibold">Superadmin</div>
                       {renderScopePill(row.superadminScope.text, row.superadminScope.tone)}
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[#7D7484] dark:text-[#A79BC0] font-semibold">Dispatch</div>
+                      <div className="text-[#8492A5] dark:text-[#A79BC0] font-semibold">Dispatch</div>
                       {renderScopePill(row.dispatchScope.text, row.dispatchScope.tone)}
                     </div>
                   </div>
@@ -809,7 +809,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[10.5px] font-extrabold text-[#4B4452] dark:text-[#DAB9FF] uppercase">
+              <thead className="bg-[#EDF3F8] dark:bg-[#251545] text-[10.5px] font-extrabold text-[#26364A] dark:text-[#DAB9FF] uppercase">
                 <tr>
                   <th className="py-2.5 px-4">No &amp; Modul Setup</th>
                   <th className="py-2.5 px-3">Kategori</th>
@@ -818,23 +818,23 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                   <th className="py-2.5 px-3 text-center">Leader / Installer</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFE7FC] dark:divide-[#35105E]">
+              <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#35105E]">
                 {SETUP_TAB_MATRIX.map(row => {
                   const RowIcon = row.icon;
                   return (
-                    <tr key={row.id} className="hover:bg-[#FDF7FF] dark:hover:bg-[#22123F]/60 transition-colors">
+                    <tr key={row.id} className="odd:bg-white even:bg-[#F8FAFD] dark:odd:bg-transparent dark:even:bg-transparent hover:bg-[#EDF3F8] dark:hover:bg-[#22123F]/60 transition-colors">
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-2.5">
-                          <span className="font-mono text-[11px] font-bold text-[#7D7484] dark:text-[#A79BC0]">
+                          <span className="font-mono text-[11px] font-bold text-[#8492A5] dark:text-[#A79BC0]">
                             {row.num}
                           </span>
-                          <div className="p-1.5 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF]">
+                          <div className="p-1.5 rounded-lg bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF]">
                             <RowIcon className="w-3.5 h-3.5" />
                           </div>
-                          <span className="font-bold text-[#1F1638] dark:text-white">{row.label}</span>
+                          <span className="font-bold text-[#26364A] dark:text-white">{row.label}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+                      <td className="py-2.5 px-3 text-[11px] text-[#52647A] dark:text-[#CABDE8]">
                         {row.category}
                       </td>
                       <td className="py-2.5 px-3 text-center">
@@ -868,7 +868,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
             <div
               key={r.role}
               className={`card-3d-lavender p-4 rounded-2xl space-y-2.5 text-xs flex flex-col justify-between transition-all ${
-                isInspected ? 'ring-2 ring-[#7135B5] dark:ring-[#DAB9FF]' : ''
+                isInspected ? 'ring-2 ring-[#6657C8] dark:ring-[#DAB9FF]' : ''
               }`}
             >
               <div className="space-y-1.5">
@@ -877,26 +877,26 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                     <div className={`p-2 rounded-xl ${r.color} shrink-0`}>
                       <Icon className="w-4 h-4" />
                     </div>
-                    <h4 className="font-display font-bold text-[#1F1638] dark:text-white text-xs truncate">
+                    <h4 className="font-display font-bold text-[#26364A] dark:text-white text-xs truncate">
                       {r.label}
                     </h4>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] shrink-0">
                     {roleUsersCount} User
                   </span>
                 </div>
-                <p className="text-[11px] text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
                   {r.desc}
                 </p>
               </div>
-              <div className="pt-2.5 border-t border-[#e8ddff] dark:border-[#3b1d78] text-[10.5px] font-mono tabular-nums text-[#7D7484] flex items-center justify-between gap-2">
+              <div className="pt-2.5 border-t border-[#DDE6F0] dark:border-[#3b1d78] text-[10.5px] font-mono tabular-nums text-[#8492A5] flex items-center justify-between gap-2">
                 <span>
-                  Total Izin: <strong className="text-[#1F1638] dark:text-white">{permsCount}</strong>
+                  Total Izin: <strong className="text-[#26364A] dark:text-white">{permsCount}</strong>
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedPersona(r.role)}
-                  className="text-[10.5px] font-sans font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                  className="text-[10.5px] font-sans font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                 >
                   {isInspected ? 'Sedang Diinspeksi ✓' : 'Inspeksi Scope →'}
                 </button>
@@ -910,17 +910,17 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       {/* 5. FULL INTERACTIVE 4-ROLE x 21-PERMISSION POSTGRESQL MATRIX     */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl overflow-hidden">
-        <div className="px-4 sm:px-5 py-3.5 border-b border-[#e8ddff] dark:border-[#3b1d78] text-xs flex flex-wrap items-center justify-between gap-2">
-          <span className="font-display font-bold text-[#1F1638] dark:text-white">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#DDE6F0] dark:border-[#3b1d78] text-xs flex flex-wrap items-center justify-between gap-2">
+          <span className="font-display font-bold text-[#26364A] dark:text-white">
             Matriks Hak Akses &amp; Permission Granular (21 Kemampuan × 4 Role)
           </span>
-          <span className="text-[#58149C] dark:text-[#DAB9FF] font-mono text-[11px] font-semibold">
+          <span className="text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-semibold">
             {isSuperAdmin ? 'Ketuk tombol 3D untuk menyimpan langsung ke Database' : 'Read-Only Backend Enforced'}
           </span>
         </div>
 
         {isCompactUI ? (
-          <div className="p-3.5 space-y-3 bg-[#FDF7FF] dark:bg-[#140827]/60">
+          <div className="p-3.5 space-y-3 bg-[#F4F7FB] dark:bg-[#140827]/60">
             {/* Role Selector Strip */}
             <div className="mj-tactile-tab-bar p-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {roles.map(r => {
@@ -934,13 +934,13 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                     className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer ${
                       active
                         ? 'btn-3d-primary'
-                        : 'text-[#4B4452] dark:text-[#CABDE8] hover:bg-white/70 dark:hover:bg-[#261942]'
+                        : 'text-[#52647A] dark:text-[#CABDE8] hover:bg-white/70 dark:hover:bg-[#261942]'
                     }`}
                   >
                     <span className="capitalize">{r.shortLabel}</span>
                     <span
                       className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
-                        active ? 'bg-white/20 text-white' : 'bg-[#F3EAFF] dark:bg-[#35105E] text-[#58149C] dark:text-[#DAB9FF]'
+                        active ? 'bg-white/20 text-white' : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]'
                       }`}
                     >
                       {count}
@@ -964,13 +964,13 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 return (
                   <div
                     key={perm.key}
-                    className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] flex items-center justify-between gap-3"
+                    className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                      <div className="text-xs font-bold text-[#26364A] dark:text-white leading-snug">
                         {perm.label}
                       </div>
-                      <div className="text-[10.5px] text-slate-500 dark:text-[#A79BC0] font-mono truncate mt-0.5">
+                      <div className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] font-mono truncate mt-0.5">
                         {perm.key} · {perm.category}
                       </div>
                     </div>
@@ -982,12 +982,12 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                       aria-label={`Toggle ${perm.key} untuk ${selectedMobileRole}`}
                       className={`min-w-[68px] min-h-[38px] px-2.5 rounded-xl border flex items-center justify-center gap-1 text-[11px] font-bold transition-all shrink-0 ${
                         isSaving
-                          ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
+                          ? 'bg-[#EAE8FF] border-[#C5BEEF] text-[#5145A6] cursor-wait'
                           : isCoreLocked && has
-                          ? 'bg-gradient-to-b from-[#3f186d] to-[#240c45] border-[#7135B5] text-white shadow-[0_2px_0_#120624]'
+                          ? 'bg-gradient-to-b from-[#6657C8] to-[#5145A6] dark:from-[#3f186d] dark:to-[#240c45] border-[#3E3484] dark:border-[#7135B5] text-white shadow-[0_2px_0_#3E3484] dark:shadow-[0_2px_0_#120624]'
                           : has
                           ? 'bg-gradient-to-b from-emerald-500 to-emerald-600 border-emerald-700 text-white shadow-[0_2.5px_0_#047857]'
-                          : 'bg-gradient-to-b from-white to-[#F3EAFF] dark:from-[#261942] dark:to-[#180E2E] border-[#D8CCF3] dark:border-[#3B1D78] text-[#7D7484] dark:text-[#A79BC0] shadow-[0_2px_0_#D8CCF3] dark:shadow-[0_2px_0_#100520]'
+                          : 'bg-gradient-to-b from-white to-[#EDF3F8] dark:from-[#261942] dark:to-[#180E2E] border-[#DDE6F0] dark:border-[#3B1D78] text-[#8492A5] dark:text-[#A79BC0] shadow-[0_2px_0_#DDE6F0] dark:shadow-[0_2px_0_#100520]'
                       } ${canClick ? 'cursor-pointer active:translate-y-[1.5px]' : 'opacity-80 cursor-not-allowed'}`}
                     >
                       {isSaving ? (
@@ -1019,7 +1019,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#F5F1FF] dark:bg-[#251545] text-[11px] font-bold text-slate-700 dark:text-[#DAB9FF] uppercase">
+              <thead className="bg-[#EDF3F8] dark:bg-[#251545] text-[11px] font-bold text-[#26364A] dark:text-[#DAB9FF] uppercase">
                 <tr>
                   <th className="py-2.5 px-4 min-w-[240px]">Kemampuan / Permission</th>
                   <th className="py-2.5 px-3 text-center">Super Admin</th>
@@ -1028,12 +1028,12 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                   <th className="py-2.5 px-3 text-center">Installer</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFE7FC] dark:divide-[#35105E]">
+              <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#35105E]">
                 {permissionsList.map(perm => (
-                  <tr key={perm.key} className="hover:bg-[#FDF7FF] dark:hover:bg-[#22123F]/50 transition-colors">
+                  <tr key={perm.key} className="odd:bg-white even:bg-[#F8FAFD] dark:odd:bg-transparent dark:even:bg-transparent hover:bg-[#EDF3F8] dark:hover:bg-[#22123F]/50 transition-colors">
                     <td className="py-2.5 px-4">
-                      <div className="font-bold text-[#1F1638] dark:text-slate-100">{perm.label}</div>
-                      <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] font-mono">
+                      <div className="font-bold text-[#26364A] dark:text-slate-100">{perm.label}</div>
+                      <div className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] font-mono">
                         {perm.key} ({perm.category})
                       </div>
                     </td>
@@ -1062,12 +1062,12 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                             }
                             className={`inline-flex items-center justify-center w-8 h-8 rounded-xl border transition-all ${
                               isSaving
-                                ? 'bg-purple-100 border-purple-300 text-purple-700 cursor-wait'
+                                ? 'bg-[#EAE8FF] border-[#C5BEEF] text-[#5145A6] cursor-wait'
                                 : isCoreLocked && has
-                                ? 'bg-gradient-to-b from-[#3f186d] to-[#240c45] border-[#7135B5] text-white shadow-[0_2px_0_#120624]'
+                                ? 'bg-gradient-to-b from-[#6657C8] to-[#5145A6] dark:from-[#3f186d] dark:to-[#240c45] border-[#3E3484] dark:border-[#7135B5] text-white shadow-[0_2px_0_#3E3484] dark:shadow-[0_2px_0_#120624]'
                                 : has
                                 ? 'bg-gradient-to-b from-emerald-500 to-emerald-600 border-emerald-700 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2.5px_0_#047857]'
-                                : 'bg-gradient-to-b from-white to-[#F3EAFF] dark:from-[#261942] dark:to-[#180E2E] border-[#D8CCF3] dark:border-[#3B1D78] text-[#7D7484] dark:text-[#8A7EA6] shadow-[0_2px_0_#D8CCF3] dark:shadow-[0_2px_0_#100520]'
+                                : 'bg-gradient-to-b from-white to-[#EDF3F8] dark:from-[#261942] dark:to-[#180E2E] border-[#DDE6F0] dark:border-[#3B1D78] text-[#8492A5] dark:text-[#8A7EA6] shadow-[0_2px_0_#DDE6F0] dark:shadow-[0_2px_0_#100520]'
                             } ${canClick ? 'hover:-translate-y-0.5 active:translate-y-[1.5px] cursor-pointer' : 'opacity-85 cursor-not-allowed'}`}
                           >
                             {isSaving ? (

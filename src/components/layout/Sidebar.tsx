@@ -598,7 +598,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar Main Frame: Stitch AI Light Elevated Surface (Dark Mode #160D29) */}
+      {/* Sidebar Main Frame: Crystal Aqua Lavender Light Water Glass (Dark Mode untouched) */}
       <aside
         data-testid="app-sidebar"
         data-drawer-mode={isDrawerMode ? 'true' : 'false'}
@@ -608,16 +608,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] shadow-2xl'
             : isMiniMode
             ? 'relative w-[72px] shadow-none'
-            : 'relative w-72 shadow-[0_8px_32px_rgba(53,16,94,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.28)]'
-        } bg-[#FAF0FF]/76 dark:bg-white/[0.06] backdrop-blur-2xl text-[#4b4452] dark:text-[#CEC0E8] border-r border-[#e8ddff]/85 dark:border-white/[0.14] transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
+            : 'relative w-72 shadow-[0_12px_36px_rgba(38,54,74,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.28)]'
+        } bg-white/78 dark:bg-white/[0.06] backdrop-blur-2xl text-[#52647A] dark:text-[#CEC0E8] border-r border-[#DDE6F0]/90 dark:border-white/[0.14] transition-all duration-200 ease-out flex flex-col shrink-0 h-full select-none`}
       >
         {/* 1. Sidebar Header / MoraJaws Brand Lockup */}
-        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-5 justify-between'} flex items-center bg-transparent dark:bg-transparent border-b border-[#e8ddff]/80 dark:border-white/[0.12] sticky top-0 z-10 shrink-0`}>
+        <div className={`h-16 ${isMiniMode ? 'px-2 justify-center' : 'px-5 justify-between'} flex items-center bg-transparent dark:bg-transparent border-b border-[#DDE6F0]/80 dark:border-white/[0.12] sticky top-0 z-10 shrink-0`}>
           {isMiniMode ? (
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-10 h-10 rounded-xl bg-[#7135b5] text-white flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)] active:translate-y-0.5 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#7364D4] to-[#6657C8] dark:bg-[#7135b5] dark:bg-none text-white flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.45),0_3px_0_#5145A6,0_6px_14px_rgba(102,87,200,0.22)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)] active:translate-y-0.5 cursor-pointer"
               title="Perluas Sidebar (Work Order Management)"
               aria-label="Perluas Sidebar"
             >
@@ -625,14 +625,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           ) : (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-[#240C45] dark:bg-[#7135b5] flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(33,24,58,0.22)] shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:bg-[#7135b5] dark:bg-none flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.45),0_2px_6px_rgba(102,87,200,0.22)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(33,24,58,0.22)] shrink-0">
                 <MoraJawsLogo size="sm" animated={false} withGlow={false} />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-display font-extrabold text-[17px] leading-none text-[#1F1638] dark:text-white tracking-tight truncate">
+                <span className="font-display font-extrabold text-[17px] leading-none text-[#26364A] dark:text-white tracking-tight truncate">
                   {config.global.appName || 'MoraJaws'}
                 </span>
-                <span className="text-[9.5px] font-bold text-[#6a46c1] dark:text-[#A78BFA] uppercase tracking-[0.14em] mt-1 truncate">
+                <span className="text-[9.5px] font-bold text-[#6657C8] dark:text-[#A78BFA] uppercase tracking-[0.14em] mt-1 truncate">
                   {userRole === 'dispatch' ? 'FTTH DISPATCH OPS' : 'FTTH COMMAND'}
                 </span>
               </div>
@@ -642,19 +642,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             {!isMiniMode && !isDrawerMode && (
               <div
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E]"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#EDF3F8]/95 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]"
                 title={`Status Core: ${isOnline ? databaseStatus : 'offline'} / ${syncStatus}`}
               >
                 <span
                   className={`w-2 h-2 rounded-full ${
                     !isOnline
-                      ? 'bg-amber-500'
+                      ? 'bg-[#C88735] dark:bg-amber-500'
                       : databaseStatus === 'connected'
-                      ? 'bg-emerald-500 animate-pulse'
-                      : 'bg-amber-500'
+                      ? 'bg-[#218A63] dark:bg-emerald-500 animate-pulse'
+                      : 'bg-[#C88735] dark:bg-amber-500'
                   }`}
                 />
-                <span className="text-[10px] font-bold tracking-wider text-[#1f1638] dark:text-white">
+                <span className="text-[10px] font-bold tracking-wider text-[#26364A] dark:text-white">
                   {!isOnline ? 'OFF' : syncStatus === 'SYNCING' ? 'SYNC' : 'LIVE'}
                 </span>
               </div>
@@ -663,7 +663,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeState('closed')}
-                className="min-w-[38px] min-h-[38px] flex items-center justify-center text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#58149c] dark:hover:text-white hover:bg-[#eee4ff] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
+                className="min-w-[38px] min-h-[38px] flex items-center justify-center text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer"
                 title="Tutup Menu"
                 aria-label="Tutup Menu"
               >
@@ -673,7 +673,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeState('minimized')}
-                className="p-1.5 text-[#7d7484] dark:text-[#A78BFA] hover:text-[#58149c] dark:hover:text-white hover:bg-[#eee4ff] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer shrink-0"
+                className="p-1.5 text-[#8492A5] dark:text-[#A78BFA] hover:text-[#5145A6] dark:hover:text-white hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] rounded-lg transition-colors cursor-pointer shrink-0"
                 title="Mode Ikon Ringkas (72px)"
                 aria-label="Mode Ikon Ringkas"
               >
@@ -685,14 +685,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 2. Global Search Bar */}
         {isMiniMode ? (
-          <div className="px-2 py-2.5 border-b border-[#f3eaff] dark:border-white/10 flex flex-col items-center gap-1.5 shrink-0">
+          <div className="px-2 py-2.5 border-b border-[#DDE6F0] dark:border-white/10 flex flex-col items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
                 (window as any).__mjFocusSidebarSearch = true;
                 onChangeState('expanded');
               }}
-              className="w-11 h-10 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] text-[#58149c] dark:text-[#A78BFA] flex items-center justify-center border border-[#e8ddff] dark:border-[#35105E] transition-colors cursor-pointer"
+              className="w-11 h-10 rounded-xl bg-[#F8FAFD] dark:bg-[#22123F] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] text-[#5145A6] dark:text-[#A78BFA] flex items-center justify-center border border-[#DDE6F0] dark:border-[#35105E] transition-colors cursor-pointer"
               title="Cari menu, fitur, No. WO (Ctrl+K)"
               aria-label="Cari di Sidebar"
             >
@@ -701,7 +701,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => onChangeState('expanded')}
-              className="w-11 h-8 rounded-lg text-[#6a46c1] dark:text-[#A78BFA] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
+              className="w-11 h-8 rounded-lg text-[#6657C8] dark:text-[#A78BFA] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] flex items-center justify-center transition-colors cursor-pointer"
               title="Perluas Sidebar"
               aria-label="Perluas Sidebar"
             >
@@ -709,9 +709,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         ) : (
-          <div className="px-4 pt-2 pb-2.5 border-b border-[#e8ddff]/80 dark:border-white/[0.12] bg-transparent dark:bg-transparent shrink-0">
+          <div className="px-4 pt-2 pb-2.5 border-b border-[#DDE6F0]/80 dark:border-white/[0.12] bg-transparent dark:bg-transparent shrink-0">
             <div className="relative flex items-center w-full">
-              <Search className="w-3.5 h-3.5 text-[#7d7484] dark:text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
+              <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A78BFA] absolute left-2.5 pointer-events-none shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -726,7 +726,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 placeholder="Cari menu, fitur, No. WO..."
                 aria-label="Global Search Sidebar"
                 data-testid="sidebar-global-search"
-                className="w-full pl-8 pr-12 py-1.5 bg-white dark:bg-[#22123F] hover:bg-[#fcfaff] dark:hover:bg-[#2A1650] focus:bg-white dark:focus:bg-[#2A1650] text-xs text-[#1f1638] dark:text-white placeholder-[#7d7484] dark:placeholder-[#8B8495] rounded-lg border border-[#e8ddff] dark:border-[#35105E] focus:border-[#7135b5] dark:focus:border-[#A78BFA]/70 focus:ring-2 focus:ring-[#7135b5]/20 shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)] outline-none transition-all"
+                className="w-full pl-8 pr-12 py-1.5 bg-white/95 dark:bg-[#22123F] hover:bg-white dark:hover:bg-[#2A1650] focus:bg-white dark:focus:bg-[#2A1650] text-xs text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#8B8495] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] focus:border-[#6657C8] dark:focus:border-[#A78BFA]/70 focus:ring-2 focus:ring-[#6657C8]/20 dark:focus:ring-[#7135b5]/20 shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] outline-none transition-all"
               />
               {searchQuery ? (
                 <button
@@ -735,7 +735,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 p-1 rounded text-[#7d7484] dark:text-[#A78BFA] hover:text-[#58149c] dark:hover:text-white hover:bg-[#eee4ff] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+                  className="absolute right-2 p-1 rounded text-[#8492A5] dark:text-[#A78BFA] hover:text-[#5145A6] dark:hover:text-white hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
                   title="Bersihkan pencarian"
                   aria-label="Bersihkan pencarian"
                 >
@@ -743,7 +743,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               ) : (
                 !isDrawerMode && (
-                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#FAF0FF] dark:bg-[#160D29]/90 border border-[#e8ddff] dark:border-[#35105E] rounded text-[9px] font-mono font-bold text-[#6a46c1] dark:text-[#A78BFA] pointer-events-none">
+                  <kbd className="absolute right-2 px-1.5 py-0.5 bg-[#EDF3F8] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#35105E] rounded text-[9px] font-mono font-bold text-[#5145A6] dark:text-[#A78BFA] pointer-events-none">
                     Ctrl K
                   </kbd>
                 )
@@ -772,21 +772,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
-                        : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                        ? 'bg-gradient-to-b from-[#7364D4] to-[#6657C8] dark:bg-[#7135b5] dark:bg-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_2.5px_0_#5145A6,0_5px_12px_rgba(102,87,200,0.2)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
+                        : 'text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                     {badgeInfo && (
                       <span
                         className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-[#160D29] ${
                           badgeInfo.color === 'rose'
-                            ? 'bg-[#DC4C5A] text-white'
+                            ? 'bg-[#D45B66] dark:bg-[#DC4C5A] text-white'
                             : badgeInfo.color === 'amber'
-                            ? 'bg-[#D97706] text-white'
+                            ? 'bg-[#C88735] dark:bg-[#D97706] text-white'
                             : badgeInfo.color === 'emerald'
-                            ? 'bg-[#16A36A] text-white'
-                            : 'bg-[#7b1eca] text-white'
+                            ? 'bg-[#218A63] dark:bg-[#16A36A] text-white'
+                            : 'bg-[#6657C8] dark:bg-[#7b1eca] text-white'
                         }`}
                       >
                         {typeof badgeInfo.text === 'number' && badgeInfo.text > 99 ? '99+' : badgeInfo.text}
@@ -797,7 +797,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
 
               {filteredCategoriesWithSubmenus.length > 0 && (
-                <div className="w-8 h-px bg-[#e8ddff] dark:bg-[#35105E] my-1" />
+                <div className="w-8 h-px bg-[#DDE6F0] dark:bg-[#35105E] my-1" />
               )}
 
               {filteredCategoriesWithSubmenus.flatMap(cat => cat.submenus).map(item => {
@@ -816,11 +816,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     aria-label={item.label}
                     className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer active:translate-y-0.5 ${
                       isActive
-                        ? 'bg-[#7135b5] text-white shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
-                        : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                        ? 'bg-gradient-to-b from-[#7364D4] to-[#6657C8] dark:bg-[#7135b5] dark:bg-none text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_2.5px_0_#5145A6,0_5px_12px_rgba(102,87,200,0.2)] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.22)]'
+                        : 'text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
                     }`}
                   >
-                    <SubIcon className={`w-4.5 h-4.5 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                    <SubIcon className={`w-4.5 h-4.5 ${isActive ? 'text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                   </button>
                 );
               })}
@@ -829,12 +829,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="space-y-3" data-testid="sidebar-search-results">
               {/* Group A: Live RBAC Menu & Feature Results */}
               <div className="space-y-1">
-                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#7d7484] dark:text-[#A78BFA] uppercase tracking-wider">
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                   <span>Menu &amp; Fitur (RBAC)</span>
-                  <span className="font-mono text-[#58149c] dark:text-[#D8B4FE]">{matchedMenus.length}</span>
+                  <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">{matchedMenus.length}</span>
                 </div>
                 {matchedMenus.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-[11px] text-[#7d7484] italic">
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#8492A5] italic">
                     Tidak ada menu yang cocok.
                   </p>
                 ) : (
@@ -851,18 +851,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                         className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                           isActive
-                            ? 'bg-[#7135b5] text-white font-bold shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.2)]'
-                            : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-[#eee4ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                            ? 'bg-gradient-to-b from-[#7364D4] to-[#6657C8] dark:bg-[#7135b5] dark:bg-none text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#5145A6] dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.4),0_2px_6px_rgba(53,16,94,0.2)]'
+                            : 'text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
                         }`}
                       >
-                        <ItemIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                        <ItemIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                         <div className="flex-1 min-w-0 text-left">
                           <div className="truncate font-semibold">{item.label}</div>
                           {item.group && (
-                            <div className={`text-[9.5px] truncate ${isActive ? 'text-white/80' : 'text-[#7d7484]'}`}>{item.group}</div>
+                            <div className={`text-[9.5px] truncate ${isActive ? 'text-white/80' : 'text-[#8492A5]'}`}>{item.group}</div>
                           )}
                         </div>
-                        <ArrowUpRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                        <ArrowUpRight className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                       </button>
                     );
                   })
@@ -870,13 +870,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {/* Group B: Live Work Order Search Results */}
-              <div className="space-y-1 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]/60">
-                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#7d7484] dark:text-[#A78BFA] uppercase tracking-wider">
+              <div className="space-y-1 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]/60">
+                <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                   <span>Work Order</span>
                   {isSearching ? (
-                    <Loader2 className="w-3 h-3 animate-spin text-[#7135b5] dark:text-[#D8B4FE]" />
+                    <Loader2 className="w-3 h-3 animate-spin text-[#6657C8] dark:text-[#D8B4FE]" />
                   ) : (
-                    <span className="font-mono text-[#58149c] dark:text-[#D8B4FE]">{searchResults.length}</span>
+                    <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">{searchResults.length}</span>
                   )}
                 </div>
 
@@ -885,7 +885,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {!isSearching && searchResults.length === 0 ? (
-                  <p className="px-2.5 py-1.5 text-[11px] text-[#7d7484] italic">
+                  <p className="px-2.5 py-1.5 text-[11px] text-[#8492A5] italic">
                     Tidak ada Work Order cocok.
                   </p>
                 ) : (
@@ -905,22 +905,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onChangeState('closed');
                           }
                         }}
-                        className="w-full text-left px-2.5 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#1E1236]/80 hover:bg-[#eee4ff] dark:hover:bg-[#35105E] border border-[#e8ddff] dark:border-[#35105E]/70 transition-colors cursor-pointer space-y-1"
+                        className="w-full text-left px-2.5 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#1E1236]/80 hover:bg-[#F0EDFF] dark:hover:bg-[#35105E] border border-[#DDE6F0] dark:border-[#35105E]/70 transition-colors cursor-pointer space-y-1"
                       >
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-mono text-[11px] font-bold text-[#58149c] dark:text-white truncate">
+                          <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-white truncate">
                             {t.woNumber || '-'}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded bg-[#eee4ff] dark:bg-[#35105E] text-[#58149c] dark:text-[#D8B4FE] text-[9px] font-bold shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] text-[9px] font-bold shrink-0">
                             {apptDate}
                           </span>
                         </div>
-                        <div className="text-[11px] font-medium text-[#1f1638] dark:text-[#CEC0E8] truncate">
+                        <div className="text-[11px] font-medium text-[#26364A] dark:text-[#CEC0E8] truncate">
                           {t.customerName || '-'}
                         </div>
-                        <div className="flex items-center justify-between gap-1.5 text-[9.5px] text-[#7d7484] dark:text-[#8B8495]">
+                        <div className="flex items-center justify-between gap-1.5 text-[9.5px] text-[#8492A5] dark:text-[#8B8495]">
                           <span className="truncate">{t.idCustomer || t.installerName || '-'}</span>
-                          <span className="text-[#6a46c1] dark:text-[#A78BFA] font-semibold shrink-0">{t.statusWOInstaller || t.statusWOAgent || 'OPEN'}</span>
+                          <span className="text-[#6657C8] dark:text-[#A78BFA] font-semibold shrink-0">{t.statusWOInstaller || t.statusWOAgent || 'OPEN'}</span>
                         </div>
                       </button>
                     );
@@ -930,7 +930,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-              <div className="px-2 pt-1 pb-1 text-[10px] font-extrabold text-[#7d7484] dark:text-[#8B8495] uppercase tracking-[0.1em]">
+              <div className="px-2 pt-1 pb-1 text-[10px] font-extrabold text-[#8492A5] dark:text-[#8B8495] uppercase tracking-[0.1em]">
                 Operational Queue
               </div>
 
@@ -952,24 +952,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => handleItemClick(item.id)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all cursor-pointer active:translate-y-0.5 ${
                         isActive
-                          ? 'bg-white text-[#58149C] font-bold border border-[#D8B4FE] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2.5px_0_#D8CCF3,0_4px_10px_rgba(88,20,156,0.1)] dark:bg-[#7135b5] dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
-                          : 'text-[#4b4452] dark:text-[#CEC0E8] font-semibold hover:bg-white/75 dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                          ? 'bg-gradient-to-b from-white to-[#F0EDFF]/90 text-[#5145A6] font-bold border border-[#D4CEFA] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_2.5px_0_#D2CEF2,0_5px_12px_rgba(102,87,200,0.1)] dark:bg-[#7135b5] dark:bg-none dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                          : 'text-[#52647A] dark:text-[#CEC0E8] font-semibold hover:bg-white/80 dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
                       }`}
                     >
-                      <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-[#58149C] dark:text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                      <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-[#6657C8] dark:text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                       <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
                       {badgeInfo && (
                         <span
                           className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-full tabular-nums shrink-0 ${
                             badgeInfo.color === 'rose'
-                              ? 'bg-[#DC4C5A] text-white'
+                              ? 'bg-[#D45B66] dark:bg-[#DC4C5A] text-white'
                               : isActive
-                              ? 'bg-[#F3EAFF] text-[#58149C] dark:bg-white/20 dark:text-white'
+                              ? 'bg-[#EAE8FF] text-[#5145A6] dark:bg-white/20 dark:text-white'
                               : badgeInfo.color === 'amber'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
+                              ? 'bg-[#FFF2D9] text-[#C88735] dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
                               : badgeInfo.color === 'emerald'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-[#16A36A]/25 dark:text-emerald-300'
-                              : 'bg-[#7b1eca] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                              ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/25 dark:text-emerald-300'
+                              : 'bg-[#6657C8] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
                           }`}
                         >
                           {badgeInfo.text}
@@ -1002,24 +1002,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onClick={() => toggleGroup(cat.id, 'accordion')}
                             className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                               hasActiveChild
-                                ? 'text-[#58149c] dark:text-white bg-[#f3eaff] dark:bg-[#35105E]/70'
-                                : 'text-[#7d7484] dark:text-[#A78BFA] hover:bg-[#f8f1ff] dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white'
+                                ? 'text-[#5145A6] dark:text-white bg-[#F0EDFF] dark:bg-[#35105E]/70'
+                                : 'text-[#8492A5] dark:text-[#A78BFA] hover:bg-[#F8FAFD] dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
                             }`}
                             aria-expanded={isOpen}
                           >
                             <div className="flex items-center gap-2 min-w-0">
-                              <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6a46c1] dark:text-[#A78BFA]" />
+                              <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6657C8] dark:text-[#A78BFA]" />
                               <span className="truncate">{cat.name}</span>
                             </div>
                             <ChevronDown
-                              className={`w-3.5 h-3.5 shrink-0 text-[#7d7484] dark:text-[#A78BFA] transition-transform duration-200 ${
+                              className={`w-3.5 h-3.5 shrink-0 text-[#8492A5] dark:text-[#A78BFA] transition-transform duration-200 ${
                                 isOpen ? 'rotate-180' : 'rotate-0'
                               }`}
                             />
                           </button>
                         ) : (
-                          <div className="w-full flex items-center gap-2 px-2.5 pt-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A78BFA]">
-                            <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6a46c1] dark:text-[#A78BFA]" />
+                          <div className="w-full flex items-center gap-2 px-2.5 pt-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A78BFA]">
+                            <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6657C8] dark:text-[#A78BFA]" />
                             <span className="truncate">{cat.name}</span>
                           </div>
                         )}
@@ -1043,26 +1043,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   onClick={() => handleItemClick(item.id)}
                                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] transition-all cursor-pointer active:translate-y-0.5 ${
                                     isActive
-                                      ? 'bg-white text-[#58149C] font-bold border border-[#D8B4FE] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_2px_0_#D8CCF3] dark:bg-[#7135b5] dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                                      ? 'bg-gradient-to-b from-white to-[#F0EDFF]/90 text-[#5145A6] font-bold border border-[#D4CEFA] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_2px_0_#D2CEF2] dark:bg-[#7135b5] dark:bg-none dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
                                       : item.highlight
-                                      ? 'text-[#58149c] dark:text-white bg-[#f3eaff] dark:bg-[#35105E]/50 hover:bg-white/80 dark:hover:bg-[#35105E] font-semibold'
-                                      : 'text-[#4b4452] dark:text-[#CEC0E8] hover:bg-white/75 dark:hover:bg-[#35105E] hover:text-[#1f1638] dark:hover:text-white font-semibold'
+                                      ? 'text-[#5145A6] dark:text-white bg-[#F0EDFF] dark:bg-[#35105E]/50 hover:bg-white/80 dark:hover:bg-[#35105E] font-semibold'
+                                      : 'text-[#52647A] dark:text-[#CEC0E8] hover:bg-white/80 dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white font-semibold'
                                   }`}
                                 >
-                                  <SubIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#58149C] dark:text-white' : 'text-[#6a46c1] dark:text-[#A78BFA]'}`} />
+                                  <SubIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#6657C8] dark:text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
                                   <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
                                   {badgeInfo && (
                                     <span
                                       className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded-full tabular-nums shrink-0 ${
                                         badgeInfo.color === 'rose'
-                                          ? 'bg-[#DC4C5A] text-white'
+                                          ? 'bg-[#D45B66] dark:bg-[#DC4C5A] text-white'
                                           : isActive
-                                          ? 'bg-[#F3EAFF] text-[#58149C] dark:bg-white/20 dark:text-white'
+                                          ? 'bg-[#EAE8FF] text-[#5145A6] dark:bg-white/20 dark:text-white'
                                           : badgeInfo.color === 'amber'
-                                          ? 'bg-amber-100 text-amber-800 dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
+                                          ? 'bg-[#FFF2D9] text-[#C88735] dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
                                           : badgeInfo.color === 'emerald'
-                                          ? 'bg-emerald-100 text-emerald-800 dark:bg-[#16A36A]/25 dark:text-emerald-300'
-                                          : 'bg-[#7b1eca] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                                          ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/25 dark:text-emerald-300'
+                                          : 'bg-[#6657C8] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
                                       }`}
                                     >
                                       {badgeInfo.text}
@@ -1083,27 +1083,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* 4. Bottom Core Telemetry Summary & Quick Operational Escalation */}
-        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-4'} bg-white/30 dark:bg-white/[0.03] border-t border-[#e8ddff]/85 dark:border-white/[0.12] space-y-2.5 shrink-0`}>
+        <div className={`${isMiniMode ? 'p-2 items-center' : 'p-4'} bg-white/35 dark:bg-white/[0.03] border-t border-[#DDE6F0]/85 dark:border-white/[0.12] space-y-2.5 shrink-0`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className="w-11 h-9 rounded-lg bg-white dark:bg-[#160D29]/75 flex items-center justify-center border border-[#e8ddff] dark:border-[#35105E]"
+                className="w-11 h-9 rounded-lg bg-white dark:bg-[#160D29]/75 flex items-center justify-center border border-[#DDE6F0] dark:border-[#35105E]"
                 title={`Cluster: ${databaseStatus === 'connected' ? 'LIVE' : databaseStatus} (${syncStatus})`}
               >
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${
                     databaseStatus === 'connected'
-                      ? 'bg-[#16A36A]'
+                      ? 'bg-[#218A63] dark:bg-[#16A36A]'
                       : databaseStatus === 'connecting'
-                      ? 'bg-[#E59A27] animate-pulse'
-                      : 'bg-[#DC4C5A]'
+                      ? 'bg-[#C88735] dark:bg-[#E59A27] animate-pulse'
+                      : 'bg-[#D45B66] dark:bg-[#DC4C5A]'
                   }`}
                 />
               </div>
               <button
                 type="button"
                 onClick={logout}
-                className="w-11 h-9 rounded-lg text-rose-600 dark:text-rose-300 hover:text-white hover:bg-[#DC4C5A] flex items-center justify-center transition-colors cursor-pointer"
+                className="w-11 h-9 rounded-lg text-[#D45B66] dark:text-rose-300 hover:text-white hover:bg-[#D45B66] dark:hover:bg-[#DC4C5A] flex items-center justify-center transition-colors cursor-pointer"
                 title="Keluar / Logout"
                 aria-label="Keluar / Logout"
               >
@@ -1112,38 +1112,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <div className="space-y-2.5">
-              <div className="p-3 rounded-xl bg-white/82 dark:bg-white/[0.06] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_2px_0_#E8DDFF] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] border border-[#e8ddff] dark:border-white/[0.12] space-y-2">
+              <div className="p-3 rounded-xl bg-white/85 dark:bg-white/[0.06] backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.95),0_2px_0_#DDE6F0] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] border border-[#DDE6F0] dark:border-white/[0.12] space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#1F1638] dark:text-[#D8B4FE]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#26364A] dark:text-[#D8B4FE]">
                     CORE TELEMETRY
                   </span>
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
                       databaseStatus === 'connected'
-                        ? 'bg-[#58149C] dark:bg-[#16A36A] animate-pulse'
+                        ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse'
                         : databaseStatus === 'connecting'
-                        ? 'bg-[#E59A27] animate-pulse'
-                        : 'bg-[#DC4C5A]'
+                        ? 'bg-[#C88735] dark:bg-[#E59A27] animate-pulse'
+                        : 'bg-[#D45B66] dark:bg-[#DC4C5A]'
                     }`}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] font-semibold text-[#4b4452] dark:text-[#CEC0E8] tabular-nums">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8] tabular-nums">
                   <span>{totalActiveTickets} WO Aktif</span>
-                  <span className="text-[#58149C] dark:text-[#DAB9FF] font-mono font-bold">
+                  <span className="text-[#5145A6] dark:text-[#DAB9FF] font-mono font-bold">
                     {todayCompletionPct}% Done
                   </span>
                 </div>
-                <div className="w-full bg-[#F3EAFF] dark:bg-[#22123F] h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-[#EDF3F8] dark:bg-[#22123F] h-1.5 rounded-full overflow-hidden">
                   <div
-                    className="bg-[#58149c] dark:bg-[#a380fe] h-full transition-all duration-300"
+                    className="bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:bg-[#a380fe] dark:bg-none h-full transition-all duration-300"
                     style={{ width: `${todayCompletionPct}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#f3eaff] dark:border-white/10 text-[10.5px]">
-                  <span className="font-bold text-[#1f1638] dark:text-[#CEC0E8] truncate">
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#DDE6F0] dark:border-white/10 text-[10.5px]">
+                  <span className="font-bold text-[#26364A] dark:text-[#CEC0E8] truncate">
                     {currentUser?.name || 'Staff'}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#f3eaff] dark:bg-[#35105E] text-[#58149c] dark:text-[#DAB9FF] font-bold tabular-nums shrink-0">
+                  <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-bold tabular-nums shrink-0">
                     {unassignedCount} Unassigned
                   </span>
                 </div>
@@ -1165,7 +1165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-rose-50 dark:bg-[#DC4C5A]/20 text-rose-700 dark:text-rose-200 border border-rose-200/80 dark:border-transparent hover:bg-rose-600 hover:text-white dark:hover:bg-[#DC4C5A]/45 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#FCE9EB] dark:bg-[#DC4C5A]/20 text-[#D45B66] dark:text-rose-200 border border-[#D45B66]/25 dark:border-transparent hover:bg-[#D45B66] hover:text-white dark:hover:bg-[#DC4C5A]/45 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
                   title="Keluar / Logout"
                 >
                   <LogOut className="w-3.5 h-3.5 shrink-0" />

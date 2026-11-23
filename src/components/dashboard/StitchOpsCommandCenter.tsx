@@ -423,19 +423,19 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     const circumference = 2 * Math.PI * 46; // 289.026
     const total = c.totalToday;
     const items = [
-      { key: 'checkin', label: 'Check-In / Progress', count: c.checkedInProgress, color: '#0ea5e9' },
-      { key: 'complete', label: 'Approved - Done', count: c.approvedDone, color: '#10b981' },
-      { key: 'approval', label: 'Butuh Approval', count: c.butuhApproval, color: '#58149c' },
-      { key: 'revision', label: 'Revisi / Rejected', count: c.revisionRejected, color: '#f59e0b' },
-      { key: 'reschedule', label: 'Reschedule', count: c.approvedReschedule || c.reportReschedule, color: '#6a46c1' },
-      { key: 'pending', label: 'Pending', count: c.approvedPending || c.reportPending, color: '#eab308' },
-      { key: 'cancel', label: 'Cancel', count: c.approvedCancel || c.reportCancel, color: '#f43f5e' }
+      { key: 'checkin', label: 'Check-In / Progress', count: c.checkedInProgress, color: '#3E81C6' },
+      { key: 'complete', label: 'Approved - Done', count: c.approvedDone, color: '#218A63' },
+      { key: 'approval', label: 'Butuh Approval', count: c.butuhApproval, color: '#6657C8' },
+      { key: 'revision', label: 'Revisi / Rejected', count: c.revisionRejected, color: '#C88735' },
+      { key: 'reschedule', label: 'Reschedule', count: c.approvedReschedule || c.reportReschedule, color: '#65B8C4' },
+      { key: 'pending', label: 'Pending', count: c.approvedPending || c.reportPending, color: '#E0A84B' },
+      { key: 'cancel', label: 'Cancel', count: c.approvedCancel || c.reportCancel, color: '#D45B66' }
     ];
 
     const sumBuckets = items.reduce((acc, i) => acc + i.count, 0);
     const remaining = Math.max(0, total - sumBuckets);
     if (remaining > 0) {
-      items.push({ key: 'idle', label: 'Belum Check-in / Open', count: remaining, color: '#cbd5e1' });
+      items.push({ key: 'idle', label: 'Belum Check-in / Open', count: remaining, color: '#DCE3F2' });
     }
 
     const denominator = Math.max(total, sumBuckets, 1);
@@ -604,27 +604,27 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       {/* 1. Superadmin Maroon Master Console OR Standard Command Header */}
       {currentUser.role === 'super_admin' ? (
         <div className="space-y-3">
-          <div className="banner-maroon-superadmin rounded-2xl p-5 sm:p-6 text-white relative overflow-hidden">
-            <div className="absolute -right-14 -top-14 w-72 h-72 rounded-full bg-white/5 blur-3xl pointer-events-none" />
+          <div className="banner-maroon-superadmin rounded-2xl p-5 sm:p-6 text-[#26364A] dark:text-white relative overflow-hidden">
+            <div className="absolute -right-14 -top-14 w-72 h-72 rounded-full bg-[#65B8C4]/12 dark:bg-white/5 blur-3xl pointer-events-none" />
             <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
               <div className="flex items-start gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
-                  <Lock className="w-6 h-6 text-[#FFD8E4]" />
+                <div className="w-12 h-12 rounded-xl bg-[#EAE8FF] dark:bg-white/10 border border-[#DCE3F2] dark:border-white/15 flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+                  <Lock className="w-6 h-6 text-[#5145A6] dark:text-[#FFD8E4]" />
                 </div>
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded bg-white/15 border border-white/20 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                    <span className="px-2.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/15 border border-[#DCE3F2] dark:border-white/20 text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-white">
                       MASTER CONSOLE
                     </span>
-                    <span className="text-[11px] font-mono text-white/75 tabular-nums">
+                    <span className="text-[11px] font-mono text-[#52647A] dark:text-white/75 tabular-nums">
                       WIB: {todayWIB} · {c.totalToday} WO Aktif
                     </span>
                   </div>
-                  <h1 className="font-display text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
+                  <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight leading-snug">
                     Active Role: SUPERADMIN — Unrestricted System &amp; Operational Control
                   </h1>
-                  <p className="text-xs text-white/80 leading-relaxed">
-                    Operator: <span className="font-semibold text-white">{currentUser.name}</span> · Canonical 46-Column Schema · Dispatch Override Authority Enabled
+                  <p className="text-xs text-[#52647A] dark:text-white/80 leading-relaxed">
+                    Operator: <span className="font-semibold text-[#26364A] dark:text-white">{currentUser.name}</span> · Canonical 46-Column Schema · Dispatch Override Authority Enabled
                   </p>
                 </div>
               </div>
@@ -635,7 +635,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   onClick={() => onNavigate('import')}
                   className="btn-3d-maroon px-4 py-2.5 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
                 >
-                  <CloudDownload className="w-4 h-4 text-[#FFD8E4]" />
+                  <CloudDownload className="w-4 h-4 text-white dark:text-[#FFD8E4]" />
                   <span>+ Import Data WO</span>
                 </button>
                 <button
@@ -643,7 +643,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   onClick={() => onNavigate('system_health')}
                   className="btn-3d-maroon px-4 py-2.5 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
                 >
-                  <Database className="w-4 h-4 text-[#FFD8E4]" />
+                  <Database className="w-4 h-4 text-white dark:text-[#FFD8E4]" />
                   <span>Database Sync Health</span>
                 </button>
                 <button
@@ -651,11 +651,11 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   onClick={handleForceResync}
                   disabled={isSyncing || isKpiLoading}
                   title="Klik untuk sinkronisasi manual Supabase & KPI hari ini"
-                  className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[11px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap"
+                  className="px-3.5 py-2 rounded-xl bg-white/85 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-white/20 text-[#26364A] dark:text-white text-[11px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap"
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      databaseStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                      databaseStatus === 'connected' ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-amber-500 dark:bg-amber-400'
                     }`}
                   />
                   <span>
@@ -670,7 +670,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           {/* 5-Column Micro Filter Toolbar */}
           <div className="card-3d-lavender rounded-xl p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 items-center">
             <div className="relative sm:col-span-2 lg:col-span-2">
-              <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -680,7 +680,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 }}
                 placeholder="Cari WO, OLT, Cluster, Teknisi..."
                 aria-label="Cari Work Order di Operations Command"
-                className="w-full pl-9 pr-7 py-2 bg-[#f8f1ff] dark:bg-[#160d29] rounded-lg text-xs text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 placeholder:text-[#7d7484]"
+                className="w-full pl-9 pr-7 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 placeholder:text-[#8492A5]"
               />
               {searchQuery && (
                 <button
@@ -690,7 +690,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                     setFeedPage(1);
                   }}
                   aria-label="Bersihkan pencarian"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#58149c] cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#6657C8] cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -705,7 +705,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setKpiContractorFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-[#f8f1ff] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer"
+                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
               >
                 <option value="ALL">Semua Vendor (Global)</option>
                 {vendorOptions.map(v => (
@@ -714,7 +714,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="relative">
@@ -725,7 +725,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setKpiAreaFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-[#f8f1ff] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer"
+                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
               >
                 <option value="ALL">Semua Area Kerja</option>
                 {areaOptions.map(a => (
@@ -734,7 +734,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="relative">
@@ -745,7 +745,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setLeaderFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-[#f8f1ff] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer"
+                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
               >
                 <option value="ALL">Semua Leader / Korlap</option>
                 {leaderOptions.map(l => (
@@ -754,7 +754,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="flex items-center gap-1.5 justify-end">
@@ -781,33 +781,33 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
       ) : (
         <div className="card-3d-lavender relative rounded-xl p-5 sm:p-6 overflow-hidden">
-          <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#7135b5]/10 via-[#a380fe]/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#65B8C4]/12 via-[#6657C8]/5 to-transparent blur-3xl pointer-events-none" />
 
           <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
             <div className="flex flex-col space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[11px] font-bold tracking-wider uppercase shadow-[inset_0_1px_1px_rgba(33,24,58,0.08)]">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[11px] font-bold tracking-wider uppercase">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      databaseStatus === 'connected' ? 'bg-[#58149c] dark:bg-[#dab9ff] animate-pulse' : 'bg-amber-500'
+                      databaseStatus === 'connected' ? 'bg-[#2E7D8B] dark:bg-[#dab9ff] animate-pulse' : 'bg-amber-500'
                     }`}
                   />
                   <span>FTTH Core Live · {c.totalToday} WO Hari Ini</span>
                 </div>
-                <span className="text-[#7d7484] text-xs hidden sm:inline">•</span>
-                <span className="text-[#4b4452] dark:text-[#cabde8] text-[11px] font-semibold font-mono tabular-nums">
+                <span className="text-[#8492A5] text-xs hidden sm:inline">•</span>
+                <span className="text-[#52647A] dark:text-[#cabde8] text-[11px] font-semibold font-mono tabular-nums">
                   WIB: {todayWIB} · Sync: {syncStatus}
                 </span>
               </div>
 
-              <h1 className="font-display text-2xl sm:text-[28px] leading-tight text-[#1f1638] dark:text-white tracking-tight font-extrabold">
-                Global Operations Command <span className="text-[#58149c] dark:text-[#dab9ff] font-light">—</span>{' '}
+              <h1 className="font-display text-2xl sm:text-[28px] leading-tight text-[#26364A] dark:text-white tracking-tight font-extrabold">
+                Global Operations Command <span className="text-[#6657C8] dark:text-[#dab9ff] font-light">—</span>{' '}
                 {roleSubtitle}
               </h1>
-              <p className="text-xs sm:text-sm text-[#4b4452] dark:text-[#cabde8] max-w-3xl leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#cabde8] max-w-3xl leading-relaxed">
                 Pemantauan operasional Work Order FTTH real-time, check-in PROGRESS &amp; validasi Foto Rumah geotag,
                 serta distribusi vendor untuk{' '}
-                <span className="font-semibold text-[#58149c] dark:text-[#dab9ff]">{currentUser.name}</span>.
+                <span className="font-semibold text-[#5145A6] dark:text-[#dab9ff]">{currentUser.name}</span>.
               </p>
             </div>
 
@@ -833,9 +833,9 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
 
           {/* 5-Column Micro Filter Toolbar */}
-          <div className="mt-5 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-[#f8f1ff] dark:bg-[#160d29] p-3 rounded-lg border border-[#e8ddff]/70 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)]">
+          <div className="mt-5 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-[#EDF3F8] dark:bg-[#160d29] p-3 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)]">
             <div className="relative col-span-1 sm:col-span-2 lg:col-span-1">
-              <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -845,7 +845,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 }}
                 placeholder="Cari WO, OLT, Cluster, Teknisi..."
                 aria-label="Cari Work Order di Operations Command"
-                className="w-full pl-9 pr-7 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 placeholder:text-[#7d7484]"
+                className="w-full pl-9 pr-7 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 placeholder:text-[#8492A5]"
               />
               {searchQuery && (
                 <button
@@ -855,7 +855,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                     setFeedPage(1);
                   }}
                   aria-label="Bersihkan pencarian"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#58149c] cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#6657C8] cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -871,7 +871,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setKpiContractorFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 <option value="ALL">Semua Vendor (Global)</option>
                 {vendorOptions.map(v => (
@@ -880,7 +880,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="relative">
@@ -891,7 +891,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setKpiAreaFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer"
+                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
               >
                 <option value="ALL">Semua Area Kerja</option>
                 {areaOptions.map(a => (
@@ -900,7 +900,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="relative">
@@ -911,7 +911,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   setLeaderFilter(e.target.value);
                   setFeedPage(1);
                 }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] focus:outline-none focus:ring-2 focus:ring-[#58149c]/25 appearance-none cursor-pointer"
+                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
               >
                 <option value="ALL">Semua Leader / Korlap</option>
                 {leaderOptions.map(l => (
@@ -920,7 +920,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-[#7d7484] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -928,13 +928,13 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 type="button"
                 onClick={() => onNavigate(roleActionTarget)}
                 title="Buka daftar lengkap Work Orders hari ini"
-                className="flex-1 px-3 py-2 bg-white dark:bg-[#1e1238] rounded-md text-left text-xs font-semibold text-[#1f1638] dark:text-white border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.05)] flex items-center justify-between gap-2 hover:border-[#7135b5] transition-colors cursor-pointer min-w-0"
+                className="flex-1 px-3 py-2 bg-white dark:bg-[#1e1238] rounded-md text-left text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] flex items-center justify-between gap-2 hover:border-[#65B8C4] transition-colors cursor-pointer min-w-0"
               >
                 <span className="flex items-center gap-1.5 truncate">
-                  <Calendar className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                  <Calendar className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#dab9ff] shrink-0" />
                   <span className="truncate tabular-nums">{formatIndonesianWODate(todayWIB) || todayWIB}</span>
                 </span>
-                <ExternalLink className="w-3 h-3 text-[#7d7484] shrink-0" />
+                <ExternalLink className="w-3 h-3 text-[#8492A5] shrink-0" />
               </button>
               {hasActiveFilters && (
                 <button
@@ -961,18 +961,18 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         >
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 TOTAL WO TODAY
               </span>
-              <span className="w-7 h-7 rounded-lg bg-[#f3eaff] dark:bg-[#2e1459] flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2e1459] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
                 <Layers className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+              <span className="font-display text-3xl font-extrabold text-[#26364A] dark:text-white tabular-nums">
                 {c.totalToday}
               </span>
-              <span className="text-xs font-bold text-[#4b4452] dark:text-[#cabde8]">Aktif</span>
+              <span className="text-xs font-bold text-[#52647A] dark:text-[#cabde8]">Aktif</span>
             </div>
             <div className="mt-3 h-7 w-full flex items-end gap-1" aria-hidden="true">
               {telemetry.sparkHeights.map((h, i) => (
@@ -980,23 +980,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   key={i}
                   className={`flex-1 rounded-t transition-all ${
                     i < 2
-                      ? 'bg-[#e8ddff] dark:bg-[#2e1459]'
+                      ? 'bg-[#DDE6F0] dark:bg-[#2e1459]'
                       : i < 4
-                      ? 'bg-[#dab9ff] dark:bg-[#4c2488]'
+                      ? 'bg-[#BDE4E8] dark:bg-[#4c2488]'
                       : i === 4
-                      ? 'bg-[#58149c]/50 dark:bg-[#7135b5]/60'
+                      ? 'bg-[#65B8C4]/75 dark:bg-[#7135b5]/60'
                       : i === 5
-                      ? 'bg-[#58149c]/75 dark:bg-[#7135b5]/80'
-                      : 'bg-[#58149c] dark:bg-[#a380fe]'
+                      ? 'bg-[#6657C8]/75 dark:bg-[#7135b5]/80'
+                      : 'bg-[#6657C8] dark:bg-[#a380fe]'
                   }`}
                   style={{ height: `${h}%` }}
                 />
               ))}
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#f3eaff] dark:border-[#35105e] text-[11px] text-[#4b4452] dark:text-[#cabde8] flex items-center justify-between gap-1 tabular-nums">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] text-[11px] text-[#52647A] dark:text-[#cabde8] flex items-center justify-between gap-1 tabular-nums">
             <span>{c.unassigned} Unassigned</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#f3eaff] dark:bg-[#2e1459] font-bold text-[#58149c] dark:text-[#dab9ff]">
+            <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] font-bold text-[#5145A6] dark:text-[#dab9ff]">
               {telemetry.mappedCount} Mapped
             </span>
           </div>
@@ -1010,34 +1010,34 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         >
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 CHECK-IN / PROGRESS
               </span>
-              <span className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#E7F1FB] dark:bg-sky-950/60 flex items-center justify-center text-[#3E81C6] dark:text-sky-400 shrink-0">
                 <MapPin className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-sky-700 dark:text-sky-300 tabular-nums">
+              <span className="font-display text-3xl font-extrabold text-[#3E81C6] dark:text-sky-300 tabular-nums">
                 {c.checkedInProgress}
               </span>
-              <span className="text-xs font-bold text-sky-700/80 dark:text-sky-300/80">On-Site</span>
+              <span className="text-xs font-bold text-[#3E81C6]/85 dark:text-sky-300/80">On-Site</span>
             </div>
             <div className="mt-3 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-sky-100 dark:bg-sky-950/70 flex items-center justify-center text-sky-700 dark:text-sky-300 shrink-0">
+              <div className="w-7 h-7 rounded-md bg-[#E7F1FB] dark:bg-sky-950/70 flex items-center justify-center text-[#3E81C6] dark:text-sky-300 shrink-0">
                 <Camera className="w-4 h-4" />
               </div>
-              <div className="text-[11.5px] text-[#4b4452] dark:text-[#cabde8] leading-tight">
-                <span className="font-bold text-[#1f1638] dark:text-white tabular-nums">
+              <div className="text-[11.5px] text-[#52647A] dark:text-[#cabde8] leading-tight">
+                <span className="font-bold text-[#26364A] dark:text-white tabular-nums">
                   {telemetry.geotagVerifiedCount} Foto Rumah
                 </span>{' '}
                 valid GPS
               </div>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#f3eaff] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
             <span>Geotag {telemetry.geotagPct}%</span>
-            <span className="font-bold text-[#58149c] dark:text-[#dab9ff]">
+            <span className="font-bold text-[#5145A6] dark:text-[#dab9ff]">
               {telemetry.oltCount} OLT · {telemetry.fatCount} FAT
             </span>
           </div>
@@ -1051,29 +1051,29 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         >
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 APPROVED - DONE
               </span>
-              <span className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#E4F5EC] dark:bg-emerald-950/60 flex items-center justify-center text-[#218A63] dark:text-emerald-400 shrink-0">
                 <CheckCircle2 className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums">
+              <span className="font-display text-3xl font-extrabold text-[#218A63] dark:text-emerald-300 tabular-nums">
                 {c.approvedDone}
               </span>
-              <span className="text-xs font-bold text-emerald-700/80 dark:text-emerald-300/80">Completed</span>
+              <span className="text-xs font-bold text-[#218A63]/85 dark:text-emerald-300/80">Completed</span>
             </div>
-            <div className="mt-3 w-full bg-[#f3eaff] dark:bg-[#160d29] h-2 rounded-full overflow-hidden">
+            <div className="mt-3 w-full bg-[#EDF3F8] dark:bg-[#160d29] h-2 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                className="bg-[#218A63] dark:bg-emerald-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, telemetry.completionPct)}%` }}
               />
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#f3eaff] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
             <span>Closed: {c.closed}</span>
-            <span className="font-bold text-emerald-700 dark:text-emerald-300">{telemetry.completionPct}%</span>
+            <span className="font-bold text-[#218A63] dark:text-emerald-300">{telemetry.completionPct}%</span>
           </div>
         </button>
 
@@ -1081,33 +1081,33 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="card-3d-lavender relative group rounded-xl p-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                 BUTUH APPROVAL QA
               </span>
-              <span className="w-7 h-7 rounded-lg bg-[#f3eaff] dark:bg-[#2e1459] flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2e1459] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
                 <ShieldCheck className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2.5 flex items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
-                <span className="font-display text-3xl font-extrabold text-[#58149c] dark:text-white tabular-nums">
+                <span className="font-display text-3xl font-extrabold text-[#5145A6] dark:text-white tabular-nums">
                   {c.butuhApproval}
                 </span>
-                <span className="text-xs font-bold text-[#4b4452] dark:text-[#cabde8]">Tiket</span>
+                <span className="text-xs font-bold text-[#52647A] dark:text-[#cabde8]">Tiket</span>
               </div>
               <span
                 className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                   c.butuhApproval > 0
-                    ? 'bg-[#58149c] text-white'
-                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200'
+                    ? 'bg-[#6657C8] dark:bg-[#58149c] text-white'
+                    : 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-200'
                 }`}
               >
                 {c.butuhApproval > 0 ? 'Hot Desk' : 'Synced'}
               </span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#f3eaff] dark:border-[#35105e] flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-2">
+            <span className="text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
               Wait: {telemetry.avgApprovalWaitMin !== null ? `${telemetry.avgApprovalWaitMin}m` : '—'}
             </span>
             <button
@@ -1127,29 +1127,29 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
         </div>
 
-        {/* Card 5: Overdue WO Alert (Crimson 3D Tactile Card) */}
-        <div className="rounded-xl p-4 bg-[#FFF1F2] dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#FECDD3] dark:shadow-[0_3px_0_#4c0519] flex flex-col justify-between">
+        {/* Card 5: Overdue WO Alert */}
+        <div className="rounded-xl p-4 bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#F3C5CA] dark:shadow-[0_3px_0_#4c0519] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300 flex items-center gap-1.5">
                 {overdueSummary.totalOverdue > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-[#D45B66] animate-ping shrink-0" />
                 )}
                 <span>OVERDUE WO ALERT</span>
               </span>
-              <span className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/60 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#F9D7DB] dark:bg-rose-900/60 flex items-center justify-center text-[#9B2C37] dark:text-rose-300 shrink-0">
                 <AlertTriangle className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-rose-700 dark:text-rose-300 tabular-nums">
+              <span className="font-display text-3xl font-extrabold text-[#9B2C37] dark:text-rose-300 tabular-nums">
                 {overdueSummary.totalOverdue}
               </span>
-              <span className="text-xs font-bold text-rose-800 dark:text-rose-200">WO Overdue</span>
+              <span className="text-xs font-bold text-[#9B2C37] dark:text-rose-200">WO Overdue</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-rose-200/80 dark:border-rose-800/60 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300 tabular-nums">
+          <div className="mt-3 pt-2 border-t border-[#F3C5CA] dark:border-rose-800/60 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-[#9B2C37] dark:text-rose-300 tabular-nums">
               Critical &gt;7h: {overdueSummary.criticalOverdueGt7Days}
             </span>
             <button
@@ -1164,22 +1164,22 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       </div>
 
       {/* 3. Secondary Tactical KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-3 bg-white dark:bg-[#1e1238] rounded-xl border border-[#e8ddff]/80 dark:border-[#3b1d78] shadow-[0_2px_8px_rgba(53,16,94,0.04),inset_0_1px_0_rgba(255,255,255,0.85)]">
+      <div className="card-3d-lavender grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-3 rounded-xl">
         <button
           type="button"
           onClick={() => onDrillDown('approved')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#58149c]/15 flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#EAE8FF] dark:bg-[#58149c]/15 flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               APPROVAL RATE
             </div>
-            <div className="font-display text-base font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+            <div className="font-display text-base font-extrabold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
               {telemetry.approvalPct}%{' '}
-              <span className="text-[11px] font-normal text-[#7d7484]">({c.approved})</span>
+              <span className="text-[11px] font-normal text-[#8492A5]">({c.approved})</span>
             </div>
           </div>
         </button>
@@ -1187,17 +1187,17 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <button
           type="button"
           onClick={() => onDrillDown('approved_reschedule')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#6a46c1]/15 flex items-center justify-center text-[#6a46c1] dark:text-[#dab9ff] shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#DDF4F4] dark:bg-[#6a46c1]/15 flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shrink-0">
             <Calendar className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               RESCHEDULE
             </div>
-            <div className="font-display text-base font-extrabold text-[#6a46c1] dark:text-[#dab9ff] tabular-nums">
-              {c.approvedReschedule} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            <div className="font-display text-base font-extrabold text-[#2E7D8B] dark:text-[#dab9ff] tabular-nums">
+              {c.approvedReschedule} <span className="text-xs font-normal text-[#8492A5]">WO</span>
             </div>
           </div>
         </button>
@@ -1205,17 +1205,17 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <button
           type="button"
           onClick={() => onDrillDown('approved_pending')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#FFF2D9] dark:bg-amber-500/15 flex items-center justify-center text-[#9D661F] dark:text-amber-300 shrink-0">
             <Hourglass className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               PENDING
             </div>
-            <div className="font-display text-base font-extrabold text-amber-900 dark:text-amber-200 tabular-nums">
-              {c.approvedPending} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            <div className="font-display text-base font-extrabold text-[#9D661F] dark:text-amber-200 tabular-nums">
+              {c.approvedPending} <span className="text-xs font-normal text-[#8492A5]">WO</span>
             </div>
           </div>
         </button>
@@ -1223,17 +1223,17 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <button
           type="button"
           onClick={() => onDrillDown('approved_cancel')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-700 dark:text-rose-300 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#FCE9EB] dark:bg-rose-500/15 flex items-center justify-center text-[#9B2C37] dark:text-rose-300 shrink-0">
             <XCircle className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               CANCEL
             </div>
-            <div className="font-display text-base font-extrabold text-rose-800 dark:text-rose-300 tabular-nums">
-              {c.approvedCancel} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            <div className="font-display text-base font-extrabold text-[#9B2C37] dark:text-rose-300 tabular-nums">
+              {c.approvedCancel} <span className="text-xs font-normal text-[#8492A5]">WO</span>
             </div>
           </div>
         </button>
@@ -1241,17 +1241,17 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <button
           type="button"
           onClick={() => onDrillDown('revision_rejected')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#FFF2D9] dark:bg-amber-500/15 flex items-center justify-center text-[#9D661F] dark:text-amber-300 shrink-0">
             <RotateCcw className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               PERLU REVISI
             </div>
-            <div className="font-display text-base font-extrabold text-amber-800 dark:text-amber-300 tabular-nums">
-              {c.revisionRejected} <span className="text-xs font-normal text-[#7d7484]">WO</span>
+            <div className="font-display text-base font-extrabold text-[#9D661F] dark:text-amber-300 tabular-nums">
+              {c.revisionRejected} <span className="text-xs font-normal text-[#8492A5]">WO</span>
             </div>
           </div>
         </button>
@@ -1259,16 +1259,16 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <button
           type="button"
           onClick={() => onDrillDown('approved_done')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#E4F5EC] dark:bg-emerald-500/15 flex items-center justify-center text-[#218A63] dark:text-emerald-300 shrink-0">
             <Activity className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase truncate">
+            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
               COMPLETION RATE
             </div>
-            <div className="font-display text-base font-extrabold text-emerald-800 dark:text-emerald-300 tabular-nums">
+            <div className="font-display text-base font-extrabold text-[#218A63] dark:text-emerald-300 tabular-nums">
               {telemetry.completionPct}%
             </div>
           </div>
@@ -1276,24 +1276,24 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       </div>
 
       {/* 4. Standard WO Lifecycle Pipeline (7-Stage Interactive Stepper) */}
-      <div className="relative bg-white dark:bg-[#1e1238] rounded-xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(53,16,94,0.06),inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-[#e8ddff]/80 dark:border-[#3b1d78] overflow-hidden">
+      <div className="card-3d-lavender relative rounded-xl p-5 sm:p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-display text-lg font-extrabold text-[#1f1638] dark:text-white">
+              <span className="font-display text-lg font-extrabold text-[#26364A] dark:text-white">
                 Standard WO Lifecycle Pipeline
               </span>
-              <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-[#58149c] text-white uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-[#EAE8FF] dark:bg-[#58149c] text-[#5145A6] dark:text-white uppercase tracking-wider">
                 AppFlow Live
               </span>
             </div>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] mt-0.5">
               Alur operasional terintegrasi: Import WO → Distribusi Leader → Assign Teknisi → Check-in PROGRESS &amp;
               Foto Rumah Geotag → Report → Approval → Closed.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-[#7d7484] dark:text-[#cabde8] shrink-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-[#8492A5] dark:text-[#cabde8] shrink-0">
+            <span className="w-2 h-2 rounded-full bg-[#218A63] dark:bg-emerald-500" />
             <span>Auto-sync Supabase aktif</span>
           </div>
         </div>
@@ -1301,10 +1301,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="relative py-3 px-2 overflow-x-auto">
           <div className="min-w-[840px] relative">
             {/* Background Connecting Track */}
-            <div className="absolute top-7 left-12 right-12 h-1 bg-[#e8ddff] dark:bg-[#35105e] rounded-full z-0" />
+            <div className="absolute top-7 left-12 right-12 h-1 bg-[#DDE6F0] dark:bg-[#35105e] rounded-full z-0" />
             {/* Active Progress Track */}
             <div
-              className="absolute top-7 left-12 h-1 bg-gradient-to-r from-emerald-500 via-sky-500 to-[#7135b5] rounded-full z-0 transition-all duration-500"
+              className="absolute top-7 left-12 h-1 bg-gradient-to-r from-[#218A63] via-[#65B8C4] to-[#6657C8] dark:from-emerald-500 dark:via-sky-500 dark:to-[#7135b5] rounded-full z-0 transition-all duration-500"
               style={{ width: `calc(${pipelineFillPct}% - 6rem)` }}
             />
 
@@ -1315,16 +1315,16 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('total_today')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
                   <CloudDownload className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   1. Import WO
                 </span>
-                <span className="text-xs text-emerald-700 dark:text-emerald-300 font-bold tabular-nums">
+                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
                   {c.totalToday} Ingested
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">{todayWIB}</span>
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">{todayWIB}</span>
               </button>
 
               {/* Stage 2: Distribusi Leader */}
@@ -1333,16 +1333,16 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('unmapped_distribution')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
                   <Users className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   2. Auto Leader
                 </span>
-                <span className="text-xs text-emerald-700 dark:text-emerald-300 font-bold tabular-nums">
+                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
                   {telemetry.mappedCount} Mapped
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">
                   {c.unmappedDistribution > 0 ? `${c.unmappedDistribution} Unmapped` : 'Vendor Routing'}
                 </span>
               </button>
@@ -1353,16 +1353,16 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('assigned')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
                   <UserCheck className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   3. Assignment
                 </span>
-                <span className="text-xs text-emerald-700 dark:text-emerald-300 font-bold tabular-nums">
+                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
                   {c.assigned} Assigned
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">
                   {c.unassigned > 0 ? `${c.unassigned} Buffer` : 'Penuh'}
                 </span>
               </button>
@@ -1374,24 +1374,24 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
                 <div
-                  className={`relative w-14 h-14 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 text-white flex items-center justify-center shadow-[0_0_20px_rgba(2,132,199,0.5),inset_0_1px_0_rgba(255,255,255,0.6)] transition-transform group-hover:scale-105 ${
+                  className={`relative w-14 h-14 rounded-xl bg-gradient-to-tr from-[#3E81C6] to-[#65B8C4] dark:from-sky-600 dark:to-sky-400 text-white flex items-center justify-center shadow-[0_6px_18px_rgba(62,129,198,0.32),inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_0_20px_rgba(2,132,199,0.5),inset_0_1px_0_rgba(255,255,255,0.6)] transition-transform group-hover:scale-105 ${
                     c.checkedInProgress > 0 ? 'animate-pulse' : ''
                   }`}
                 >
                   <Camera className="w-6 h-6" />
                   {c.checkedInProgress > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-[#1f1638] text-white text-[9px] font-bold rounded-full">
+                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-[#26364A] dark:bg-[#1f1638] text-white text-[9px] font-bold rounded-full">
                       LIVE
                     </span>
                   )}
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#2E7D8B] dark:text-sky-300 uppercase tracking-wider">
                   4. Check-in &amp; Geo
                 </span>
-                <span className="text-xs text-sky-800 dark:text-sky-200 font-bold tabular-nums">
+                <span className="text-xs text-[#26364A] dark:text-sky-200 font-bold tabular-nums">
                   {c.checkedInProgress} On-Site
                 </span>
-                <span className="text-[10.5px] text-sky-600 dark:text-sky-400 font-semibold mt-0.5">
+                <span className="text-[10.5px] text-[#3E81C6] dark:text-sky-400 font-semibold mt-0.5">
                   {telemetry.geotagVerifiedCount} Foto Rumah
                 </span>
               </button>
@@ -1405,19 +1405,19 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <div
                   className={`w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
                     telemetry.totalReported > 0
-                      ? 'bg-[#6a46c1] text-white shadow-[0_4px_12px_rgba(106,70,193,0.35)]'
-                      : 'bg-[#eee4ff] dark:bg-[#2a194b] text-[#4b4452] dark:text-[#cabde8]'
+                      ? 'bg-[#6657C8] dark:bg-[#6a46c1] text-white shadow-[0_4px_12px_rgba(102,87,200,0.3)] dark:shadow-[0_4px_12px_rgba(106,70,193,0.35)]'
+                      : 'bg-[#EDF3F8] dark:bg-[#2a194b] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-transparent'
                   }`}
                 >
                   <FileCheck2 className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   5. Tech Report
                 </span>
-                <span className="text-xs text-[#6a46c1] dark:text-[#dab9ff] font-bold tabular-nums">
+                <span className="text-xs text-[#6657C8] dark:text-[#dab9ff] font-bold tabular-nums">
                   {telemetry.totalReported} Submitted
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">
                   Complete: {c.reportComplete}
                 </span>
               </button>
@@ -1431,19 +1431,19 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <div
                   className={`w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
                     c.butuhApproval > 0
-                      ? 'bg-[#7135b5] text-white shadow-[0_4px_12px_rgba(113,53,181,0.35)]'
-                      : 'bg-[#eee4ff] dark:bg-[#2a194b] text-[#4b4452] dark:text-[#cabde8]'
+                      ? 'bg-[#5145A6] dark:bg-[#7135b5] text-white shadow-[0_4px_12px_rgba(81,69,166,0.3)] dark:shadow-[0_4px_12px_rgba(113,53,181,0.35)]'
+                      : 'bg-[#EDF3F8] dark:bg-[#2a194b] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-transparent'
                   }`}
                 >
                   <ShieldCheck className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   6. Verification
                 </span>
-                <span className="text-xs text-[#58149c] dark:text-[#dab9ff] font-bold tabular-nums">
+                <span className="text-xs text-[#5145A6] dark:text-[#dab9ff] font-bold tabular-nums">
                   {c.butuhApproval} Pending QA
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">Dispatch Review</span>
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">Dispatch Review</span>
               </button>
 
               {/* Stage 7: Terminal State */}
@@ -1452,16 +1452,16 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('closed')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-transform group-hover:scale-105">
+                <div className="w-14 h-14 rounded-xl bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] border border-[#DCE3F2] dark:border-transparent flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform group-hover:scale-105">
                   <GitBranch className="w-6 h-6" />
                 </div>
-                <span className="mt-3 text-[11px] font-bold text-[#1f1638] dark:text-white uppercase tracking-wider">
+                <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   7. Terminal State
                 </span>
-                <span className="text-xs text-[#58149c] dark:text-[#dab9ff] font-bold tabular-nums">
+                <span className="text-xs text-[#5145A6] dark:text-[#dab9ff] font-bold tabular-nums">
                   {c.approvedDone} Done
                 </span>
-                <span className="text-[10.5px] text-[#7d7484] mt-0.5">Closed: {c.closed}</span>
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">Closed: {c.closed}</span>
               </button>
             </div>
           </div>
@@ -1474,21 +1474,21 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="card-3d-lavender rounded-xl p-5 space-y-4 flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+              <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                 WO Distribution Mix
               </h2>
-              <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+              <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
                 Proporsi live dari {c.totalToday} Work Order
               </p>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] text-[10px] font-bold border border-[#BDE4E8] dark:border-transparent">
               Today
             </span>
           </div>
 
           <div className="flex flex-col items-center justify-center relative py-1">
             <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 120 120" aria-label="WO Distribution Donut Chart">
-              <circle cx="60" cy="60" fill="transparent" r="46" className="stroke-[#f3eaff] dark:stroke-[#2e1459]" strokeWidth="14" />
+              <circle cx="60" cy="60" fill="transparent" r="46" className="stroke-[#EDF3F8] dark:stroke-[#2e1459]" strokeWidth="14" />
               {c.totalToday > 0 &&
                 donutSegments.map(seg =>
                   seg.count > 0 ? (
@@ -1507,13 +1507,13 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 )}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-              <span className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white leading-none tabular-nums">
+              <span className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white leading-none tabular-nums">
                 {c.totalToday}
               </span>
-              <span className="text-[9.5px] font-bold text-[#7d7484] dark:text-[#cabde8] uppercase tracking-wider mt-1">
+              <span className="text-[9.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase tracking-wider mt-1">
                 TOTAL WO
               </span>
-              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 mt-0.5 tabular-nums">
+              <span className="text-[10px] font-bold text-[#218A63] dark:text-emerald-300 mt-0.5 tabular-nums">
                 {telemetry.completionPct}% Done
               </span>
             </div>
@@ -1524,25 +1524,25 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
               {
                 label: 'Checked-In',
                 count: c.checkedInProgress,
-                dot: 'bg-sky-500',
+                dot: 'bg-[#65B8C4] dark:bg-sky-500',
                 filter: 'checked_in_progress' as WOKpiFilterKey
               },
               {
                 label: 'Approved Done',
                 count: c.approvedDone,
-                dot: 'bg-emerald-500',
+                dot: 'bg-[#218A63] dark:bg-emerald-500',
                 filter: 'approved_done' as WOKpiFilterKey
               },
               {
                 label: 'Butuh Approval',
                 count: c.butuhApproval,
-                dot: 'bg-[#58149c]',
+                dot: 'bg-[#6657C8] dark:bg-[#58149c]',
                 filter: 'butuh_approval' as WOKpiFilterKey
               },
               {
                 label: 'Revisi / Unassigned',
                 count: c.revisionRejected + c.unassigned,
-                dot: 'bg-amber-500',
+                dot: 'bg-[#C88735] dark:bg-amber-500',
                 filter: 'unassigned' as WOKpiFilterKey
               }
             ].map(item => (
@@ -1550,13 +1550,13 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 key={item.label}
                 type="button"
                 onClick={() => onDrillDown(item.filter)}
-                className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#f8f1ff] dark:bg-[#160d29] hover:bg-[#eee4ff] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+                className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0]/70 dark:border-transparent hover:bg-[#EAE8FF] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
               >
-                <span className="flex items-center gap-1.5 truncate text-[#4b4452] dark:text-[#cabde8] font-semibold">
+                <span className="flex items-center gap-1.5 truncate text-[#52647A] dark:text-[#cabde8] font-semibold">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${item.dot}`} />
                   <span className="truncate">{item.label}</span>
                 </span>
-                <span className="font-bold text-[#1f1638] dark:text-white tabular-nums">{item.count}</span>
+                <span className="font-bold text-[#26364A] dark:text-white tabular-nums">{item.count}</span>
               </button>
             ))}
           </div>
@@ -1566,36 +1566,36 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="card-3d-lavender rounded-xl p-5 flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+              <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                 FTTH Node &amp; Vendor Load
               </h2>
-              <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
+              <p className="text-[11px] text-[#52647A] dark:text-[#cabde8]">
                 Kapasitas node FAT/OLT &amp; beban mitra
               </p>
             </div>
-            <span className="px-2 py-0.5 rounded bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] text-[10px] font-bold">
               {effectiveSummary.byVendor.length} Mitra
             </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] space-y-2">
+          <div className="p-3.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white truncate">
+              <span className="font-display text-sm font-extrabold text-[#26364A] dark:text-white truncate">
                 {topVendorLoad ? topVendorLoad.contractorName : 'Belum ada beban vendor'}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#58149c] text-white text-[10px] font-bold shrink-0">
+              <span className="px-2 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#58149c] text-white text-[10px] font-bold shrink-0">
                 Primary Vendor
               </span>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+            <div className="flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
               <span>
                 Quota: {topVendorLoad && c.totalToday > 0 ? `${topVendorLoad.total} / ${c.totalToday} WO` : `${c.totalToday} WO`}
               </span>
               <span>{telemetry.fatCount} FAT Mapped</span>
             </div>
-            <div className="w-full bg-[#e8ddff] dark:bg-[#2a194b] h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-[#EDF3F8] dark:bg-[#2a194b] h-2 rounded-full overflow-hidden">
               <div
-                className="bg-gradient-to-r from-[#58149c] to-[#7135b5] h-full rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-[#6657C8] to-[#65B8C4] dark:from-[#58149c] dark:to-[#7135b5] h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${
                     topVendorLoad && c.totalToday > 0
@@ -1608,34 +1608,34 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 text-center">
-            <div className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e]">
-              <div className="text-[10px] font-bold uppercase text-[#7d7484] dark:text-[#cabde8]">ACTIVE FATS</div>
-              <div className="font-display text-xl font-extrabold text-[#1f1638] dark:text-white mt-0.5 tabular-nums">
+            <div className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e]">
+              <div className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">ACTIVE FATS</div>
+              <div className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-0.5 tabular-nums">
                 {telemetry.fatCount}
               </div>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e]">
-              <div className="text-[10px] font-bold uppercase text-[#7d7484] dark:text-[#cabde8]">OLT ACTIVE</div>
-              <div className="font-display text-xl font-extrabold text-[#58149c] dark:text-[#dab9ff] mt-0.5 tabular-nums">
+            <div className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e]">
+              <div className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">OLT ACTIVE</div>
+              <div className="font-display text-xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] mt-0.5 tabular-nums">
                 {telemetry.oltCount}
               </div>
             </div>
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/35 border border-rose-200 dark:border-rose-900/50">
-              <div className="text-[10px] font-bold uppercase text-rose-700 dark:text-rose-300">OVERDUE SLA</div>
-              <div className="font-display text-xl font-extrabold text-rose-700 dark:text-rose-300 mt-0.5 tabular-nums">
+            <div className="p-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/50">
+              <div className="text-[10px] font-bold uppercase text-[#9B2C37] dark:text-rose-300">OVERDUE SLA</div>
+              <div className="font-display text-xl font-extrabold text-[#9B2C37] dark:text-rose-300 mt-0.5 tabular-nums">
                 {overdueSummary.totalOverdue}
               </div>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#f3eaff] dark:border-[#35105e] flex items-center justify-between text-[11px]">
-            <span className="text-[#4b4452] dark:text-[#cabde8] truncate">
+          <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px]">
+            <span className="text-[#52647A] dark:text-[#cabde8] truncate">
               Tech Aktif: {telemetry.activeInstallers}/{telemetry.totalInstallers || telemetry.activeInstallers}
             </span>
             <button
               type="button"
               onClick={() => onNavigate('sla_monitoring')}
-              className="font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
+              className="font-bold text-[#5145A6] dark:text-[#dab9ff] hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0"
             >
               <span>Rebalance Load</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1647,47 +1647,47 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="card-3d-lavender rounded-xl p-5 flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#f3eaff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] flex items-center justify-center border border-[#BDE4E8] dark:border-transparent">
                 <Server className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-display text-base font-extrabold text-[#1f1638] dark:text-white">
+                <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
                   Telemetry Engine
                 </h2>
-                <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
+                <p className="text-[11px] text-[#52647A] dark:text-[#cabde8]">
                   Live sync, IndexedDB &amp; audit trail
                 </p>
               </div>
             </div>
-            <Radio className={`w-4 h-4 ${databaseStatus === 'connected' ? 'text-emerald-500 animate-pulse' : 'text-amber-500'}`} />
+            <Radio className={`w-4 h-4 ${databaseStatus === 'connected' ? 'text-[#218A63] dark:text-emerald-500 animate-pulse' : 'text-[#C88735] dark:text-amber-500'}`} />
           </div>
 
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] text-xs">
-              <span className="font-semibold text-[#4b4452] dark:text-[#cabde8]">Realtime SSE</span>
-              <span className="inline-flex items-center gap-1.5 font-bold text-[#1f1638] dark:text-white">
-                <span className={`w-2 h-2 rounded-full ${databaseStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] text-xs">
+              <span className="font-semibold text-[#52647A] dark:text-[#cabde8]">Realtime SSE</span>
+              <span className="inline-flex items-center gap-1.5 font-bold text-[#26364A] dark:text-white">
+                <span className={`w-2 h-2 rounded-full ${databaseStatus === 'connected' ? 'bg-[#218A63] dark:bg-emerald-500' : 'bg-[#C88735] dark:bg-amber-500'}`} />
                 <span>{databaseStatus === 'connected' ? 'Connected' : databaseStatus.toUpperCase()}</span>
               </span>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] text-xs">
-              <span className="font-semibold text-[#4b4452] dark:text-[#cabde8]">Offline Sync</span>
-              <span className="font-bold text-[#1f1638] dark:text-white tabular-nums">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] text-xs">
+              <span className="font-semibold text-[#52647A] dark:text-[#cabde8]">Offline Sync</span>
+              <span className="font-bold text-[#26364A] dark:text-white tabular-nums">
                 {pendingCount === 0 ? 'Ready (IndexedDB)' : `${pendingCount} Pending`}
               </span>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105e] text-xs">
-              <span className="font-semibold text-[#4b4452] dark:text-[#cabde8]">Audit Trail</span>
-              <span className="px-2 py-0.5 rounded bg-[#160D29] text-white font-mono text-[11px] font-bold tabular-nums">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] text-xs">
+              <span className="font-semibold text-[#52647A] dark:text-[#cabde8]">Audit Trail</span>
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#160D29] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-transparent font-mono text-[11px] font-bold tabular-nums">
                 {todayAuditCount} events today
               </span>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#f3eaff] dark:border-[#35105e] flex items-center justify-between text-[11px]">
-            <span className="font-mono text-[#7d7484] dark:text-[#cabde8]">Sync: {syncStatus}</span>
+          <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px]">
+            <span className="font-mono text-[#8492A5] dark:text-[#cabde8]">Sync: {syncStatus}</span>
             <button
               type="button"
               onClick={() =>
@@ -1697,7 +1697,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                     : 'history_progress'
                 )
               }
-              className="font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline inline-flex items-center gap-1 cursor-pointer"
+              className="font-bold text-[#5145A6] dark:text-[#dab9ff] hover:underline inline-flex items-center gap-1 cursor-pointer"
             >
               <span>Full Log</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1711,14 +1711,14 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-display text-lg font-extrabold text-[#1f1638] dark:text-white">
+              <h2 className="font-display text-lg font-extrabold text-[#26364A] dark:text-white">
                 Recent Critical WO Operational Feed
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10.5px] font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 border border-[#B7E4CC] dark:border-transparent text-[10.5px] font-bold">
                 Live Ticker
               </span>
             </div>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8]">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8]">
               Stream Work Order aktif hari ini ({todayWIB}) dengan alamat pelanggan, status approval, dan validasi Foto Rumah geotag.
             </p>
           </div>
@@ -1762,9 +1762,9 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
 
         <div className="overflow-x-auto -mx-2 px-2">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse mj-zebra-table">
             <thead>
-              <tr className="bg-[#f8f1ff] dark:bg-[#160d29] text-[#7d7484] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider">
+              <tr className="bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider border-y border-[#DDE6F0] dark:border-transparent">
                 <th className="py-3 px-3 rounded-l-lg">WO ID &amp; Node</th>
                 <th className="py-3 px-3">Pelanggan &amp; Alamat</th>
                 <th className="py-3 px-3">Teknisi / Leader</th>
@@ -1773,11 +1773,11 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <th className="py-3 px-3 text-right rounded-r-lg">Aksi Command</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#eee4ff]/60 dark:divide-[#35105e] text-xs">
+            <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105e] text-xs">
               {pagedFeedTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 px-4 text-center text-[#7d7484] dark:text-[#cabde8]">
-                    <div className="font-semibold text-sm text-[#1f1638] dark:text-white">
+                  <td colSpan={6} className="py-10 px-4 text-center text-[#8492A5] dark:text-[#cabde8]">
+                    <div className="font-semibold text-sm text-[#26364A] dark:text-white">
                       Tidak ada Work Order yang cocok dengan filter aktif
                     </div>
                     <p className="text-xs mt-1">
@@ -1803,26 +1803,26 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   return (
                     <tr
                       key={ticket.id}
-                      className="hover:bg-[#f8f1ff]/70 dark:hover:bg-[#2a194b]/50 transition-colors"
+                      className="hover:bg-[#F0EDFF]/65 dark:hover:bg-[#2a194b]/50 transition-colors"
                     >
                       <td className="py-3.5 px-3 align-top">
                         <button
                           type="button"
                           onClick={() => (onSelectTicket ? onSelectTicket(ticket, 'overview') : onNavigate('tickets'))}
-                          className="font-mono font-bold text-[#58149c] dark:text-[#dab9ff] hover:underline text-left cursor-pointer whitespace-nowrap"
+                          className="font-mono font-bold text-[#5145A6] dark:text-[#dab9ff] hover:underline text-left cursor-pointer whitespace-nowrap"
                         >
                           {ticket.woNumber}
                         </button>
-                        <div className="text-[11px] text-[#7d7484] dark:text-[#cabde8] mt-0.5 truncate max-w-[185px]">
+                        <div className="text-[11px] text-[#8492A5] dark:text-[#cabde8] mt-0.5 truncate max-w-[185px]">
                           {nodeLabel || ticket.area || '-'}
                         </div>
                       </td>
 
                       <td className="py-3.5 px-3 align-top min-w-[210px] max-w-[280px]">
-                        <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                        <div className="font-bold text-[#26364A] dark:text-white truncate">
                           {ticket.customerName}
                         </div>
-                        <div className="text-[11px] text-[#4b4452] dark:text-[#cabde8] leading-snug mt-0.5">
+                        <div className="text-[11px] text-[#52647A] dark:text-[#cabde8] leading-snug mt-0.5">
                           {fullAddress}
                         </div>
                         {mapsInfo.url && (
@@ -1830,7 +1830,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                             href={mapsInfo.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#6a46c1] dark:text-[#a380fe] hover:underline mt-0.5"
+                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#6657C8] dark:text-[#a380fe] hover:underline mt-0.5"
                           >
                             <MapPin className="w-3 h-3" />
                             <span>View Google Maps Pin</span>
@@ -1843,8 +1843,8 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                           <div
                             className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
                               ticket.installerName
-                                ? 'bg-[#7135b5] text-white'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200'
+                                ? 'bg-[#6657C8] dark:bg-[#7135b5] text-white'
+                                : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/70 dark:text-amber-200'
                             }`}
                           >
                             {getInitials(ticket.installerName || 'UA')}
@@ -1853,13 +1853,13 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                             <div
                               className={`font-semibold truncate max-w-[140px] ${
                                 ticket.installerName
-                                  ? 'text-[#1f1638] dark:text-white'
-                                  : 'italic text-amber-700 dark:text-amber-300'
+                                  ? 'text-[#26364A] dark:text-white'
+                                  : 'italic text-[#9D661F] dark:text-amber-300'
                               }`}
                             >
                               {ticket.installerName || 'BELUM ASSIGN'}
                             </div>
-                            <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8] truncate max-w-[140px]">
+                            <div className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8] truncate max-w-[140px]">
                               {ticket.leaderName ? `Lead: ${ticket.leaderName}` : ticket.contactorName || ticket.contractorName || '-'}
                             </div>
                           </div>
@@ -1877,7 +1877,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                             <div className="flex items-center gap-1 flex-wrap">
                               <StatusAgentBadge status={ticket.statusWOAgent} />
                               {ticket.statusWOAgent !== 'Closed' && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-white text-[9.5px] font-bold uppercase">
+                                <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-slate-800 text-white text-[9.5px] font-bold uppercase">
                                   Closed
                                 </span>
                               )}
@@ -1890,10 +1890,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                         <div
                           className={`flex items-center gap-1 text-[11px] font-bold ${
                             geotag.tone === 'emerald'
-                              ? 'text-emerald-700 dark:text-emerald-300'
+                              ? 'text-[#218A63] dark:text-emerald-300'
                               : geotag.tone === 'amber'
-                              ? 'text-amber-700 dark:text-amber-300'
-                              : 'text-[#4b4452] dark:text-[#cabde8]'
+                              ? 'text-[#9D661F] dark:text-amber-300'
+                              : 'text-[#52647A] dark:text-[#cabde8]'
                           }`}
                         >
                           {geotag.tone === 'emerald' ? (
@@ -1905,7 +1905,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                           )}
                           <span className="whitespace-nowrap">{geotag.label}</span>
                         </div>
-                        <div className="text-[10.5px] text-[#7d7484] dark:text-[#cabde8] mt-0.5 tabular-nums">
+                        <div className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8] mt-0.5 tabular-nums">
                           {geotag.sublabel}
                         </div>
                       </td>
@@ -1948,7 +1948,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
 
         {/* Pagination Footer */}
-        <div className="pt-3 border-t border-[#f3eaff] dark:border-[#35105e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#4b4452] dark:text-[#cabde8] tabular-nums">
+        <div className="pt-3 border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#52647A] dark:text-[#cabde8] tabular-nums">
           <span>
             Menampilkan{' '}
             {feedTickets.length === 0
@@ -1969,7 +1969,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Sebelumnya</span>
             </button>
-            <span className="px-3 py-1 bg-[#58149c] text-white rounded-md font-bold">
+            <span className="px-3 py-1 bg-[#6657C8] dark:bg-[#58149c] text-white rounded-md font-bold">
               {safeFeedPage} / {totalFeedPages}
             </span>
             <button
@@ -1986,30 +1986,30 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       </div>
 
       {/* 6. Interactive Canonical Status Token Matrix */}
-      <div className="bg-white dark:bg-[#1e1238] rounded-xl p-5 sm:p-6 shadow-[0_4px_20px_rgba(53,16,94,0.06),inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-[#e8ddff]/80 dark:border-[#3b1d78] space-y-4">
+      <div className="card-3d-lavender rounded-xl p-5 sm:p-6 dark:bg-[#1e1238] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] dark:border-[#3b1d78] space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-display text-lg font-extrabold text-[#1f1638] dark:text-white">
+              <span className="font-display text-lg font-extrabold text-[#26364A] dark:text-white">
                 Standardized Operational Status Token Matrix
               </span>
-              <span className="px-2 py-0.5 rounded bg-[#eee4ff] dark:bg-[#2e1459] text-[#58149c] dark:text-[#dab9ff] text-[10.5px] font-bold uppercase">
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] text-[10.5px] font-bold uppercase">
                 Canonical Tokens
               </span>
             </div>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8] mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8] mt-0.5">
               Klik baris status di bawah untuk drill-down langsung ke daftar Work Order terkait.
             </p>
           </div>
-          <span className="text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] px-2.5 py-1 bg-[#f3eaff] dark:bg-[#2a194b] rounded self-start lg:self-auto">
+          <span className="text-[11px] font-bold text-[#2E7D8B] dark:text-[#dab9ff] px-2.5 py-1 bg-[#DDF4F4] dark:bg-[#2a194b] rounded border border-[#BDE4E8] dark:border-transparent self-start lg:self-auto">
             Live Counter Synced
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse mj-zebra-table">
             <thead>
-              <tr className="bg-[#f8f1ff] dark:bg-[#160d29] text-[#7d7484] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider">
+              <tr className="bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider border-y border-[#DDE6F0] dark:border-transparent">
                 <th className="py-3 px-4 rounded-l-lg">Core Status Token</th>
                 <th className="py-3 px-4">Aturan &amp; Makna Operasional</th>
                 <th className="py-3 px-4">Kode</th>
@@ -2017,14 +2017,14 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <th className="py-3 px-4 text-right rounded-r-lg">Jumlah Hari Ini</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#eee4ff]/60 dark:divide-[#35105e] text-xs">
+            <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105e] text-xs">
               {[
                 {
                   token: 'CHECK-IN · PROGRESS',
-                  dot: 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.8)]',
-                  textTone: 'text-sky-800 dark:text-sky-300',
+                  dot: 'bg-[#65B8C4] dark:bg-sky-500 shadow-[0_0_8px_rgba(101,184,196,0.75)] dark:shadow-[0_0_8px_rgba(14,165,233,0.8)]',
+                  textTone: 'text-[#2E7D8B] dark:text-sky-300',
                   code: 'CHK',
-                  codeTone: 'bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-200',
+                  codeTone: 'bg-[#E7F1FB] text-[#3E81C6] dark:bg-sky-950/70 dark:text-sky-200',
                   meaning: 'Teknisi check-in via LiveChat PROGRESS dan/atau validasi koordinat Foto Rumah geotag.',
                   badge: <StatusInstallerBadge status="PROGRESS" />,
                   count: c.checkedInProgress,
@@ -2032,10 +2032,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 },
                 {
                   token: 'COMPLETE / APPROVED',
-                  dot: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]',
-                  textTone: 'text-emerald-800 dark:text-emerald-300',
+                  dot: 'bg-[#218A63] dark:bg-emerald-500 shadow-[0_0_8px_rgba(33,138,99,0.75)] dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]',
+                  textTone: 'text-[#218A63] dark:text-emerald-300',
                   code: 'CMP',
-                  codeTone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200',
+                  codeTone: 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-200',
                   meaning: 'Laporan teknis & foto bukti telah diverifikasi dan disetujui oleh Dispatch NOC.',
                   badge: <StatusApprovalBadge status="APPROVED" />,
                   count: telemetry.completedCount,
@@ -2043,10 +2043,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 },
                 {
                   token: 'REVISION / REJECTED',
-                  dot: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]',
-                  textTone: 'text-amber-800 dark:text-amber-300',
+                  dot: 'bg-[#C88735] dark:bg-amber-500 shadow-[0_0_8px_rgba(200,135,53,0.75)] dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]',
+                  textTone: 'text-[#9D661F] dark:text-amber-300',
                   code: 'REV',
-                  codeTone: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200',
+                  codeTone: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/70 dark:text-amber-200',
                   meaning: 'Perbaikan / unggah ulang bukti foto atau data redaman diminta oleh Dispatch.',
                   badge: <StatusApprovalBadge status="REVISI" />,
                   count: c.revisionRejected,
@@ -2054,10 +2054,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 },
                 {
                   token: 'RESCHEDULE',
-                  dot: 'bg-[#a380fe] shadow-[0_0_8px_rgba(163,128,254,0.8)]',
-                  textTone: 'text-[#6a46c1] dark:text-[#dab9ff]',
+                  dot: 'bg-[#6657C8] dark:bg-[#a380fe] shadow-[0_0_8px_rgba(102,87,200,0.7)] dark:shadow-[0_0_8px_rgba(163,128,254,0.8)]',
+                  textTone: 'text-[#5145A6] dark:text-[#dab9ff]',
                   code: 'RSC',
-                  codeTone: 'bg-[#f3eaff] text-[#6a46c1] dark:bg-[#2e1459] dark:text-[#dab9ff]',
+                  codeTone: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2e1459] dark:text-[#dab9ff]',
                   meaning: 'Jadwal kunjungan disesuaikan ulang atas permintaan pelanggan atau kendala akses.',
                   badge: <StatusInstallerBadge status="RESCHEDULE" />,
                   count: c.reportReschedule,
@@ -2065,10 +2065,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 },
                 {
                   token: 'PENDING',
-                  dot: 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]',
-                  textTone: 'text-yellow-800 dark:text-yellow-300',
+                  dot: 'bg-[#C88735] dark:bg-yellow-500 shadow-[0_0_8px_rgba(200,135,53,0.75)] dark:shadow-[0_0_8px_rgba(234,179,8,0.8)]',
+                  textTone: 'text-[#9D661F] dark:text-yellow-300',
                   code: 'PND',
-                  codeTone: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/70 dark:text-yellow-200',
+                  codeTone: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-yellow-950/70 dark:text-yellow-200',
                   meaning: 'Pekerjaan tertunda sementara karena kendala teknis FAT/ODP atau perizinan.',
                   badge: <StatusInstallerBadge status="PENDING" />,
                   count: c.reportPending,
@@ -2076,10 +2076,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 },
                 {
                   token: 'CANCEL',
-                  dot: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]',
-                  textTone: 'text-rose-800 dark:text-rose-300',
+                  dot: 'bg-[#D45B66] dark:bg-rose-500 shadow-[0_0_8px_rgba(212,91,102,0.75)] dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]',
+                  textTone: 'text-[#9B2C37] dark:text-rose-300',
                   code: 'CAN',
-                  codeTone: 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200',
+                  codeTone: 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/70 dark:text-rose-200',
                   meaning: 'Work Order dibatalkan dengan dokumentasi alasan dan verifikasi Dispatch.',
                   badge: <StatusInstallerBadge status="CANCEL" />,
                   count: c.reportCancel,
@@ -2089,7 +2089,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <tr
                   key={row.token}
                   onClick={() => onDrillDown(row.filter)}
-                  className="hover:bg-[#f8f1ff]/70 dark:hover:bg-[#2a194b]/50 transition-colors cursor-pointer"
+                  className="hover:bg-[#F0EDFF]/65 dark:hover:bg-[#2a194b]/50 transition-colors cursor-pointer"
                 >
                   <td className={`py-3 px-4 font-bold whitespace-nowrap ${row.textTone}`}>
                     <span className="inline-flex items-center gap-2">
@@ -2097,14 +2097,14 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       <span>{row.token}</span>
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-[#4b4452] dark:text-[#cabde8]">{row.meaning}</td>
+                  <td className="py-3 px-4 text-[#52647A] dark:text-[#cabde8]">{row.meaning}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded font-mono font-bold text-[11px] ${row.codeTone}`}>
                       {row.code}
                     </span>
                   </td>
                   <td className="py-3 px-4">{row.badge}</td>
-                  <td className="py-3 px-4 text-right font-display font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+                  <td className="py-3 px-4 text-right font-display font-extrabold text-[#26364A] dark:text-white tabular-nums">
                     {row.count} WO
                   </td>
                 </tr>
@@ -2115,23 +2115,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       </div>
 
       {/* 7. Operational Guardrails & Policy Banner */}
-      <div className="p-4 sm:p-5 rounded-xl bg-[#f8f1ff] dark:bg-[#1a0f30] border border-[#e8ddff] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-r from-[#F8FAFD] via-white to-[#EAE8FF]/70 dark:bg-none dark:bg-[#1a0f30] border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#7135b5] text-white flex items-center justify-center shadow-xs shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#7135b5] dark:to-[#7135b5] text-white flex items-center justify-center shadow-xs shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-extrabold text-[#1f1638] dark:text-white">
+            <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
               FTTH Protocol &amp; RBAC Governance Active
             </h3>
-            <p className="text-xs text-[#4b4452] dark:text-[#cabde8]">
+            <p className="text-xs text-[#52647A] dark:text-[#cabde8]">
               Laporan teknis 3-tingkat &amp; bukti foto geotag diverifikasi sebelum penutupan WO untuk tanggal{' '}
               <span className="font-mono font-semibold">{todayWIB}</span>.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3 self-stretch sm:self-auto justify-end shrink-0">
-          <span className="text-[11px] font-mono text-[#7d7484] dark:text-[#cabde8]">
+          <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#cabde8]">
             DB: {databaseStatus.toUpperCase()}
           </span>
           <button
@@ -2143,7 +2143,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                   : roleActionTarget
               )
             }
-            className="px-3.5 py-2 rounded-lg bg-white dark:bg-[#261942] text-[#58149c] dark:text-[#dab9ff] border border-[#e8ddff] dark:border-[#4b386b] text-xs font-bold shadow-[0_1px_3px_rgba(33,24,58,0.06)] hover:bg-[#f3eaff] dark:hover:bg-[#342b4e] transition-all cursor-pointer whitespace-nowrap"
+            className="btn-3d-lilac px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
           >
             {currentUser.role === 'super_admin'
               ? 'Buka Audit Trail'

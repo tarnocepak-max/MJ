@@ -51,18 +51,18 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
   };
 
   return (
-    <div className="rounded-[18px] p-3.5 bg-[#EEE5FF]/65 dark:bg-[#231144]/90 border border-[#DCCBFF] dark:border-[#5424A8]/60 space-y-3">
+    <div className="rounded-[18px] p-3.5 bg-[#EAE8FF]/55 dark:bg-[#231144]/90 border border-[#DCE3F2] dark:border-[#5424A8]/60 space-y-3">
       {/* Header + Master Toggle */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-[11px] bg-white dark:bg-[#30104B] text-[#5424A8] dark:text-[#DEC8FF] flex items-center justify-center border border-[#DFD0FA] dark:border-[#5D30B5] shrink-0">
+          <div className="w-8 h-8 rounded-[11px] bg-white dark:bg-[#30104B] text-[#5145A6] dark:text-[#DEC8FF] flex items-center justify-center border border-[#DDE6F0] dark:border-[#5D30B5] shrink-0">
             <BellRing className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-extrabold text-[#28203A] dark:text-white truncate">
+            <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
               Notification Sound Settings
             </div>
-            <div className="text-[10.5px] text-[#756C86] dark:text-[#BFB2DC] truncate">
+            <div className="text-[10.5px] text-[#52647A] dark:text-[#BFB2DC] truncate">
               {soundSettings.enabled
                 ? `Aktif · Master ${draftMasterVolume}% (${soundScope === 'global' ? 'Global' : 'Perangkat'})`
                 : soundSettings.criticalSeparate
@@ -90,7 +90,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
         <button
           type="button"
           onClick={() => void unlockAudio().then(() => previewSound('live_chat', draftMasterVolume))}
-          className="w-full px-3 py-2 rounded-[12px] bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-950/80 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-[11px] font-bold flex items-center justify-between gap-2 transition-colors cursor-pointer"
+          className="w-full px-3 py-2 rounded-[12px] bg-[#FFF2D9] hover:bg-[#FDE6BD] dark:bg-amber-950/60 dark:hover:bg-amber-950/80 border border-[#F2CF95] dark:border-amber-700/80 text-[#9D661F] dark:text-amber-200 text-[11px] font-bold flex items-center justify-between gap-2 transition-colors cursor-pointer"
         >
           <span className="inline-flex items-center gap-1.5 text-left">
             <BellRing className="w-3.5 h-3.5 shrink-0" />
@@ -100,24 +100,24 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
                 : 'Aktifkan & Uji Suara Notifikasi'}
             </span>
           </span>
-          <span className="px-2 py-0.5 rounded-md bg-amber-200/80 dark:bg-amber-800/70 text-[10px] font-extrabold shrink-0">
+          <span className="px-2 py-0.5 rounded-md bg-[#F7E0B5] dark:bg-amber-800/70 text-[10px] font-extrabold shrink-0">
             Aktifkan
           </span>
         </button>
       )}
 
       {/* Master Volume Slider (0-100%) */}
-      <div className="rounded-[12px] bg-white/80 dark:bg-[#190B33]/85 border border-[#E2D4FF] dark:border-[#4B238F] p-2.5 space-y-1.5">
+      <div className="rounded-[12px] bg-white/85 dark:bg-[#190B33]/85 border border-[#DDE6F0] dark:border-[#4B238F] p-2.5 space-y-1.5">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="font-bold text-[#28203A] dark:text-[#EEE5FF]">Master Volume</span>
+          <span className="font-bold text-[#26364A] dark:text-[#EEE5FF]">Master Volume</span>
           <div className="flex items-center gap-2">
-            <span className="font-mono font-extrabold text-[#5424A8] dark:text-[#D5B8FF] tabular-nums">
+            <span className="font-mono font-extrabold text-[#5145A6] dark:text-[#D5B8FF] tabular-nums">
               {draftMasterVolume}%
             </span>
             <button
               type="button"
               onClick={() => previewSound(selectedCategory, draftMasterVolume)}
-              className="text-[10px] font-bold text-[#5424A8] dark:text-[#C9A8FF] hover:underline cursor-pointer"
+              className="text-[10px] font-bold text-[#5145A6] dark:text-[#C9A8FF] hover:underline cursor-pointer"
             >
               Preview
             </button>
@@ -134,7 +134,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           onTouchEnd={() => commitMasterVolume(draftMasterVolume)}
           onBlur={() => commitMasterVolume(draftMasterVolume)}
           aria-label="Master Volume"
-          className="w-full h-1.5 bg-[#E2D4FF] dark:bg-[#351766] rounded-lg appearance-none cursor-pointer accent-[#5424A8]"
+          className="w-full h-1.5 bg-[#DDE6F0] dark:bg-[#351766] rounded-lg appearance-none cursor-pointer accent-[#6657C8]"
         />
       </div>
 
@@ -146,8 +146,8 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           onClick={() => updateSoundSettings({ muteNormal: !soundSettings.muteNormal })}
           className={`px-2.5 py-2 rounded-[12px] border text-left transition-all cursor-pointer ${
             soundSettings.muteNormal
-              ? 'bg-[#5424A8]/12 border-[#5424A8]/45 text-[#30104B] dark:bg-[#8648F5]/25 dark:border-[#8648F5]/55 dark:text-white'
-              : 'bg-white/75 dark:bg-[#190B33]/75 border-[#E2D4FF] dark:border-[#4B238F] text-[#5B5270] dark:text-[#CFC3EC]'
+              ? 'bg-[#F0EDFF] border-[#6657C8]/50 text-[#5145A6] dark:bg-[#8648F5]/25 dark:border-[#8648F5]/55 dark:text-white'
+              : 'bg-white/80 dark:bg-[#190B33]/75 border-[#DDE6F0] dark:border-[#4B238F] text-[#52647A] dark:text-[#CFC3EC]'
           }`}
         >
           <div className="flex items-center justify-between gap-1 text-[10.5px] font-bold">
@@ -167,8 +167,8 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           onClick={() => updateSoundSettings({ criticalSeparate: !soundSettings.criticalSeparate })}
           className={`px-2.5 py-2 rounded-[12px] border text-left transition-all cursor-pointer ${
             soundSettings.criticalSeparate
-              ? 'bg-rose-500/10 border-rose-400/45 text-rose-800 dark:bg-rose-500/18 dark:border-rose-400/40 dark:text-rose-200'
-              : 'bg-white/75 dark:bg-[#190B33]/75 border-[#E2D4FF] dark:border-[#4B238F] text-[#5B5270] dark:text-[#CFC3EC]'
+              ? 'bg-[#FCE9EB] border-[#F3C5CA] text-[#D45B66] dark:bg-rose-500/18 dark:border-rose-400/40 dark:text-rose-200'
+              : 'bg-white/80 dark:bg-[#190B33]/75 border-[#DDE6F0] dark:border-[#4B238F] text-[#52647A] dark:text-[#CFC3EC]'
           }`}
         >
           <div className="flex items-center justify-between gap-1 text-[10.5px] font-bold">
@@ -189,7 +189,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           value={selectedCategory}
           onChange={e => setSelectedCategory(e.target.value as NotificationSoundCategory)}
           aria-label="Pilih kategori suara"
-          className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-[11px] text-[11px] font-bold bg-white dark:bg-[#190B33] text-[#28203A] dark:text-white border border-[#DFD0FA] dark:border-[#5D30B5] outline-none"
+          className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-[11px] text-[11px] font-bold bg-white dark:bg-[#190C33] text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#5D30B5] outline-none"
         >
           {SOUND_CATEGORY_CATALOG.map(cat => (
             <option key={cat.id} value={cat.id}>
@@ -224,7 +224,7 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({
           <button
             type="button"
             onClick={onOpenFullAudioEngine}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5424A8] dark:text-[#C59CFF] hover:underline cursor-pointer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5145A6] dark:text-[#C59CFF] hover:underline cursor-pointer"
           >
             <span>Buka Pengaturan Suara Lengkap</span>
             <ArrowUpRight className="w-3.5 h-3.5" />

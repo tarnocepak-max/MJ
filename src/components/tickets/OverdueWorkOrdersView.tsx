@@ -63,40 +63,40 @@ const DURATION_BUCKET_CARDS: Array<{
     label: 'Total Overdue WO',
     hint: 'Semua WO melewati jadwal',
     countKey: 'totalOverdue',
-    toneClass: 'text-[#58149C] dark:text-[#DAB9FF]',
-    activeRing: 'border-[#58149C] ring-2 ring-[#58149C]/20 bg-[#F8F1FF] dark:bg-[#261942]'
+    toneClass: 'text-[#5145A6] dark:text-[#DAB9FF]',
+    activeRing: 'border-[#6657C8] ring-2 ring-[#6657C8]/20 bg-[#EAE8FF] dark:border-[#58149C] dark:ring-[#58149C]/20 dark:bg-[#261942]'
   },
   {
     key: '1_day',
     label: 'Overdue 1 Day',
     hint: 'Terlambat 1 hari WIB',
     countKey: 'overdue1Day',
-    toneClass: 'text-[#1D4ED8] dark:text-sky-300',
-    activeRing: 'border-[#1D4ED8] ring-2 ring-[#1D4ED8]/20 bg-[#EFF6FF] dark:bg-sky-950/30'
+    toneClass: 'text-[#3E81C6] dark:text-sky-300',
+    activeRing: 'border-[#3E81C6] ring-2 ring-[#3E81C6]/20 bg-[#E7F1FB] dark:border-[#1D4ED8] dark:ring-[#1D4ED8]/20 dark:bg-sky-950/30'
   },
   {
     key: '2_3_days',
     label: 'Overdue 2–3 Days',
     hint: 'Terlambat 2–3 hari WIB',
     countKey: 'overdue2To3Days',
-    toneClass: 'text-[#B45309] dark:text-amber-300',
-    activeRing: 'border-[#D97706] ring-2 ring-[#D97706]/20 bg-[#FEF3C7]/60 dark:bg-amber-950/30'
+    toneClass: 'text-[#9D661F] dark:text-amber-300',
+    activeRing: 'border-[#C88735] ring-2 ring-[#C88735]/20 bg-[#FFF2D9] dark:border-[#D97706] dark:ring-[#D97706]/20 dark:bg-amber-950/30'
   },
   {
     key: '4_7_days',
     label: 'Overdue 4–7 Days',
     hint: 'Prioritas eskalasi 4–7 hari',
     countKey: 'overdue4To7Days',
-    toneClass: 'text-[#C2410C] dark:text-orange-300',
-    activeRing: 'border-[#EA580C] ring-2 ring-[#EA580C]/20 bg-[#FFF7ED] dark:bg-orange-950/30'
+    toneClass: 'text-[#C88735] dark:text-orange-300',
+    activeRing: 'border-[#C88735] ring-2 ring-[#C88735]/20 bg-[#FFF2D9]/80 dark:border-[#EA580C] dark:ring-[#EA580C]/20 dark:bg-orange-950/30'
   },
   {
     key: 'gt_7_days',
     label: 'Critical Overdue (>7 Days)',
     hint: 'Kritis melebihi 7 hari',
     countKey: 'criticalOverdueGt7Days',
-    toneClass: 'text-[#B91C1C] dark:text-rose-300',
-    activeRing: 'border-[#DC2626] ring-2 ring-[#DC2626]/20 bg-[#FEF2F2] dark:bg-rose-950/30'
+    toneClass: 'text-[#9B2C37] dark:text-rose-300',
+    activeRing: 'border-[#D45B66] ring-2 ring-[#D45B66]/20 bg-[#FCE9EB] dark:border-[#DC2626] dark:ring-[#DC2626]/20 dark:bg-rose-950/30'
   }
 ];
 
@@ -117,15 +117,15 @@ function formatLastUpdatedJakarta(raw?: string): string {
 
 function getDurationTextBadgeClass(bucket?: OverdueDurationBucket | null): string {
   if (bucket === 'gt_7_days') {
-    return 'bg-[#FEF2F2] text-[#B91C1C] border-[#FCA5A5] dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800';
+    return 'bg-[#FCE9EB] text-[#9B2C37] border-[#F3C5CA] dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800';
   }
   if (bucket === '4_7_days') {
-    return 'bg-[#FFF7ED] text-[#C2410C] border-[#FDBA74] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-800';
+    return 'bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-800';
   }
   if (bucket === '2_3_days') {
-    return 'bg-[#FEF3C7] text-[#B45309] border-[#FCD34D] dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800';
+    return 'bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95] dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800';
   }
-  return 'bg-[#EFF6FF] text-[#1D4ED8] border-[#93C5FD] dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-800';
+  return 'bg-[#E7F1FB] text-[#3E81C6] border-[#C6DDF6] dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-800';
 }
 
 export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
@@ -546,19 +546,19 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   return (
     <div className="space-y-5 pb-10">
       {/* Page Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl p-4 sm:p-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-4 sm:p-5 shadow-xs dark:shadow-none">
         <div className="space-y-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-[#FEF2F2] dark:bg-rose-950/60 border border-[#FCA5A5] dark:border-rose-800 text-[#B91C1C] dark:text-rose-300 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/60 border border-[#F3C5CA] dark:border-rose-800 text-[#9B2C37] dark:text-rose-300 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white leading-tight">
+              <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white leading-tight">
                 OVERDUE WO
               </h1>
-              <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                 Work Order belum selesai yang melewati Appointment Date · Acuan tanggal{' '}
-                <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                   {formatAppointmentDateDisplay(todayWIB) || todayWIB} (WIB)
                 </span>
               </p>
@@ -571,7 +571,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             <div
               role="tablist"
               aria-label="Mode Klasifikasi WO"
-              className="inline-flex items-center p-1 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E]"
+              className="inline-flex items-center p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]"
             >
               <button
                 type="button"
@@ -580,8 +580,8 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                 onClick={() => setViewMode('overdue')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   viewMode === 'overdue'
-                    ? 'bg-[#58149C] text-white'
-                    : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#1F1638] dark:hover:text-white'
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                    : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white'
                 }`}
               >
                 Overdue WO ({overdueSummary.totalOverdue})
@@ -593,8 +593,8 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                 onClick={() => setViewMode('exception')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   viewMode === 'exception'
-                    ? 'bg-[#58149C] text-white'
-                    : 'text-[#4B4452] dark:text-[#CEC0E8] hover:text-[#1F1638] dark:hover:text-white'
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                    : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white'
                 }`}
               >
                 Exception Tanggal ({exceptionTickets.length})
@@ -625,7 +625,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
       </div>
 
       {serverError && (
-        <div className="rounded-xl bg-[#FEF3C7] dark:bg-amber-950/50 border border-[#FCD34D] dark:border-amber-800 px-4 py-2.5 flex items-center justify-between gap-2 text-xs text-[#B45309] dark:text-amber-200">
+        <div className="rounded-xl bg-[#FFF2D9] dark:bg-amber-950/50 border border-[#F2CF95] dark:border-amber-800 px-4 py-2.5 flex items-center justify-between gap-2 text-xs text-[#9D661F] dark:text-amber-200">
           <div className="flex items-center gap-2 min-w-0">
             <ShieldAlert className="w-4 h-4 shrink-0" />
             <span className="truncate font-semibold">Sinkronisasi server tertunda: {serverError}</span>
@@ -633,7 +633,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           <button
             type="button"
             onClick={handleManualRefresh}
-            className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#261942] border border-[#FCD34D] text-[11px] font-bold shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#261942] border border-[#F2CF95] dark:border-[#FCD34D] text-[11px] font-bold shrink-0 cursor-pointer"
           >
             Coba Lagi
           </button>
@@ -654,11 +654,11 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                 className={`text-left rounded-2xl p-3.5 border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                   isSelected
                     ? card.activeRing
-                    : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E] hover:border-[#A78BFA]'
+                    : 'bg-white/95 dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E] hover:border-[#6657C8]/50 dark:hover:border-[#A78BFA]'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-[#4B4452] dark:text-[#CEC0E8] truncate">
+                  <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] truncate">
                     {card.label}
                   </span>
                   <Clock className={`w-3.5 h-3.5 shrink-0 ${card.toneClass}`} />
@@ -666,7 +666,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                 <div className={`font-display text-2xl font-extrabold tabular-nums leading-none ${card.toneClass}`}>
                   {count}
                 </div>
-                <span className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                   {card.hint}
                 </span>
               </button>
@@ -674,13 +674,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           })}
         </div>
       ) : (
-        <div className="rounded-2xl bg-[#FFF7ED] dark:bg-orange-950/30 border border-[#FDBA74] dark:border-orange-800 p-4 flex items-start gap-3 text-xs">
-          <ShieldAlert className="w-5 h-5 text-[#C2410C] dark:text-orange-300 shrink-0 mt-0.5" />
+        <div className="rounded-2xl bg-[#FFF2D9] dark:bg-orange-950/30 border border-[#F2CF95] dark:border-orange-800 p-4 flex items-start gap-3 text-xs">
+          <ShieldAlert className="w-5 h-5 text-[#C88735] dark:text-orange-300 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <div className="font-bold text-[#9A3412] dark:text-orange-200">
+            <div className="font-bold text-[#9D661F] dark:text-orange-200">
               Exception WO — Appointment Date Kosong atau Tidak Valid ({exceptionTickets.length} WO)
             </div>
-            <p className="text-[#9A3412]/90 dark:text-orange-200/80">
+            <p className="text-[#9D661F]/90 dark:text-orange-200/80">
               WO pada tab ini tidak memiliki tanggal appointment yang valid dan tidak dihitung sebagai Overdue ataupun Hari Ini sampai tanggal diperbaiki pada detail WO.
             </p>
           </div>
@@ -688,23 +688,23 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
       )}
 
       {/* Search & Comprehensive Filter Bar */}
-      <div className="bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl p-4 space-y-3">
+      <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-4 space-y-3 shadow-xs dark:shadow-none">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#7D7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#8492A5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari WO Number, Customer ID, atau Customer Name..."
-              className="w-full pl-9 pr-8 py-2 min-h-[38px] rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white placeholder:text-[#7D7484] focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full pl-9 pr-8 py-2 min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] dark:placeholder:text-[#7D7484] focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Bersihkan pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7D7484] hover:text-[#1F1638] cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -728,7 +728,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
               <button
                 type="button"
                 onClick={resetFilters}
-                className="px-3 py-2 rounded-xl text-xs font-bold border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] hover:bg-[#F8F1FF] dark:hover:bg-[#261942] inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-2 rounded-xl text-xs font-bold border border-[#DDE6F0] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset Filter</span>
@@ -740,13 +740,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         {/* Multi-attribute Dropdown Filters */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Contractor / Vendor
             </label>
             <select
               value={contractorFilter}
               onChange={e => setContractorFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Contractor</option>
               {filterOptions.contractors.map(c => (
@@ -758,13 +758,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Area
             </label>
             <select
               value={areaFilter}
               onChange={e => setAreaFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Area</option>
               {filterOptions.areas.map(a => (
@@ -776,13 +776,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Leader
             </label>
             <select
               value={leaderFilter}
               onChange={e => setLeaderFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Leader</option>
               {filterOptions.leaders.map(l => (
@@ -794,13 +794,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Installer
             </label>
             <select
               value={installerFilter}
               onChange={e => setInstallerFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Installer</option>
               {filterOptions.installers.map(inst => (
@@ -812,14 +812,14 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Durasi Overdue
             </label>
             <select
               disabled={viewMode === 'exception'}
               value={durationFilter}
               onChange={e => setDurationFilter(e.target.value as 'ALL' | OverdueDurationBucket)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white disabled:opacity-50 focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white disabled:opacity-50 focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Durasi</option>
               <option value="1_day">1 Hari</option>
@@ -830,13 +830,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] mb-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
               Status WO Asli
             </label>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8F1FF] dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#4B386B] text-xs text-[#1F1638] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#58149C]"
+              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
             >
               <option value="ALL">Semua Status</option>
               {filterOptions.statuses.map(st => (
@@ -851,16 +851,16 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
 
       {/* Bulk Selection Action Toolbar */}
       {selectedTicketIds.length > 0 && (
-        <div className="bg-[#FDF7FF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="bg-[#EAE8FF] dark:bg-[#22123F] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#58149C] text-white font-mono font-extrabold tabular-nums">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#6657C8] dark:bg-[#58149C] text-white font-mono font-extrabold tabular-nums">
               {selectedTicketIds.length} WO Overdue dipilih
             </span>
             {filteredTickets.length > selectedTicketIds.length && (
               <button
                 type="button"
                 onClick={() => setSelectedTicketIds(filteredTickets.map(t => t.id))}
-                className="text-xs font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                className="text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
               >
                 Pilih semua ({filteredTickets.length})
               </button>
@@ -868,7 +868,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedTicketIds([])}
-              className="text-xs font-semibold text-[#7D7484] dark:text-[#CEC0E8] hover:text-[#1F1638] dark:hover:text-white cursor-pointer"
+              className="text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
             >
               Batal Pilih
             </button>
@@ -890,18 +890,18 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
 
       {/* Results Area */}
       {filteredTickets.length === 0 ? (
-        <div className="bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl p-10 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#ECFDF5] dark:bg-emerald-950/60 border border-[#86EFAC] dark:border-emerald-800 text-[#15803D] dark:text-emerald-300 flex items-center justify-center mx-auto">
+        <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-10 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-[#E4F5EC] dark:bg-emerald-950/60 border border-[#B7E4CC] dark:border-emerald-800 text-[#218A63] dark:text-emerald-300 flex items-center justify-center mx-auto">
             {hasActiveFilters ? <Filter className="w-5 h-5" /> : <CheckCircle2 className="w-6 h-6" />}
           </div>
-          <h3 className="font-display text-base font-bold text-[#1F1638] dark:text-white">
+          <h3 className="font-display text-base font-bold text-[#26364A] dark:text-white">
             {hasActiveFilters
               ? 'Tidak Ada Work Order Sesuai Filter'
               : viewMode === 'exception'
               ? 'Tidak Ada Exception Tanggal Appointment'
               : 'Tidak Ada Work Order Overdue'}
           </h3>
-          <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] max-w-md mx-auto">
+          <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] max-w-md mx-auto">
             {hasActiveFilters
               ? 'Coba ubah kata kunci atau reset filter untuk melihat seluruh Work Order dalam cakupan Anda.'
               : viewMode === 'exception'
@@ -922,18 +922,18 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
       ) : isCompactUI ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1 text-xs">
-            <label className="inline-flex items-center gap-2 font-bold text-[#4B4452] dark:text-[#CEC0E8] cursor-pointer">
+            <label className="inline-flex items-center gap-2 font-bold text-[#52647A] dark:text-[#CEC0E8] cursor-pointer">
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
                 onChange={toggleSelectAllVisible}
                 aria-label="Pilih semua WO overdue pada halaman ini"
-                className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer"
+                className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer"
               />
               <span>Pilih Semua di Halaman ({visibleTicketIds.length})</span>
             </label>
             {selectedTicketIds.length > 0 && (
-              <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+              <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                 {selectedTicketIds.length} dipilih
               </span>
             )}
@@ -951,33 +951,33 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                 key={ticket.id}
                 className={`rounded-2xl p-4 space-y-3 border transition-colors ${
                   isSelected
-                    ? 'bg-[#F3EAFF]/80 dark:bg-[#2C1A4E] border-[#7135B5] ring-2 ring-[#7135B5]/25'
-                    : 'bg-white dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
+                    ? 'bg-[#EAE8FF]/85 dark:bg-[#2C1A4E] border-[#6657C8] dark:border-[#7135B5] ring-2 ring-[#6657C8]/25 dark:ring-[#7135B5]/25'
+                    : 'bg-white/95 dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#F3EAFF] dark:border-[#35105E]">
+                <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelectOne(ticket.id)}
                       aria-label={`Pilih ${ticket.woNumber}`}
-                      className="mt-0.5 w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer shrink-0"
+                      className="mt-0.5 w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer shrink-0"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           type="button"
                           onClick={() => onSelectTicket(ticket, 'overview')}
-                          className="font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                          className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                         >
                           {ticket.woNumber}
                         </button>
-                        <span className="font-mono text-[10.5px] text-[#7D7484] dark:text-[#A79BC0]">
+                        <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
                           ID: {ticket.idCustomer || ticket.customerId || '-'}
                         </span>
                       </div>
-                      <h3 className="font-bold text-sm text-[#1F1638] dark:text-white truncate mt-0.5">
+                      <h3 className="font-bold text-sm text-[#26364A] dark:text-white truncate mt-0.5">
                         {ticket.customerName}
                       </h3>
                     </div>
@@ -992,7 +992,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       {getOverdueDurationLabel(ticket.overdueDays || 0)}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-[#FFF7ED] text-[#C2410C] border-[#FDBA74]">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-800">
                       EXCEPTION
                     </span>
                   )}
@@ -1000,16 +1000,16 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div>
-                    <span className="text-[#7D7484] dark:text-[#A79BC0] block">Contractor &amp; Area</span>
-                    <strong className="text-[#1F1638] dark:text-white block truncate">{contractor}</strong>
-                    <span className="text-[#4B4452] dark:text-[#CEC0E8] truncate block">{ticket.area || '-'}</span>
+                    <span className="text-[#8492A5] dark:text-[#A79BC0] block">Contractor &amp; Area</span>
+                    <strong className="text-[#26364A] dark:text-white block truncate">{contractor}</strong>
+                    <span className="text-[#52647A] dark:text-[#CEC0E8] truncate block">{ticket.area || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-[#7D7484] dark:text-[#A79BC0] block">Appointment &amp; Teknisi</span>
-                    <strong className="font-mono text-[#1F1638] dark:text-white block tabular-nums">
+                    <span className="text-[#8492A5] dark:text-[#A79BC0] block">Appointment &amp; Teknisi</span>
+                    <strong className="font-mono text-[#26364A] dark:text-white block tabular-nums">
                       {ticket.appointmentDate || 'Tidak Valid'}
                     </strong>
-                    <span className="text-[#4B4452] dark:text-[#CEC0E8] truncate block">
+                    <span className="text-[#52647A] dark:text-[#CEC0E8] truncate block">
                       {ticket.installerName || 'Unassigned'}
                     </span>
                   </div>
@@ -1023,8 +1023,8 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F3EAFF] dark:border-[#35105E]">
-                  <span className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A79BC0] tabular-nums">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                  <span className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                     Update: {formatLastUpdatedJakarta(ticket.updatedAt || ticket.createdAt)}
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -1069,11 +1069,11 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           })}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl overflow-hidden">
+        <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl overflow-hidden shadow-xs dark:shadow-none">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="mj-zebra-table w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-[#F8F1FF] dark:bg-[#22123F] border-b border-[#E8DDFF] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#4B4452] dark:text-[#CEC0E8]">
+                <tr className="bg-[#EDF3F8] dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8]">
                   <th className="pl-3.5 pr-2 py-3 w-10 text-center">
                     <input
                       ref={selectAllCheckboxRef}
@@ -1081,7 +1081,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       checked={allVisibleSelected}
                       onChange={toggleSelectAllVisible}
                       aria-label="Pilih semua WO overdue pada tabel ini"
-                      className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer align-middle"
+                      className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer align-middle"
                     />
                   </th>
                   <th className="px-3.5 py-3 whitespace-nowrap">WO Number</th>
@@ -1099,7 +1099,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                   <th className="px-3.5 py-3 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F3EAFF] dark:divide-[#35105E]">
+              <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                 {paginatedTickets.map(ticket => {
                   const contractor = ticket.contactorName || ticket.contractorName || '-';
                   const leaderLabel = ticket.leaderName || ticket.corlapName;
@@ -1115,8 +1115,8 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       key={ticket.id}
                       className={`transition-colors ${
                         isSelected
-                          ? 'bg-[#F3EAFF]/90 dark:bg-[#2C1A4E]'
-                          : 'hover:bg-[#FDF7FF] dark:hover:bg-[#1E1238]/70'
+                          ? 'bg-[#EAE8FF]/85 dark:bg-[#2C1A4E]'
+                          : 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#1E1238]/70'
                       }`}
                     >
                       <td className="pl-3.5 pr-2 py-3 text-center">
@@ -1125,55 +1125,55 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                           checked={isSelected}
                           onChange={() => toggleSelectOne(ticket.id)}
                           aria-label={`Pilih ${ticket.woNumber}`}
-                          className="w-4 h-4 rounded border-[#B7A9CE] accent-[#58149C] cursor-pointer align-middle"
+                          className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer align-middle"
                         />
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => onSelectTicket(ticket, 'overview')}
-                          className="font-mono font-extrabold text-[#58149C] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                          className="font-mono font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
                         >
                           {ticket.woNumber}
                         </button>
                       </td>
-                      <td className="px-3.5 py-3 font-mono text-[#4B4452] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums">
+                      <td className="px-3.5 py-3 font-mono text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums">
                         {ticket.idCustomer || ticket.customerId || '-'}
                       </td>
                       <td className="px-3.5 py-3 max-w-[200px]">
-                        <div className="font-bold text-[#1F1638] dark:text-white truncate">
+                        <div className="font-bold text-[#26364A] dark:text-white truncate">
                           {ticket.customerName}
                         </div>
                         {ticket.clusterName && (
-                          <div className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                          <div className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                             {ticket.clusterName}
                           </div>
                         )}
                       </td>
-                      <td className="px-3.5 py-3 max-w-[170px] truncate font-medium text-[#1F1638] dark:text-slate-200">
+                      <td className="px-3.5 py-3 max-w-[170px] truncate font-medium text-[#26364A] dark:text-slate-200">
                         {contractor}
                       </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap text-[#4B4452] dark:text-[#CEC0E8]">
+                      <td className="px-3.5 py-3 whitespace-nowrap text-[#52647A] dark:text-[#CEC0E8]">
                         {ticket.area || '-'}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5 font-mono font-semibold text-[#1F1638] dark:text-white tabular-nums">
-                          <Calendar className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                        <div className="inline-flex items-center gap-1.5 font-mono font-semibold text-[#26364A] dark:text-white tabular-nums">
+                          <Calendar className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#DAB9FF]" />
                           <span>{ticket.appointmentDate || 'Kosong / Invalid'}</span>
                         </div>
                         {ticket.slotTime && (
-                          <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] font-mono">
+                          <div className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] font-mono">
                             {ticket.slotTime}
                           </div>
                         )}
                       </td>
                       <td className="px-3.5 py-3 max-w-[180px]">
-                        <div className="font-semibold text-[#1F1638] dark:text-white truncate flex items-center gap-1">
-                          <Wrench className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+                        <div className="font-semibold text-[#26364A] dark:text-white truncate flex items-center gap-1">
+                          <Wrench className="w-3 h-3 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0" />
                           <span className="truncate">{ticket.installerName || 'Unassigned'}</span>
                         </div>
                         {leaderLabel && (
-                          <div className="text-[10.5px] text-[#7D7484] dark:text-[#A79BC0] truncate">
+                          <div className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] truncate">
                             Leader: {leaderLabel}
                           </div>
                         )}
@@ -1189,7 +1189,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
                         {viewMode === 'exception' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border bg-[#FFF7ED] text-[#C2410C] border-[#FDBA74] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-800">
                             Tanggal Invalid / Kosong
                           </span>
                         ) : (
@@ -1201,13 +1201,13 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                             >
                               {getOverdueDurationLabel(ticket.overdueDays || 0)}
                             </span>
-                            <div className="text-[10px] font-semibold text-[#7D7484] dark:text-[#A79BC0]">
+                            <div className="text-[10px] font-semibold text-[#8492A5] dark:text-[#A79BC0]">
                               {getOverdueBucketLabel(ticket.overdueDurationBucket)}
                             </div>
                           </div>
                         )}
                       </td>
-                      <td className="px-3.5 py-3 whitespace-nowrap font-mono text-[11px] text-[#4B4452] dark:text-[#CEC0E8] tabular-nums">
+                      <td className="px-3.5 py-3 whitespace-nowrap font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] tabular-nums">
                         {formatLastUpdatedJakarta(ticket.updatedAt || ticket.createdAt)}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap text-right">
@@ -1216,7 +1216,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                             type="button"
                             onClick={() => onSelectTicket(ticket, 'overview')}
                             title="Buka Detail & Laporan Teknisi"
-                            className="p-1.5 rounded-lg border border-[#E8DDFF] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] hover:bg-[#F8F1FF] dark:hover:bg-[#261942] cursor-pointer"
+                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -1224,7 +1224,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                             type="button"
                             onClick={() => onSelectTicket(ticket, 'history')}
                             title="Lihat Activity History"
-                            className="p-1.5 rounded-lg border border-[#E8DDFF] dark:border-[#4B386B] text-[#4B4452] dark:text-[#CEC0E8] hover:bg-[#F8F1FF] dark:hover:bg-[#261942] cursor-pointer"
+                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
                           >
                             <History className="w-3.5 h-3.5" />
                           </button>
@@ -1232,7 +1232,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                             type="button"
                             onClick={() => onSelectTicket(ticket, 'chat')}
                             title="Buka LiveChat Komunikasi"
-                            className="p-1.5 rounded-lg border border-[#E8DDFF] dark:border-[#4B386B] text-[#4B4452] dark:text-[#CEC0E8] hover:bg-[#F8F1FF] dark:hover:bg-[#261942] cursor-pointer"
+                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
@@ -1241,7 +1241,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                               type="button"
                               onClick={() => onOpenWhatsApp(ticket)}
                               title="Kirim WhatsApp Pelanggan"
-                              className="p-1.5 rounded-lg border border-[#86EFAC] dark:border-emerald-800 text-[#15803D] dark:text-emerald-300 hover:bg-[#ECFDF5] dark:hover:bg-emerald-950/50 cursor-pointer"
+                              className="p-1.5 rounded-lg border border-[#B7E4CC] dark:border-emerald-800 text-[#218A63] dark:text-emerald-300 hover:bg-[#E4F5EC] dark:hover:bg-emerald-950/50 cursor-pointer"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                             </button>
@@ -1251,7 +1251,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                               type="button"
                               onClick={() => handleOpenReassign(ticket)}
                               title="Reassign Teknisi (Tetap Pertahankan Riwayat & Appointment)"
-                              className="px-2.5 py-1 rounded-lg bg-[#58149C] hover:bg-[#7135B5] text-white text-[10.5px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                              className="btn-3d-primary px-2.5 py-1 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1 cursor-pointer"
                             >
                               <ArrowRightLeft className="w-3 h-3" />
                               <span>Reassign</span>

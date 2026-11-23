@@ -210,7 +210,7 @@ export const UploadAssignModal: React.FC<UploadAssignModalProps> = ({
               setPasteData(e.target.value);
               parseLines(e.target.value);
             }}
-            className="tactile-debossed-input w-full p-2.5 bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D0BCFF] dark:border-[#4B386B] rounded-xl font-mono text-[11px] text-[#1F1638] dark:text-white"
+            className="tactile-debossed-input w-full p-2.5 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl font-mono text-[11px] text-[#26364A] dark:text-white"
           />
         </div>
 

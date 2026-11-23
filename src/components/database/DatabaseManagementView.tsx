@@ -292,14 +292,14 @@ export const DatabaseManagementView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner Header */}
-      <div className="p-6 rounded-2xl bg-gradient-to-br from-[#160D29] via-[#27104A] to-[#1A0D36] border border-[#4A2580] text-white shadow-[0_14px_32px_-8px_rgba(22,13,41,0.55)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-6 rounded-2xl bg-gradient-to-br from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] border border-[#C5BEEF] text-[#26364A] shadow-lg dark:from-[#160D29] dark:via-[#27104A] dark:to-[#1A0D36] dark:border-[#4A2580] dark:text-white dark:shadow-[0_14px_32px_-8px_rgba(22,13,41,0.55)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-b from-[#6b103b] to-[#480123] border border-[#FBCFE8]/25 text-white text-[10.5px] font-extrabold uppercase tracking-wider mb-2 shadow-xs">
-            <Server className="w-3.5 h-3.5 text-[#FBCFE8]" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF4F4] border border-[#BDE4E8] text-[#2E7D8B] dark:bg-gradient-to-b dark:from-[#6b103b] dark:to-[#480123] dark:border-[#FBCFE8]/25 dark:text-white text-[10.5px] font-extrabold uppercase tracking-wider mb-2 shadow-xs">
+            <Server className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#FBCFE8]" />
             <span>Pusat Kontrol Database &amp; Data Integrity</span>
           </div>
-          <h1 className="text-2xl font-display font-black tracking-tight text-white">Database Management</h1>
-          <p className="text-xs text-[#D9CCF2] mt-1 max-w-xl leading-relaxed">
+          <h1 className="text-2xl font-display font-black tracking-tight text-[#26364A] dark:text-white">Database Management</h1>
+          <p className="text-xs text-[#52647A] dark:text-[#D9CCF2] mt-1 max-w-xl leading-relaxed">
             Pengelolaan terpusat seluruh master data Work Order, pemeriksaan integritas data, anti-duplikasi, riwayat impor, dan arsip data aplikasi MoraJaws.
           </p>
         </div>
@@ -327,8 +327,8 @@ export const DatabaseManagementView: React.FC = () => {
             </button>
           )}
 
-          <span className="px-3 py-1.5 rounded-xl bg-[#35105E] border border-[#7135B5]/60 text-[#E8DDFF] text-xs font-bold flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-[#D8B4FE]" />
+          <span className="px-3 py-1.5 rounded-xl bg-white/90 border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E] dark:border-[#7135B5]/60 dark:text-[#E8DDFF] text-xs font-bold flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
             <span className="capitalize">Role: {currentUser.role.replace('_', ' ')}</span>
           </span>
         </div>
@@ -354,7 +354,7 @@ export const DatabaseManagementView: React.FC = () => {
               className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
                 isActive
                   ? 'btn-3d-primary text-white'
-                  : 'text-[#5A487A] dark:text-[#CEC0E8] hover:text-[#1E1035] dark:hover:text-white hover:bg-[#F3EAFF]/60 dark:hover:bg-[#2A174B]'
+                  : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white hover:bg-[#EDF3F8] dark:hover:bg-[#2A174B]'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -367,7 +367,7 @@ export const DatabaseManagementView: React.FC = () => {
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                     : tab.badgeColor === 'amber'
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                    : 'bg-[#E8DDFF] dark:bg-[#35105E] text-[#431599] dark:text-[#E8DDFF]'
+                    : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#E8DDFF]'
                 }`}>
                   {tab.badge}
                 </span>
@@ -382,33 +382,33 @@ export const DatabaseManagementView: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3.5">
             <div className="card-3d-lavender p-4 rounded-2xl">
-              <div className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8] font-bold uppercase">Total Record WO</div>
-              <div className="text-2xl font-black font-mono tabular-nums text-[#1E1035] dark:text-white mt-1">{totalWOs}</div>
-              <div className="text-[10px] text-[#766B83] dark:text-[#A78BFA] mt-0.5">Master record di database</div>
+              <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-bold uppercase">Total Record WO</div>
+              <div className="text-2xl font-black font-mono tabular-nums text-[#26364A] dark:text-white mt-1">{totalWOs}</div>
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] mt-0.5">Master record di database</div>
             </div>
 
             <div className="card-3d-lavender p-4 rounded-2xl">
-              <div className="text-[11px] text-[#5B289B] dark:text-[#D8B4FE] font-bold uppercase">WO Aktif</div>
-              <div className="text-2xl font-black font-mono tabular-nums text-[#5B289B] dark:text-[#E8DDFF] mt-1">{activeWOs}</div>
-              <div className="text-[10px] text-[#766B83] dark:text-[#A78BFA] mt-0.5">Dalam proses / antrean</div>
+              <div className="text-[11px] text-[#5145A6] dark:text-[#D8B4FE] font-bold uppercase">WO Aktif</div>
+              <div className="text-2xl font-black font-mono tabular-nums text-[#5145A6] dark:text-[#E8DDFF] mt-1">{activeWOs}</div>
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] mt-0.5">Dalam proses / antrean</div>
             </div>
 
             <div className="card-3d-lavender p-4 rounded-2xl">
               <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">WO Selesai</div>
               <div className="text-2xl font-black font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">{completedWOs}</div>
-              <div className="text-[10px] text-[#766B83] dark:text-[#A78BFA] mt-0.5">Installed &amp; Resolved</div>
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] mt-0.5">Installed &amp; Resolved</div>
             </div>
 
             <div className="card-3d-lavender p-4 rounded-2xl">
               <div className="text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase">Perlu Pemeriksaan</div>
               <div className="text-2xl font-black font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1">{validationIssues.length}</div>
-              <div className="text-[10px] text-[#766B83] dark:text-[#A78BFA] mt-0.5">Jadwal/Field tidak lengkap</div>
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] mt-0.5">Jadwal/Field tidak lengkap</div>
             </div>
 
             <div className="card-3d-lavender p-4 rounded-2xl">
               <div className="text-[11px] text-rose-600 dark:text-rose-400 font-bold uppercase">Duplikasi Terdeteksi</div>
               <div className="text-2xl font-black font-mono tabular-nums text-rose-600 dark:text-rose-400 mt-1">{duplicateGroups.length}</div>
-              <div className="text-[10px] text-[#766B83] dark:text-[#A78BFA] mt-0.5">Grup nomor WO ganda</div>
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] mt-0.5">Grup nomor WO ganda</div>
             </div>
           </div>
 
@@ -416,35 +416,35 @@ export const DatabaseManagementView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card-3d-lavender p-5 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase tracking-wider text-[#6A5A88] dark:text-[#CEC0E8]">Akun Staff Terdaftar</span>
-                <span className="text-xs font-bold font-mono tabular-nums text-[#5B289B] dark:text-[#D8B4FE]">{totalStaff} Akun</span>
+                <span className="font-bold text-xs uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8]">Akun Staff Terdaftar</span>
+                <span className="text-xs font-bold font-mono tabular-nums text-[#5145A6] dark:text-[#D8B4FE]">{totalStaff} Akun</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E]">
-                  <span className="flex items-center gap-1.5 text-[#1E1035] dark:text-[#E8DDFF]"><Wrench className="w-3.5 h-3.5 text-emerald-500" /> Teknisi Aktif</span>
-                  <span className="font-bold font-mono tabular-nums text-[#1E1035] dark:text-white">{totalInstallers}</span>
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <span className="flex items-center gap-1.5 text-[#26364A] dark:text-[#E8DDFF]"><Wrench className="w-3.5 h-3.5 text-emerald-500" /> Teknisi Aktif</span>
+                  <span className="font-bold font-mono tabular-nums text-[#26364A] dark:text-white">{totalInstallers}</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E]">
-                  <span className="flex items-center gap-1.5 text-[#1E1035] dark:text-[#E8DDFF]"><Building2 className="w-3.5 h-3.5 text-amber-500" /> Leader Mitra</span>
-                  <span className="font-bold font-mono tabular-nums text-[#1E1035] dark:text-white">{totalLeaders}</span>
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <span className="flex items-center gap-1.5 text-[#26364A] dark:text-[#E8DDFF]"><Building2 className="w-3.5 h-3.5 text-amber-500" /> Leader Mitra</span>
+                  <span className="font-bold font-mono tabular-nums text-[#26364A] dark:text-white">{totalLeaders}</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E]">
-                  <span className="flex items-center gap-1.5 text-[#1E1035] dark:text-[#E8DDFF]"><ShieldCheck className="w-3.5 h-3.5 text-[#7135B5]" /> Super Admin &amp; Dispatch</span>
-                  <span className="font-bold font-mono tabular-nums text-[#1E1035] dark:text-white">{totalStaff - totalInstallers - totalLeaders}</span>
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                  <span className="flex items-center gap-1.5 text-[#26364A] dark:text-[#E8DDFF]"><ShieldCheck className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" /> Super Admin &amp; Dispatch</span>
+                  <span className="font-bold font-mono tabular-nums text-[#26364A] dark:text-white">{totalStaff - totalInstallers - totalLeaders}</span>
                 </div>
               </div>
             </div>
 
             <div className="card-3d-lavender p-5 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase tracking-wider text-[#6A5A88] dark:text-[#CEC0E8]">Kontraktor &amp; Wilayah</span>
-                <span className="text-xs font-bold font-mono tabular-nums text-[#5B289B] dark:text-[#D8B4FE]">{totalContractors} Mitra</span>
+                <span className="font-bold text-xs uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8]">Kontraktor &amp; Wilayah</span>
+                <span className="text-xs font-bold font-mono tabular-nums text-[#5145A6] dark:text-[#D8B4FE]">{totalContractors} Mitra</span>
               </div>
               <div className="space-y-2 text-xs">
                 {contractors.slice(0, 3).map(c => (
-                  <div key={c.id} className="p-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E] flex items-center justify-between">
-                    <span className="font-semibold text-[#1E1035] dark:text-white truncate max-w-[180px]">{c.name}</span>
-                    <span className="font-mono text-[10px] text-[#6A5A88] dark:text-[#A78BFA]">{c.code}</span>
+                  <div key={c.id} className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between">
+                    <span className="font-semibold text-[#26364A] dark:text-white truncate max-w-[180px]">{c.name}</span>
+                    <span className="font-mono text-[10px] text-[#52647A] dark:text-[#A78BFA]">{c.code}</span>
                   </div>
                 ))}
               </div>
@@ -452,12 +452,12 @@ export const DatabaseManagementView: React.FC = () => {
 
             <div className="card-3d-lavender p-5 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase tracking-wider text-[#6A5A88] dark:text-[#CEC0E8]">Status Integritas Data</span>
-                <span className={`text-xs font-bold ${duplicateGroups.length === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <span className="font-bold text-xs uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8]">Status Integritas Data</span>
+                <span className={`text-xs font-bold ${duplicateGroups.length === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                   {duplicateGroups.length === 0 ? 'Optimal' : 'Perlu Tindakan'}
                 </span>
               </div>
-              <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] leading-relaxed">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                 {duplicateGroups.length === 0
                   ? 'Tidak ada duplikasi nomor WO terdeteksi dalam database. Sistem anti-duplikasi aktif menjaga 1 record per WO Number.'
                   : `Ditemukan ${duplicateGroups.length} grup nomor WO yang terduplikasi. Buka tab "Duplicate Checker" untuk rekonsiliasi.`}
@@ -480,13 +480,13 @@ export const DatabaseManagementView: React.FC = () => {
           {/* Filter Bar */}
           <div className="card-3d-lavender p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-              <Search className="w-4 h-4 text-[#766B83] shrink-0" />
+              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#766B83] shrink-0" />
               <input
                 type="text"
                 value={searchWo}
                 onChange={e => setSearchWo(e.target.value)}
                 placeholder="Cari WO Number, Customer ID, Nama Pelanggan..."
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#1E1035] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
               />
             </div>
 
@@ -494,7 +494,7 @@ export const DatabaseManagementView: React.FC = () => {
               <select
                 value={selectedContractor}
                 onChange={e => setSelectedContractor(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="all">Semua Kontraktor</option>
                 {contractors.map((c, cIdx) => (
@@ -505,7 +505,7 @@ export const DatabaseManagementView: React.FC = () => {
               <select
                 value={selectedStatus}
                 onChange={e => setSelectedStatus(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="all">Semua Status</option>
                 <option value="Unassigned">Unassigned</option>
@@ -521,7 +521,7 @@ export const DatabaseManagementView: React.FC = () => {
                 type="date"
                 value={selectedAppointmentDate}
                 onChange={e => setSelectedAppointmentDate(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
                 title="Filter Appointment Date"
               />
 
@@ -557,7 +557,7 @@ export const DatabaseManagementView: React.FC = () => {
                 label: 'WO Number',
                 priority: 'hidden_mobile',
                 render: ticket => (
-                  <span className="font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE]">
+                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
                     {ticket.woNumber}
                   </span>
                 )
@@ -568,10 +568,10 @@ export const DatabaseManagementView: React.FC = () => {
                 priority: 'primary',
                 render: ticket => (
                   <div>
-                    <span className="font-semibold font-mono tabular-nums text-[#1E1035] dark:text-white">
+                    <span className="font-semibold font-mono tabular-nums text-[#26364A] dark:text-white">
                       {ticket.appointmentDate || <span className="text-rose-500 italic">Belum diset</span>}
                     </span>
-                    <span className="block text-[10.5px] text-[#6A5A88] dark:text-[#A78BFA]">{ticket.slotTime || '-'}</span>
+                    <span className="block text-[10.5px] text-[#52647A] dark:text-[#A78BFA]">{ticket.slotTime || '-'}</span>
                   </div>
                 )
               },
@@ -581,8 +581,8 @@ export const DatabaseManagementView: React.FC = () => {
                 priority: 'hidden_mobile',
                 render: ticket => (
                   <div>
-                    <div className="font-bold text-[#1E1035] dark:text-white">{ticket.customerName}</div>
-                    <div className="font-mono text-[10.5px] text-[#6A5A88] dark:text-[#A78BFA]">
+                    <div className="font-bold text-[#26364A] dark:text-white">{ticket.customerName}</div>
+                    <div className="font-mono text-[10.5px] text-[#52647A] dark:text-[#A78BFA]">
                       ID: {ticket.idCustomer || ticket.customerId || '-'}
                     </div>
                   </div>
@@ -594,8 +594,8 @@ export const DatabaseManagementView: React.FC = () => {
                 priority: 'secondary',
                 render: ticket => (
                   <div>
-                    <div className="font-semibold text-[#1E1035] dark:text-white">{ticket.area || '-'}</div>
-                    <div className="text-[10.5px] text-[#6A5A88] dark:text-[#A78BFA] truncate max-w-[160px]">
+                    <div className="font-semibold text-[#26364A] dark:text-white">{ticket.area || '-'}</div>
+                    <div className="text-[10.5px] text-[#52647A] dark:text-[#A78BFA] truncate max-w-[160px]">
                       {ticket.contactorName || ticket.contractorName || '-'}
                     </div>
                   </div>
@@ -612,7 +612,7 @@ export const DatabaseManagementView: React.FC = () => {
                       <span className="truncate">{ticket.installerName}</span>
                     </span>
                   ) : (
-                    <span className="text-[#766B83] italic">Belum di-assign</span>
+                    <span className="text-[#8492A5] dark:text-[#766B83] italic">Belum di-assign</span>
                   )
               },
               {
@@ -634,8 +634,8 @@ export const DatabaseManagementView: React.FC = () => {
                 }}
                 mobileTitle={t => (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE]">{t.woNumber}</span>
-                    <span className="text-[#1E1035] dark:text-white font-bold">· {t.customerName}</span>
+                    <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">{t.woNumber}</span>
+                    <span className="text-[#26364A] dark:text-white font-bold">· {t.customerName}</span>
                   </div>
                 )}
                 mobileSubtitle={t => `Customer ID: ${t.idCustomer || t.customerId || '-'}`}
@@ -720,28 +720,28 @@ export const DatabaseManagementView: React.FC = () => {
       {activeSubmenu === 'import_history' && (
         <div className="space-y-4">
           <div className="card-3d-lavender p-5 rounded-2xl">
-            <h3 className="font-bold text-sm text-[#1E1035] dark:text-white mb-1">
+            <h3 className="font-bold text-sm text-[#26364A] dark:text-white mb-1">
               Riwayat Impor &amp; Batch Audit
             </h3>
-            <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mb-4">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-4">
               Daftar seluruh proses impor berkas WO yang pernah dieksekusi oleh Super Admin dan Dispatch.
             </p>
 
             <div className="space-y-3">
               {importHistoryLogs.length === 0 ? (
-                <div className="p-8 text-center text-[#6A5A88] dark:text-[#CEC0E8] text-xs">
+                <div className="p-8 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs">
                   Belum ada log histori impor WO yang tercatat di sistem.
                 </div>
               ) : (
                 importHistoryLogs.map(log => (
-                  <div key={log.id} className="p-3.5 rounded-xl border border-[#E4D8F8] dark:border-[#35105E] bg-[#F8F1FF] dark:bg-[#160D29] flex items-start justify-between gap-3 text-xs">
+                  <div key={log.id} className="p-3.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex items-start justify-between gap-3 text-xs">
                     <div>
-                      <div className="font-bold text-[#1E1035] dark:text-white flex items-center gap-2">
+                      <div className="font-bold text-[#26364A] dark:text-white flex items-center gap-2">
                         <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                         <span>{log.action}</span>
                       </div>
-                      <p className="text-[#4A3B63] dark:text-[#D9CCF2] mt-1">{log.details}</p>
-                      <div className="text-[10.5px] text-[#6A5A88] dark:text-[#A78BFA] mt-1.5 flex items-center gap-2">
+                      <p className="text-[#52647A] dark:text-[#D9CCF2] mt-1">{log.details}</p>
+                      <div className="text-[10.5px] text-[#8492A5] dark:text-[#A78BFA] mt-1.5 flex items-center gap-2">
                         <span>Oleh: <strong>{log.performedBy}</strong> ({log.userRole})</span>
                         <span>·</span>
                         <span>{new Date(log.timestamp).toLocaleString('id-ID')}</span>
@@ -762,14 +762,14 @@ export const DatabaseManagementView: React.FC = () => {
           <div className="card-3d-lavender p-5 sm:p-6 rounded-2xl space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
-                <div className="p-3 bg-gradient-to-br from-[#5B289B] to-[#35105E] text-white rounded-2xl shadow-[0_6px_14px_rgba(53,16,94,0.28)] shrink-0">
-                  <Sparkles className="w-5 h-5 text-[#E8DDFF]" />
+                <div className="p-3 bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#5B289B] dark:to-[#35105E] text-white rounded-2xl shadow-md dark:shadow-[0_6px_14px_rgba(53,16,94,0.28)] shrink-0">
+                  <Sparkles className="w-5 h-5 text-white dark:text-[#E8DDFF]" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm sm:text-base text-[#1E1035] dark:text-white">
+                  <h3 className="font-black text-sm sm:text-base text-[#26364A] dark:text-white">
                     Initialisasi &amp; Pembersihan Otomatis Data Ganda (Duplicate Cleanup)
                   </h3>
-                  <p className="text-xs text-[#4A3B63] dark:text-[#D9CCF2] mt-1 max-w-2xl leading-relaxed">
+                  <p className="text-xs text-[#52647A] dark:text-[#D9CCF2] mt-1 max-w-2xl leading-relaxed">
                     Sistem otomatis mengaudit seluruh dokumen WO di Supabase PostgreSQL, mendeteksi duplikasi berdasarkan nomor WO dan kombinasi pelanggan, lalu memilih <strong>1 Master Record</strong> terbaik (status paling maju, teknisi terisi, laporan terisi, pembaruan terbaru), menggabungkan data pelengkap, dan menghapus dokumen ganda yang berlebih.
                   </p>
                 </div>
@@ -797,63 +797,63 @@ export const DatabaseManagementView: React.FC = () => {
 
             {/* Audit & Cleanup Report Summary (7 Metrics) */}
             {auditReport && (
-              <div className="pt-4 border-t border-[#E4D8F8] dark:border-[#35105E] space-y-3 animate-in fade-in duration-200">
+              <div className="pt-4 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-[#431599] dark:text-[#E8DDFF] uppercase tracking-wider flex items-center gap-1.5">
+                  <h4 className="text-xs font-bold text-[#5145A6] dark:text-[#E8DDFF] uppercase tracking-wider flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
                     <span>Ringkasan Hasil Audit &amp; Pembersihan Database</span>
                   </h4>
-                  <span className="text-[11px] text-[#6A5A88] dark:text-[#A78BFA] font-mono">
+                  <span className="text-[11px] text-[#52647A] dark:text-[#A78BFA] font-mono">
                     Audit terakhir: baru saja
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs">
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E4D8F8] dark:border-[#35105E]">
-                    <span className="text-[10.5px] text-[#6A5A88] dark:text-[#CEC0E8] block truncate">1. Dokumen Diperiksa</span>
-                    <span className="text-lg font-black font-mono tabular-nums text-[#1E1035] dark:text-white mt-1 block">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] block truncate">1. Dokumen Diperiksa</span>
+                    <span className="text-lg font-black font-mono tabular-nums text-[#26364A] dark:text-white mt-1 block">
                       {auditReport.totalInspected}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-emerald-200 dark:border-emerald-800">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-emerald-200 dark:border-emerald-800">
                     <span className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-medium block truncate">2. Data Valid</span>
                     <span className="text-lg font-black font-mono tabular-nums text-emerald-700 dark:text-emerald-300 mt-1 block">
                       {auditReport.totalValid}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-amber-200 dark:border-amber-800">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-amber-200 dark:border-amber-800">
                     <span className="text-[10.5px] text-amber-600 dark:text-amber-400 font-medium block truncate">3. Duplikasi Ditemukan</span>
                     <span className="text-lg font-black font-mono tabular-nums text-amber-700 dark:text-amber-300 mt-1 block">
                       {auditReport.totalDuplicatesDetected}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#CBB5F6] dark:border-[#5B289B]">
-                    <span className="text-[10.5px] text-[#5B289B] dark:text-[#D8B4FE] font-medium block truncate">4. Berhasil Dibersihkan</span>
-                    <span className="text-lg font-black font-mono tabular-nums text-[#431599] dark:text-[#E8DDFF] mt-1 block">
+                  <div className="p-3 bg-[#EAE8FF] dark:bg-[#160D29] rounded-xl border border-[#C5BEEF] dark:border-[#5B289B]">
+                    <span className="text-[10.5px] text-[#5145A6] dark:text-[#D8B4FE] font-medium block truncate">4. Berhasil Dibersihkan</span>
+                    <span className="text-lg font-black font-mono tabular-nums text-[#5145A6] dark:text-[#E8DDFF] mt-1 block">
                       {auditReport.totalDuplicatesCleaned}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-rose-200 dark:border-rose-800">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-rose-200 dark:border-rose-800">
                     <span className="text-[10.5px] text-rose-600 dark:text-rose-400 font-medium block truncate">5. Data Konflik</span>
                     <span className="text-lg font-black font-mono tabular-nums text-rose-700 dark:text-rose-300 mt-1 block">
                       {auditReport.totalConflicts}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-amber-200 dark:border-amber-800">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-amber-200 dark:border-amber-800">
                     <span className="text-[10.5px] text-amber-700 dark:text-amber-300 font-medium block truncate">6. Perlu Cek Manual</span>
                     <span className="text-lg font-black font-mono tabular-nums text-amber-800 dark:text-amber-200 mt-1 block">
                       {auditReport.totalManualReviewNeeded}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E4D8F8] dark:border-[#35105E]">
-                    <span className="text-[10.5px] text-[#6A5A88] dark:text-[#CEC0E8] block truncate">7. Proses Gagal</span>
-                    <span className="text-lg font-black font-mono tabular-nums text-[#4A3B63] dark:text-[#D9CCF2] mt-1 block">
+                  <div className="p-3 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] block truncate">7. Proses Gagal</span>
+                    <span className="text-lg font-black font-mono tabular-nums text-[#26364A] dark:text-[#D9CCF2] mt-1 block">
                       {auditReport.totalFailed}
                     </span>
                   </div>
@@ -881,11 +881,11 @@ export const DatabaseManagementView: React.FC = () => {
           <div className="card-3d-lavender p-5 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-bold text-sm text-[#1E1035] dark:text-white flex items-center gap-2">
+                <h3 className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2">
                   <Copy className="w-4 h-4 text-rose-600" />
                   <span>Daftar Duplikasi WO Aktif ({duplicateGroups.length} grup)</span>
                 </h3>
-                <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mt-0.5">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
                   Menampilkan grup record Work Order dengan nomor WO yang sama.
                 </p>
               </div>
@@ -933,13 +933,13 @@ export const DatabaseManagementView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       {dupList.map((t, idx) => (
-                        <div key={t.id} className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E4D8F8] dark:border-[#35105E]">
-                          <div className="flex items-center justify-between text-[11px] text-[#6A5A88] dark:text-[#A78BFA] mb-1">
+                        <div key={t.id} className="p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]">
+                          <div className="flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#A78BFA] mb-1">
                             <span>Record #{idx + 1} (ID: {t.id})</span>
-                            <span className="font-semibold text-[#4A3B63] dark:text-[#E8DDFF]">{t.dateUpload || t.date}</span>
+                            <span className="font-semibold text-[#26364A] dark:text-[#E8DDFF]">{t.dateUpload || t.date}</span>
                           </div>
-                          <div className="font-bold text-[#1E1035] dark:text-white">{t.customerName}</div>
-                          <div className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">Teknisi: {t.installerName || 'Unassigned'} · Vendor: {t.contactorName} · Status: {t.statusWOInstaller}</div>
+                          <div className="font-bold text-[#26364A] dark:text-white">{t.customerName}</div>
+                          <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">Teknisi: {t.installerName || 'Unassigned'} · Vendor: {t.contactorName} · Status: {t.statusWOInstaller}</div>
                         </div>
                       ))}
                     </div>
@@ -957,11 +957,11 @@ export const DatabaseManagementView: React.FC = () => {
           <div className="card-3d-lavender p-5 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-bold text-sm text-[#1E1035] dark:text-white flex items-center gap-2">
+                <h3 className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <span>Audit Kualitas Data (Data Validation)</span>
                 </h3>
-                <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mt-0.5">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
                   Mendeteksi field kosong, format Appointment Date tidak valid, atau relasi teknisi tidak sinkron.
                 </p>
               </div>
@@ -975,20 +975,20 @@ export const DatabaseManagementView: React.FC = () => {
                 Seluruh data Work Order memenuhi standar validasi aplikasi.
               </div>
             ) : (
-              <div className="divide-y divide-[#EDE4FA] dark:divide-[#2D1852] text-xs">
+              <div className="divide-y divide-[#E2E8F0] dark:divide-[#2D1852] text-xs">
                 {validationIssues.map(issue => (
                   <div key={issue.id} className="py-3 flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE]">
+                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
                           {issue.ticket.woNumber || 'NO_WO_EMPTY'}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 text-[10px] font-semibold">
                           {issue.field}
                         </span>
                       </div>
-                      <p className="text-[#1E1035] dark:text-white font-medium mt-1">{issue.message}</p>
-                      <p className="text-[#6A5A88] dark:text-[#CEC0E8] text-[11px]">Rekomendasi: {issue.recommendation}</p>
+                      <p className="text-[#26364A] dark:text-white font-medium mt-1">{issue.message}</p>
+                      <p className="text-[#52647A] dark:text-[#CEC0E8] text-[11px]">Rekomendasi: {issue.recommendation}</p>
                     </div>
                     <button
                       onClick={() => handleOpenEdit(issue.ticket)}
@@ -1008,25 +1008,25 @@ export const DatabaseManagementView: React.FC = () => {
       {activeSubmenu === 'data_archive' && (
         <div className="space-y-4">
           <div className="card-3d-lavender p-5 rounded-2xl">
-            <h3 className="font-bold text-sm text-[#1E1035] dark:text-white flex items-center gap-2 mb-1">
-              <Archive className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+            <h3 className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2 mb-1">
+              <Archive className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Arsip Data Work Order (Data Archive)</span>
             </h3>
-            <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mb-4">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-4">
               Menyimpan tiket lama yang sudah selesai atau dibatalkan tanpa menghapus data secara permanen.
             </p>
 
             {tickets.filter(t => t.isArchived).length === 0 ? (
-              <div className="p-8 text-center text-[#6A5A88] dark:text-[#CEC0E8] text-xs">
+              <div className="p-8 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs">
                 Belum ada tiket WO yang diarsipkan di database.
               </div>
             ) : (
               <div className="space-y-2 text-xs">
                 {tickets.filter(t => t.isArchived).map(t => (
-                  <div key={t.id} className="p-3 rounded-xl border border-[#E4D8F8] dark:border-[#35105E] bg-[#F8F1FF] dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div key={t.id} className="p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="min-w-0">
-                      <span className="font-mono font-bold text-[#1E1035] dark:text-white">{t.woNumber}</span>
-                      <span className="text-[#6A5A88] dark:text-[#CEC0E8] ml-2">· {t.customerName} ({t.appointmentDate || '-'})</span>
+                      <span className="font-mono font-bold text-[#26364A] dark:text-white">{t.woNumber}</span>
+                      <span className="text-[#52647A] dark:text-[#CEC0E8] ml-2">· {t.customerName} ({t.appointmentDate || '-'})</span>
                     </div>
                     <button
                       type="button"
@@ -1047,21 +1047,21 @@ export const DatabaseManagementView: React.FC = () => {
       {activeSubmenu === 'audit_log' && (
         <div className="space-y-4">
           <div className="card-3d-lavender p-5 rounded-2xl">
-            <h3 className="font-bold text-sm text-[#1E1035] dark:text-white flex items-center gap-2 mb-1">
-              <ShieldCheck className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+            <h3 className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2 mb-1">
+              <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Audit Trail Mutasi Database</span>
             </h3>
-            <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mb-4">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-4">
               Pencatatan real-time terhadap perubahan appointment date, impor WO, penugasan teknisi, dan aktivitas staf.
             </p>
 
             <div className="space-y-2 max-h-[500px] overflow-y-auto text-xs">
               {auditLogs.map(log => (
-                <div key={log.id} className="p-3 rounded-xl border border-[#E4D8F8] dark:border-[#35105E] bg-[#F8F1FF] dark:bg-[#160D29] flex items-start justify-between gap-3">
+                <div key={log.id} className="p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-bold text-[#1E1035] dark:text-white">{log.action}</div>
-                    <div className="text-[#4A3B63] dark:text-[#D9CCF2] mt-0.5">{log.details}</div>
-                    <div className="text-[10.5px] text-[#6A5A88] dark:text-[#A78BFA] mt-1">
+                    <div className="font-bold text-[#26364A] dark:text-white">{log.action}</div>
+                    <div className="text-[#52647A] dark:text-[#D9CCF2] mt-0.5">{log.details}</div>
+                    <div className="text-[10.5px] text-[#8492A5] dark:text-[#A78BFA] mt-1">
                       Oleh: <strong>{log.performedBy}</strong> ({log.userRole}) · {new Date(log.timestamp).toLocaleString('id-ID')}
                     </div>
                   </div>
@@ -1079,7 +1079,7 @@ export const DatabaseManagementView: React.FC = () => {
         title={
           editingTicket ? (
             <span>
-              Koreksi Data WO: <span className="font-mono text-[#5B289B] dark:text-[#D8B4FE]">{editingTicket.woNumber}</span>
+              Koreksi Data WO: <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">{editingTicket.woNumber}</span>
             </span>
           ) : undefined
         }
@@ -1109,42 +1109,42 @@ export const DatabaseManagementView: React.FC = () => {
         {editingTicket && (
           <div className="space-y-3 text-xs">
             <div>
-              <label className="block font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">Nama Pelanggan</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">Nama Pelanggan</label>
               <input
                 type="text"
                 value={editForm.customerName || ''}
                 onChange={e => setEditForm({ ...editForm, customerName: e.target.value })}
-                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#1E1035] dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#26364A] dark:text-white"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">Appointment Date</label>
+                <label className="block font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">Appointment Date</label>
                 <input
                   type="date"
                   value={editForm.appointmentDate || ''}
                   onChange={e => setEditForm({ ...editForm, appointmentDate: e.target.value })}
-                  className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#1E1035] dark:text-white"
+                  className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#26364A] dark:text-white"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">Slot Waktu</label>
+                <label className="block font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">Slot Waktu</label>
                 <input
                   type="text"
                   value={editForm.slotTime || ''}
                   onChange={e => setEditForm({ ...editForm, slotTime: e.target.value })}
-                  className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#1E1035] dark:text-white"
+                  className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#26364A] dark:text-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">Kontraktor</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">Kontraktor</label>
               <select
                 value={editForm.contactorName || ''}
                 onChange={e => setEditForm({ ...editForm, contactorName: e.target.value })}
-                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#1E1035] dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#26364A] dark:text-white"
               >
                 {contractors.map((c, cIdx) => (
                   <option key={`edit-contractor-${c.id || c.name}-${cIdx}`} value={c.name}>{c.name}</option>
@@ -1153,13 +1153,13 @@ export const DatabaseManagementView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">Teknisi (Installer)</label>
+              <label className="block font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">Teknisi (Installer)</label>
               <input
                 type="text"
                 value={editForm.installerName || ''}
                 onChange={e => setEditForm({ ...editForm, installerName: e.target.value })}
                 placeholder="Nama teknisi penugasan"
-                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#1E1035] dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 min-h-[40px] rounded-xl text-[#26364A] dark:text-white"
               />
             </div>
           </div>

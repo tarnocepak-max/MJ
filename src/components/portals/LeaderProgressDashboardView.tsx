@@ -444,29 +444,29 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
   const getCardProgressMeta = (t: Ticket, cat: ReturnType<typeof getTicketCategory>) => {
     if (cat === 'complete') {
-      return { percent: 100, barColor: 'bg-emerald-500', label: 'Pekerjaan Selesai / Terverifikasi Lapangan', badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200', badgeText: 'Selesai' };
+      return { percent: 100, barColor: 'bg-[#218A63] dark:bg-emerald-500', label: 'Pekerjaan Selesai / Terverifikasi Lapangan', badgeCls: 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-800', badgeText: 'Selesai' };
     }
     if (cat === 'uncomplete') {
-      return { percent: 45, barColor: 'bg-amber-500', label: t.statusWOInstaller || 'Kendala Teknis / Pending', badgeCls: 'bg-amber-50 text-amber-700 border-amber-200', badgeText: 'Kendala' };
+      return { percent: 45, barColor: 'bg-amber-500', label: t.statusWOInstaller || 'Kendala Teknis / Pending', badgeCls: 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-800', badgeText: 'Kendala' };
     }
     if (cat === 'cancel') {
-      return { percent: 15, barColor: 'bg-rose-500', label: 'Dibatalkan / Gagal', badgeCls: 'bg-rose-50 text-rose-700 border-rose-200', badgeText: 'Batal' };
+      return { percent: 15, barColor: 'bg-[#D45B66] dark:bg-rose-500', label: 'Dibatalkan / Gagal', badgeCls: 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300 border-[#F3C5CA] dark:border-rose-800', badgeText: 'Batal' };
     }
     if (cat === 'assign') {
       const ws = getTicketWorkStatus(t);
       const isOnSite = t.statusWOInstaller === 'On Site' || t.statusWOInstaller === 'In Progress' || t.statusWOInstaller === 'PROGRESS' || Boolean(t.checkInAt);
       return {
         percent: isOnSite ? 75 : 50,
-        barColor: 'bg-[#7C3AED]',
+        barColor: 'bg-[#2E7D8B] dark:bg-[#7C3AED]',
         label: ws.status === 'Sedang Dikerjakan' ? 'Sedang Dikerjakan (Checked-In)' : t.statusWOInstaller || 'Dalam Perjalanan / Proses',
-        badgeCls: 'bg-[#f3eaff] text-[#58149c] border-[#e8ddff]',
+        badgeCls: 'bg-[#DDF4F4] dark:bg-[#2E1B59] text-[#2E7D8B] dark:text-[#DAB9FF] border-[#BDE4E8] dark:border-[#5B35B1]',
         badgeText: isOnSite ? 'On Site' : 'Sedang Jalan'
       };
     }
     if (cat === 'untouch') {
-      return { percent: 25, barColor: 'bg-[#7135B5]', label: 'Ditugaskan — Menunggu Check-in Teknisi', badgeCls: 'bg-[#F3EAFF] text-[#58149C] border-[#D0BCFF]', badgeText: 'Menunggu' };
+      return { percent: 25, barColor: 'bg-[#6657C8] dark:bg-[#7135B5]', label: 'Ditugaskan — Menunggu Check-in Teknisi', badgeCls: 'bg-[#EAE8FF] dark:bg-[#2E1B59] text-[#5145A6] dark:text-[#DAB9FF] border-[#DCE3F2] dark:border-[#5B35B1]', badgeText: 'Menunggu' };
     }
-    return { percent: 0, barColor: 'bg-slate-300', label: 'Belum Di-assign ke Teknisi', badgeCls: 'bg-slate-100 text-slate-600 border-slate-200', badgeText: 'Unassign' };
+    return { percent: 0, barColor: 'bg-slate-300 dark:bg-slate-600', label: 'Belum Di-assign ke Teknisi', badgeCls: 'bg-[#EDF3F8] dark:bg-[#261942] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#3E246F]', badgeText: 'Unassign' };
   };
 
   const filterChips: { id: StatCategoryFilter; label: string; count: number }[] = [
@@ -492,17 +492,17 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       {/* Stitch Operational Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#7C3AED]">
+          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#2E7D8B] dark:text-[#7C3AED]">
             PEMANTAUAN LAPANGAN
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1f1638] dark:text-white leading-tight font-['Plus_Jakarta_Sans',sans-serif]">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#26364A] dark:text-white leading-tight font-['Plus_Jakarta_Sans',sans-serif]">
             Status Pengerjaan WO
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#4b4452] dark:text-slate-300">
-            <span className="font-semibold text-[#58149c] dark:text-[#d0bcff]">{leaderContractor}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#52647A] dark:text-slate-300">
+            <span className="font-semibold text-[#5145A6] dark:text-[#d0bcff]">{leaderContractor}</span>
             {leaderArea && <span>• {leaderArea}</span>}
             <span className="inline-flex items-center gap-1 font-mono text-[11px]">
-              <Calendar className="w-3.5 h-3.5 text-[#7C3AED]" />
+              <Calendar className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#7C3AED]" />
               {formatAppointmentDateDisplay(todayJakarta)} ({todayJakarta})
             </span>
           </div>
@@ -513,13 +513,13 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             type="button"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className={`mj-btn-leader-neutral inline-flex items-center gap-1.5 px-3 py-2 text-xs text-[#1f1638] dark:text-purple-100 cursor-pointer ${
+            className={`mj-btn-leader-neutral inline-flex items-center gap-1.5 px-3 py-2 text-xs text-[#26364A] dark:text-purple-100 cursor-pointer ${
               isSyncing ? 'mj-btn-loading' : ''
             }`}
             title="Sinkronkan progres lapangan terbaru dari server"
           >
             <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
-            <RefreshCw className={`w-3.5 h-3.5 text-[#58149c] dark:text-[#d0bcff] ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#5145A6] dark:text-[#d0bcff] ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Sinkron...' : 'Auto-Sync'}</span>
           </button>
 
@@ -529,7 +529,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer ${
               showLifecycleKpi
                 ? 'mj-btn-leader-primary'
-                : 'mj-btn-leader-neutral text-[#4b4452] dark:text-slate-200'
+                : 'mj-btn-leader-neutral text-[#52647A] dark:text-slate-200'
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -540,7 +540,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             <div
               role="group"
               aria-label="Kartu Live & Tabel Layout Switch"
-              className="inline-flex items-center p-1 rounded-xl bg-[#f3eaff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/60"
+              className="inline-flex items-center p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#251545] border border-[#DDE6F0] dark:border-purple-900/60"
             >
               <button
                 type="button"
@@ -549,8 +549,8 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 title="Tampilan Kartu Live (Terintegrasi dengan Mobile Mode)"
                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   effectiveViewMode === 'cards'
-                    ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
-                    : 'text-[#4b4452] dark:text-slate-300'
+                    ? 'bg-white dark:bg-[#1A0E2E] text-[#5145A6] dark:text-white shadow-xs'
+                    : 'text-[#52647A] dark:text-slate-300'
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -563,8 +563,8 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 title="Tampilan Tabel (Terintegrasi dengan Desktop Mode)"
                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   effectiveViewMode === 'table'
-                    ? 'bg-white dark:bg-[#1A0E2E] text-[#58149c] dark:text-white shadow-xs'
-                    : 'text-[#4b4452] dark:text-slate-300'
+                    ? 'bg-white dark:bg-[#1A0E2E] text-[#5145A6] dark:text-white shadow-xs'
+                    : 'text-[#52647A] dark:text-slate-300'
                 }`}
               >
                 <Table2 className="w-3.5 h-3.5" />
@@ -594,15 +594,15 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
       {/* Active KPI Filter Banner */}
       {activeKpiDrilldown && (
-        <div className="rounded-xl bg-[#1f1638] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-xl bg-gradient-to-r from-[#EAE8FF] to-[#DDF4F4] dark:bg-none dark:bg-[#1f1638] text-[#26364A] dark:text-white px-4 py-3 border border-[#BDE4E8] dark:border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+            <span className="px-2 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#7135B5] text-white font-bold text-[10.5px]">
               Filter KPI Dashboard
             </span>
             <span className="font-bold">
               {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
             </span>
-            <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+            <span className="font-mono font-bold text-[#5145A6] dark:text-[#E9D5FF] tabular-nums">
               ({displayTickets.length} WO ditemukan)
             </span>
           </div>
@@ -612,7 +612,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               setActiveKpiDrilldown(null);
               setCurrentPage(1);
             }}
-            className="mj-btn-leader-neutral mj-btn-xs inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#1f1638] text-xs cursor-pointer"
+            className="mj-btn-leader-neutral mj-btn-xs inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#26364A] dark:text-white text-xs cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Reset Filter KPI</span>
@@ -628,36 +628,36 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             label: 'UNASSIGN',
             count: statCounts.unassign,
             icon: Inbox,
-            barColor: 'bg-[#7D7484]',
-            badgeColor: 'text-[#4B4452] dark:text-[#CEC0E8]',
-            activeCls: 'bg-[#F3EAFF] dark:bg-[#2a174a] border-[#7135B5] ring-2 ring-[#7135B5]/30'
+            barColor: 'bg-[#8492A5] dark:bg-[#7D7484]',
+            badgeColor: 'text-[#52647A] dark:text-[#CEC0E8]',
+            activeCls: 'bg-[#EDF3F8] dark:bg-[#2a174a] border-[#6657C8] dark:border-[#7135B5] ring-2 ring-[#6657C8]/25 dark:ring-[#7135B5]/30'
           },
           {
             key: 'untouch' as const,
             label: 'MENUNGGU',
             count: statCounts.untouch,
             icon: Clock,
-            barColor: 'bg-[#58149C]',
-            badgeColor: 'text-[#58149C] dark:text-[#D8B4FE]',
-            activeCls: 'bg-[#F3EAFF] dark:bg-[#2a174a] border-[#58149C] ring-2 ring-[#58149C]/30'
+            barColor: 'bg-[#6657C8] dark:bg-[#58149C]',
+            badgeColor: 'text-[#5145A6] dark:text-[#D8B4FE]',
+            activeCls: 'bg-[#EAE8FF] dark:bg-[#2a174a] border-[#6657C8] dark:border-[#58149C] ring-2 ring-[#6657C8]/25 dark:ring-[#58149C]/30'
           },
           {
             key: 'assign' as const,
             label: 'CHECK-IN',
             count: statCounts.assign,
             icon: RefreshCw,
-            barColor: 'bg-[#7C3AED]',
-            badgeColor: 'text-[#7C3AED] dark:text-[#D8B4FE]',
-            activeCls: 'bg-[#F3EAFF] dark:bg-[#2a174a] border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+            barColor: 'bg-[#2E7D8B] dark:bg-[#7C3AED]',
+            badgeColor: 'text-[#2E7D8B] dark:text-[#D8B4FE]',
+            activeCls: 'bg-[#DDF4F4] dark:bg-[#2a174a] border-[#2E7D8B] dark:border-[#7C3AED] ring-2 ring-[#2E7D8B]/25 dark:ring-[#7C3AED]/30'
           },
           {
             key: 'complete' as const,
             label: 'COMPLETE',
             count: statCounts.complete,
             icon: CheckCircle2,
-            barColor: 'bg-emerald-500',
-            badgeColor: 'text-emerald-700 dark:text-emerald-400',
-            activeCls: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/25'
+            barColor: 'bg-[#218A63] dark:bg-emerald-500',
+            badgeColor: 'text-[#218A63] dark:text-emerald-400',
+            activeCls: 'bg-[#E4F5EC] dark:bg-emerald-950/40 border-[#218A63] dark:border-emerald-500 ring-2 ring-emerald-500/25'
           },
           {
             key: 'uncomplete' as const,
@@ -665,17 +665,17 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             count: statCounts.uncomplete,
             icon: AlertTriangle,
             barColor: 'bg-amber-500',
-            badgeColor: 'text-amber-700 dark:text-amber-400',
-            activeCls: 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/25'
+            badgeColor: 'text-[#9D661F] dark:text-amber-400',
+            activeCls: 'bg-[#FFF2D9] dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/25'
           },
           {
             key: 'cancel' as const,
             label: 'CANCEL',
             count: statCounts.cancel,
             icon: XCircle,
-            barColor: 'bg-[#881337]',
-            badgeColor: 'text-[#881337] dark:text-rose-400',
-            activeCls: 'bg-rose-50 dark:bg-rose-950/40 border-[#881337] ring-2 ring-[#881337]/25'
+            barColor: 'bg-[#D45B66] dark:bg-[#881337]',
+            badgeColor: 'text-[#9B2C37] dark:text-rose-400',
+            activeCls: 'bg-[#FCE9EB] dark:bg-rose-950/40 border-[#D45B66] dark:border-[#881337] ring-2 ring-[#D45B66]/25 dark:ring-[#881337]/25'
           }
         ].map(tile => {
           const IconComp = tile.icon;
@@ -692,24 +692,24 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                 isActive
                   ? `${tile.activeCls} shadow-sm`
-                  : 'bg-white dark:bg-[#1A0E2E] border-[#e8ddff] dark:border-purple-900/60 hover:border-[#7135B5]/50'
+                  : 'bg-white dark:bg-[#1A0E2E] border-[#DDE6F0] dark:border-purple-900/60 hover:border-[#6657C8]/50 dark:hover:border-[#7135B5]/50'
               }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-extrabold tracking-wider uppercase text-[#4b4452] dark:text-slate-300 truncate">
+                <span className="text-[10px] font-extrabold tracking-wider uppercase text-[#52647A] dark:text-slate-300 truncate">
                   {tile.label}
                 </span>
                 <IconComp className={`w-3.5 h-3.5 shrink-0 ${tile.badgeColor}`} />
               </div>
               <div className="mt-2 flex items-baseline justify-between gap-1">
-                <span className="text-xl sm:text-2xl font-bold font-mono text-[#1f1638] dark:text-white tabular-nums">
+                <span className="text-xl sm:text-2xl font-bold font-mono text-[#26364A] dark:text-white tabular-nums">
                   {tile.count}
                 </span>
                 <span className={`text-[10px] font-mono font-bold ${tile.badgeColor}`}>
                   {pct}%
                 </span>
               </div>
-              <div className="mt-2 h-1 w-full rounded-full bg-[#F3EAFF] dark:bg-purple-950 overflow-hidden">
+              <div className="mt-2 h-1 w-full rounded-full bg-[#EDF3F8] dark:bg-purple-950 overflow-hidden">
                 <div
                   className={`h-full ${tile.barColor} rounded-full transition-all`}
                   style={{ width: `${pct}%` }}
@@ -723,7 +723,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       {/* Search Bar & Horizontal Filter Pills */}
       <div className="space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-[#7d7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7d7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Cari teknisi, No. WO, ID Customer, cluster, atau ODP/FAT..."
@@ -732,7 +732,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="tactile-debossed-input w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-purple-900/60 rounded-2xl text-xs sm:text-sm text-[#1f1638] dark:text-white placeholder-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            className="tactile-debossed-input w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A0E2E] border border-[#DDE6F0] dark:border-purple-900/60 rounded-2xl text-xs sm:text-sm text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7C3AED]"
           />
           {searchQuery && (
             <button
@@ -777,14 +777,14 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       {effectiveViewMode === 'cards' ? (
         <div className="space-y-4">
           {paginatedTickets.length === 0 ? (
-            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-10 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#f3eaff] dark:bg-purple-950/60 text-[#58149c] flex items-center justify-center mx-auto">
+            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#DDE6F0] dark:border-purple-900/60 p-10 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#EAE8FF] dark:bg-purple-950/60 text-[#5145A6] dark:text-[#dab9ff] flex items-center justify-center mx-auto">
                 <Inbox className="w-6 h-6" />
               </div>
-              <div className="text-sm font-bold text-[#1f1638] dark:text-white">
+              <div className="text-sm font-bold text-[#26364A] dark:text-white">
                 Tidak Ada WO Pada Filter Ini
               </div>
-              <p className="text-xs text-[#4b4452] dark:text-slate-400 max-w-md mx-auto">
+              <p className="text-xs text-[#52647A] dark:text-slate-400 max-w-md mx-auto">
                 Tidak ditemukan Work Order hari ini ({todayJakarta} WIB) yang cocok dengan filter status atau kata kunci pencarian Anda.
               </p>
               {(selectedCategory !== 'all' || searchQuery) && (
@@ -824,9 +824,9 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 const parsedOpm = realOpm ? parseFloat(String(realOpm).replace(/[^0-9.-]/g, '')) : NaN;
                 const opmStatus = Number.isFinite(parsedOpm)
                   ? parsedOpm < -25
-                    ? { text: 'Redaman Tinggi', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
-                    : { text: 'Rx Optimal', cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
-                  : { text: 'Terukur', cls: 'bg-purple-500/20 text-purple-200 border-purple-400/30' };
+                    ? { text: 'Redaman Tinggi', cls: 'bg-[#FCE9EB] dark:bg-rose-500/20 text-[#9B2C37] dark:text-rose-300 border-[#F3C5CA] dark:border-rose-500/30' }
+                    : { text: 'Rx Optimal', cls: 'bg-[#E4F5EC] dark:bg-emerald-500/20 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-500/30' }
+                  : { text: 'Terukur', cls: 'bg-[#EAE8FF] dark:bg-purple-500/20 text-[#5145A6] dark:text-purple-200 border-[#DCE3F2] dark:border-purple-400/30' };
 
                 const issueReason =
                   (cat === 'uncomplete' || cat === 'cancel')
@@ -840,7 +840,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 return (
                   <div
                     key={t.id}
-                    className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3.5"
+                    className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#DDE6F0] dark:border-purple-900/60 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3.5"
                   >
                     <div className="space-y-3">
                       {/* Card Header: Technician, Category & WO Status */}
@@ -850,8 +850,8 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             <div
                               className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs border ${
                                 cat === 'uncomplete' || cat === 'cancel'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-[#f3eaff] text-[#58149c] border-[#e8ddff]'
+                                  ? 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-800'
+                                  : 'bg-[#EAE8FF] dark:bg-[#2E1B59] text-[#5145A6] dark:text-[#DAB9FF] border-[#DCE3F2] dark:border-[#4B386B]'
                               }`}
                             >
                               {cat === 'uncomplete' ? <AlertTriangle className="w-5 h-5" /> : installerInitials}
@@ -863,7 +863,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                     ? 'bg-emerald-500'
                                     : cat === 'uncomplete'
                                     ? 'bg-amber-500'
-                                    : 'bg-[#7C3AED]'
+                                    : 'bg-[#6657C8] dark:bg-[#7C3AED]'
                                 }`}
                               />
                             )}
@@ -871,23 +871,23 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-sm font-bold text-[#1f1638] dark:text-white truncate">
+                              <span className="text-sm font-bold text-[#26364A] dark:text-white truncate">
                                 {t.installerName || 'Belum Di-assign'}
                               </span>
                               {installerUser?.username && (
-                                <span className="px-1.5 py-0.5 rounded bg-[#f8f1ff] dark:bg-purple-950 border border-[#e8ddff] dark:border-purple-800 text-[10px] font-mono font-bold text-[#58149c] dark:text-purple-200 uppercase">
+                                <span className="px-1.5 py-0.5 rounded bg-[#EDF3F8] dark:bg-purple-950 border border-[#DDE6F0] dark:border-purple-800 text-[10px] font-mono font-bold text-[#5145A6] dark:text-purple-200 uppercase">
                                   @{installerUser.username}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-[#4b4452] dark:text-slate-300 truncate mt-0.5">
+                            <div className="text-[11px] text-[#52647A] dark:text-slate-300 truncate mt-0.5">
                               {t.ticketCategory || 'Work Order'} • {t.customerName}
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0 space-y-1">
-                          <div className="font-mono font-bold text-xs text-[#1f1638] dark:text-purple-200">
+                          <div className="font-mono font-bold text-xs text-[#26364A] dark:text-purple-200">
                             #{t.woNumber}
                           </div>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${meta.badgeCls}`}>
@@ -900,15 +900,15 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                       <button
                         type="button"
                         onClick={() => openCustomerAddressInGoogleMaps(t)}
-                        className="w-full text-left p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#251545]/80 border border-[#e8ddff] dark:border-purple-900/50 hover:border-[#7C3AED]/50 transition-colors flex items-start justify-between gap-2 cursor-pointer"
+                        className="w-full text-left p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#251545]/80 border border-[#DDE6F0] dark:border-purple-900/50 hover:border-[#6657C8]/50 dark:hover:border-[#7C3AED]/50 transition-colors flex items-start justify-between gap-2 cursor-pointer"
                       >
                         <div className="flex items-start gap-2 min-w-0">
-                          <MapPin className="w-4 h-4 text-[#58149c] dark:text-[#d0bcff] shrink-0 mt-0.5" />
+                          <MapPin className="w-4 h-4 text-[#5145A6] dark:text-[#d0bcff] shrink-0 mt-0.5" />
                           <div className="min-w-0">
-                            <div className="text-xs font-semibold text-[#1f1638] dark:text-white line-clamp-1">
+                            <div className="text-xs font-semibold text-[#26364A] dark:text-white line-clamp-1">
                               {t.streetName || t.address || t.clusterName || 'Alamat pelanggan'}
                             </div>
-                            <div className="text-[11px] text-[#4b4452] dark:text-slate-300 truncate mt-0.5">
+                            <div className="text-[11px] text-[#52647A] dark:text-slate-300 truncate mt-0.5">
                               {[t.fdtCode || t.fatCode, t.fatPort ? `Port ${t.fatPort}` : '', t.clusterName]
                                 .filter(Boolean)
                                 .join(' • ') || `Area: ${t.area || '-'}`}
@@ -916,7 +916,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           </div>
                         </div>
                         {t.slotTime && (
-                          <span className="shrink-0 px-2 py-0.5 rounded-lg bg-white dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-purple-800 text-[10px] font-mono font-semibold text-[#4b4452] dark:text-purple-200">
+                          <span className="shrink-0 px-2 py-0.5 rounded-lg bg-white dark:bg-[#1A0E2E] border border-[#DDE6F0] dark:border-purple-800 text-[10px] font-mono font-semibold text-[#52647A] dark:text-purple-200">
                             {t.slotTime}
                           </span>
                         )}
@@ -925,45 +925,45 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                       {/* Work Progress Bar & Check-in/out Timestamps */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-[11px]">
-                          <div className="flex items-center gap-1.5 font-semibold text-[#1f1638] dark:text-slate-200 min-w-0">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#26364A] dark:text-slate-200 min-w-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${meta.barColor}`} />
                             <span className="truncate">{meta.label}</span>
                           </div>
-                          <span className="font-mono font-bold text-[#58149c] dark:text-[#d0bcff] shrink-0">
+                          <span className="font-mono font-bold text-[#5145A6] dark:text-[#d0bcff] shrink-0">
                             {meta.percent}%
                           </span>
                         </div>
-                        <div className="h-1.5 w-full rounded-full bg-[#f3eaff] dark:bg-purple-950 overflow-hidden">
+                        <div className="h-1.5 w-full rounded-full bg-[#EDF3F8] dark:bg-purple-950 overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${meta.barColor}`}
                             style={{ width: `${meta.percent}%` }}
                           />
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-[#4b4452] dark:text-slate-400 pt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-[#52647A] dark:text-slate-400 pt-0.5">
                           <span className="inline-flex items-center gap-1">
                             <Clock className="w-3 h-3 text-emerald-600" />
-                            Check-in: <strong className="font-mono text-[#1f1638] dark:text-slate-200">{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong>
+                            Check-in: <strong className="font-mono text-[#26364A] dark:text-slate-200">{t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '-'}</strong>
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-[#7135B5] dark:text-[#DAB9FF]" />
-                            Check-out: <strong className="font-mono text-[#1f1638] dark:text-slate-200">{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong>
+                            <CheckCircle2 className="w-3 h-3 text-[#2E7D8B] dark:text-[#DAB9FF]" />
+                            Check-out: <strong className="font-mono text-[#26364A] dark:text-slate-200">{t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '-'}</strong>
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <Timer className="w-3 h-3 text-[#7C3AED]" />
-                            Durasi: <strong className="font-mono text-[#1f1638] dark:text-slate-200">{workStatus.durationFormatted}</strong>
+                            <Timer className="w-3 h-3 text-[#5145A6] dark:text-[#7C3AED]" />
+                            Durasi: <strong className="font-mono text-[#26364A] dark:text-slate-200">{workStatus.durationFormatted}</strong>
                           </span>
                         </div>
                       </div>
 
                       {/* Real OPM Telemetry Box (Shown ONLY if real DB reading exists) */}
                       {realOpm && (
-                        <div className="rounded-xl bg-[#1f1638] text-white p-3 flex items-center justify-between gap-3 border border-[#342b4e]">
+                        <div className="rounded-xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#1f1638] text-[#26364A] dark:text-white p-3 flex items-center justify-between gap-3 border border-[#BDE4E8] dark:border-[#342b4e]">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-[#342b4e] flex items-center justify-center text-[#d0bcff] shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-white/80 dark:bg-[#342b4e] border border-[#DCE3F2] dark:border-transparent flex items-center justify-center text-[#5145A6] dark:text-[#d0bcff] shrink-0">
                               <Radio className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-[10px] text-[#d0bcff] uppercase tracking-wider font-semibold">
+                              <div className="text-[10px] text-[#2E7D8B] dark:text-[#d0bcff] uppercase tracking-wider font-semibold">
                                 Optical Power (OPM)
                               </div>
                               <div className="text-base font-bold font-mono leading-tight">
@@ -979,12 +979,12 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
                       {/* Real Field Obstacle Callout */}
                       {issueReason && (
-                        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-3 space-y-1">
-                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                        <div className="rounded-xl bg-[#FFF2D9] dark:bg-amber-950/30 border border-[#F2CF95] dark:border-amber-800/60 p-3 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#9D661F] dark:text-amber-300">
                             <span>HAMBATAN LAPANGAN</span>
                             <span>{t.statusWOInstaller}</span>
                           </div>
-                          <p className="text-xs text-amber-950 dark:text-amber-100 leading-relaxed line-clamp-3">
+                          <p className="text-xs text-[#26364A] dark:text-amber-100 leading-relaxed line-clamp-3">
                             {issueReason}
                           </p>
                         </div>
@@ -992,7 +992,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
                       {/* Real Field Photo Evidence Strip */}
                       {photos.length > 0 && (
-                        <div className="rounded-xl bg-[#f8f1ff] dark:bg-[#251545]/70 border border-[#e8ddff] dark:border-purple-900/50 p-2.5 flex items-center justify-between gap-2.5">
+                        <div className="rounded-xl bg-[#F4F7FB] dark:bg-[#251545]/70 border border-[#DDE6F0] dark:border-purple-900/50 p-2.5 flex items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <button
                               type="button"
@@ -1004,7 +1004,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                   activeIndex: 0
                                 })
                               }
-                              className="w-11 h-11 rounded-lg overflow-hidden border border-[#cec3d4] bg-white shrink-0 relative group cursor-pointer"
+                              className="w-11 h-11 rounded-lg overflow-hidden border border-[#DCE3F2] dark:border-[#5B35B1] bg-white shrink-0 relative group cursor-pointer"
                             >
                               <img
                                 src={photos[0].url}
@@ -1016,11 +1016,11 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                               </div>
                             </button>
                             <div className="min-w-0">
-                              <div className="text-xs font-bold text-[#1f1638] dark:text-white flex items-center gap-1">
-                                <ImageIcon className="w-3.5 h-3.5 text-[#58149c]" />
+                              <div className="text-xs font-bold text-[#26364A] dark:text-white flex items-center gap-1">
+                                <ImageIcon className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                                 <span>Bukti Lapangan ({photos.length} Foto)</span>
                               </div>
-                              <div className="text-[11px] text-[#4b4452] dark:text-slate-300 truncate">
+                              <div className="text-[11px] text-[#52647A] dark:text-slate-300 truncate">
                                 {photos[0].label}
                               </div>
                             </div>
@@ -1035,7 +1035,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                 activeIndex: 0
                               })
                             }
-                            className="mj-btn-leader-neutral mj-btn-xs shrink-0 px-2.5 py-1 rounded-lg text-[11px] text-[#58149c] dark:text-[#d0bcff] cursor-pointer"
+                            className="mj-btn-leader-neutral mj-btn-xs shrink-0 px-2.5 py-1 rounded-lg text-[11px] text-[#5145A6] dark:text-[#d0bcff] cursor-pointer"
                           >
                             Lihat Foto
                           </button>
@@ -1044,13 +1044,13 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                     </div>
 
                     {/* RBAC-Safe Action Row (NO Dispatch Approval or Closing Buttons for Leader!) */}
-                    <div className="pt-2 border-t border-[#f3eaff] dark:border-purple-900/40 flex flex-wrap items-center gap-2">
+                    <div className="pt-2 border-t border-[#DDE6F0] dark:border-purple-900/40 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => openCustomerAddressInGoogleMaps(t)}
-                        className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[110px] py-2 px-3 text-xs text-[#1f1638] dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[110px] py-2 px-3 text-xs text-[#26364A] dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        <Navigation className="w-3.5 h-3.5 text-[#58149c] dark:text-[#d0bcff]" />
+                        <Navigation className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#d0bcff]" />
                         <span>Cek Lokasi</span>
                       </button>
 
@@ -1065,7 +1065,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             }
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[120px] py-2 px-3 text-xs text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                            className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[120px] py-2 px-3 text-xs text-[#5145A6] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5" />
                             <span>Hubungi Teknisi</span>
@@ -1074,7 +1074,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           <button
                             type="button"
                             onClick={() => onOpenWhatsApp(t)}
-                            className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[120px] py-2 px-3 text-xs text-[#58149c] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                            className="mj-btn-leader-neutral mj-btn-compact flex-1 min-w-[120px] py-2 px-3 text-xs text-[#5145A6] dark:text-[#d0bcff] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5" />
                             <span>Hubungi WA</span>
@@ -1099,7 +1099,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
           {/* Cards Pagination */}
           {displayTickets.length > 0 && (
-            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 overflow-hidden">
+            <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#DDE6F0] dark:border-purple-900/60 overflow-hidden">
               <PaginationBar
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -1119,22 +1119,22 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         </div>
       ) : (
         /* VIEW MODE 2: PRESERVED 11-COLUMN FULL TABLE WITH EXPORT & EXPAND */
-        <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#e8ddff] dark:border-purple-900/60 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-[#e8ddff] dark:border-purple-900/40 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-            <div className="text-xs font-bold text-[#1f1638] dark:text-white">
+        <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl border border-[#DDE6F0] dark:border-purple-900/60 shadow-xs overflow-hidden">
+          <div className="p-4 border-b border-[#DDE6F0] dark:border-purple-900/40 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            <div className="text-xs font-bold text-[#26364A] dark:text-white">
               Tabel Monitoring Lengkap ({displayTickets.length} WO)
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 bg-[#f8f1ff] dark:bg-[#160D29] px-2.5 py-1.5 rounded-xl border border-[#e8ddff] dark:border-purple-900/60">
-                <span className="text-[#4b4452] dark:text-slate-400">Tampil:</span>
+              <div className="flex items-center gap-1.5 bg-[#EDF3F8] dark:bg-[#160D29] px-2.5 py-1.5 rounded-xl border border-[#DDE6F0] dark:border-purple-900/60">
+                <span className="text-[#52647A] dark:text-slate-400">Tampil:</span>
                 <select
                   value={rowsPerPage}
                   onChange={e => {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-transparent font-bold text-[#1f1638] dark:text-slate-200 focus:outline-none"
+                  className="bg-transparent font-bold text-[#26364A] dark:text-slate-200 focus:outline-none"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -1151,7 +1151,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                   className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                   title="Salin Data ke Clipboard"
                 >
-                  <Copy className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <Copy className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                   <span>{copySuccess ? 'Disalin!' : 'Copy'}</span>
                 </button>
                 <button
@@ -1160,7 +1160,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                   className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                   title="Export CSV"
                 >
-                  <Download className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A380FE]" />
+                  <Download className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE]" />
                   <span>CSV</span>
                 </button>
                 <button
@@ -1185,93 +1185,93 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
             </div>
           </div>
 
-          <div className="px-4 py-2.5 bg-[#FAF5FF] dark:bg-[#160D29] border-b border-[#e8ddff] dark:border-purple-900/40 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-            <div className="flex items-center gap-2 font-bold text-[#1f1638] dark:text-white">
-              <Radio className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+          <div className="px-4 py-2.5 bg-[#F4F7FB] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-purple-900/40 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center gap-2 font-bold text-[#26364A] dark:text-white">
+              <Radio className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Monitoring Progress Live Installer</span>
-              <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] font-mono text-[10px]">
+              <span className="px-2 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] font-mono text-[10px]">
                 {statCounts.assign} Aktif
               </span>
             </div>
             <div className="flex items-center gap-3 text-[10.5px] font-semibold">
-              <span className="inline-flex items-center gap-1.5 text-[#58149C] dark:text-[#D8B4FE]">
-                <span className="w-2 h-2 rounded-full bg-[#58149C] dark:bg-[#D8B4FE]" />
+              <span className="inline-flex items-center gap-1.5 text-[#5145A6] dark:text-[#D8B4FE]">
+                <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#D8B4FE]" />
                 SLA Target &le; 90 mnt
               </span>
-              <span className="inline-flex items-center gap-1.5 text-[#881337] dark:text-rose-400">
-                <span className="w-2 h-2 rounded-full bg-[#881337] dark:bg-rose-400" />
+              <span className="inline-flex items-center gap-1.5 text-[#9B2C37] dark:text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-[#D45B66] dark:bg-rose-400" />
                 Overdue &gt; 90 mnt
               </span>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead className="bg-[#f3eaff] dark:bg-[#251545] text-[#58149c] dark:text-purple-200 uppercase font-bold text-[10.5px] tracking-wider border-b border-[#e8ddff] dark:border-purple-900/60">
+            <table className="w-full text-xs text-left border-collapse mj-zebra-table">
+              <thead className="bg-[#EDF3F8] dark:bg-[#251545] text-[#52647A] dark:text-purple-200 uppercase font-bold text-[10.5px] tracking-wider border-b border-[#DDE6F0] dark:border-purple-900/60">
                 <tr>
                   <th className="py-3 px-2 w-8 text-center">#</th>
                   <th
                     onClick={() => handleSort('installerName')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[165px]"
+                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[165px]"
                   >
                     <div className="flex items-center gap-1">
                       <span>Teknisi &amp; ID</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('woNumber')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[180px]"
+                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[180px]"
                   >
                     <div className="flex items-center gap-1">
                       <span>No. WO &amp; Pelanggan</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('area')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[130px]"
+                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[130px]"
                   >
                     <div className="flex items-center gap-1">
                       <span>Area &amp; Mitra</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('workStatus')}
-                    className="py-3 px-3 text-center font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
+                    className="py-3 px-3 text-center font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Status Saat Ini</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('checkInAt')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
+                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
                   >
                     <div className="flex items-center gap-1">
                       <span>Check-in &amp; Out</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th
                     onClick={() => handleSort('workDuration')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 select-none min-w-[105px]"
+                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[105px]"
                   >
                     <div className="flex items-center gap-1">
                       <span>Durasi Kerja</span>
-                      <ArrowUpDown className="w-3 h-3 text-purple-400" />
+                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
                     </div>
                   </th>
                   <th className="py-3 px-3 text-center font-bold min-w-[85px]">Bukti Foto</th>
                   <th className="py-3 px-3 text-right font-bold min-w-[135px]">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-purple-900/30">
+              <tbody className="divide-y divide-[#DDE6F0] dark:divide-purple-900/30">
                 {paginatedTickets.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={9} className="py-12 text-center text-[#8492A5] dark:text-slate-400 text-xs">
                       Tidak ada Work Order yang sesuai dengan filter atau pencarian aktif.
                     </td>
                   </tr>
@@ -1295,21 +1295,21 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                     return (
                       <React.Fragment key={t.id}>
                         <tr
-                          className={`hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition-colors ${
-                            isExpanded ? 'bg-purple-50/70 dark:bg-[#251545]/50 font-medium' : ''
+                          className={`hover:bg-[#EDF3F8]/70 dark:hover:bg-purple-950/30 transition-colors ${
+                            isExpanded ? 'bg-[#EAE8FF]/60 dark:bg-[#251545]/50 font-medium' : ''
                           }`}
                         >
                           <td className="py-3 px-2 text-center">
                             <button
                               type="button"
                               onClick={() => toggleRowExpand(t.id)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-[#58149c] hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
+                              className="p-1 rounded-lg text-[#8492A5] hover:text-[#5145A6] hover:bg-[#EAE8FF] dark:text-slate-400 dark:hover:text-[#DAB9FF] dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
                               title={isExpanded ? 'Tutup Rincian' : 'Buka Rincian'}
                             >
                               {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-[#58149c]" />
+                                <ChevronDown className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                               ) : (
-                                <ChevronRight className="w-4 h-4 text-slate-400" />
+                                <ChevronRight className="w-4 h-4 text-[#8492A5] dark:text-slate-400" />
                               )}
                             </button>
                           </td>
@@ -1318,17 +1318,17 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                               <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0 ${
                                   t.installerName
-                                    ? 'bg-[#2D115B] text-white dark:bg-[#58149C]'
-                                    : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                                    ? 'bg-[#6657C8] text-white dark:bg-[#58149C]'
+                                    : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
                                 }`}
                               >
                                 {installerInitials}
                               </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-[#1f1638] dark:text-slate-100 truncate max-w-[130px]">
+                                <div className="font-bold text-[#26364A] dark:text-slate-100 truncate max-w-[130px]">
                                   {t.installerName || 'Belum Di-assign'}
                                 </div>
-                                <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] font-mono truncate">
+                                <div className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] font-mono truncate">
                                   {t.installerContact || t.installerId || '-'}
                                 </div>
                               </div>
@@ -1336,29 +1336,29 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                           </td>
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-[#58149c] dark:text-purple-300">
+                              <span className="font-mono font-bold text-[#5145A6] dark:text-purple-300">
                                 {t.woNumber}
                               </span>
                               {t.idCustomer && (
-                                <span className="font-mono text-[10px] text-[#7D7484] dark:text-[#A79BC0]">
+                                <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
                                   · {t.idCustomer}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] font-medium text-[#1f1638] dark:text-slate-200 truncate max-w-[190px]">
+                            <div className="text-[11px] font-medium text-[#26364A] dark:text-slate-200 truncate max-w-[190px]">
                               {t.customerName}
                             </div>
                             {(t.streetName || t.clusterName) && (
-                              <div className="text-[10px] text-[#7D7484] dark:text-[#A79BC0] truncate max-w-[190px]">
+                              <div className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate max-w-[190px]">
                                 {t.streetName || t.clusterName}
                               </div>
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F3EAFF] text-[#58149C] dark:bg-purple-950 dark:text-purple-300 border border-[#D8CCF3] dark:border-purple-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-purple-950 dark:text-purple-300 border border-[#BDE4E8] dark:border-purple-800">
                               {t.area || '-'}
                             </span>
-                            <div className="text-[10.5px] text-slate-600 dark:text-slate-300 truncate max-w-[135px] mt-0.5" title={contractorName}>
+                            <div className="text-[10.5px] text-[#52647A] dark:text-slate-300 truncate max-w-[135px] mt-0.5" title={contractorName}>
                               {contractorName}
                             </div>
                           </td>
@@ -1375,12 +1375,12 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             />
                           </td>
                           <td className="py-3 px-3 whitespace-nowrap font-mono text-[10.5px] space-y-0.5">
-                            <div className="text-[#1f1638] dark:text-slate-200 font-semibold">
-                              <span className="text-[#7D7484] dark:text-[#A79BC0]">IN: </span>
+                            <div className="text-[#26364A] dark:text-slate-200 font-semibold">
+                              <span className="text-[#8492A5] dark:text-[#A79BC0]">IN: </span>
                               {t.checkInAt ? formatJakartaTimeOnly(t.checkInAt) : '--:--'}
                             </div>
-                            <div className="text-[#58149C] dark:text-[#D8B4FE]">
-                              <span className="text-[#7D7484] dark:text-[#A79BC0]">OUT: </span>
+                            <div className="text-[#5145A6] dark:text-[#D8B4FE]">
+                              <span className="text-[#8492A5] dark:text-[#A79BC0]">OUT: </span>
                               {t.checkOutAt ? formatJakartaTimeOnly(t.checkOutAt) : '--:--'}
                             </div>
                           </td>
@@ -1388,10 +1388,10 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-mono text-[11px] font-bold border ${
                                 isSlaOverdue
-                                  ? 'bg-rose-50 text-[#881337] border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                                  ? 'bg-[#FCE9EB] text-[#9B2C37] border-[#F3C5CA] dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
                                   : workStatus.status === 'Belum Check-in'
-                                  ? 'bg-[#F8F1FF] text-[#7D7484] border-[#E8DDFF] dark:bg-[#160D29] dark:text-[#A79BC0] dark:border-[#3B1D78]'
-                                  : 'bg-[#F3EAFF] text-[#58149C] border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
+                                  ? 'bg-[#EDF3F8] text-[#8492A5] border-[#DDE6F0] dark:bg-[#160D29] dark:text-[#A79BC0] dark:border-[#3B1D78]'
+                                  : 'bg-[#EAE8FF] text-[#5145A6] border-[#DCE3F2] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
                               }`}
                             >
                               {isSlaOverdue ? (
@@ -1414,17 +1414,17 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                                     activeIndex: 0
                                   })
                                 }
-                                className="relative inline-flex w-11 h-8 rounded-lg overflow-hidden border border-[#D8CCF3] dark:border-[#5B35B1] shadow-2xs hover:scale-105 transition-transform cursor-pointer group"
+                                className="relative inline-flex w-11 h-8 rounded-lg overflow-hidden border border-[#DCE3F2] dark:border-[#5B35B1] shadow-2xs hover:scale-105 transition-transform cursor-pointer group"
                                 title={`Lihat ${photos.length} Bukti Foto`}
                               >
                                 <img src={photos[0].url} alt={photos[0].label} className="w-full h-full object-cover" />
-                                <span className="absolute bottom-0 right-0 px-1 bg-[#160D29]/80 text-white text-[9px] font-mono font-bold">
+                                <span className="absolute bottom-0 right-0 px-1 bg-[#26364A]/85 dark:bg-[#160D29]/80 text-white text-[9px] font-mono font-bold">
                                   {photos.length}
                                 </span>
                               </button>
                             ) : (
                               <span
-                                className="inline-flex w-11 h-8 rounded-lg border border-dashed border-[#D8CCF3] dark:border-[#3B1D78] bg-[#FAF5FF] dark:bg-[#160D29] items-center justify-center text-[#A493C2]"
+                                className="inline-flex w-11 h-8 rounded-lg border border-dashed border-[#DCE3F2] dark:border-[#3B1D78] bg-[#F4F7FB] dark:bg-[#160D29] items-center justify-center text-[#8492A5] dark:text-[#A493C2]"
                                 title="Belum ada bukti foto"
                               >
                                 <ImageIcon className="w-3.5 h-3.5" />
@@ -1445,57 +1445,57 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                         </tr>
 
                         {isExpanded && (
-                          <tr className="bg-[#f8f1ff] dark:bg-[#1E1238] border-b border-purple-200 dark:border-purple-900/60">
+                          <tr className="bg-[#F4F7FB] dark:bg-[#1E1238] border-b border-[#DDE6F0] dark:border-purple-900/60">
                             <td colSpan={9} className="p-4 sm:p-5">
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-1">
-                                  <div className="text-[10px] uppercase font-bold text-slate-400">Installer</div>
-                                  <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                                    <UserCheck className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-[#DDE6F0] dark:border-purple-900/50 space-y-1">
+                                  <div className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-slate-400">Installer</div>
+                                  <div className="font-bold text-[#26364A] dark:text-slate-100 flex items-center gap-1.5">
+                                    <UserCheck className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                                     <span>{t.installerName || 'Belum Di-assign'}</span>
                                   </div>
                                   {t.installerContact && (
-                                    <div className="text-[11px] text-slate-500 font-mono">
+                                    <div className="text-[11px] text-[#52647A] dark:text-slate-400 font-mono">
                                       Telp: {t.installerContact}
                                     </div>
                                   )}
                                 </div>
 
-                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-1">
-                                  <div className="text-[10px] uppercase font-bold text-slate-400">Slot Time</div>
-                                  <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-[#DDE6F0] dark:border-purple-900/50 space-y-1">
+                                  <div className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-slate-400">Slot Time</div>
+                                  <div className="font-bold text-[#26364A] dark:text-slate-100 flex items-center gap-1.5">
                                     <Clock className="w-3.5 h-3.5 text-amber-500" />
                                     <span>{t.slotTime || (t as any).timeSlot || '-'}</span>
                                   </div>
-                                  <div className="text-[11px] text-slate-500">Area: {t.area || '-'}</div>
+                                  <div className="text-[11px] text-[#52647A] dark:text-slate-400">Area: {t.area || '-'}</div>
                                 </div>
 
-                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-1">
-                                  <div className="text-[10px] uppercase font-bold text-slate-400">WO Agent & Reason</div>
-                                  <div className="font-semibold text-slate-800 dark:text-slate-200">
-                                    Status: <strong className="text-[#58149c] dark:text-purple-300">{t.statusWOAgent || '-'}</strong>
+                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-[#DDE6F0] dark:border-purple-900/50 space-y-1">
+                                  <div className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-slate-400">WO Agent & Reason</div>
+                                  <div className="font-semibold text-[#26364A] dark:text-slate-200">
+                                    Status: <strong className="text-[#5145A6] dark:text-purple-300">{t.statusWOAgent || '-'}</strong>
                                   </div>
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                                  <div className="text-[11px] text-[#52647A] dark:text-slate-400 truncate">
                                     Reason: {(t as any).reasonWOAgent || '-'}
                                   </div>
                                 </div>
 
-                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-1">
-                                  <div className="text-[10px] uppercase font-bold text-slate-400">WO Installer & Remarks</div>
-                                  <div className="font-semibold text-slate-800 dark:text-slate-200">
-                                    Status: <strong className="text-emerald-600">{t.statusWOInstaller || '-'}</strong>
+                                <div className="p-3 bg-white dark:bg-[#150A26] rounded-xl border border-[#DDE6F0] dark:border-purple-900/50 space-y-1">
+                                  <div className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-slate-400">WO Installer & Remarks</div>
+                                  <div className="font-semibold text-[#26364A] dark:text-slate-200">
+                                    Status: <strong className="text-[#218A63] dark:text-emerald-400">{t.statusWOInstaller || '-'}</strong>
                                   </div>
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                  <div className="text-[11px] text-[#52647A] dark:text-slate-400">
                                     Reason: {(t as any).reasonWOInstaller || '-'}
                                   </div>
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 italic">
+                                  <div className="text-[11px] text-[#52647A] dark:text-slate-400 italic">
                                     Remarks: {t.remarksWOInstaller || '-'}
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="mt-3 pt-3 border-t border-purple-100 dark:border-purple-900/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                                <div className="text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5 flex-1">
+                              <div className="mt-3 pt-3 border-t border-[#DDE6F0] dark:border-purple-900/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                <div className="text-[11px] text-[#52647A] dark:text-slate-300 flex items-start gap-1.5 flex-1">
                                   <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
                                   <span className="line-clamp-2">{t.address || 'Alamat tidak tersedia'}</span>
                                 </div>
@@ -1558,16 +1558,16 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       )}
 
       {/* Stitch Bottom Coordination Strip: Broadcast Panduan Lapangan */}
-      <div className="bg-[#f3eaff] dark:bg-[#251545] rounded-2xl border border-[#e8ddff] dark:border-purple-800/60 p-3.5 sm:p-4 flex items-center justify-between gap-3">
+      <div className="bg-[#EAE8FF] dark:bg-[#251545] rounded-2xl border border-[#DCE3F2] dark:border-purple-800/60 p-3.5 sm:p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#58149c] text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-[#6657C8] dark:bg-[#58149c] text-white flex items-center justify-center shrink-0 shadow-xs">
             <Send className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs sm:text-sm font-bold text-[#1f1638] dark:text-white truncate">
+            <div className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white truncate">
               Broadcast Panduan Lapangan
             </div>
-            <div className="text-[11px] text-[#4b4452] dark:text-purple-200/80 truncate">
+            <div className="text-[11px] text-[#52647A] dark:text-purple-200/80 truncate">
               Kirim instruksi SOP / peringatan cuaca ke {scopedInstallers.length} teknisi aktif
             </div>
           </div>
@@ -1575,7 +1575,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         <button
           type="button"
           onClick={() => setIsBroadcastModalOpen(true)}
-          className="mj-btn-leader-neutral mj-btn-compact shrink-0 px-4 py-2 text-[#58149c] dark:text-[#d0bcff] text-xs cursor-pointer"
+          className="mj-btn-leader-neutral mj-btn-compact shrink-0 px-4 py-2 text-[#5145A6] dark:text-[#d0bcff] text-xs cursor-pointer"
         >
           Kirim
         </button>
@@ -1598,7 +1598,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       >
         {lightboxData && (
           <div className="space-y-3">
-            <div className="bg-[#1f1638] rounded-xl flex items-center justify-center max-h-[60vh] overflow-hidden p-2">
+            <div className="bg-[#F4F7FB] dark:bg-[#1f1638] border border-[#DDE6F0] dark:border-transparent rounded-xl flex items-center justify-center max-h-[60vh] overflow-hidden p-2">
               <img
                 src={lightboxData.photos[lightboxData.activeIndex]?.url}
                 alt={lightboxData.photos[lightboxData.activeIndex]?.label}
@@ -1606,7 +1606,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               />
             </div>
             {lightboxData.photos.length > 1 && (
-              <div className="p-2.5 rounded-xl flex items-center gap-2 overflow-x-auto bg-[#f8f1ff] dark:bg-[#251545]">
+              <div className="p-2.5 rounded-xl flex items-center gap-2 overflow-x-auto bg-[#EDF3F8] dark:bg-[#251545]">
                 {lightboxData.photos.map((photo, idx) => (
                   <button
                     key={photo.url}
@@ -1615,7 +1615,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                       setLightboxData(prev => (prev ? { ...prev, activeIndex: idx } : null))
                     }
                     className={`w-14 h-14 rounded-lg overflow-hidden border-2 shrink-0 cursor-pointer ${
-                      idx === lightboxData.activeIndex ? 'border-[#58149c]' : 'border-transparent opacity-65'
+                      idx === lightboxData.activeIndex ? 'border-[#6657C8] dark:border-[#58149c]' : 'border-transparent opacity-65'
                     }`}
                   >
                     <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />
@@ -1649,25 +1649,25 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#1f1638] dark:text-slate-200 mb-1.5">
+            <label className="block text-xs font-bold text-[#26364A] dark:text-slate-200 mb-1.5">
               Pesan Instruksi Lapangan
             </label>
             <textarea
               rows={3}
               value={broadcastMessage}
               onChange={e => setBroadcastMessage(e.target.value)}
-              className="tactile-debossed-input w-full rounded-xl border border-[#e8ddff] dark:border-purple-800 bg-[#f8f1ff] dark:bg-[#251545] p-3 text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="tactile-debossed-input w-full rounded-xl border border-[#DCE3F2] dark:border-purple-800 bg-[#F4F7FB] dark:bg-[#251545] p-3 text-xs text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7C3AED]"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#1f1638] dark:text-slate-200">
+            <span className="text-xs font-bold text-[#26364A] dark:text-slate-200">
               Kirim ke Teknisi ({scopedInstallers.length})
             </span>
             <button
               type="button"
               onClick={handleCopyBroadcast}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f3eaff] hover:bg-[#e8ddff] text-[11px] font-bold text-[#58149c] cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#EAE8FF] hover:bg-[#DCE3F2] dark:bg-[#251545] dark:hover:bg-[#35105E] text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"
             >
               <Copy className="w-3 h-3" />
               <span>{broadcastCopied ? 'Tersalin!' : 'Salin Teks'}</span>
@@ -1676,7 +1676,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
 
           <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
             {scopedInstallers.length === 0 ? (
-              <div className="text-xs text-slate-500 py-4 text-center">
+              <div className="text-xs text-[#8492A5] dark:text-slate-500 py-4 text-center">
                 Belum ada teknisi aktif terdaftar pada scope mitra ini.
               </div>
             ) : (
@@ -1685,13 +1685,13 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                 return (
                   <div
                     key={inst.id}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#251545] border border-[#e8ddff] dark:border-purple-900/50"
+                    className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#251545] border border-[#DDE6F0] dark:border-purple-900/50"
                   >
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                      <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                         {inst.name}
                       </div>
-                      <div className="text-[10.5px] font-mono text-[#4b4452] dark:text-slate-300">
+                      <div className="text-[10.5px] font-mono text-[#52647A] dark:text-slate-300">
                         {inst.phone || 'Nomor WA belum diisi'}
                       </div>
                     </div>
@@ -1706,7 +1706,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                         <span>Kirim WA</span>
                       </a>
                     ) : (
-                      <span className="text-[10px] text-slate-400">No WA N/A</span>
+                      <span className="text-[10px] text-[#8492A5] dark:text-slate-400">No WA N/A</span>
                     )}
                   </div>
                 );

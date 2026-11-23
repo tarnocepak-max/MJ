@@ -147,7 +147,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       priority: 'secondary',
       numeric: true,
       render: row => (
-        <span className="font-bold text-[#2563EB] dark:text-[#38BDF8]">
+        <span className="font-bold text-[#5145A6] dark:text-[#38BDF8]">
           {row.agentId || row.ticket?.agentId || '-'}
         </span>
       )
@@ -194,7 +194,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       }
       subtitle={
         <>
-          Sheet: <strong className="font-mono text-[#2563EB] dark:text-[#38BDF8]">{report.selectedSheet}</strong> •{' '}
+          Sheet: <strong className="font-mono text-[#5145A6] dark:text-[#38BDF8]">{report.selectedSheet}</strong> •{' '}
           {report.totalRead} baris terbaca • {report.usedColumnsCount} kolom digunakan
         </>
       }
@@ -203,7 +203,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
           <button
             type="button"
             onClick={onOpenColumnMapper}
-            className="px-2.5 sm:px-3 py-1.5 min-h-[36px] text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8] bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors cursor-pointer"
+            className="btn-3d-lilac px-2.5 sm:px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg cursor-pointer"
           >
             Atur Kolom
           </button>
@@ -211,11 +211,11 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       }
       footer={
         <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-xs text-[#52647A] dark:text-slate-400">
             {report.canCreateWOTickets ? (
               <span>Siap memproses {report.validWOCount} tiket WO ke sistem routing.</span>
             ) : (
-              <span className="text-amber-600 dark:text-amber-400 font-semibold">
+              <span className="text-[#9D661F] dark:text-amber-400 font-semibold">
                 Tidak ada tiket WO valid. Data WO existing tetap aman.
               </span>
             )}
@@ -226,7 +226,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isImporting}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer min-h-[44px] sm:min-h-[38px]"
+              className="btn-3d-ceramic px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer min-h-[44px] sm:min-h-[38px]"
             >
               Tutup
             </button>
@@ -236,7 +236,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
                 type="button"
                 onClick={handleExecute}
                 disabled={isImporting}
-                className="px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 min-h-[44px] sm:min-h-[38px]"
+                className="btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 min-h-[44px] sm:min-h-[38px]"
               >
                 {isImporting ? (
                   <span>Mengimpor...</span>
@@ -251,7 +251,7 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
               <button
                 type="button"
                 disabled
-                className="px-5 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold cursor-not-allowed min-h-[44px] sm:min-h-[38px]"
+                className="px-5 py-2 bg-[#EDF3F8] dark:bg-slate-800 text-[#AAB5C2] dark:text-slate-500 rounded-xl text-xs font-bold cursor-not-allowed min-h-[44px] sm:min-h-[38px]"
                 title="Tidak ada tiket WO valid untuk diimpor"
               >
                 Import Dinonaktifkan (0 WO Valid)
@@ -264,10 +264,10 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
       <div className="space-y-4">
         {/* Multi-Sheet Selection Bar (If workbook has more than 1 sheet) */}
         {report.allSheets && report.allSheets.length > 1 && onSelectSheet && (
-          <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-              <span className="font-semibold text-[#0F172A] dark:text-white">
+              <Layers className="w-4 h-4 text-[#6657C8] dark:text-[#38BDF8] shrink-0" />
+              <span className="font-semibold text-[#26364A] dark:text-white">
                 Pilih Sheet Workbook ({report.allSheets.length} sheet):
               </span>
             </div>
@@ -281,8 +281,8 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
                     onClick={() => onSelectSheet(s.sheetName)}
                     className={`px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#2563EB] text-white shadow-xs font-bold'
-                        : 'bg-white dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                        ? 'bg-[#6657C8] dark:bg-[#2563EB] text-white shadow-xs font-bold'
+                        : 'bg-white dark:bg-[#0F172A] text-[#52647A] dark:text-slate-300 border border-[#DDE6F0] dark:border-slate-700 hover:bg-[#EAE8FF]/60 dark:hover:bg-slate-800'
                     }`}
                     title={s.recommendationReason}
                   >
@@ -348,71 +348,71 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
             </div>
           </div>
         ) : (
-          <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-[#1E293B] border border-blue-200 dark:border-slate-700 text-[#0F172A] dark:text-slate-200 text-xs flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
+          <div className="p-3.5 rounded-xl bg-[#DDF4F4]/70 dark:bg-[#1E293B] border border-[#BDE4E8] dark:border-slate-700 text-[#26364A] dark:text-slate-200 text-xs flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#2E7D8B] dark:text-[#38BDF8] shrink-0" />
             <span>{report.summaryMessage}</span>
           </div>
         )}
 
         {/* 9 Metrics Dashboard Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Total Baris</span>
-            <span className="font-mono font-bold text-base text-slate-800 dark:text-slate-200">{report.totalRead}</span>
+          <div className="p-3 rounded-xl bg-[#F8FAFD] dark:bg-slate-800/60 border border-[#DDE6F0] dark:border-slate-700">
+            <span className="text-[#52647A] dark:text-slate-400 text-[11px] block">Total Baris</span>
+            <span className="font-mono font-bold text-base text-[#26364A] dark:text-slate-200">{report.totalRead}</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
-            <span className="text-emerald-700 dark:text-emerald-400 text-[11px] block font-semibold">WO Valid</span>
-            <span className="font-mono font-bold text-base text-emerald-800 dark:text-emerald-300">
+          <div className="p-3 rounded-xl bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800">
+            <span className="text-[#218A63] dark:text-emerald-400 text-[11px] block font-semibold">WO Valid</span>
+            <span className="font-mono font-bold text-base text-[#218A63] dark:text-emerald-300">
               {report.validWOCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
-            <span className="text-amber-700 dark:text-amber-400 text-[11px] block font-semibold">Data Parsial</span>
-            <span className="font-mono font-bold text-base text-amber-800 dark:text-amber-300">
+          <div className="p-3 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800">
+            <span className="text-[#9D661F] dark:text-amber-400 text-[11px] block font-semibold">Data Parsial</span>
+            <span className="font-mono font-bold text-base text-[#9D661F] dark:text-amber-300">
               {report.partialDataCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800">
-            <span className="text-orange-700 dark:text-orange-400 text-[11px] block font-semibold">WO Duplikat</span>
-            <span className="font-mono font-bold text-base text-orange-800 dark:text-orange-300">
+          <div className="p-3 rounded-xl bg-[#FFF2D9]/80 dark:bg-orange-950/40 border border-[#F2CF95] dark:border-orange-800">
+            <span className="text-[#C88735] dark:text-orange-400 text-[11px] block font-semibold">WO Duplikat</span>
+            <span className="font-mono font-bold text-base text-[#9D661F] dark:text-orange-300">
               {report.duplicateCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800">
-            <span className="text-rose-700 dark:text-rose-400 text-[11px] block font-semibold">Baris Invalid</span>
-            <span className="font-mono font-bold text-base text-rose-800 dark:text-rose-300">
+          <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800">
+            <span className="text-[#9B2C37] dark:text-rose-400 text-[11px] block font-semibold">Baris Invalid</span>
+            <span className="font-mono font-bold text-base text-[#9B2C37] dark:text-rose-300">
               {report.invalidCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800">
-            <span className="text-teal-700 dark:text-teal-400 text-[11px] block font-semibold">Siap WhatsApp</span>
-            <span className="font-mono font-bold text-base text-teal-800 dark:text-teal-300">
+          <div className="p-3 rounded-xl bg-[#DDF4F4] dark:bg-teal-950/40 border border-[#BDE4E8] dark:border-teal-800">
+            <span className="text-[#2E7D8B] dark:text-teal-400 text-[11px] block font-semibold">Siap WhatsApp</span>
+            <span className="font-mono font-bold text-base text-[#2E7D8B] dark:text-teal-300">
               {report.readyForWhatsAppCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
-            <span className="text-indigo-700 dark:text-indigo-400 text-[11px] block font-semibold">Kolom Digunakan</span>
-            <span className="font-mono font-bold text-base text-indigo-800 dark:text-indigo-300">
+          <div className="p-3 rounded-xl bg-[#EAE8FF] dark:bg-indigo-950/40 border border-[#DCE3F2] dark:border-indigo-800">
+            <span className="text-[#5145A6] dark:text-indigo-400 text-[11px] block font-semibold">Kolom Digunakan</span>
+            <span className="font-mono font-bold text-base text-[#5145A6] dark:text-indigo-300">
               {report.usedColumnsCount} / {report.recognizedHeadersCount + report.ignoredColumnsCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Kolom Diabaikan</span>
-            <span className="font-mono font-bold text-base text-slate-800 dark:text-slate-200">
+          <div className="p-3 rounded-xl bg-[#F8FAFD] dark:bg-slate-800/60 border border-[#DDE6F0] dark:border-slate-700">
+            <span className="text-[#52647A] dark:text-slate-400 text-[11px] block">Kolom Diabaikan</span>
+            <span className="font-mono font-bold text-base text-[#26364A] dark:text-slate-200">
               {report.ignoredColumnsCount}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 col-span-2 sm:col-span-1">
-            <span className="text-[#2563EB] dark:text-[#38BDF8] text-[11px] block font-semibold">Agent ID Unik</span>
-            <span className="font-mono font-bold text-base text-[#0F172A] dark:text-white">
+          <div className="p-3 rounded-xl bg-[#E7F1FB] dark:bg-blue-950/40 border border-[#C6DDF6] dark:border-blue-800 col-span-2 sm:col-span-1">
+            <span className="text-[#3E81C6] dark:text-[#38BDF8] text-[11px] block font-semibold">Agent ID Unik</span>
+            <span className="font-mono font-bold text-base text-[#26364A] dark:text-white">
               {report.agentIdSummary.uniqueCount} ID
             </span>
           </div>
@@ -420,16 +420,16 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
 
         {/* Import Mode Selection (Only if WO tickets are available) */}
         {report.canCreateWOTickets && (
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-[#0F172A]/60 space-y-2">
-            <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block">
+          <div className="p-4 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-[#0F172A]/60 space-y-2">
+            <span className="font-bold text-[#26364A] dark:text-slate-200 text-xs block">
               Pilih Mode Penggabungan Data:
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <label
                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
                   importMode === 'merge'
-                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30'
-                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'border-[#6657C8] dark:border-indigo-500 bg-[#EAE8FF]/70 dark:bg-indigo-950/30'
+                    : 'border-[#DDE6F0] dark:border-slate-800 hover:bg-[#EDF3F8] dark:hover:bg-slate-800'
                 }`}
               >
                 <input

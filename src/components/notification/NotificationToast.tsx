@@ -128,22 +128,22 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
     },
     assignment: {
       boxClass:
-        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+        'bg-[#F0EDFF] dark:bg-[#8648F5]/25 text-[#5145A6] dark:text-[#D9C7FF] border border-[#DCE3F2] dark:border-[#8648F5]/25',
       icon: <ClipboardCheck className="w-4 h-4" strokeWidth={2.2} />
     },
     chat: {
       boxClass:
-        'bg-blue-500/12 dark:bg-blue-400/15 text-blue-600 dark:text-blue-300 border border-blue-500/20',
+        'bg-[#E7F1FB] dark:bg-blue-400/15 text-[#3E81C6] dark:text-blue-300 border border-[#C6DDF6] dark:border-blue-500/20',
       icon: <MessageCircle className="w-4 h-4" strokeWidth={2.2} />
     },
     system: {
       boxClass:
-        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+        'bg-[#DDF4F4] dark:bg-[#8648F5]/25 text-[#2E7D8B] dark:text-[#D9C7FF] border border-[#BDE4E8] dark:border-[#8648F5]/25',
       icon: <Settings className="w-4 h-4" strokeWidth={2.2} />
     },
     loading: {
       boxClass:
-        'bg-[#8648F5]/14 dark:bg-[#8648F5]/25 text-[#5424A8] dark:text-[#D9C7FF] border border-[#8648F5]/25',
+        'bg-[#F0EDFF] dark:bg-[#8648F5]/25 text-[#6657C8] dark:text-[#D9C7FF] border border-[#DCE3F2] dark:border-[#8648F5]/25',
       icon: <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.2} />
     }
   };
@@ -218,7 +218,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
       }
       className={`mj-ios-toast ${
         item.exiting ? 'mj-ios-toast-exit' : 'mj-ios-toast-enter'
-      } group pointer-events-auto relative rounded-[15px] px-3 py-2.5 text-[#28203A] dark:text-[#F5EEFF] select-none ${
+      } group pointer-events-auto relative rounded-[15px] px-3 py-2.5 text-[#26364A] dark:text-[#F5EEFF] select-none ${
         hasAction ? 'cursor-pointer active:scale-[0.985] transition-transform' : ''
       }`}
     >
@@ -234,11 +234,11 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
         {/* Minimal Horizontal iOS Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[12.5px] font-bold leading-tight text-[#28203A] dark:text-white truncate">
+            <span className="text-[12.5px] font-bold leading-tight text-[#26364A] dark:text-white truncate">
               {displayTitle}
             </span>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[10.5px] font-medium text-[#756C86] dark:text-[#BFB2DC] leading-none tabular-nums">
+              <span className="text-[10.5px] font-medium text-[#8492A5] dark:text-[#BFB2DC] leading-none tabular-nums">
                 {relativeTime}
               </span>
               <button
@@ -248,20 +248,20 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
                   onDismiss(item.id);
                 }}
                 aria-label="Tutup notifikasi"
-                className="w-4 h-4 -mr-0.5 rounded-full flex items-center justify-center text-[#756C86]/75 hover:text-[#28203A] hover:bg-[#5424A8]/10 dark:text-[#BFB2DC]/75 dark:hover:text-white dark:hover:bg-white/15 transition-colors cursor-pointer"
+                className="w-4 h-4 -mr-0.5 rounded-full flex items-center justify-center text-[#8492A5] hover:text-[#26364A] hover:bg-[#EAE8FF] dark:text-[#BFB2DC]/75 dark:hover:text-white dark:hover:bg-white/15 transition-colors cursor-pointer"
               >
                 <X className="w-3 h-3" strokeWidth={2.2} />
               </button>
             </div>
           </div>
 
-          <p className="text-[11.5px] leading-[1.35] text-[#5B5270] dark:text-[#DDD4F2] line-clamp-2 break-words mt-0.5">
+          <p className="text-[11.5px] leading-[1.35] text-[#52647A] dark:text-[#DDD4F2] line-clamp-2 break-words mt-0.5">
             {item.message}
           </p>
 
           {item.actionLabel && item.onAction && (
             <div className="mt-0.5 flex items-center gap-3">
-              <span className="text-[11px] font-semibold text-[#5424A8] dark:text-[#C9A8FF] hover:underline">
+              <span className="text-[11px] font-semibold text-[#5145A6] dark:text-[#C9A8FF] hover:underline">
                 {item.actionLabel}
               </span>
             </div>

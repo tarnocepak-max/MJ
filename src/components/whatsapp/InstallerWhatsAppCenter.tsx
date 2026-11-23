@@ -242,64 +242,64 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
   return (
     <div className="max-w-lg lg:max-w-5xl mx-auto space-y-4 pb-24 sm:pb-8">
       {/* =============================================================== */}
-      {/* 1. MORAJAWS DARK PURPLE / MAROON WHATSAPP GATEWAY HEADER        */}
+      {/* 1. WHATSAPP GATEWAY HEADER (Crystal Mist Light / Preserved Dark) */}
       {/* =============================================================== */}
-      <section className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#2D115B] to-[#480123] border border-[#58149C]/60 text-white p-4 sm:p-5 shadow-md space-y-4">
+      <section className="rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#2D115B] dark:to-[#480123] border border-[#DDE6F0] dark:border-[#58149C]/60 text-[#26364A] dark:text-white p-4 sm:p-5 shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-400/40">
-              <MessageSquare className="w-5 h-5 text-emerald-300" />
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-300 dark:border-emerald-400/40">
+              <MessageSquare className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+                <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   KONFIRMASI PELANGGAN
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold border ${
                     isOnline
-                      ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
-                      : 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/40'
+                      : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/40'
                   }`}
                 >
                   {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
                   <span>{isOnline ? 'SIAP KIRIM · ONLINE' : 'OFFLINE'}</span>
                 </span>
               </div>
-              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white mt-0.5 truncate">
+              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white mt-0.5 truncate">
                 WhatsApp Gateway Teknisi
               </h2>
             </div>
           </div>
 
-          <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-mono font-bold text-[#EEDBFF] shrink-0 self-start sm:self-auto tabular-nums">
+          <span className="px-3 py-1 rounded-full bg-white/80 dark:bg-white/10 border border-[#C5BEEF] dark:border-white/15 text-xs font-mono font-bold text-[#5145A6] dark:text-[#EEDBFF] shrink-0 self-start sm:self-auto tabular-nums">
             {currentUser.name}
           </span>
         </div>
 
         {/* 3 Real Operational Counters */}
         <div className="grid grid-cols-3 gap-2.5">
-          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-white/15 px-3 py-2.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#DAB9FF] block truncate">
+          <div className="rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-xs border border-[#DDE6F0] dark:border-white/15 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF] block truncate">
               Total Pelanggan
             </span>
-            <span className="font-display text-xl font-extrabold text-white tabular-nums mt-0.5 block">
+            <span className="font-display text-xl font-extrabold text-[#26364A] dark:text-white tabular-nums mt-0.5 block">
               {counts.total}
             </span>
           </div>
-          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-emerald-400/25 px-3 py-2.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block truncate">
+          <div className="rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-xs border border-emerald-300 dark:border-emerald-400/25 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-200 block truncate">
               Terkonfirmasi
             </span>
-            <span className="font-display text-xl font-extrabold text-emerald-300 tabular-nums mt-0.5 block">
+            <span className="font-display text-xl font-extrabold text-emerald-700 dark:text-emerald-300 tabular-nums mt-0.5 block">
               {counts.confirmed}
             </span>
           </div>
-          <div className="rounded-xl bg-white/10 backdrop-blur-xs border border-amber-400/25 px-3 py-2.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200 block truncate">
+          <div className="rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-xs border border-amber-300 dark:border-amber-400/25 px-3 py-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-200 block truncate">
               Perlu Konfirmasi
             </span>
-            <span className="font-display text-xl font-extrabold text-amber-300 tabular-nums mt-0.5 block">
+            <span className="font-display text-xl font-extrabold text-amber-700 dark:text-amber-300 tabular-nums mt-0.5 block">
               {counts.unconfirmed}
             </span>
           </div>
@@ -337,20 +337,20 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
           </div>
 
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Cari nama, WO, atau telp..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="tactile-debossed-input w-full pl-10 pr-8 py-2 min-h-[42px] text-xs rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff] dark:bg-[#160D29] text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+              className="tactile-debossed-input w-full pl-10 pr-8 py-2 min-h-[42px] text-xs rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#6657C8]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -364,15 +364,15 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
       {/* =============================================================== */}
       {filteredTickets.length === 0 ? (
         <div className="card-3d-lavender p-8 text-center rounded-2xl space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] mx-auto flex items-center justify-center border border-[#e8ddff] dark:border-[#4B386B]">
+          <div className="w-12 h-12 rounded-2xl bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] mx-auto flex items-center justify-center border border-[#C5BEEF] dark:border-[#4B386B]">
             <MessageSquare className="w-6 h-6" />
           </div>
-          <h4 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
+          <h4 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff]">
             {myTickets.length === 0
               ? 'Tidak ada kontak WhatsApp dari tugas WO hari ini.'
               : 'Tidak Ada Kontak Pelanggan yang Cocok'}
           </h4>
-          <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6]">
+          <p className="text-xs text-[#52647A] dark:text-[#C4B5D6]">
             {myTickets.length === 0
               ? 'Hanya pelanggan dari Work Order yang ditugaskan kepada Anda pada tanggal hari ini yang akan muncul di sini.'
               : 'Tidak ditemukan kontak WhatsApp pelanggan sesuai kata kunci atau filter status hari ini.'}
@@ -396,15 +396,15 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                 className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-3"
               >
                 {/* Header: WO + Slot + WA Status */}
-                <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
+                <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono text-xs font-extrabold text-[#58149C] dark:text-[#DAB9FF]">
+                      <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF]">
                         {ticket.woNumber || ticket.ticketNumber || 'WO-Unknown'}
                       </span>
                       <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
                     </div>
-                    <h3 className="font-display font-bold text-sm sm:text-[15px] text-[#1f1638] dark:text-[#f5eeff] mt-1 truncate">
+                    <h3 className="font-display font-bold text-sm sm:text-[15px] text-[#26364A] dark:text-[#f5eeff] mt-1 truncate">
                       {ticket.customerName || 'Nama Pelanggan'}
                     </h3>
                     <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5 tabular-nums">
@@ -414,7 +414,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                         <button
                           type="button"
                           onClick={e => handleCopyPhone(e, ticket.customerPhone, ticket.id)}
-                          className="text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer p-1 rounded-md"
+                          className="text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer p-1 rounded-md"
                           title="Salin nomor"
                         >
                           {copiedId === ticket.id ? (
@@ -427,14 +427,14 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#4B386B] shrink-0 tabular-nums">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] border border-[#BDE4E8] dark:border-[#4B386B] shrink-0 tabular-nums">
                     {ticket.slotTime || 'Hari ini'}
                   </span>
                 </div>
 
                 {/* Address Inset Well */}
-                <div className="text-xs text-[#4b4452] dark:text-[#C4B5D6] flex items-start gap-1.5 bg-[#f8f1ff] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#e8ddff] dark:border-[#35105E]">
-                  <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                <div className="text-xs text-[#52647A] dark:text-[#C4B5D6] flex items-start gap-1.5 bg-[#F4F7FB] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                  <MapPin className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#A380FE] shrink-0 mt-0.5" />
                   <span className="line-clamp-2">
                     {[ticket.streetName || ticket.address, ticket.clusterName, ticket.area]
                       .filter(Boolean)
@@ -445,7 +445,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                 {/* Quick Template Selector for Unconfirmed Tickets */}
                 {!isConfirmed ? (
                   <div className="space-y-2">
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF] block">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF] block">
                       Pilih Pesan Cepat (Otomatisasi):
                     </span>
                     <div className="space-y-1.5">
@@ -457,8 +457,8 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                             key={tpl.id}
                             className={`flex items-start gap-2 p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
                               isChecked
-                                ? 'bg-[#f3eaff] dark:bg-[#2A194B] border-[#7135B5] dark:border-[#A380FE]'
-                                : 'bg-[#f8f1ff] dark:bg-[#160D29] border-[#e8ddff] dark:border-[#35105E] hover:border-[#cec3d4]'
+                                ? 'bg-[#EAE8FF] dark:bg-[#2A194B] border-[#6657C8] dark:border-[#A380FE]'
+                                : 'bg-[#F4F7FB] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E] hover:border-[#C5BEEF]'
                             }`}
                           >
                             <input
@@ -471,13 +471,13 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                                   [ticket.id]: tpl.id
                                 }))
                               }
-                              className="mt-0.5 accent-[#58149C]"
+                              className="mt-0.5 accent-[#5145A6]"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="font-bold text-[#1f1638] dark:text-[#f5eeff] truncate">
+                              <div className="font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
                                 {tpl.shortLabel}
                               </div>
-                              <div className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] line-clamp-1 mt-0.5">
+                              <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] line-clamp-1 mt-0.5">
                                 &ldquo;{snippet}&rdquo;
                               </div>
                             </div>
@@ -505,13 +505,13 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                 )}
 
                 {/* Card Footer Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#35105E]">
                   <button
                     type="button"
                     onClick={() => onSelectTicket(ticket)}
                     className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold gap-1.5 cursor-pointer"
                   >
-                    <Eye className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <Eye className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>Detail WO</span>
                   </button>
 
@@ -546,37 +546,37 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
       )}
 
       {/* =============================================================== */}
-      {/* 4. TEMPLATE PESAN RESMI SOP + DARK INSET LIVE PREVIEW           */}
+      {/* 4. TEMPLATE PESAN RESMI SOP + INSET LIVE PREVIEW                */}
       {/* =============================================================== */}
       <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] border border-[#e8ddff] dark:border-[#4B386B] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#C5BEEF] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
               <FileText className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-display font-extrabold text-sm sm:text-base text-[#1f1638] dark:text-[#f5eeff] truncate">
+              <h3 className="font-display font-extrabold text-sm sm:text-base text-[#26364A] dark:text-[#f5eeff] truncate">
                 Template Pesan Resmi SOP
               </h3>
-              <p className="text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] truncate">
+              <p className="text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] truncate">
                 Format baku komunikasi lapangan agar seragam &amp; profesional ke pelanggan.
               </p>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-[#f3eaff] dark:bg-[#2A194B] border border-[#e8ddff] dark:border-[#4B386B] font-mono text-[10px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+          <span className="px-2 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2A194B] border border-[#BDE4E8] dark:border-[#4B386B] font-mono text-[10px] font-bold text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0">
             Auto-Fill
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+            <label className="block text-[11px] font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
               Pilih Template SOP
             </label>
             <select
               value={selectedSopTemplateId}
               onChange={e => setSelectedSopTemplateId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer"
+              className="w-full px-3 py-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#6657C8] cursor-pointer"
             >
               {sopTemplateOptions.map(tpl => (
                 <option key={tpl.id} value={tpl.id}>
@@ -587,14 +587,14 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-[#1f1638] dark:text-[#f5eeff] mb-1">
+            <label className="block text-[11px] font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
               Target Pelanggan Aktif
             </label>
             <select
               value={selectedPreviewTicketId}
               disabled={myTickets.length === 0}
               onChange={e => setSelectedPreviewTicketId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#7135B5] cursor-pointer disabled:opacity-50"
+              className="w-full px-3 py-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-[#f5eeff] focus:outline-none focus:ring-2 focus:ring-[#6657C8] cursor-pointer disabled:opacity-50"
             >
               {myTickets.length === 0 ? (
                 <option value="">Belum ada WO ditugaskan</option>
@@ -609,18 +609,18 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
           </div>
         </div>
 
-        {/* Dark Purple Inset Live Preview Box */}
-        <div className="rounded-xl bg-[#160D29] border border-[#35105E] p-3.5 text-white space-y-2 shadow-inner">
-          <div className="flex items-center justify-between gap-2 text-[10.5px] font-mono border-b border-white/10 pb-2">
-            <span className="text-[#DAB9FF] font-bold truncate">
+        {/* Crystal Mist / Dark Purple Inset Live Preview Box */}
+        <div className="rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3.5 text-[#26364A] dark:text-white space-y-2 shadow-inner">
+          <div className="flex items-center justify-between gap-2 text-[10.5px] font-mono border-b border-[#E2E8F0] dark:border-white/10 pb-2">
+            <span className="text-[#5145A6] dark:text-[#DAB9FF] font-bold truncate">
               Target:{' '}
               {activePreviewTicket
                 ? `${activePreviewTicket.customerName} (${activePreviewTicket.customerPhone || '-'})`
                 : 'Belum ada pelanggan aktif'}
             </span>
-            <span className="text-emerald-300 font-bold shrink-0">PREVIEW LIVE</span>
+            <span className="text-emerald-700 dark:text-emerald-300 font-bold shrink-0">PREVIEW LIVE</span>
           </div>
-          <p className="text-xs font-mono text-[#EEDBFF] leading-relaxed whitespace-pre-wrap">
+          <p className="text-xs font-mono text-[#52647A] dark:text-[#EEDBFF] leading-relaxed whitespace-pre-wrap">
             {renderedSopPreview || 'Pilih template SOP dan target pelanggan untuk melihat pratinjau pesan.'}
           </p>
         </div>

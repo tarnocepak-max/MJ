@@ -679,16 +679,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
       {/* Offline / Pending Sync Bar */}
       {(!isOnline || pendingCount > 0) && (
-        <div className="rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] border border-[#d8ccf3] dark:border-[#4B386B] px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+        <div className="rounded-xl bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#160D29] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#160D29] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0 border border-[#DDE6F0] dark:border-[#35105E]">
               {!isOnline ? (
-                <WifiOff className="w-4 h-4 text-amber-600 dark:text-amber-300" />
+                <WifiOff className="w-4 h-4 text-[#C88735] dark:text-amber-300" />
               ) : (
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               )}
             </div>
-            <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] truncate">
+            <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
               {!isOnline
                 ? `Mode Offline Aktif (${pendingCount} log tersimpan lokal)`
                 : `${pendingCount} antrean data siap disinkronkan`}
@@ -723,19 +723,19 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* ============================================================ */}
       <section className="card-3d-lavender rounded-2xl p-3.5 sm:p-4 space-y-3">
         {/* Top Area / Shift Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#e8ddff] dark:border-[#35105E]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#160D29] to-[#35105E] text-[#EEDBFF] font-mono text-[10px] font-bold border border-[#58149C]/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-gradient-to-r dark:from-[#160D29] dark:to-[#35105E] text-[#2E7D8B] dark:text-[#EEDBFF] font-mono text-[10px] font-bold border border-[#BDE4E8] dark:border-[#58149C]/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#218A63] dark:bg-emerald-400 animate-pulse" />
                 <span>{currentUser.area || 'TIM LAPANGAN'} · {currentUser.contractor || effectiveInstallerName}</span>
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1.5">
-              <h2 className="font-display text-base sm:text-lg font-extrabold text-[#1f1638] dark:text-[#f5eeff]">
+              <h2 className="font-display text-base sm:text-lg font-extrabold text-[#26364A] dark:text-[#f5eeff]">
                 Work Order Lapangan
               </h2>
-              <span className="px-2 py-0.5 rounded-md bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] border border-[#e8ddff] dark:border-[#4B386B] font-mono text-[10.5px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10.5px] font-bold">
                 {effectiveInstallerName}
               </span>
             </div>
@@ -747,7 +747,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 aria-label="Pilih Teknisi"
                 value={selectedInstallerName}
                 onChange={e => setSelectedInstallerName(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-[#f8f1ff] dark:bg-[#160D29] rounded-xl font-semibold text-[#1f1638] dark:text-[#f5eeff] border border-[#e8ddff] dark:border-[#35105E] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
+                className="px-2.5 py-1.5 text-xs bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl font-semibold text-[#26364A] dark:text-[#f5eeff] border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5]"
               >
                 {myInstallers.map(inst => (
                   <option key={inst.id} value={inst.name}>
@@ -757,14 +757,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               </select>
             )}
 
-            <div className="inline-flex rounded-xl bg-[#f3eaff] dark:bg-[#160D29] p-0.5 border border-[#e8ddff] dark:border-[#35105E] text-[11px] font-bold">
+            <div className="inline-flex rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] p-0.5 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => setDateScope('today')}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                   dateScope === 'today'
-                    ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-[#f5eeff] shadow-2xs'
-                    : 'text-[#4b4452] dark:text-[#A79BC0]'
+                    ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#f5eeff] shadow-2xs'
+                    : 'text-[#52647A] dark:text-[#A79BC0]'
                 }`}
               >
                 Hari Ini ({formatAppointmentDateDisplay(todayWIB) || todayWIB})
@@ -774,8 +774,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 onClick={() => setDateScope('all')}
                 className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                   dateScope === 'all'
-                    ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-[#f5eeff] shadow-2xs'
-                    : 'text-[#4b4452] dark:text-[#A79BC0]'
+                    ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#f5eeff] shadow-2xs'
+                    : 'text-[#52647A] dark:text-[#A79BC0]'
                 }`}
               >
                 Semua
@@ -788,7 +788,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         <div
           role="tablist"
           aria-label="Kategori Status Work Order"
-          className="mj-tactile-tab-bar grid grid-cols-3 gap-1 p-1 border border-[#e8ddff] dark:border-[#35105E]"
+          className="mj-tactile-tab-bar grid grid-cols-3 gap-1 p-1 border border-[#DDE6F0] dark:border-[#35105E]"
         >
           {(
             [
@@ -796,19 +796,19 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 key: 'tugas_baru' as InstallerWoBucket,
                 label: 'Tugas Baru',
                 count: bucketCounts.tugas_baru,
-                badgeCls: 'bg-[#F3EAFF] dark:bg-[#2A194B] text-[#58149C] dark:text-[#DAB9FF] border-[#D8CCF3] dark:border-[#5B35B1]'
+                badgeCls: 'bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border-[#DCE3F2] dark:border-[#5B35B1]'
               },
               {
                 key: 'dalam_proses' as InstallerWoBucket,
                 label: 'Dalam Proses',
                 count: bucketCounts.dalam_proses,
-                badgeCls: 'bg-[#FEF3C7] dark:bg-amber-950/50 text-[#B45309] dark:text-amber-300 border-[#FCD34D] dark:border-amber-700/60'
+                badgeCls: 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60'
               },
               {
                 key: 'selesai' as InstallerWoBucket,
                 label: 'Selesai',
                 count: bucketCounts.selesai,
-                badgeCls: 'bg-[#ECFDF5] dark:bg-emerald-950/50 text-[#15803D] dark:text-emerald-300 border-[#86EFAC] dark:border-emerald-700/60'
+                badgeCls: 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
               }
             ] as const
           ).map(tab => {
@@ -825,8 +825,8 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 }}
                 className={`min-h-[42px] px-2 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   isSelected
-                    ? 'mj-tactile-tab-active text-[#58149c] dark:text-[#f5eeff]'
-                    : 'text-[#4b4452] dark:text-[#A79BC0] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'mj-tactile-tab-active text-[#5145A6] dark:text-[#f5eeff]'
+                    : 'text-[#52647A] dark:text-[#A79BC0] hover:text-[#26364A] dark:hover:text-white'
                 }`}
               >
                 <span className="truncate">{tab.label}</span>
@@ -876,7 +876,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <span>{chip.label}</span>
                 <span
                   className={`font-mono text-[10px] tabular-nums ${
-                    isChipActive ? 'text-[#DAB9FF]' : 'text-[#58149c] dark:text-[#DAB9FF]'
+                    isChipActive ? 'text-[#DDF4F4] dark:text-[#DAB9FF]' : 'text-[#5145A6] dark:text-[#DAB9FF]'
                   }`}
                 >
                   {chip.count}
@@ -889,33 +889,33 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         {/* Debossed Search & Sort Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-[#7d7484] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari No. WO, Pelanggan, FAT/ODP, Alamat..."
-              className="tactile-debossed-input w-full min-h-[42px] pl-9 pr-8 py-1.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl text-xs text-[#1f1638] dark:text-[#f5eeff] placeholder:text-[#7d7484] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#7135b5]"
+              className="tactile-debossed-input w-full min-h-[42px] pl-9 pr-8 py-1.5 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl text-xs text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7d7484] hover:text-[#1f1638] dark:hover:text-white cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] dark:text-[#7d7484] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1 bg-[#f8f1ff] dark:bg-[#160D29] px-2.5 min-h-[42px] rounded-xl border border-[#e8ddff] dark:border-[#35105E] shrink-0">
-            <ArrowUpDown className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+          <div className="flex items-center gap-1 bg-[#F8FAFD] dark:bg-[#160D29] px-2.5 min-h-[42px] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
             <select
               aria-label="Urutkan Work Order"
               value={sortBy}
               onChange={e => setSortBy(e.target.value as 'slot' | 'status' | 'wo')}
-              className="bg-transparent text-xs font-bold text-[#1f1638] dark:text-[#f5eeff] focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-[#26364A] dark:text-[#f5eeff] focus:outline-none cursor-pointer"
             >
               <option value="slot">Slot</option>
               <option value="status">Status</option>
@@ -927,10 +927,10 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
       {/* Active KPI Drilldown Notice */}
       {activeKpiDrilldown && (
-        <div className="bg-[#f3eaff] dark:bg-[#2A194B] border border-[#d8ccf3] dark:border-[#4B386B] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff]">
+        <div className="bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+          <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
             Filter Aktif:{' '}
-            <strong className="text-[#58149c] dark:text-[#DAB9FF]">
+            <strong className="text-[#5145A6] dark:text-[#DAB9FF]">
               {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
             </strong>{' '}
             ({displayedTickets.length} WO)
@@ -950,10 +950,10 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* ============================================================ */}
       {displayedTickets.length === 0 ? (
         <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-2.5">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-[#f3eaff] dark:bg-[#2A194B] text-[#58149c] dark:text-[#DAB9FF] flex items-center justify-center border border-[#e8ddff] dark:border-[#4B386B]">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center border border-[#DCE3F2] dark:border-[#4B386B]">
             <Wrench className="w-6 h-6" />
           </div>
-          <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff]">
+          <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff]">
             {activeKpiDrilldown
               ? `Tidak Ada WO: ${KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}`
               : activeBucket === 'tugas_baru'
@@ -962,7 +962,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               ? 'Tidak Ada WO Dalam Proses'
               : 'Belum Ada WO Selesai'}
           </h3>
-          <p className="text-xs text-[#4b4452] dark:text-[#C4B5D6] max-w-sm mx-auto">
+          <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] max-w-sm mx-auto">
             {searchQuery
               ? 'Tidak ada Work Order yang cocok dengan kata kunci pencarian Anda.'
               : activeKpiDrilldown
@@ -1045,16 +1045,16 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                 <article
                   key={ticket.id}
                   onClick={() => handleOpenFullview(ticket)}
-                  className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#A380FE] transition-colors cursor-pointer"
+                  className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#65B8C4] dark:hover:border-[#A380FE] transition-colors cursor-pointer"
                 >
-                  <div className="h-1.5 w-full bg-gradient-to-r from-[#16A36A] via-emerald-400 to-[#059669]" />
+                  <div className="h-1.5 w-full bg-gradient-to-r from-[#218A63] via-[#3FB588] to-[#2E7D8B] dark:from-[#16A36A] dark:via-emerald-400 dark:to-[#059669]" />
                   <div className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] tracking-tight block">
+                        <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tracking-tight block">
                           {ticket.woNumber}
                         </span>
-                        <h3 className="font-display text-sm font-bold text-[#1f1638] dark:text-[#f5eeff] truncate mt-0.5">
+                        <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff] truncate mt-0.5">
                           {ticket.customerName}
                         </h3>
                       </div>
@@ -1071,29 +1071,29 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl p-2.5 text-[11px]">
+                    <div className="grid grid-cols-2 gap-2 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl p-2.5 text-[11px]">
                       <div>
-                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Appointment</span>
-                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                        <span className="text-[#8492A5] dark:text-[#A79BC0] block">Appointment</span>
+                        <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate">
                           {appDateDisplay} {ticket.slotTime ? `(${ticket.slotTime})` : ''}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Selesai</span>
-                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                        <span className="text-[#8492A5] dark:text-[#A79BC0] block">Selesai</span>
+                        <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate">
                           {formatCompletedDateLabel(ticket.checkOutAt || ticket.updatedAt)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Check-In / Check-Out</span>
-                        <span className="font-mono font-bold text-[#1f1638] dark:text-[#f5eeff] tabular-nums block truncate">
+                        <span className="text-[#8492A5] dark:text-[#A79BC0] block">Check-In / Check-Out</span>
+                        <span className="font-mono font-bold text-[#26364A] dark:text-[#f5eeff] tabular-nums block truncate">
                           {ticket.checkInAt ? formatJakartaTimeOnly(ticket.checkInAt) : '-'} →{' '}
                           {ticket.checkOutAt ? formatJakartaTimeOnly(ticket.checkOutAt) : '-'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[#7d7484] dark:text-[#A79BC0] block">Work Type &amp; OPM</span>
-                        <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate">
+                        <span className="text-[#8492A5] dark:text-[#A79BC0] block">Work Type &amp; OPM</span>
+                        <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate">
                           {workTypeLabel}
                           {hasValidOpm ? ` · ${opmNum} dBm` : ''}
                         </span>
@@ -1101,7 +1101,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between gap-2 pt-0.5">
-                      <span className="text-[11px] text-[#4b4452] dark:text-[#C4B5D6] truncate font-mono">
+                      <span className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] truncate font-mono">
                         {photoCount}/{PHOTO_SLOT_DEFINITIONS.length} Foto · {ticket.fatCode || 'FAT -'}
                       </span>
                       <button
@@ -1139,15 +1139,15 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   key={ticket.id}
                   onClick={() => handleOpenFullview(ticket, guidance.section)}
                   className={`card-3d-lavender rounded-2xl overflow-hidden transition-colors cursor-pointer ${
-                    canonicalApproval === 'REVISION' ? 'border-[#FCA5A5] dark:border-rose-700' : 'hover:border-[#A380FE]'
+                    canonicalApproval === 'REVISION' ? 'border-[#F3C5CA] dark:border-rose-700' : 'hover:border-[#65B8C4] dark:hover:border-[#A380FE]'
                   }`}
                 >
                   {/* Top Status Accent Bar */}
                   <div
                     className={`h-1.5 w-full ${
                       canonicalApproval === 'REVISION'
-                        ? 'bg-gradient-to-r from-[#BA1A1A] to-[#480123]'
-                        : 'bg-gradient-to-r from-[#58149C] via-[#A380FE] to-[#7135B5]'
+                        ? 'bg-gradient-to-r from-[#D45B66] to-[#9B2C37] dark:from-[#BA1A1A] dark:to-[#480123]'
+                        : 'bg-gradient-to-r from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-[#58149C] dark:via-[#A380FE] dark:to-[#7135B5]'
                     }`}
                   />
 
@@ -1156,14 +1156,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF]">
+                          <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF]">
                             {ticket.woNumber}
                           </span>
-                          <span className="text-[11px] font-semibold text-[#4b4452] dark:text-[#C4B5D6]">
+                          <span className="text-[11px] font-semibold text-[#52647A] dark:text-[#C4B5D6]">
                             · {ticket.slotTime || 'Hari Ini'}
                           </span>
                         </div>
-                        <h3 className="font-display text-[15px] font-extrabold text-[#1f1638] dark:text-[#f5eeff] truncate mt-0.5">
+                        <h3 className="font-display text-[15px] font-extrabold text-[#26364A] dark:text-[#f5eeff] truncate mt-0.5">
                           {ticket.customerName}
                         </h3>
                       </div>
@@ -1177,65 +1177,65 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
                     {/* Revision banner if returned by Dispatch */}
                     {canonicalApproval === 'REVISION' && (
-                      <div className="rounded-xl bg-[#FEF2F2] dark:bg-rose-950/50 border border-[#FCA5A5] dark:border-rose-800/60 px-3 py-2 text-[11px] text-[#BA1A1A] dark:text-rose-200">
+                      <div className="rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 px-3 py-2 text-[11px] text-[#9B2C37] dark:text-rose-200">
                         <span className="font-bold">Revisi Dispatch: </span>
                         <span>{revisionNote || 'Perbaiki data report dan kirim ulang.'}</span>
                       </div>
                     )}
 
                     {/* Customer Info Inset Well */}
-                    <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 space-y-1 text-xs text-[#4b4452] dark:text-[#C4B5D6]">
+                    <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 space-y-1 text-xs text-[#52647A] dark:text-[#C4B5D6]">
                       <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                        <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
                         <span className="line-clamp-2">{addressDisplay}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-[#E8DDFF]/70 dark:border-[#35105E]">
-                        <span className="inline-flex items-center gap-1 font-semibold text-[#1f1638] dark:text-[#f5eeff]">
-                          <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                      <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                        <span className="inline-flex items-center gap-1 font-semibold text-[#26364A] dark:text-[#f5eeff]">
+                          <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                           <span>Check-In: {checkInLabel}</span>
                         </span>
-                        <span className="font-mono font-bold text-[#58149c] dark:text-[#DAB9FF]">
+                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                           {guidance.stageLabel}
                         </span>
                       </div>
                     </div>
 
-                    {/* 2-Col Telemetry Strip: ODP/FAT Distribution + Dark Inset OPM LIVE LCD */}
+                    {/* 2-Col Telemetry Strip: ODP/FAT Distribution + Crystal Aqua-Violet / Dark Inset OPM LIVE LCD */}
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 flex flex-col justify-between">
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#A79BC0]">
+                      <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 flex flex-col justify-between">
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                           ODP / FAT Distribution
                         </span>
-                        <span className="font-mono font-extrabold text-xs text-[#1f1638] dark:text-[#f5eeff] truncate mt-1">
+                        <span className="font-mono font-extrabold text-xs text-[#26364A] dark:text-[#f5eeff] truncate mt-1">
                           {ticket.fatCode || ticket.fdtCode || 'FAT -'}
                         </span>
-                        <span className="font-mono text-[10.5px] font-semibold text-[#58149c] dark:text-[#DAB9FF] mt-0.5 truncate">
+                        <span className="font-mono text-[10.5px] font-semibold text-[#5145A6] dark:text-[#DAB9FF] mt-0.5 truncate">
                           {ticket.fatPort ? `Port ${ticket.fatPort}` : workTypeLabel}
                         </span>
                       </div>
 
-                      <div className="rounded-xl bg-[#160D29] border border-[#35105E] p-2.5 text-white flex flex-col justify-between shadow-inner">
+                      <div className="rounded-xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] p-2.5 text-[#26364A] dark:text-white flex flex-col justify-between shadow-inner">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-[#DAB9FF] flex items-center gap-1">
+                          <span className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center gap-1">
                             <Gauge className="w-3 h-3" />
                             <span>OPM LIVE</span>
                           </span>
                           <span
                             className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-extrabold ${
                               !hasValidOpm
-                                ? 'bg-white/15 text-[#EEDBFF]'
+                                ? 'bg-[#EAE8FF] text-[#5145A6] dark:bg-white/15 dark:text-[#EEDBFF]'
                                 : isOpmPass
-                                ? 'bg-emerald-500/25 text-emerald-300'
-                                : 'bg-rose-500/30 text-rose-200'
+                                ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/25 dark:text-emerald-300'
+                                : 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/30 dark:text-rose-200'
                             }`}
                           >
                             {!hasValidOpm ? 'WAIT' : isOpmPass ? 'PASS' : 'ALERT'}
                           </span>
                         </div>
-                        <div className="font-mono font-extrabold text-base text-white tabular-nums mt-0.5">
+                        <div className="font-mono font-extrabold text-base text-[#26364A] dark:text-white tabular-nums mt-0.5">
                           {hasValidOpm ? `${opmNum.toFixed(1)} dBm` : '— dBm'}
                         </div>
-                        <span className="font-mono text-[9.5px] text-white/60">
+                        <span className="font-mono text-[9.5px] text-[#52647A] dark:text-white/60">
                           SOP: -15 s/d -24 dBm
                         </span>
                       </div>
@@ -1309,10 +1309,10 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                           }}
                           className="relative mj-btn-installer-neutral mj-btn-compact px-2 text-[11px] font-bold gap-1 cursor-pointer"
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                          <MessageSquare className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                           <span>LiveChat</span>
                           {unread > 0 && (
-                            <span className="ml-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#ba1a1a] text-white text-[9px] font-bold flex items-center justify-center">
+                            <span className="ml-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#D45B66] dark:bg-[#ba1a1a] text-white text-[9px] font-bold flex items-center justify-center">
                               {unread > 99 ? '99+' : unread}
                             </span>
                           )}
@@ -1343,13 +1343,13 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               <article
                 key={ticket.id}
                 onClick={() => handleOpenFullview(ticket)}
-                className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#A380FE] transition-colors cursor-pointer"
+                className="card-3d-lavender rounded-2xl overflow-hidden hover:border-[#65B8C4] dark:hover:border-[#A380FE] transition-colors cursor-pointer"
               >
-                <div className="h-1.5 w-full bg-gradient-to-r from-[#D97706] to-[#F59E0B]" />
+                <div className="h-1.5 w-full bg-gradient-to-r from-[#D4933E] to-[#E9B568] dark:from-[#D97706] dark:to-[#F59E0B]" />
                 <div className="p-4 space-y-2.5">
                   {/* 1. WO Number & 2. Status WO */}
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ddff] dark:border-[#35105E]">
-                    <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#DAB9FF] tracking-tight">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tracking-tight">
                       {ticket.woNumber}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -1358,47 +1358,47 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   </div>
 
                   {/* 3. Customer Info Inset Well */}
-                  <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-2.5 space-y-1">
+                  <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-display text-[15px] font-extrabold text-[#1f1638] dark:text-[#f5eeff] leading-snug truncate">
+                      <h3 className="font-display text-[15px] font-extrabold text-[#26364A] dark:text-[#f5eeff] leading-snug truncate">
                         {ticket.customerName}
                       </h3>
                       {ticket.customerPhone && (
-                        <span className="font-mono text-[10.5px] font-bold text-[#58149c] dark:text-[#DAB9FF] shrink-0">
+                        <span className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                           {ticket.customerPhone}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-start gap-1.5 text-xs text-[#4b4452] dark:text-[#C4B5D6]">
-                      <MapPin className="w-3.5 h-3.5 text-[#58149c] dark:text-[#A380FE] shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-1.5 text-xs text-[#52647A] dark:text-[#C4B5D6]">
+                      <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
                       <span className="line-clamp-2">{addressDisplay}</span>
                     </div>
                   </div>
 
                   {/* 5. Appointment Date & 6. Work Type / Category */}
-                  <div className="grid grid-cols-2 gap-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] rounded-xl px-3 py-2 text-[11px]">
+                  <div className="grid grid-cols-2 gap-2 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl px-3 py-2 text-[11px]">
                     <div className="min-w-0">
-                      <span className="text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-[#58149c] dark:text-[#A380FE]" />
+                      <span className="text-[#8492A5] dark:text-[#A79BC0] flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-[#2E7D8B] dark:text-[#A380FE]" />
                         <span>Appointment</span>
                       </span>
-                      <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate mt-0.5">
+                      <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate mt-0.5">
                         {appDateDisplay}{ticket.slotTime ? ` · ${ticket.slotTime}` : ''}
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[#7d7484] dark:text-[#A79BC0] flex items-center gap-1">
-                        <Wrench className="w-3 h-3 text-[#58149c] dark:text-[#A380FE]" />
+                      <span className="text-[#8492A5] dark:text-[#A79BC0] flex items-center gap-1">
+                        <Wrench className="w-3 h-3 text-[#5145A6] dark:text-[#A380FE]" />
                         <span>Work Type</span>
                       </span>
-                      <span className="font-semibold text-[#1f1638] dark:text-[#f5eeff] block truncate mt-0.5">
+                      <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate mt-0.5">
                         {workTypeLabel}
                       </span>
                     </div>
                   </div>
 
                   {/* 7. Informasi Teknis Relevan */}
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-[#4b4452] dark:text-[#C4B5D6] flex-wrap">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-[#52647A] dark:text-[#C4B5D6] flex-wrap">
                     <span>
                       {ticket.fdtCode || 'FDT -'} · FAT {ticket.fatCode || '-'}
                       {ticket.fatPort ? ` / P${ticket.fatPort}` : ''}
@@ -1407,7 +1407,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   </div>
 
                   {/* 8. Action Footer: Quick Maps/WA/Detail + Primary CHECK-IN */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
@@ -1467,15 +1467,15 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* ============================================================ */}
       {/* SOP KESELAMATAN KERJA (K3) REMINDER BANNER                   */}
       {/* ============================================================ */}
-      <section className="rounded-2xl bg-[#f8f1ff] dark:bg-[#1E1238] border border-[#e8ddff] dark:border-[#35105E] px-4 py-3 flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-[#2D115B] text-[#DAB9FF] flex items-center justify-center shrink-0">
+      <section className="rounded-2xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#35105E] px-4 py-3 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#65B8C4] to-[#6657C8] dark:bg-none dark:bg-[#2D115B] text-white dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
           <ShieldCheck className="w-4 h-4" />
         </div>
         <div className="min-w-0">
-          <h4 className="font-display text-xs font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-[#f5eeff]">
+          <h4 className="font-display text-xs font-extrabold uppercase tracking-wider text-[#26364A] dark:text-[#f5eeff]">
             SOP Keselamatan Kerja (K3)
           </h4>
-          <p className="text-[11.5px] text-[#4b4452] dark:text-[#C4B5D6] leading-snug mt-0.5">
+          <p className="text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] leading-snug mt-0.5">
             Gunakan helm pelindung, safety belt saat memanjat tiang, serta sarung tangan isolasi sebelum terminasi kabel optik FAT/ODP.
           </p>
         </div>
@@ -1518,7 +1518,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
             : undefined
         }
         footer={
-          <div className="w-full flex items-center justify-between gap-3 text-xs text-[#7d7484] dark:text-[#A79BC0]">
+          <div className="w-full flex items-center justify-between gap-3 text-xs text-[#8492A5] dark:text-[#A79BC0]">
             <span>Koordinasi cepat dengan Dispatch &amp; Leader</span>
             <button
               type="button"

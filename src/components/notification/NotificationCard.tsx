@@ -35,50 +35,50 @@ const CATEGORY_STYLES: Record<
   wo_assignment: {
     icon: Briefcase,
     iconBoxClass:
-      'bg-[#EEE5FF] text-[#5424A8] border-[#D9C4FF] dark:bg-[#3A1772] dark:text-[#E1CEFF] dark:border-[#6A35C7]',
-    labelClass: 'text-[#5424A8] dark:text-[#C9A8FF]'
+      'bg-[#EAE8FF] text-[#5145A6] border-[#DCE3F2] dark:bg-[#3A1772] dark:text-[#E1CEFF] dark:border-[#6A35C7]',
+    labelClass: 'text-[#5145A6] dark:text-[#C9A8FF]'
   },
   overdue_warning: {
     icon: AlertTriangle,
     iconBoxClass:
-      'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700/60',
-    labelClass: 'text-amber-700 dark:text-amber-300'
+      'bg-[#FFF2D9] text-[#C88735] border-[#F2CF95] dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700/60',
+    labelClass: 'text-[#C88735] dark:text-amber-300'
   },
   live_chat: {
     icon: MessageSquare,
     iconBoxClass:
-      'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-700/60',
-    labelClass: 'text-blue-700 dark:text-blue-300'
+      'bg-[#E7F1FB] text-[#3E81C6] border-[#C6DDF6] dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-700/60',
+    labelClass: 'text-[#3E81C6] dark:text-blue-300'
   },
   system_database: {
     icon: Database,
     iconBoxClass:
-      'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-700/60',
-    labelClass: 'text-indigo-700 dark:text-indigo-300'
+      'bg-[#DDF4F4] text-[#2E7D8B] border-[#BDE4E8] dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-700/60',
+    labelClass: 'text-[#2E7D8B] dark:text-indigo-300'
   },
   success: {
     icon: CheckCircle2,
     iconBoxClass:
-      'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700/60',
-    labelClass: 'text-emerald-700 dark:text-emerald-300'
+      'bg-[#E4F5EC] text-[#218A63] border-[#B7E4CC] dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700/60',
+    labelClass: 'text-[#218A63] dark:text-emerald-300'
   },
   security: {
     icon: ShieldAlert,
     iconBoxClass:
-      'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-700/60',
-    labelClass: 'text-rose-700 dark:text-rose-300'
+      'bg-[#FCE9EB] text-[#D45B66] border-[#F3C5CA] dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-700/60',
+    labelClass: 'text-[#D45B66] dark:text-rose-300'
   }
 };
 
 const PRIORITY_BADGES: Record<NotificationPriority, string> = {
   critical:
-    'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/75 dark:text-rose-200 dark:border-rose-700/70',
+    'bg-[#FCE9EB] text-[#D45B66] border-[#F3C5CA] dark:bg-rose-950/75 dark:text-rose-200 dark:border-rose-700/70',
   high:
-    'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/75 dark:text-amber-200 dark:border-amber-700/70',
+    'bg-[#FFF2D9] text-[#C88735] border-[#F2CF95] dark:bg-amber-950/75 dark:text-amber-200 dark:border-amber-700/70',
   normal:
-    'bg-[#EEE5FF] text-[#5424A8] border-[#D9C4FF] dark:bg-[#341668] dark:text-[#DFCFFF] dark:border-[#5D30B5]',
+    'bg-[#EAE8FF] text-[#5145A6] border-[#DCE3F2] dark:bg-[#341668] dark:text-[#DFCFFF] dark:border-[#5D30B5]',
   low:
-    'bg-slate-100 text-[#756C86] border-slate-200 dark:bg-white/10 dark:text-[#BFB2DC] dark:border-white/15'
+    'bg-[#EDF3F8] text-[#52647A] border-[#DDE6F0] dark:bg-white/10 dark:text-[#BFB2DC] dark:border-white/15'
 };
 
 export function formatRelativeNotificationTime(isoString: string): string {
@@ -117,11 +117,11 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
     <div
       className={`group relative rounded-[18px] border transition-all duration-150 ${
         isPriorityLiveChat
-          ? 'bg-gradient-to-br from-white via-white to-blue-50/75 dark:from-[#231245] dark:via-[#211548] dark:to-[#16234B] border-blue-300/90 dark:border-blue-500/55 shadow-[0_10px_24px_-10px_rgba(37,99,235,0.28),inset_0_1px_0_rgba(255,255,255,0.95)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]'
+          ? 'bg-gradient-to-br from-white via-white to-[#E7F1FB]/75 dark:from-[#231245] dark:via-[#211548] dark:to-[#16234B] border-[#9EC5EC] dark:border-blue-500/55 shadow-[0_10px_24px_-10px_rgba(62,129,198,0.22),inset_0_1px_0_rgba(255,255,255,0.95)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]'
           : isUnread
-          ? 'bg-white dark:bg-[#231245] border-[#D6BEFF] dark:border-[#8648F5]/55 shadow-[0_8px_22px_-10px_rgba(84,36,168,0.22),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.12)]'
-          : 'bg-[#F7F4FC]/90 dark:bg-[#190D33]/85 border-[#EEE5FF] dark:border-white/10 opacity-85 hover:opacity-100'
-      } hover:-translate-y-[1px] hover:border-[#8648F5]/70 active:translate-y-[0.5px]`}
+          ? 'bg-white dark:bg-[#231245] border-[#CFDCE8] dark:border-[#8648F5]/55 shadow-[0_8px_22px_-10px_rgba(81,69,166,0.16),inset_0_1px_0_rgba(255,255,255,0.95)] dark:shadow-[0_10px_24px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.12)]'
+          : 'bg-[#F8FAFD]/90 dark:bg-[#190D33]/85 border-[#DDE6F0] dark:border-white/10 opacity-85 hover:opacity-100'
+      } hover:-translate-y-[1px] hover:border-[#6657C8]/60 dark:hover:border-[#8648F5]/70 active:translate-y-[0.5px]`}
     >
       {/* Left accent stripe for unread notifications */}
       {isUnread && (
@@ -129,8 +129,8 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
           aria-hidden="true"
           className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${
             isPriorityLiveChat
-              ? 'bg-gradient-to-b from-blue-500 via-[#8648F5] to-[#5424A8]'
-              : 'bg-gradient-to-b from-[#8648F5] to-[#5424A8]'
+              ? 'bg-gradient-to-b from-[#3E81C6] via-[#6657C8] to-[#5145A6] dark:from-blue-500 dark:via-[#8648F5] dark:to-[#5424A8]'
+              : 'bg-gradient-to-b from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-[#8648F5] dark:to-[#5424A8]'
           }`}
         />
       )}
@@ -150,7 +150,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
           {isPriorityLiveChat && (
             <span
               aria-hidden="true"
-              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-white dark:ring-[#231245]"
+              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#3E81C6] dark:bg-blue-500 ring-2 ring-white dark:ring-[#231245]"
             />
           )}
         </div>
@@ -163,12 +163,12 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
                 {CATEGORY_LABELS[item.category]}
               </span>
               {isPriorityLiveChat && (
-                <span className="px-1.5 py-0.5 rounded-[6px] bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700/70 text-[9px] font-extrabold uppercase tracking-wide leading-none shrink-0">
+                <span className="px-1.5 py-0.5 rounded-[6px] bg-[#E7F1FB] dark:bg-blue-950/80 text-[#3E81C6] dark:text-blue-300 border border-[#C6DDF6] dark:border-blue-700/70 text-[9px] font-extrabold uppercase tracking-wide leading-none shrink-0">
                   Prioritas
                 </span>
               )}
               {item.woNumber && (
-                <span className="font-mono text-[10px] font-bold text-[#756C86] dark:text-[#BFB2DC] truncate">
+                <span className="font-mono text-[10px] font-bold text-[#8492A5] dark:text-[#BFB2DC] truncate">
                   · {item.woNumber}
                 </span>
               )}
@@ -183,8 +183,8 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
               {isUnread && (
                 <span
                   title="Belum dibaca"
-                  className={`w-2 h-2 rounded-full ring-2 ring-[#EEE5FF] dark:ring-[#30104B] shrink-0 ${
-                    isPriorityLiveChat ? 'bg-blue-500' : 'bg-[#8648F5]'
+                  className={`w-2 h-2 rounded-full ring-2 ring-[#EAE8FF] dark:ring-[#30104B] shrink-0 ${
+                    isPriorityLiveChat ? 'bg-[#3E81C6] dark:bg-blue-500' : 'bg-[#6657C8] dark:bg-[#8648F5]'
                   }`}
                 />
               )}
@@ -195,22 +195,22 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
             <h4
               className={`text-xs font-extrabold leading-snug line-clamp-2 ${
                 isUnread
-                  ? 'text-[#28203A] dark:text-white'
-                  : 'text-[#4E4563] dark:text-[#D5C9EE]'
+                  ? 'text-[#26364A] dark:text-white'
+                  : 'text-[#52647A] dark:text-[#D5C9EE]'
               }`}
             >
               {item.title}
             </h4>
             {item.target && (
-              <ArrowUpRight className="w-3.5 h-3.5 text-[#756C86] dark:text-[#BFB2DC] group-hover:text-[#5424A8] dark:group-hover:text-[#C9A8FF] shrink-0 mt-0.5 transition-colors" />
+              <ArrowUpRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#BFB2DC] group-hover:text-[#5145A6] dark:group-hover:text-[#C9A8FF] shrink-0 mt-0.5 transition-colors" />
             )}
           </div>
 
-          <p className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] leading-relaxed line-clamp-2">
+          <p className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] leading-relaxed line-clamp-2">
             {item.description}
           </p>
 
-          <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] font-medium text-[#756C86] dark:text-[#A99BC8]">
+          <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] font-medium text-[#8492A5] dark:text-[#A99BC8]">
             <span className="inline-flex items-center gap-1 font-mono tabular-nums">
               <Clock className="w-3 h-3" />
               <span>{formatRelativeNotificationTime(item.timestamp)}</span>
@@ -232,7 +232,7 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
                     onMarkRead(item.id);
                   }
                 }}
-                className="text-[10px] font-bold text-[#5424A8] dark:text-[#C9A8FF] hover:underline px-1.5 py-0.5 rounded-md hover:bg-[#EEE5FF]/70 dark:hover:bg-[#3A1772]"
+                className="text-[10px] font-bold text-[#5145A6] dark:text-[#C9A8FF] hover:underline px-1.5 py-0.5 rounded-md hover:bg-[#EAE8FF]/70 dark:hover:bg-[#3A1772]"
               >
                 Tandai dibaca
               </span>

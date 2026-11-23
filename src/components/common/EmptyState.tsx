@@ -24,16 +24,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div
-      className={`flex flex-col items-center justify-center text-center bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] rounded-2xl ${
+      className={`flex flex-col items-center justify-center text-center bg-white/88 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl ${
         compact ? 'px-4 py-8' : 'px-6 py-12'
       } ${className}`}
     >
-      <div className="w-12 h-12 rounded-2xl bg-[#F8F1FF] dark:bg-[#261942] border border-[#E8DDFF] dark:border-[#4B386B] text-[#7135B5] dark:text-[#DAB9FF] flex items-center justify-center mb-3 shadow-xs">
+      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#DDF4F4] to-[#EAE8FF] dark:from-[#261942] dark:to-[#261942] border border-[#CFDCE8] dark:border-[#4B386B] text-[#6657C8] dark:text-[#DAB9FF] flex items-center justify-center mb-3 shadow-xs">
         {icon || <Inbox className="w-6 h-6" />}
       </div>
-      <h3 className="text-sm font-bold text-[#1F1638] dark:text-white">{title}</h3>
+      <h3 className="text-sm font-bold text-[#26364A] dark:text-white">{title}</h3>
       {description && (
-        <p className="text-xs text-[#7D7484] dark:text-[#CEC0E8] max-w-md mt-1 leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] max-w-md mt-1 leading-relaxed">
           {description}
         </p>
       )}

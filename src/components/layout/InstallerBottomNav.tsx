@@ -42,7 +42,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
       icon: ClipboardList,
       isActive: isTasksActive,
       badge: pendingTasksCount > 0 ? pendingTasksCount : undefined,
-      badgeColor: 'bg-amber-500 text-white font-bold',
+      badgeColor: 'bg-[#C88735] dark:bg-amber-500 text-white font-bold',
       showDot: false
     },
     {
@@ -60,7 +60,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
       icon: MessageCircle,
       isActive: isLiveChatActive,
       badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined,
-      badgeColor: 'bg-rose-500 text-white font-bold',
+      badgeColor: 'bg-[#D45B66] dark:bg-rose-500 text-white font-bold',
       showDot: false
     }
   ];
@@ -107,7 +107,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
                 {tab.badge !== undefined && (
                   <span
                     className={`absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 flex items-center justify-center text-[9.5px] leading-none rounded-full ring-2 ${
-                      isActive ? 'ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
+                      isActive ? 'ring-[#6657C8] dark:ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
                     } tabular-nums shadow-xs ${tab.badgeColor}`}
                   >
                     {tab.badge > 99 ? '99+' : tab.badge}
@@ -117,8 +117,8 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
                 {tab.showDot && (
                   <span
                     aria-label="Ada konfirmasi WhatsApp tertunda"
-                    className={`absolute -top-0.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 mj-glow-dot ring-2 ${
-                      isActive ? 'ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
+                    className={`absolute -top-0.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-[#218A63] dark:bg-emerald-500 mj-glow-dot ring-2 ${
+                      isActive ? 'ring-[#6657C8] dark:ring-[#6d28d9]' : 'ring-white dark:ring-[#160d33]'
                     }`}
                   />
                 )}

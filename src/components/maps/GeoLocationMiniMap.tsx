@@ -161,8 +161,8 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
 
   if (!isValid) {
     return (
-      <div className="mj-tactile-well border border-dashed border-[#CEC3D4] dark:border-[#4B386B] p-3 flex items-center gap-2.5 text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
-        <MapPin className="w-4 h-4 shrink-0 text-[#7135B5] dark:text-[#D8B4FE]" />
+      <div className="mj-tactile-well border border-dashed border-[#CBD5E1] dark:border-[#4B386B] p-3 flex items-center gap-2.5 text-[11px] text-[#8492A5] dark:text-[#C5B3DF]">
+        <MapPin className="w-4 h-4 shrink-0 text-[#6657C8] dark:text-[#D8B4FE]" />
         <span>Koordinat GPS belum tersedia untuk peta lokasi ini.</span>
       </div>
     );
@@ -174,11 +174,11 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
   return (
     <div className="card-3d-lavender rounded-xl overflow-hidden">
       {/* Interactive Leaflet Map Viewport (bounded z-index so it never overlays modals) */}
-      <div className={`relative w-full ${heightClass} bg-[#F3EAFF] dark:bg-[#160D29] isolate z-0`}>
+      <div className={`relative w-full ${heightClass} bg-[#EDF3F8] dark:bg-[#160D29] isolate z-0`}>
         <div ref={mapContainerRef} className="w-full h-full z-0" />
 
         {tileWarning && (
-          <div className="absolute inset-x-2 top-2 z-[450] px-2 py-1 rounded-md bg-[#160D29]/90 text-white text-[10px] font-mono text-center pointer-events-none">
+          <div className="absolute inset-x-2 top-2 z-[450] px-2 py-1 rounded-md bg-white/95 dark:bg-[#160D29]/90 text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-transparent text-[10px] font-mono text-center pointer-events-none">
             Pin aktif di {formatCoordinates(latNum, lngNum)} (Layer peta offline)
           </div>
         )}
@@ -205,7 +205,7 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
             type="button"
             onClick={handleRecenter}
             title="Pusatkan Pin"
-            className="btn-3d-icon w-7 h-7 !text-[#58149C] dark:!text-[#D8B4FE] cursor-pointer"
+            className="btn-3d-icon w-7 h-7 !text-[#5145A6] dark:!text-[#D8B4FE] cursor-pointer"
           >
             <Crosshair className="w-3.5 h-3.5" />
           </button>
@@ -216,8 +216,8 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
           <span
             className={`absolute bottom-2 left-2 z-[450] px-2 py-0.5 rounded-md font-mono text-[10px] font-bold shadow-xs border backdrop-blur-xs ${
               isWeak
-                ? 'bg-amber-950/90 text-amber-200 border-amber-500/40'
-                : 'bg-[#160D29]/90 text-emerald-300 border-emerald-500/40'
+                ? 'bg-amber-50/95 text-amber-800 border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-500/40'
+                : 'bg-white/95 text-emerald-700 border-emerald-300 dark:bg-[#160D29]/90 dark:text-emerald-300 dark:border-emerald-500/40'
             }`}
           >
             GPS ±{Math.round(accuracyMeters)}m
@@ -227,9 +227,9 @@ export const GeoLocationMiniMap: React.FC<GeoLocationMiniMapProps> = ({
 
       {/* Coordinate & Google Maps Action Bar */}
       {showActions && (
-        <div className="px-2.5 py-2 flex flex-wrap items-center justify-between gap-2 bg-[#F8F1FF] dark:bg-[#1E1238] border-t border-[#E8DDFF] dark:border-[#35105E] text-[11px]">
-          <div className="min-w-0 flex items-center gap-1.5 font-mono text-[#1F1638] dark:text-[#E8DDFF] truncate">
-            <MapPin className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+        <div className="px-2.5 py-2 flex flex-wrap items-center justify-between gap-2 bg-[#F4F7FB] dark:bg-[#1E1238] border-t border-[#DDE6F0] dark:border-[#35105E] text-[11px]">
+          <div className="min-w-0 flex items-center gap-1.5 font-mono text-[#26364A] dark:text-[#E8DDFF] truncate">
+            <MapPin className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE] shrink-0" />
             <span className="truncate font-semibold tabular-nums">{formatCoordinates(latNum, lngNum)}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">

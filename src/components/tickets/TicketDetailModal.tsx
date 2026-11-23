@@ -474,12 +474,12 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   const topGradientBar =
     ticket.approvalStatus === 'BUTUH APPROVAL'
-      ? 'from-[#E59A27] via-[#7135B5] to-[#16A36A]'
+      ? 'from-[#C88735] via-[#6657C8] to-[#218A63] dark:from-[#E59A27] dark:via-[#7135B5] dark:to-[#16A36A]'
       : ticket.approvalStatus === 'APPROVED'
-      ? 'from-[#10B981] via-[#16A36A] to-[#059669]'
+      ? 'from-[#218A63] via-[#65B8C4] to-[#2E7D8B] dark:from-[#10B981] dark:via-[#16A36A] dark:to-[#059669]'
       : ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI'
-      ? 'from-[#EF4444] via-[#DC2626] to-[#B91C1C]'
-      : 'from-[#7135B5] via-[#A78BFA] to-[#35105E]';
+      ? 'from-[#D45B66] via-[#C88735] to-[#9B2C37] dark:from-[#EF4444] dark:via-[#DC2626] dark:to-[#B91C1C]'
+      : 'from-[#6657C8] via-[#65B8C4] to-[#5145A6] dark:from-[#7135B5] dark:via-[#A78BFA] dark:to-[#35105E]';
 
   const mapsQuery =
     hasValue(ticket.latitude) && hasValue(ticket.longitude)
@@ -515,7 +515,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-60 flex items-start sm:items-center justify-center bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
+      className={`fixed inset-0 z-60 flex items-start sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
         isCompactUI ? 'p-0' : 'p-2 sm:p-4 lg:p-6'
       }`}
       onClick={onClose}
@@ -525,37 +525,37 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         aria-modal="true"
         aria-labelledby="modal-ticket-title"
         onClick={e => e.stopPropagation()}
-        className={`relative w-full bg-white dark:bg-[#1E1238] shadow-2xl border border-[#E8DDFF] dark:border-[#35105E] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+        className={`relative w-full bg-white/95 dark:bg-[#1E1238] shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
           isCompactUI ? 'h-dvh rounded-none max-w-full' : 'max-w-7xl max-h-[94vh] rounded-2xl'
         }`}
       >
         {/* TOP SYSTEM & SYNC STRIP */}
-        <div className="w-full bg-[#F5F1FF] dark:bg-[#160D29] px-4 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8] border-b border-[#E9E5F0] dark:border-[#35105E] shrink-0">
+        <div className="w-full bg-[#EDF3F8] dark:bg-[#160D29] px-4 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#52647A] dark:text-[#CEC0E8] border-b border-[#DDE6F0] dark:border-[#35105E] shrink-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5">
               <span
                 className={`w-2 h-2 rounded-full ${
                   syncStatus === 'SAVED'
-                    ? 'bg-[#16A36A]'
+                    ? 'bg-[#218A63] dark:bg-[#16A36A]'
                     : syncStatus === 'SYNCING' || syncStatus === 'LOADING'
-                    ? 'bg-[#D97706] animate-pulse'
-                    : 'bg-[#DC4C5A]'
+                    ? 'bg-[#C88735] dark:bg-[#D97706] animate-pulse'
+                    : 'bg-[#D45B66] dark:bg-[#DC4C5A]'
                 }`}
               />
-              <span className="font-mono font-bold text-[#160D29] dark:text-white uppercase">
+              <span className="font-mono font-bold text-[#26364A] dark:text-white uppercase">
                 SUPABASE SYNC: {syncStatus}
               </span>
             </div>
-            <span className="text-[#CEC3D4] dark:text-[#4B386B]">|</span>
-            <span className="font-bold uppercase tracking-wide text-[#766B83] dark:text-[#A78BFA]">
+            <span className="text-[#CFDCE8] dark:text-[#4B386B]">|</span>
+            <span className="font-bold uppercase tracking-wide text-[#52647A] dark:text-[#A78BFA]">
               Cluster: {ticket.clusterName || ticket.area || '-'}
             </span>
-            <span className="hidden sm:inline text-[#CEC3D4] dark:text-[#4B386B]">|</span>
-            <span className="hidden sm:inline font-semibold text-[#7135B5] dark:text-[#DAB9FF]">
+            <span className="hidden sm:inline text-[#CFDCE8] dark:text-[#4B386B]">|</span>
+            <span className="hidden sm:inline font-semibold text-[#5145A6] dark:text-[#DAB9FF]">
               Durasi Kerja: {ticket.workDurationFormatted || (ticket.checkInAt ? 'Sedang Dikerjakan' : 'Belum Check-in')}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#8B8495] dark:text-[#A78BFA]">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#8492A5] dark:text-[#A78BFA]">
             <Lock className="w-3 h-3" />
             <span className="truncate max-w-[260px]">
               Sesi: {currentUser.name} ({currentUser.role})
@@ -565,16 +565,16 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
         {/* MODAL HEADER */}
         <div
-          className={`bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 ${
+          className={`bg-white/95 dark:bg-[#1E1238] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 ${
             isCompactUI ? 'px-3.5 py-3' : 'px-5 py-3.5'
           }`}
         >
           {/* Left: Title + Category + Cust ID */}
           <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 bg-[#F7F6FA] dark:bg-[#160D29] px-2.5 py-1 rounded-lg border border-[#D8CCF3] dark:border-[#4B386B] shadow-inner">
+            <div className="flex items-center gap-1.5 bg-[#F8FAFD] dark:bg-[#160D29] px-2.5 py-1 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] shadow-inner">
               <span
                 id="modal-ticket-title"
-                className="font-mono font-extrabold text-[15px] sm:text-[17px] text-[#35105E] dark:text-[#DAB9FF] tracking-tight tabular-nums"
+                className="font-mono font-extrabold text-[15px] sm:text-[17px] text-[#5145A6] dark:text-[#DAB9FF] tracking-tight tabular-nums"
               >
                 {ticket.woNumber}
               </span>
@@ -589,24 +589,24 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             </div>
 
             {hasValue(ticket.ticketCategory) && (
-              <span className="px-2.5 py-1 rounded-full bg-[#35105E] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                <Zap className="w-3 h-3 text-[#DAB9FF]" />
+              <span className="px-2.5 py-1 rounded-full bg-[#5145A6] dark:bg-[#35105E] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                <Zap className="w-3 h-3 text-[#DDF4F4] dark:text-[#DAB9FF]" />
                 <span>{ticket.ticketCategory}</span>
               </span>
             )}
 
-            <span className="px-2.5 py-1 rounded-full bg-[#F4EAFF] dark:bg-[#261942] text-[#35105E] dark:text-[#E9D5FF] font-mono text-[11px] font-bold flex items-center gap-1 tabular-nums">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#16A36A]" />
+            <span className="px-2.5 py-1 rounded-full bg-[#DDF4F4] dark:bg-[#261942] text-[#2E7D8B] dark:text-[#E9D5FF] font-mono text-[11px] font-bold flex items-center gap-1 tabular-nums border border-[#BDE4E8] dark:border-transparent">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#218A63] dark:text-[#16A36A]" />
               <span>CUST-ID: {ticket.idCustomer}</span>
             </span>
 
-            <div className="flex items-center text-[15px] font-bold text-[#211A2E] dark:text-white truncate max-w-[260px] sm:max-w-xs">
-              <span className="text-[#8B8495] font-normal mr-1.5">/</span>
+            <div className="flex items-center text-[15px] font-bold text-[#26364A] dark:text-white truncate max-w-[260px] sm:max-w-xs">
+              <span className="text-[#8492A5] font-normal mr-1.5">/</span>
               <span className="truncate">{ticket.customerName}</span>
             </div>
 
             {ticket.isArchived && (
-              <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold uppercase">
+              <span className="px-2 py-0.5 rounded-full bg-[#EDF3F8] dark:bg-slate-700 text-[#52647A] dark:text-slate-200 text-[10px] font-bold uppercase">
                 Archived
               </span>
             )}
@@ -620,10 +620,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               className="btn-3d-ceramic h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer lg:hidden"
               title="Buka & gulir ke LiveChat"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-[#7135B5]" />
+              <MessageSquare className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
               <span>Chat</span>
               {unreadChatCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#DC4C5A] text-white">
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#D45B66] dark:bg-[#DC4C5A] text-white">
                   {unreadChatCount > 99 ? '99+' : unreadChatCount}
                 </span>
               )}
@@ -656,7 +656,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               className="btn-3d-ceramic h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
               title={ticket.isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan Tiket'}
             >
-              <Archive className="w-3.5 h-3.5 text-[#766B83] dark:text-[#CEC0E8]" />
+              <Archive className="w-3.5 h-3.5 text-[#52647A] dark:text-[#CEC0E8]" />
               <span>{ticket.isArchived ? 'Restore' : 'Arsipkan'}</span>
             </button>
 
@@ -676,9 +676,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
         {/* Reopen Ticket Inline Banner */}
         {showReopenModal && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/70 border-b border-amber-200 dark:border-amber-800 text-xs space-y-2.5 shrink-0">
-            <div className="font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
-              <RotateCcw className="w-4 h-4 text-amber-600" />
+          <div className="p-4 bg-[#FFF2D9] dark:bg-amber-950/70 border-b border-[#F2CF95] dark:border-amber-800 text-xs space-y-2.5 shrink-0">
+            <div className="font-bold text-[#9D661F] dark:text-amber-200 flex items-center gap-1.5">
+              <RotateCcw className="w-4 h-4 text-[#C88735] dark:text-amber-600" />
               <span>Buka Kembali Tiket (Reopen Work Order)</span>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -687,7 +687,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 placeholder="Alasan reopen (contoh: keluhan ulang pelanggan, redaman drop kembali)..."
                 value={reopenReason}
                 onChange={e => setReopenReason(e.target.value)}
-                className="w-full sm:flex-1 px-3 py-2 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-[#160D29] text-[#211A2E] dark:text-white text-xs"
+                className="w-full sm:flex-1 px-3 py-2 border border-[#F2CF95] dark:border-amber-800 rounded-lg bg-white dark:bg-[#160D29] text-[#26364A] dark:text-white text-xs"
               />
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
@@ -711,11 +711,11 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         )}
 
         {/* SCROLLABLE INTERACTIVE BODY STAGE */}
-        <div className="flex-1 overflow-y-auto bg-[#F7F6FA] dark:bg-[#140827] p-3.5 sm:p-5 space-y-5 text-xs">
+        <div className="flex-1 overflow-y-auto bg-[#F4F7FB] dark:bg-[#140827] p-3.5 sm:p-5 space-y-5 text-xs">
           {/* ============================================================== */}
           {/* ZONE 1: DISPATCH APPROVAL & VERIFIKASI HUB                     */}
           {/* ============================================================== */}
-          <section className="bg-white dark:bg-[#1E1238] rounded-xl shadow-md p-4 sm:p-5 relative overflow-hidden border border-[#E9E5F0] dark:border-[#35105E] space-y-4">
+          <section className="bg-white/95 dark:bg-[#1E1238] rounded-xl shadow-md p-4 sm:p-5 relative overflow-hidden border border-[#DDE6F0] dark:border-[#35105E] space-y-4">
             <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${topGradientBar}`} />
 
             {/* Banner Header & Lifecycle Pill */}
@@ -724,30 +724,30 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                     ticket.approvalStatus === 'APPROVED'
-                      ? 'bg-[#16A36A]/15 text-[#16A36A]'
+                      ? 'bg-[#E4F5EC] dark:bg-[#16A36A]/15 text-[#218A63] dark:text-[#16A36A]'
                       : ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI'
-                      ? 'bg-[#DC4C5A]/15 text-[#DC4C5A]'
-                      : 'bg-[#E59A27]/15 text-[#D97706]'
+                      ? 'bg-[#FCE9EB] dark:bg-[#DC4C5A]/15 text-[#9B2C37] dark:text-[#DC4C5A]'
+                      : 'bg-[#FFF2D9] dark:bg-[#E59A27]/15 text-[#9D661F] dark:text-[#D97706]'
                   }`}
                 >
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-bold text-[15px] sm:text-[16px] text-[#160D29] dark:text-white">
+                    <h3 className="font-bold text-[15px] sm:text-[16px] text-[#26364A] dark:text-white">
                       Verifikasi Hasil Pengerjaan Teknisi Lapangan
                     </h3>
                     <StatusApprovalBadge status={ticket.approvalStatus} />
                   </div>
-                  <div className="text-[12px] text-[#766B83] dark:text-[#CEC0E8] flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                  <div className="text-[12px] text-[#52647A] dark:text-[#CEC0E8] flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                     <span>
-                      Teknisi: <strong className="text-[#211A2E] dark:text-white">{ticket.installerName || 'Belum Ditugaskan'}</strong>
+                      Teknisi: <strong className="text-[#26364A] dark:text-white">{ticket.installerName || 'Belum Ditugaskan'}</strong>
                       {ticket.contactorName ? ` (${ticket.contactorName})` : ''}
                     </span>
                     <span aria-hidden="true">·</span>
                     <span>
                       Mulai:{' '}
-                      <strong className="text-[#211A2E] dark:text-white font-mono">
+                      <strong className="text-[#26364A] dark:text-white font-mono">
                         {ticket.workStartedAt
                           ? new Date(ticket.workStartedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
                           : ticket.checkInAt
@@ -758,7 +758,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     <span aria-hidden="true">·</span>
                     <span>
                       Durasi:{' '}
-                      <strong className="text-[#7135B5] dark:text-[#DAB9FF] font-mono font-bold">
+                      <strong className="text-[#5145A6] dark:text-[#DAB9FF] font-mono font-bold">
                         {ticket.workDurationFormatted || (ticket.checkInAt ? 'Aktif' : '-')}
                       </strong>
                     </span>
@@ -766,13 +766,13 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#F5F1FF] dark:bg-[#261942] rounded-xl border border-[#D8CCF3] dark:border-[#4B386B] self-start lg:self-auto shrink-0">
-                <Gauge className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+              <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#EAE8FF] dark:bg-[#261942] rounded-xl border border-[#DCE3F2] dark:border-[#4B386B] self-start lg:self-auto shrink-0">
+                <Gauge className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
                 <div className="flex flex-col text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B8495] dark:text-[#A78BFA]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A78BFA]">
                     Lifecycle Progress
                   </span>
-                  <span className="font-mono text-[12px] font-bold text-[#16A36A] tabular-nums">
+                  <span className="font-mono text-[12px] font-bold text-[#218A63] dark:text-[#16A36A] tabular-nums">
                     {completedStepsCount}/7 TAHAP SELESAI
                   </span>
                 </div>
@@ -782,48 +782,48 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             {/* 4 Precision Telemetry Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               {/* 1. Redaman OPM */}
-              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Redaman OPM ONT</span>
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">Redaman OPM ONT</span>
                   {rawOpmValue ? (
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         isOpmValid
-                          ? 'bg-[#16A36A]/15 text-[#16A36A]'
-                          : 'bg-[#E59A27]/15 text-[#D97706]'
+                          ? 'bg-[#E4F5EC] dark:bg-[#16A36A]/15 text-[#218A63] dark:text-[#16A36A]'
+                          : 'bg-[#FFF2D9] dark:bg-[#E59A27]/15 text-[#9D661F] dark:text-[#D97706]'
                       }`}
                     >
                       {isOpmValid ? 'PASS (-8 s/d -25)' : 'PERLU CEK'}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono text-[#8B8495]">Belum Diisi</span>
+                    <span className="text-[10px] font-mono text-[#8492A5]">Belum Diisi</span>
                   )}
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span
                     className={`font-mono text-[22px] font-bold tracking-tight tabular-nums ${
-                      rawOpmValue ? (isOpmValid ? 'text-[#16A36A]' : 'text-[#D97706]') : 'text-[#8B8495]'
+                      rawOpmValue ? (isOpmValid ? 'text-[#218A63] dark:text-[#16A36A]' : 'text-[#9D661F] dark:text-[#D97706]') : 'text-[#8492A5]'
                     }`}
                   >
                     {rawOpmValue ? String(rawOpmValue).replace(/\s*dBm/i, '') : '-'}
                   </span>
-                  {rawOpmValue && <span className="text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8]">dBm</span>}
+                  {rawOpmValue && <span className="text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8]">dBm</span>}
                 </div>
-                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 truncate">
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 truncate">
                   {hasValue(ticket.technicalReport?.opticalPowerRx) ? 'Data Technical Report OPM' : 'Menunggu input teknisi'}
                 </div>
               </div>
 
               {/* 2. SN ONT / Modem */}
-              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">SN ONT / Modem</span>
-                  {serialOnt && <CheckCircle2 className="w-4 h-4 text-[#16A36A]" />}
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">SN ONT / Modem</span>
+                  {serialOnt && <CheckCircle2 className="w-4 h-4 text-[#218A63] dark:text-[#16A36A]" />}
                 </div>
-                <div className="font-mono text-[16px] text-[#35105E] dark:text-[#DAB9FF] font-bold tracking-wide truncate tabular-nums">
+                <div className="font-mono text-[16px] text-[#5145A6] dark:text-[#DAB9FF] font-bold tracking-wide truncate tabular-nums">
                   {serialOnt || '-'}
                 </div>
-                <div className="text-[11px] text-[#16A36A] font-medium mt-1 truncate">
+                <div className="text-[11px] text-[#218A63] dark:text-[#16A36A] font-medium mt-1 truncate">
                   {hasValue(ticket.oltRegistrationStatus)
                     ? ticket.oltRegistrationStatus
                     : hasValue(ticket.oltCode)
@@ -833,36 +833,36 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
 
               {/* 3. Dropcore & FAT */}
-              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Dropcore & FAT</span>
-                  <span className="font-mono text-[10.5px] text-[#7135B5] dark:text-[#DAB9FF] font-bold">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">Dropcore & FAT</span>
+                  <span className="font-mono text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF] font-bold">
                     {hasValue(ticket.fatPort) ? `Port ${ticket.fatPort}` : 'FAT Port -'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="font-mono text-[22px] text-[#160D29] dark:text-white font-bold tabular-nums">
+                  <span className="font-mono text-[22px] text-[#26364A] dark:text-white font-bold tabular-nums">
                     {hasValue(dropcoreMeter) ? dropcoreMeter : '-'}
                   </span>
-                  {hasValue(dropcoreMeter) && <span className="text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8]">Meter</span>}
+                  {hasValue(dropcoreMeter) && <span className="text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8]">Meter</span>}
                 </div>
-                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 truncate">
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 truncate">
                   {fatLabel ? `${fatLabel}${hasValue(ticket.fatRedamanDbm) ? ` (${ticket.fatRedamanDbm} dBm)` : ''}` : 'Kode FAT belum tercatat'}
                 </div>
               </div>
 
               {/* 4. Laporan 3-Tingkat */}
-              <div className="bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#E9E5F0] dark:border-[#35105E] hover:shadow-sm transition-all">
+              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8B8495]">Laporan 3-Tingkat</span>
-                  <Network className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5]">Laporan 3-Tingkat</span>
+                  <Network className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
                 </div>
-                <div className="text-xs font-bold text-[#16A36A] truncate">
+                <div className="text-xs font-bold text-[#218A63] dark:text-[#16A36A] truncate">
                   L1: {tier1Label}
                 </div>
-                <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] mt-1 leading-snug">
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1 leading-snug">
                   <div className="truncate">L2: {tier2Label}</div>
-                  <div className="truncate text-[#8B8495] text-[10.5px]">L3: {tier3Label}</div>
+                  <div className="truncate text-[#8492A5] text-[10.5px]">L3: {tier3Label}</div>
                 </div>
               </div>
             </div>
@@ -871,14 +871,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                  <h4 className="font-bold text-[14px] text-[#160D29] dark:text-white">
+                  <Camera className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
+                  <h4 className="font-bold text-[14px] text-[#26364A] dark:text-white">
                     Bukti Dokumentasi Fisik & Lampiran Lapangan
                   </h4>
                 </div>
                 <span
                   className={`text-[10.5px] font-bold uppercase ${
-                    evidencePhotos.length > 0 ? 'text-[#16A36A]' : 'text-[#8B8495]'
+                    evidencePhotos.length > 0 ? 'text-[#218A63] dark:text-[#16A36A]' : 'text-[#8492A5]'
                   }`}
                 >
                   {evidencePhotos.length > 0
@@ -895,9 +895,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                       <div
                         key={photo.id}
                         onClick={() => setZoomPhoto(photo)}
-                        className="group relative rounded-xl overflow-hidden bg-[#F7F6FA] dark:bg-[#160D29] shadow-xs hover:shadow-md transition-all border border-[#E9E5F0] dark:border-[#35105E] cursor-pointer flex flex-col"
+                        className="group relative rounded-xl overflow-hidden bg-[#F8FAFD] dark:bg-[#160D29] shadow-xs hover:shadow-md transition-all border border-[#DDE6F0] dark:border-[#35105E] cursor-pointer flex flex-col"
                       >
-                        <div className="w-full h-32 overflow-hidden relative bg-[#E9E5F0] dark:bg-[#261942]">
+                        <div className="w-full h-32 overflow-hidden relative bg-[#EDF3F8] dark:bg-[#261942]">
                           {!failedImages[photo.id] ? (
                             <img
                               src={photo.url}
@@ -907,7 +907,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-[#8B8495] p-2 text-center">
+                            <div className="w-full h-full flex flex-col items-center justify-center text-[#8492A5] p-2 text-center">
                               <ImageOff className="w-5 h-5 mb-1" />
                               <span className="text-[10px] truncate w-full">{photo.title}</span>
                             </div>
@@ -917,8 +917,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                             <span
                               className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold flex items-center gap-1 shadow-xs ${
                                 photo.geotagStatus === 'weak'
-                                  ? 'bg-amber-600/95 text-white'
-                                  : 'bg-[#16A36A]/95 text-white'
+                                  ? 'bg-[#C88735]/95 dark:bg-amber-600/95 text-white'
+                                  : 'bg-[#218A63]/95 dark:bg-[#16A36A]/95 text-white'
                               }`}
                             >
                               <Satellite className="w-2.5 h-2.5" />
@@ -947,20 +947,20 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         <div className="p-2.5 bg-white dark:bg-[#1E1238] space-y-1 flex-1 flex flex-col justify-between">
                           <div className="flex items-start justify-between gap-1.5">
                             <div className="min-w-0">
-                              <div className="text-[11px] font-bold text-[#211A2E] dark:text-white truncate">
+                              <div className="text-[11px] font-bold text-[#26364A] dark:text-white truncate">
                                 {photo.title}
                               </div>
-                              <div className="font-mono text-[10px] text-[#766B83] dark:text-[#CEC0E8] truncate">
+                              <div className="font-mono text-[10px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                                 {photo.subtitle}
                               </div>
                             </div>
-                            <span className="tactile-chip text-[10px] px-1.5 py-0.5 rounded text-[#35105E] font-bold shrink-0">
+                            <span className="tactile-chip text-[10px] px-1.5 py-0.5 rounded text-[#5145A6] dark:text-[#35105E] font-bold shrink-0">
                               Zoom
                             </span>
                           </div>
 
                           {hasGps && (
-                            <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-[#E9E5F0]/80 dark:border-[#35105E] text-[9.5px] font-mono text-emerald-700 dark:text-emerald-300">
+                            <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-[#DDE6F0]/80 dark:border-[#35105E] text-[9.5px] font-mono text-[#218A63] dark:text-emerald-300">
                               <span className="truncate">
                                 {formatCoordinates(photo.latitude!, photo.longitude!)}
                               </span>
@@ -982,7 +982,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="p-4 rounded-xl border border-dashed border-[#D8CCF3] dark:border-[#4B386B] bg-[#F7F6FA] dark:bg-[#160D29] text-center text-[#8B8495] text-xs">
+                <div className="p-4 rounded-xl border border-dashed border-[#CFDCE8] dark:border-[#4B386B] bg-[#F8FAFD] dark:bg-[#160D29] text-center text-[#8492A5] text-xs">
                   Belum ada foto bukti lapangan yang diunggah teknisi melalui Technical Report atau LiveChat.
                 </div>
               )}
@@ -990,9 +990,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
             {/* Approved / Rejected Historical Banners */}
             {ticket.approvalStatus === 'APPROVED' && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200">
+              <div className="p-3.5 rounded-xl bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-[#218A63] dark:text-emerald-200">
                 <div className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-[#218A63] dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <div>
                       <strong>{dispatchApprovalLabel || `Approved - ${approvedOutcome || 'Done'}`}</strong> oleh{' '}
@@ -1002,7 +1002,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[11px] font-semibold">Status WO Agent:</span>
                       <StatusAgentBadge status={approvedOutcome || ticket.statusWOAgent} />
-                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
+                      <span className="px-2 py-0.5 rounded-full bg-[#26364A] dark:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
                         Ticket Result: Closed
                       </span>
                     </div>
@@ -1013,8 +1013,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             )}
 
             {ticket.approvalStatus === 'REJECTED' && (
-              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-200">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800 flex items-start gap-2.5 text-xs text-[#9B2C37] dark:text-rose-200">
+                <AlertCircle className="w-4 h-4 text-[#D45B66] dark:text-rose-400 shrink-0 mt-0.5" />
                 <div>
                   Laporan <strong>DITOLAK / PERLU REVISI</strong> oleh <strong>{ticket.rejectedBy || 'Dispatch'}</strong>
                   {ticket.rejectedAt && ` pada ${new Date(ticket.rejectedAt).toLocaleString('id-ID')}`}.
@@ -1025,22 +1025,22 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
             {/* Integrated Dispatch Approval & Verification Control Block */}
             {canManageApproval && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-              <div className="bg-[#F5F1FF] dark:bg-[#261942] rounded-xl p-4 border border-[#D8CCF3] dark:border-[#4B386B] space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#D8CCF3]/80 dark:border-[#4B386B]">
+              <div className="bg-[#EAE8FF]/70 dark:bg-[#261942] rounded-xl p-4 border border-[#DCE3F2] dark:border-[#4B386B] space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#DCE3F2] dark:border-[#4B386B]">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                    <span className="font-bold text-[13.5px] text-[#160D29] dark:text-white">
+                    <ShieldCheck className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
+                    <span className="font-bold text-[13.5px] text-[#26364A] dark:text-white">
                       Dispatch Approval &amp; Penentuan Status WO Agent
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
-                    <span className="px-2 py-0.5 rounded-md bg-white dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4B386B] font-semibold text-[#35105E] dark:text-[#DAB9FF]">
+                    <span className="px-2 py-0.5 rounded-md bg-white dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#5145A6] dark:text-[#DAB9FF]">
                       {selectedApprovalOption.dispatchApprovalLabel}
                     </span>
-                    <span className="text-[#8B8495]">&rarr;</span>
+                    <span className="text-[#8492A5]">&rarr;</span>
                     <StatusAgentBadge status={selectedWoAgentStatus} />
-                    <span className="text-[#8B8495]">&rarr;</span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
+                    <span className="text-[#8492A5]">&rarr;</span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#26364A] dark:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wide">
                       Ticket: Closed
                     </span>
                   </div>
@@ -1048,35 +1048,35 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                 {/* Ringkasan Laporan Installer & Agent sebagai dasar verifikasi Dispatch */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#218A63] dark:text-emerald-300">
                       Laporan Pengerjaan Installer
                     </div>
-                    <div className="text-[11.5px] font-semibold text-[#211A2E] dark:text-white">
+                    <div className="text-[11.5px] font-semibold text-[#26364A] dark:text-white">
                       {tier1Label} {tier2Label !== '-' ? `· ${tier2Label}` : ''} {tier3Label !== '-' ? `· ${tier3Label}` : ''}
                     </div>
-                    <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] line-clamp-2">
+                    <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                       {latestProgress?.remarksReport || ticket.remarksWOInstaller || 'Tidak ada catatan tambahan dari teknisi.'}
                     </p>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#5B35B1] dark:text-[#DAB9FF]">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                       Laporan / Catatan Agent &amp; Status Saat Ini
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusAgentBadge status={ticket.statusWOAgent} />
-                      <span className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">
-                        Installer: <strong className="text-[#211A2E] dark:text-white">{ticket.statusWOInstaller}</strong>
+                      <span className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8]">
+                        Installer: <strong className="text-[#26364A] dark:text-white">{ticket.statusWOInstaller}</strong>
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] line-clamp-2">
+                    <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
                       {ticket.remarksAgent || ticket.remarks || 'Belum ada catatan agent sebelumnya.'}
                     </p>
                   </div>
                 </div>
 
                 {decisionError && (
-                  <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 font-semibold flex items-center gap-2">
+                  <div className="p-2.5 rounded-lg bg-[#FCE9EB] dark:bg-rose-950 text-[#9B2C37] dark:text-rose-200 border border-[#F3C5CA] dark:border-rose-800 font-semibold flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{decisionError}</span>
                   </div>
@@ -1087,17 +1087,17 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   <div className="lg:col-span-4 space-y-1.5">
                     <label
                       htmlFor="dispatch-wo-agent-status"
-                      className="text-[12.5px] font-bold text-[#160D29] dark:text-white flex items-center gap-1"
+                      className="text-[12.5px] font-bold text-[#26364A] dark:text-white flex items-center gap-1"
                     >
                       <span>Final Status WO Agent</span>
-                      <span className="text-[#DC4C5A]">*</span>
+                      <span className="text-[#D45B66]">*</span>
                     </label>
                     <select
                       id="dispatch-wo-agent-status"
                       value={selectedWoAgentStatus}
                       onChange={e => setSelectedWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus)}
                       disabled={isApproving || isRejecting}
-                      className="w-full px-3 py-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs font-bold text-[#211A2E] dark:text-white border border-[#D8CCF3] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#7135B5] shadow-sm cursor-pointer"
+                      className="w-full px-3 py-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs font-bold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5] shadow-sm cursor-pointer"
                     >
                       {DISPATCH_APPROVAL_OPTIONS.map(opt => (
                         <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
@@ -1105,38 +1105,38 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         </option>
                       ))}
                     </select>
-                    <p className="text-[10.5px] text-[#766B83] dark:text-[#CEC0E8] leading-snug">
+                    <p className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] leading-snug">
                       {selectedApprovalOption.description}
                     </p>
                   </div>
 
                   <div className="lg:col-span-8 space-y-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <label htmlFor="dispatcher-review-note" className="text-[12.5px] font-bold text-[#160D29] dark:text-white flex items-center gap-1">
+                      <label htmlFor="dispatcher-review-note" className="text-[12.5px] font-bold text-[#26364A] dark:text-white flex items-center gap-1">
                         <span>Catatan Verifikasi Dispatch</span>
-                        <span className="text-[11px] font-normal text-[#8B8495]">(Wajib min. 3 karakter jika minta revisi)</span>
+                        <span className="text-[11px] font-normal text-[#8492A5]">(Wajib min. 3 karakter jika minta revisi)</span>
                       </label>
 
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10.5px] font-bold uppercase text-[#8B8495]">Template Cepat:</span>
+                        <span className="text-[10.5px] font-bold uppercase text-[#8492A5]">Template Cepat:</span>
                         <button
                           type="button"
                           onClick={() => setDecisionNotes('Redaman optik sesuai standar, foto bukti lengkap dan sesuai SOP. Disetujui Done.')}
-                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                          className="tactile-chip px-2 py-0.5 rounded text-[#5145A6] dark:text-[#35105E] text-[10.5px] font-bold cursor-pointer"
                         >
                           Acc Redaman Normal
                         </button>
                         <button
                           type="button"
                           onClick={() => setDecisionNotes('Foto barcode ONT atau bukti lapangan belum jelas, harap unggah ulang.')}
-                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                          className="tactile-chip px-2 py-0.5 rounded text-[#5145A6] dark:text-[#35105E] text-[10.5px] font-bold cursor-pointer"
                         >
                           Kirim Ulang Foto
                         </button>
                         <button
                           type="button"
                           onClick={() => setDecisionNotes('SOP pemasangan lengkap, koordinat check-in valid, koneksi aktif.')}
-                          className="tactile-chip px-2 py-0.5 rounded text-[#35105E] text-[10.5px] font-bold cursor-pointer"
+                          className="tactile-chip px-2 py-0.5 rounded text-[#5145A6] dark:text-[#35105E] text-[10.5px] font-bold cursor-pointer"
                         >
                           SOP Lengkap
                         </button>
@@ -1152,7 +1152,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         if (decisionError) setDecisionError(null);
                       }}
                       placeholder="Tuliskan catatan verifikasi hasil teknisi / tindak lanjut WO di sini..."
-                      className="w-full p-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#D8CCF3] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#7135B5] shadow-sm"
+                      className="w-full p-2.5 bg-white dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] border border-[#DDE6F0] dark:border-[#4B386B] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5] shadow-sm"
                     />
                   </div>
                 </div>
@@ -1174,7 +1174,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     disabled={isSavingNote || isApproving || isRejecting}
                     className="btn-3d-ceramic flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <Save className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                    <Save className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#DAB9FF]" />
                     <span>{isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}</span>
                   </button>
 
@@ -1203,31 +1203,31 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             {/* LEFT COLUMN (7/12): Customer, Schedule, Technical Specs & Audit Trail */}
             <div className="lg:col-span-7 space-y-5">
               {/* Card 1: Identitas Pelanggan & Lokasi Pemasangan */}
-              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                    <User className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#26364A] dark:text-white">
                       Identitas Pelanggan & Lokasi Pemasangan
                     </h4>
                   </div>
-                  <span className="text-[10.5px] font-bold uppercase text-[#16A36A] bg-[#16A36A]/10 px-2 py-0.5 rounded">
+                  <span className="text-[10.5px] font-bold uppercase text-[#218A63] dark:text-emerald-400 bg-[#E4F5EC] dark:bg-[#16A36A]/10 border border-[#B7E4CC] dark:border-transparent px-2 py-0.5 rounded">
                     ID: {ticket.idCustomer}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Nama Pelanggan</div>
-                    <div className="font-bold text-[16px] text-[#211A2E] dark:text-white">{ticket.customerName}</div>
-                    <div className="font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                    <div className="text-[10.5px] font-bold uppercase text-[#8492A5]">Nama Pelanggan</div>
+                    <div className="font-bold text-[16px] text-[#26364A] dark:text-white">{ticket.customerName}</div>
+                    <div className="font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                       Cust ID: {ticket.idCustomer}{ticket.ticketNumber ? ` · Tiket: ${ticket.ticketNumber}` : ''}
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Kontak Pelanggan</div>
-                    <div className="font-mono font-bold text-[15px] text-[#211A2E] dark:text-white tabular-nums">
+                    <div className="text-[10.5px] font-bold uppercase text-[#8492A5]">Kontak Pelanggan</div>
+                    <div className="font-mono font-bold text-[15px] text-[#26364A] dark:text-white tabular-nums">
                       {ticket.customerPhone || '-'}
                     </div>
 
@@ -1245,7 +1245,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                           href={`tel:${ticket.customerPhone}`}
                           className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1"
                         >
-                          <Phone className="w-3 h-3 text-[#7135B5] dark:text-[#DAB9FF]" />
+                          <Phone className="w-3 h-3 text-[#6657C8] dark:text-[#DAB9FF]" />
                           <span>Telepon</span>
                         </a>
                       )}
@@ -1254,14 +1254,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
 
                 {/* Address & Geo */}
-                <div className="p-3.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl space-y-2 border border-[#E9E5F0] dark:border-[#35105E]">
+                <div className="p-3.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl space-y-2 border border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10.5px] font-bold uppercase text-[#8B8495]">Alamat Instalasi</div>
-                      <div className="text-[13px] text-[#211A2E] dark:text-white font-medium mt-0.5 leading-relaxed">
-                        {ticket.clusterName && <span className="font-bold text-[#35105E] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
+                      <div className="text-[10.5px] font-bold uppercase text-[#8492A5]">Alamat Instalasi</div>
+                      <div className="text-[13px] text-[#26364A] dark:text-white font-medium mt-0.5 leading-relaxed">
+                        {ticket.clusterName && <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
                         {ticket.address || ticket.streetName || '-'}
-                        {ticket.city && <span className="block text-[11px] text-[#766B83] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
+                        {ticket.city && <span className="block text-[11px] text-[#52647A] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
                       </div>
                     </div>
 
@@ -1272,15 +1272,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         rel="noopener noreferrer"
                         className="btn-3d-ceramic shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1"
                       >
-                        <Navigation className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#DAB9FF]" />
+                        <Navigation className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#DAB9FF]" />
                         <span>Buka Maps</span>
                       </a>
                     )}
                   </div>
 
                   {(hasValue(ticket.latitude) || hasValue(ticket.longitude) || hasValue(ticket.area)) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-                      <MapPin className="w-3.5 h-3.5 text-[#DC4C5A]" />
+                    <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                      <MapPin className="w-3.5 h-3.5 text-[#D45B66]" />
                       <span>Area: {ticket.area || '-'}</span>
                       {hasValue(ticket.latitude) && hasValue(ticket.longitude) && (
                         <>
@@ -1299,80 +1299,80 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
 
               {/* Card 2: Jadwal & Penugasan Kontraktor */}
-              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                    <Calendar className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#26364A] dark:text-white">
                       Jadwal & Penugasan Kontraktor
                     </h4>
                   </div>
                   {hasValue(ticket.distributionStatus) && (
-                    <span className="text-[10.5px] font-bold uppercase bg-[#E9D5FF]/60 dark:bg-[#35105E] text-[#35105E] dark:text-[#DAB9FF] px-2 py-0.5 rounded">
+                    <span className="text-[10.5px] font-bold uppercase bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-transparent px-2 py-0.5 rounded">
                       {String(ticket.distributionStatus).replace(/_/g, ' ')}
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
-                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Tanggal Appointment</span>
-                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 tabular-nums">
+                  <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8492A5]">Tanggal Appointment</span>
+                    <div className="font-bold text-[14px] text-[#26364A] dark:text-white mt-0.5 tabular-nums">
                       {formatAppointmentDateDisplay(ticket.appointmentDate)}
                     </div>
-                    <span className="text-[11px] text-[#7135B5] dark:text-[#DAB9FF] font-semibold">
+                    <span className="text-[11px] text-[#6657C8] dark:text-[#DAB9FF] font-semibold">
                       {ticket.appointmentType || ticket.ticketCategory || 'Reguler'}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
-                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Slot Waktu</span>
-                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 flex items-center gap-1 tabular-nums">
-                      <Clock className="w-3.5 h-3.5 text-[#D97706]" />
+                  <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8492A5]">Slot Waktu</span>
+                    <div className="font-bold text-[14px] text-[#26364A] dark:text-white mt-0.5 flex items-center gap-1 tabular-nums">
+                      <Clock className="w-3.5 h-3.5 text-[#C88735]" />
                       <span>{ticket.slotTime || 'Belum Ditentukan'}</span>
                     </div>
-                    <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                    <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                       Upload: {ticket.dateUpload || ticket.createdAt?.slice(0, 10) || '-'}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl border border-[#E9E5F0] dark:border-[#35105E]">
-                    <span className="text-[10px] font-bold uppercase text-[#8B8495]">Mitra Pelaksana</span>
-                    <div className="font-bold text-[14px] text-[#211A2E] dark:text-white mt-0.5 truncate flex items-center gap-1">
-                      <Building2 className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+                  <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <span className="text-[10px] font-bold uppercase text-[#8492A5]">Mitra Pelaksana</span>
+                    <div className="font-bold text-[14px] text-[#26364A] dark:text-white mt-0.5 truncate flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-[#218A63] shrink-0" />
                       <span className="truncate">{ticket.contactorName || 'Belum Dipetakan'}</span>
                     </div>
-                    <span className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate block">
+                    <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate block">
                       {ticket.contractorId ? `ID: ${ticket.contractorId}` : ticket.area || '-'}
                     </span>
                   </div>
                 </div>
 
                 {/* Hierarchy Assignment Flow (Korlap -> Teknisi) */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 bg-[#F5F1FF] dark:bg-[#160D29] rounded-xl gap-3 border border-[#D8CCF3] dark:border-[#4B386B]">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 bg-[#EAE8FF]/65 dark:bg-[#160D29] rounded-xl gap-3 border border-[#DCE3F2] dark:border-[#4B386B]">
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#35105E] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#5145A6] dark:bg-[#35105E] text-white flex items-center justify-center font-bold text-xs shrink-0">
                       {(ticket.leaderName || 'KL').slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-bold uppercase text-[#8B8495]">Koordinator Lapangan (Korlap)</div>
-                      <div className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
+                      <div className="text-[10px] font-bold uppercase text-[#8492A5]">Koordinator Lapangan (Korlap)</div>
+                      <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                         {ticket.leaderName || '-'} {ticket.leaderContact ? `(${ticket.leaderContact})` : ''}
                       </div>
                     </div>
                   </div>
 
-                  <ArrowRight className="w-4 h-4 text-[#8B8495] self-center rotate-90 sm:rotate-0 shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-[#8492A5] self-center rotate-90 sm:rotate-0 shrink-0" />
 
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#7135B5] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5] text-white flex items-center justify-center font-bold text-xs shrink-0">
                       {(ticket.installerName || 'TK').slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-bold uppercase text-[#8B8495]">Teknisi Eksekutor</div>
+                      <div className="text-[10px] font-bold uppercase text-[#8492A5]">Teknisi Eksekutor</div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-[#211A2E] dark:text-white truncate">
-                          {ticket.installerName || <em className="text-[#D97706] font-normal">Belum Ditugaskan</em>}
+                        <span className="text-xs font-bold text-[#26364A] dark:text-white truncate">
+                          {ticket.installerName || <em className="text-[#C88735] font-normal">Belum Ditugaskan</em>}
                         </span>
                         {currentUser.role === 'leader' && (
                           <select
@@ -1382,7 +1382,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                                 assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
                               }
                             }}
-                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#A78BFA] rounded font-semibold text-[#5B35B1] dark:text-[#DAB9FF] cursor-pointer"
+                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded font-semibold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"
                             title="Tugaskan Teknisi (Wewenang Khusus Leader)"
                           >
                             <option value="">-- Assign Teknisi --</option>
@@ -1398,26 +1398,26 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                 {/* Assignment / Reassignment History */}
                 {ticket.assignmentHistory && ticket.assignmentHistory.length > 0 && (
-                  <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[#766B83] dark:text-[#CEC0E8] font-bold text-[11px]">
-                      <History className="w-3.5 h-3.5 text-[#D97706]" />
+                  <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[#52647A] dark:text-[#CEC0E8] font-bold text-[11px]">
+                      <History className="w-3.5 h-3.5 text-[#C88735]" />
                       <span>Riwayat Penugasan & Reassign ({ticket.assignmentHistory.length})</span>
                     </div>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                       {ticket.assignmentHistory.map((h, i) => (
-                        <div key={h.id || i} className="p-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] text-[10.5px] space-y-0.5">
+                        <div key={h.id || i} className="p-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] space-y-0.5">
                           <div className="flex items-center justify-between font-semibold gap-2">
                             <span>
                               {h.previousInstaller || h.previousInstallerName || 'Unassigned'} &rarr;{' '}
-                              <span className="text-[#16A36A]">{h.assignedInstaller || h.newInstallerName}</span>
+                              <span className="text-[#218A63] dark:text-[#16A36A]">{h.assignedInstaller || h.newInstallerName}</span>
                             </span>
-                            <span className="font-mono text-[#8B8495] text-[10px] tabular-nums">
+                            <span className="font-mono text-[#8492A5] text-[10px] tabular-nums">
                               {new Date(h.timestamp).toLocaleString('id-ID')}
                             </span>
                           </div>
-                          {h.reason && <div className="text-[#766B83] dark:text-[#CEC0E8] italic">"{h.reason}"</div>}
+                          {h.reason && <div className="text-[#52647A] dark:text-[#CEC0E8] italic">"{h.reason}"</div>}
                           {h.performedBy && (
-                            <div className="text-[#8B8495] text-[10px]">
+                            <div className="text-[#8492A5] text-[10px]">
                               Oleh: {h.performedBy} {h.performedByRole ? `(${h.performedByRole})` : ''}
                             </div>
                           )}
@@ -1429,15 +1429,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
 
               {/* Card 3: Spesifikasi Teknis FTTH & Technical Report Form */}
-              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-[#DDE6F0] dark:border-[#35105E]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF]" />
-                    <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white">
+                    <FileText className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF]" />
+                    <h4 className="font-bold text-[15px] text-[#26364A] dark:text-white">
                       Spesifikasi Teknis FTTH & Data Kanonik
                     </h4>
                   </div>
-                  <span className="font-mono text-[10.5px] text-[#8B8495]">Hanya field terisi</span>
+                  <span className="font-mono text-[10.5px] text-[#8492A5]">Hanya field terisi</span>
                 </div>
 
                 {canonicalFields.length > 0 && (
@@ -1445,13 +1445,13 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     {canonicalFields.map(item => (
                       <div
                         key={item.label}
-                        className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]"
+                        className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]"
                       >
-                        <span className="text-[10px] font-bold uppercase text-[#8B8495] block truncate">
+                        <span className="text-[10px] font-bold uppercase text-[#8492A5] block truncate">
                           {item.label}
                         </span>
                         <span
-                          className={`text-[12px] font-bold text-[#211A2E] dark:text-white block truncate mt-0.5 ${
+                          className={`text-[12px] font-bold text-[#26364A] dark:text-white block truncate mt-0.5 ${
                             item.mono ? 'font-mono tabular-nums' : ''
                           }`}
                           title={String(item.value)}
@@ -1465,34 +1465,34 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                 {/* Remarks Grid */}
                 {(hasValue(ticket.remarksAgent) || hasValue(ticket.remarksWOInstaller) || hasValue(ticket.remarks)) && (
-                  <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {hasValue(ticket.remarksAgent) && (
-                      <div className="p-3 rounded-lg bg-[#F5F1FF] dark:bg-[#261942] border border-[#D8CCF3] dark:border-[#4B386B]">
-                        <span className="font-bold text-[#35105E] dark:text-[#DAB9FF] block mb-1">Catatan Dispatch:</span>
-                        <p className="text-[#211A2E] dark:text-slate-200">{ticket.remarksAgent}</p>
+                      <div className="p-3 rounded-lg bg-[#EAE8FF]/60 dark:bg-[#261942] border border-[#DCE3F2] dark:border-[#4B386B]">
+                        <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] block mb-1">Catatan Dispatch:</span>
+                        <p className="text-[#26364A] dark:text-slate-200">{ticket.remarksAgent}</p>
                       </div>
                     )}
                     {hasValue(ticket.remarksWOInstaller) && (
-                      <div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                        <span className="font-bold text-emerald-900 dark:text-emerald-300 block mb-1">Catatan Teknisi Lapangan:</span>
-                        <p className="text-[#211A2E] dark:text-slate-200">{ticket.remarksWOInstaller}</p>
+                      <div className="p-3 rounded-lg bg-[#E4F5EC]/70 dark:bg-emerald-950/30 border border-[#B7E4CC] dark:border-emerald-800">
+                        <span className="font-bold text-[#218A63] dark:text-emerald-300 block mb-1">Catatan Teknisi Lapangan:</span>
+                        <p className="text-[#26364A] dark:text-slate-200">{ticket.remarksWOInstaller}</p>
                       </div>
                     )}
                     {hasValue(ticket.remarks) && !ticket.remarksAgent && (
-                      <div className="p-3 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
-                        <span className="font-bold text-[#211A2E] dark:text-white block mb-1">Catatan Umum:</span>
-                        <p className="text-[#766B83] dark:text-[#CEC0E8]">{ticket.remarks}</p>
+                      <div className="p-3 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                        <span className="font-bold text-[#26364A] dark:text-white block mb-1">Catatan Umum:</span>
+                        <p className="text-[#52647A] dark:text-[#CEC0E8]">{ticket.remarks}</p>
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* Technical Report Section & Toggle */}
-                <div className="pt-3 border-t border-[#E9E5F0] dark:border-[#35105E] space-y-3">
+                <div className="pt-3 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Wrench className="w-4 h-4 text-[#16A36A]" />
-                      <span className="font-bold text-[13px] text-[#160D29] dark:text-white">
+                      <Wrench className="w-4 h-4 text-[#218A63]" />
+                      <span className="font-bold text-[13px] text-[#26364A] dark:text-white">
                         Laporan Teknis Lapangan (Technical Report)
                       </span>
                     </div>
@@ -1511,19 +1511,19 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
                   {ticket.technicalReport && !showReportEditor && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
-                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Hasil Pekerjaan</div>
-                        <div className="font-bold text-[#16A36A] mt-0.5">{ticket.technicalReport.workResult}</div>
+                      <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8492A5] uppercase font-bold">Hasil Pekerjaan</div>
+                        <div className="font-bold text-[#218A63] dark:text-[#16A36A] mt-0.5">{ticket.technicalReport.workResult}</div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
-                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Root Cause</div>
-                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5 truncate">
+                      <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8492A5] uppercase font-bold">Root Cause</div>
+                        <div className="font-semibold text-[#26364A] dark:text-white mt-0.5 truncate">
                           {ticket.technicalReport.rootCause || '-'}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E]">
-                        <div className="text-[10px] text-[#8B8495] uppercase font-bold">Material Terpakai</div>
-                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5 truncate">
+                      <div className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                        <div className="text-[10px] text-[#8492A5] uppercase font-bold">Material Terpakai</div>
+                        <div className="font-semibold text-[#26364A] dark:text-white mt-0.5 truncate">
                           {ticket.technicalReport.usedMaterials || '-'}
                         </div>
                       </div>
@@ -1547,7 +1547,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             {/* RIGHT COLUMN (5/12): STICKY REAL-TIME LIVECHAT */}
             <div ref={chatSectionRef} className="lg:col-span-5 lg:sticky lg:top-0">
               {isChatOpen ? (
-                <div className="rounded-xl shadow-md overflow-hidden border border-[#D8CCF3] dark:border-[#35105E] bg-white dark:bg-[#1E1238]">
+                <div className="rounded-xl shadow-md overflow-hidden border border-[#DCE3F2] dark:border-[#35105E] bg-white dark:bg-[#1E1238]">
                   <TicketLiveChat
                     ticket={ticket}
                     initialCategory={chatInitialCategory}
@@ -1556,26 +1556,26 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   />
                 </div>
               ) : (
-                <div className="rounded-xl border-2 border-dashed border-[#D8CCF3] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] p-6 space-y-4 shadow-sm">
+                <div className="rounded-xl border-2 border-dashed border-[#CFDCE8] dark:border-[#4B386B] bg-white dark:bg-[#1E1238] p-6 space-y-4 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-[#160D29] text-[#A78BFA] flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-[#EAE8FF] dark:bg-[#160D29] text-[#5145A6] dark:text-[#A78BFA] border border-[#DCE3F2] dark:border-transparent flex items-center justify-center shrink-0">
                       <MessageSquare className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-bold text-sm text-[#160D29] dark:text-white flex items-center gap-2">
+                      <div className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2">
                         <span>Ticket LiveChat</span>
                         {unreadChatCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DC4C5A] text-white">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D45B66] text-white">
                             {unreadChatCount > 99 ? '99+' : unreadChatCount} Belum Dibaca
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                         Thread WO {ticket.woNumber} · {ticketMessages.length} Pesan Tersimpan
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
                     Panel LiveChat dilipat sementara agar status <strong>unread</strong> tidak terhapus otomatis saat membuka detail WO. Klik tombol di bawah untuk membuka percakapan real-time.
                   </p>
                   <button
@@ -1598,64 +1598,64 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
           {/* Bottom Collapsible Panel: Riwayat Transaksi, Progress Reports & Log Perubahan Tiket */}
           <div
             ref={historySectionRef}
-            className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden"
+            className="bg-white dark:bg-[#1E1238] rounded-xl shadow-sm border border-[#DDE6F0] dark:border-[#35105E] overflow-hidden"
           >
             <button
               type="button"
               onClick={() => setIsHistoryOpen(prev => !prev)}
               aria-expanded={isHistoryOpen}
-              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5FF] dark:hover:bg-[#261942] transition-colors cursor-pointer"
+              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-[#F0EDFF]/60 dark:hover:bg-[#261942] transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <History className="w-4 h-4 text-[#7135B5] dark:text-[#DAB9FF] shrink-0" />
-                <h4 className="font-bold text-[15px] text-[#160D29] dark:text-white truncate">
+                <History className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF] shrink-0" />
+                <h4 className="font-bold text-[15px] text-[#26364A] dark:text-white truncate">
                   Riwayat Transaksi &amp; Log Perubahan Tiket
                 </h4>
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
-                <span className="text-[11px] font-bold text-[#8B8495] tabular-nums">
+                <span className="text-[11px] font-bold text-[#8492A5] tabular-nums">
                   {relatedActivities.length} Aktivitas · {ticket.progressReports?.length || 0} Versi Report
                 </span>
                 {isHistoryOpen ? (
-                  <ChevronUp className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <ChevronUp className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
+                  <ChevronDown className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                 )}
               </div>
             </button>
 
             {isHistoryOpen && (
-              <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 space-y-4 border-t border-[#E9E5F0] dark:border-[#35105E]">
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 space-y-4 border-t border-[#DDE6F0] dark:border-[#35105E]">
                 {relatedActivities.length > 0 ? (
-                  <div className="relative pl-6 space-y-3.5 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[#E9E5F0] dark:before:bg-[#35105E] max-h-64 overflow-y-auto pr-1">
+                  <div className="relative pl-6 space-y-3.5 before:absolute before:left-2 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[#DDE6F0] dark:before:bg-[#35105E] max-h-64 overflow-y-auto pr-1">
                     {relatedActivities.map((act, idx) => (
                       <div key={act.id || idx} className="relative">
                         <span
                           className={`absolute -left-6 top-1 w-3.5 h-3.5 rounded-full ring-4 ring-white dark:ring-[#1E1238] ${
-                            idx === 0 ? 'bg-[#7135B5]' : 'bg-[#3977C9]'
+                            idx === 0 ? 'bg-[#6657C8] dark:bg-[#7135B5]' : 'bg-[#3E81C6] dark:bg-[#3977C9]'
                           }`}
                         />
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[11px] font-bold text-[#35105E] dark:text-[#DAB9FF] tabular-nums">
+                          <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                             {new Date(act.timestamp).toLocaleString('id-ID')}
                           </span>
-                          <span className="text-[10px] font-bold uppercase text-[#8B8495]">
+                          <span className="text-[10px] font-bold uppercase text-[#8492A5]">
                             {act.performedBy} ({act.userRole})
                           </span>
                         </div>
-                        <div className="font-semibold text-[#211A2E] dark:text-white mt-0.5">{act.action}</div>
-                        <div className="text-[11.5px] text-[#766B83] dark:text-[#CEC0E8]">{act.description}</div>
+                        <div className="font-semibold text-[#26364A] dark:text-white mt-0.5">{act.action}</div>
+                        <div className="text-[11.5px] text-[#52647A] dark:text-[#CEC0E8]">{act.description}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                     Belum ada riwayat perubahan tiket tercatat.
                   </p>
                 )}
 
-                <div className="pt-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8B8495] mb-2">
+                <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] mb-2">
                     History Progress Report &amp; Approval Versions
                   </div>
                   <HistoryProgressReportView ticketId={ticket.id} compact />
@@ -1666,7 +1666,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-[#E9E5F0] dark:border-[#35105E] shrink-0">
+        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-[#DDE6F0] dark:border-[#35105E] shrink-0">
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"

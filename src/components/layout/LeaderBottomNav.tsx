@@ -33,7 +33,7 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
       desktopLabel: 'Progress WO',
       icon: BarChart3,
       badge: 'LIVE',
-      badgeTone: 'bg-[#16A36A] text-white'
+      badgeTone: 'bg-[#218A63] dark:bg-[#16A36A] text-white'
     },
     {
       id: 'wo_assignment',
@@ -41,7 +41,7 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
       desktopLabel: 'Assign WO',
       icon: UserCheck,
       badge: unassignedCount > 0 ? unassignedCount : undefined,
-      badgeTone: 'bg-[#ba1a1a] text-white'
+      badgeTone: 'bg-[#D45B66] dark:bg-[#ba1a1a] text-white'
     },
     {
       id: 'reassign_wo',
@@ -94,9 +94,9 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
                 {tab.badge !== undefined && (
                   <span
                     className={`absolute -top-1.5 -right-3 px-1 min-w-[16px] h-[15px] rounded-full text-[8.5px] font-mono font-extrabold leading-none flex items-center justify-center ring-2 ${
-                      isActive ? 'ring-[#6d28d9]' : 'ring-[#fdf7ff] dark:ring-[#160d33]'
+                      isActive ? 'ring-[#6657C8] dark:ring-[#6d28d9]' : 'ring-[#F4F7FB] dark:ring-[#160d33]'
                     } tabular-nums ${tab.badge === 'LIVE' ? 'mj-glow-dot ' : ''}${
-                      tab.badgeTone || 'bg-[#58149C] text-white'
+                      tab.badgeTone || 'bg-[#6657C8] dark:bg-[#58149C] text-white'
                     }`}
                   >
                     {typeof tab.badge === 'number' && tab.badge > 99 ? '99+' : tab.badge}

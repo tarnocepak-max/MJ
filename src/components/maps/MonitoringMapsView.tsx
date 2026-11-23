@@ -1308,7 +1308,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       '';
 
     return (
-      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 space-y-3.5">
+      <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] p-4 space-y-3.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
@@ -1330,7 +1330,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           <button
             type="button"
             onClick={() => setSelectedInstallerId(null)}
-            className="px-2 py-1 rounded-lg bg-[#f3eaff] dark:bg-[#261942] text-[10.5px] font-bold text-[#58149c] dark:text-[#dab9ff] hover:bg-[#e8ddff] cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#261942] text-[10.5px] font-bold text-[#5145A6] dark:text-[#dab9ff] hover:bg-[#DDD9FA] cursor-pointer"
           >
             Lihat Detail WO
           </button>
@@ -1339,56 +1339,56 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
         <div className="flex items-center gap-3">
           <div
             className={`w-11 h-11 rounded-2xl flex items-center justify-center font-display font-extrabold text-sm text-white shrink-0 ${
-              isOnline ? 'bg-[#58149C]' : 'bg-slate-600'
+              isOnline ? 'bg-gradient-to-br from-[#6657C8] to-[#2E7D8B] dark:bg-none dark:bg-[#58149C]' : 'bg-slate-600'
             }`}
           >
             {(selectedInstaller.installerName || 'TK').slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <h3 className="font-display font-extrabold text-base text-[#1f1638] dark:text-white truncate">
+            <h3 className="font-display font-extrabold text-base text-[#26364A] dark:text-white truncate">
               {selectedInstaller.installerName}
             </h3>
-            <div className="text-xs text-[#4b4452] dark:text-[#cabde8] truncate">
+            <div className="text-xs text-[#52647A] dark:text-[#cabde8] truncate">
               @{selectedInstaller.username} · {selectedInstaller.contractor || 'Mitra'}
               {selectedInstaller.area ? ` (${selectedInstaller.area})` : ''}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] text-xs">
+        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] text-xs">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]/70">
               Update GPS Terakhir
             </div>
-            <div className="font-mono font-bold text-[#1f1638] dark:text-white mt-0.5">
+            <div className="font-mono font-bold text-[#26364A] dark:text-white mt-0.5">
               {selectedInstaller.lastLocationAt || selectedInstaller.recordedAt
                 ? `${formatJakartaTimeOnly(
                     selectedInstaller.lastLocationAt || selectedInstaller.recordedAt || ''
                   )} WIB`
                 : 'Belum Ada Sinyal'}
             </div>
-            <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+            <div className="text-[10px] text-[#8492A5] dark:text-[#cabde8]">
               {formatRelativeSecondsId(selectedInstaller.secondsSinceLocation)}
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]/70">
               Heartbeat Sesi
             </div>
-            <div className="font-mono font-bold text-[#1f1638] dark:text-white mt-0.5">
+            <div className="font-mono font-bold text-[#26364A] dark:text-white mt-0.5">
               {selectedInstaller.lastHeartbeatAt
                 ? `${formatJakartaTimeOnly(selectedInstaller.lastHeartbeatAt)} WIB`
                 : '-'}
             </div>
-            <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+            <div className="text-[10px] text-[#8492A5] dark:text-[#cabde8]">
               {formatRelativeSecondsId(selectedInstaller.secondsSinceHeartbeat)}
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-white dark:bg-[#1e1135] p-3 space-y-1.5 text-xs">
+        <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-white dark:bg-[#1e1135] p-3 space-y-1.5 text-xs">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-extrabold uppercase tracking-wider text-[10px] text-[#7d7484] dark:text-[#cabde8]">
+            <span className="font-extrabold uppercase tracking-wider text-[10px] text-[#8492A5] dark:text-[#cabde8]">
               Koordinat Perangkat Aktual
             </span>
             {typeof selectedInstaller.accuracy === 'number' && (
@@ -1397,7 +1397,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               </span>
             )}
           </div>
-          <div className="font-mono font-bold text-[#1f1638] dark:text-white tabular-nums">
+          <div className="font-mono font-bold text-[#26364A] dark:text-white tabular-nums">
             {selectedInstaller.hasValidCoordinates &&
             typeof selectedInstaller.latitude === 'number' &&
             typeof selectedInstaller.longitude === 'number'
@@ -1407,26 +1407,26 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               : 'Menunggu koordinat GPS aktual dari perangkat teknisi'}
           </div>
           {typeof selectedInstaller.speed === 'number' && selectedInstaller.speed > 0 && (
-            <div className="text-[10.5px] font-mono text-[#4b4452] dark:text-[#cabde8]">
+            <div className="text-[10.5px] font-mono text-[#52647A] dark:text-[#cabde8]">
               Kecepatan: {Math.round(selectedInstaller.speed * 3.6)} km/jam
             </div>
           )}
         </div>
 
         {activeWo && (
-          <div className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] flex items-center justify-between gap-2">
+          <div className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">
                 WO Ditangani ({assignedToday.length} total)
               </div>
-              <div className="font-mono text-xs font-bold text-[#58149c] dark:text-[#DAB9FF] truncate">
+              <div className="font-mono text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] truncate">
                 #{activeWo.woNumber} · {activeWo.customerName}
               </div>
             </div>
             <button
               type="button"
               onClick={() => onSelectTicket(activeWo, 'overview')}
-              className="px-2.5 py-1.5 rounded-lg bg-[#58149C] text-white text-[10.5px] font-bold shrink-0 cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg bg-[#6657C8] dark:bg-[#58149C] text-white text-[10.5px] font-bold shrink-0 cursor-pointer"
             >
               Buka WO
             </button>
@@ -1445,9 +1445,9 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 openCoordinatesInGoogleMaps(selectedInstaller.latitude, selectedInstaller.longitude);
               }
             }}
-            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer"
+            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-45 cursor-pointer"
           >
-            <Navigation className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <Navigation className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED]" />
             <span>Buka Google Maps</span>
           </button>
 
@@ -1477,7 +1477,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 toast.warning(waRes.error || `Nomor telepon tidak valid (${phone}).`, 'Kontak');
               }
             }}
-            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+            className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Phone className="w-3.5 h-3.5 text-emerald-600" />
             <span>Hubungi Teknisi</span>
@@ -1494,12 +1494,12 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     }
     if (!selectedTicket || !selectedVerification) {
       return (
-        <div className="mj-tactile-card p-6 text-center space-y-2.5 border border-[#e8ddff] dark:border-[#3b1d78]">
-          <MapPin className="w-8 h-8 text-[#7C3AED] mx-auto opacity-70" />
-          <div className="font-display font-bold text-sm text-[#1f1638] dark:text-white">
+        <div className="mj-tactile-card p-6 text-center space-y-2.5 border border-[#DDE6F0] dark:border-[#3b1d78]">
+          <MapPin className="w-8 h-8 text-[#6657C8] dark:text-[#7C3AED] mx-auto opacity-75" />
+          <div className="font-display font-bold text-sm text-[#26364A] dark:text-white">
             Pilih Pin WO atau Teknisi di Peta
           </div>
-          <p className="text-xs text-[#4b4452] dark:text-[#cabde8]">
+          <p className="text-xs text-[#52647A] dark:text-[#cabde8]">
             Klik salah satu pin pelanggan/FAT atau pin Teknisi Live pada peta untuk melihat telemetri lokasi & verifikasi Dual GPS.
           </p>
         </div>
@@ -1513,12 +1513,12 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
     );
 
     return (
-      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 space-y-3.5">
+      <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] p-4 space-y-3.5">
         {/* Header Badges & WO Title */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="px-2 py-0.5 rounded-md bg-[#35105E] text-white font-mono text-[10px] font-extrabold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#35105E] border border-[#C5BEEF] dark:border-transparent text-[#5145A6] dark:text-white font-mono text-[10px] font-extrabold uppercase tracking-wider">
                 {selectedTicket.ticketCategory || 'FTTH SERVICE'}
               </span>
               <span
@@ -1528,18 +1528,18 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               </span>
             </div>
             {selectedTicket.slotTime && (
-              <span className="font-mono text-[10.5px] font-bold text-[#4b4452] dark:text-[#cabde8]">
+              <span className="font-mono text-[10.5px] font-bold text-[#52647A] dark:text-[#cabde8]">
                 {selectedTicket.slotTime}
               </span>
             )}
           </div>
 
-          <h3 className="font-display font-extrabold text-base text-[#1f1638] dark:text-white leading-snug">
+          <h3 className="font-display font-extrabold text-base text-[#26364A] dark:text-white leading-snug">
             #{selectedTicket.woNumber} — {selectedTicket.customerName || 'Pelanggan'}
           </h3>
 
-          <div className="flex items-start gap-1.5 text-xs text-[#4b4452] dark:text-[#cabde8]">
-            <MapPin className="w-3.5 h-3.5 text-[#7C3AED] shrink-0 mt-0.5" />
+          <div className="flex items-start gap-1.5 text-xs text-[#52647A] dark:text-[#cabde8]">
+            <MapPin className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED] shrink-0 mt-0.5" />
             <span className="leading-snug">
               {[
                 selectedTicket.streetName || selectedTicket.address,
@@ -1553,36 +1553,36 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
         </div>
 
         {/* Vendor, Area & Assigned Technician */}
-        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] text-xs">
+        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] text-xs">
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]/70">
               Vendor Mitra
             </div>
-            <div className="font-bold text-[#1f1638] dark:text-white truncate">
+            <div className="font-bold text-[#26364A] dark:text-white truncate">
               {selectedTicket.contactorName || selectedTicket.contractorName || '-'}
             </div>
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]/70">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]/70">
               Area / Leader
             </div>
-            <div className="font-bold text-[#1f1638] dark:text-white truncate">
+            <div className="font-bold text-[#26364A] dark:text-white truncate">
               {selectedTicket.area || '-'}
               {selectedTicket.leaderName ? ` · ${selectedTicket.leaderName}` : ''}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E]">
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E]">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
               {(selectedTicket.installerName || 'NA').slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <div className="font-bold text-xs text-[#1f1638] dark:text-white truncate">
+              <div className="font-bold text-xs text-[#26364A] dark:text-white truncate">
                 {selectedTicket.installerName || 'Belum Di-Assign Teknisi'}
               </div>
-              <div className="font-mono text-[10.5px] text-[#7d7484] dark:text-[#cabde8] truncate">
+              <div className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#cabde8] truncate">
                 Status: {selectedTicket.statusWOInstaller || 'Unassigned'}
                 {selectedTicket.checkInAt
                   ? ` · Check-In ${formatJakartaTimeOnly(selectedTicket.checkInAt)} WIB`
@@ -1591,17 +1591,17 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             </div>
           </div>
           {selectedTicket.fatCode && (
-            <span className="px-2 py-1 rounded-md bg-[#f3eaff] dark:bg-[#261942] font-mono text-[10px] font-bold text-[#58149c] dark:text-[#dab9ff] shrink-0">
+            <span className="px-2 py-1 rounded-md bg-[#DDF4F4] dark:bg-[#261942] border border-[#BDE4E8] dark:border-transparent font-mono text-[10px] font-bold text-[#2E7D8B] dark:text-[#dab9ff] shrink-0">
               FAT {selectedTicket.fatCode}
             </span>
           )}
         </div>
 
         {/* DUAL GPS VERIFICATION */}
-        <div className="rounded-xl border border-[#e8ddff] dark:border-[#35105E] bg-[#f8f1ff]/80 dark:bg-[#160d29] p-3 space-y-2">
+        <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160d29] p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-white">
-              <Satellite className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-[#26364A] dark:text-white">
+              <Satellite className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED]" />
               <span>Dual GPS Verification</span>
             </div>
             {deltaMeters !== null ? (
@@ -1615,7 +1615,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 {isSopMatch ? `MATCH (${formatDistanceMetersLabel(deltaMeters)})` : `DEVIASI (${formatDistanceMetersLabel(deltaMeters)})`}
               </span>
             ) : hasHouseCoords ? (
-              <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300">
+              <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950/70 dark:text-purple-300">
                 CHECK-IN LOCKED
               </span>
             ) : (
@@ -1626,20 +1626,20 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           </div>
 
           <div className="space-y-1.5 text-[11px]">
-            <div className="p-2 rounded-lg bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E]">
-              <div className="text-[10px] text-[#7d7484] dark:text-[#cabde8]/80">
+            <div className="p-2 rounded-lg bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E]">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#cabde8]/80">
                 Titik Rumah Terdaftar (Order)
               </div>
-              <div className="font-mono font-bold text-[#1f1638] dark:text-white tabular-nums mt-0.5">
+              <div className="font-mono font-bold text-[#26364A] dark:text-white tabular-nums mt-0.5">
                 {regCoords
                   ? formatCoordinates(regCoords.latitude, regCoords.longitude)
                   : 'Koordinat order belum terdata'}
               </div>
             </div>
 
-            <div className="p-2 rounded-lg bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="p-2 rounded-lg bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-[#7d7484] dark:text-[#cabde8]/80">
+                <span className="text-[10px] text-[#8492A5] dark:text-[#cabde8]/80">
                   Lokasi Check-In Geotag (Teknisi)
                 </span>
                 {typeof houseLoc?.accuracyMeters === 'number' && (
@@ -1648,7 +1648,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   </span>
                 )}
               </div>
-              <div className="font-mono font-bold text-[#1f1638] dark:text-white tabular-nums mt-0.5">
+              <div className="font-mono font-bold text-[#26364A] dark:text-white tabular-nums mt-0.5">
                 {hasHouseCoords && houseLoc
                   ? formatCoordinates(houseLoc.latitude, houseLoc.longitude)
                   : 'Belum ada check-in foto rumah GPS'}
@@ -1659,7 +1659,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           {deltaMeters !== null && (
             <div className="space-y-1 pt-0.5">
               <div className="flex items-center justify-between text-[10.5px]">
-                <span className="text-[#4b4452] dark:text-[#cabde8]">
+                <span className="text-[#52647A] dark:text-[#cabde8]">
                   Delta Deviasi: <strong>{formatDistanceMetersLabel(deltaMeters)}</strong>
                 </span>
                 <span
@@ -1683,8 +1683,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
         {/* HOUSE CHECK-IN PHOTO PREVIEW */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-[10.5px]">
-            <span className="font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-white flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <span className="font-extrabold uppercase tracking-wider text-[#26364A] dark:text-white flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED]" />
               <span>Foto Bukti Check-In Lapangan</span>
             </span>
             {housePhotoUrl && (
@@ -1696,7 +1696,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                     title: `Foto Rumah Check-In • #${selectedTicket.woNumber}`
                   })
                 }
-                className="text-[#7C3AED] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1 hover:underline cursor-pointer"
+                className="text-[#5145A6] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1 hover:underline cursor-pointer"
               >
                 <Maximize2 className="w-3 h-3" />
                 <span>Full Res</span>
@@ -1712,7 +1712,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   title: `Foto Rumah Check-In • #${selectedTicket.woNumber}`
                 })
               }
-              className="relative h-36 rounded-xl overflow-hidden border border-[#e8ddff] dark:border-[#35105E] bg-slate-900 cursor-pointer group"
+              className="relative h-36 rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-[#35105E] bg-slate-900 cursor-pointer group"
             >
               <img
                 src={getSafePreviewUrl(housePhotoUrl)}
@@ -1738,7 +1738,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="h-24 rounded-xl border border-dashed border-[#cec3d4] dark:border-[#4b386b] bg-[#f8f1ff]/60 dark:bg-[#160d29] flex flex-col items-center justify-center p-3 text-center gap-1 text-[11px] text-[#7d7484] dark:text-[#cabde8]">
+            <div className="h-24 rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#4b386b] bg-[#F4F7FB] dark:bg-[#160d29] flex flex-col items-center justify-center p-3 text-center gap-1 text-[11px] text-[#8492A5] dark:text-[#cabde8]">
               <Camera className="w-4 h-4 opacity-70" />
               <span>Teknisi belum mengambil foto rumah check-in GPS</span>
             </div>
@@ -1779,9 +1779,9 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             <button
               type="button"
               onClick={() => handleNavigateRoute(selectedTicket)}
-              className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Navigation className="w-3.5 h-3.5 text-[#7C3AED]" />
+              <Navigation className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED]" />
               <span>{isLeaderMode ? 'Pandu Rute GIS' : 'Lacak Rute'}</span>
             </button>
 
@@ -1794,7 +1794,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   handleOpenWhatsAppContact(selectedTicket, 'leader');
                 }
               }}
-              className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#cec3d4] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              className="mj-tactile-btn-secondary min-h-[38px] px-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#4b386b] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Phone className="w-3.5 h-3.5 text-emerald-600" />
               <span>{isLeaderMode ? 'Hubungi Teknisi' : 'Hubungi TL'}</span>
@@ -1805,7 +1805,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             <button
               type="button"
               onClick={() => onSelectTicket(selectedTicket, 'overview')}
-              className="w-full py-1.5 text-[11px] font-bold text-[#7C3AED] dark:text-[#DAB9FF] hover:underline flex items-center justify-center gap-1 cursor-pointer"
+              className="w-full py-1.5 text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline flex items-center justify-center gap-1 cursor-pointer"
             >
               <span>Buka Detail 17-Section WO</span>
               <ExternalLink className="w-3 h-3" />
@@ -1823,29 +1823,29 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       {/* ================================================================= */}
       {isLeaderMode ? (
         <div className="space-y-3">
-          <div className="rounded-2xl bg-[#f3eaff] dark:bg-[#22123F] border border-[#dab9ff] dark:border-[#5b35b1] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="rounded-2xl bg-gradient-to-r from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#22123F] border border-[#C5BEEF] dark:border-[#5b35b1] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-[#7C3AED] text-white flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#2E7D8B] dark:bg-none dark:bg-[#7C3AED] text-white flex items-center justify-center shrink-0">
                 <Shield className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                <div className="font-bold text-[#26364A] dark:text-white truncate">
                   SCOPE TERBATAS: Vendor{' '}
-                  <span className="text-[#7C3AED] dark:text-[#DAB9FF]">
+                  <span className="text-[#5145A6] dark:text-[#DAB9FF]">
                     {leaderContractor || 'Sesuai Penugasan'}
                   </span>{' '}
                   | Area{' '}
-                  <span className="text-[#7C3AED] dark:text-[#DAB9FF]">
+                  <span className="text-[#2E7D8B] dark:text-[#DAB9FF]">
                     {leaderArea || 'Multi-Cluster'}
                   </span>
                 </div>
-                <div className="text-[10.5px] text-[#4b4452] dark:text-[#cabde8] flex items-center gap-2 flex-wrap">
+                <div className="text-[10.5px] text-[#52647A] dark:text-[#cabde8] flex items-center gap-2 flex-wrap">
                   <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-bold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     RBAC Auth: Leader {currentUser.name}
                   </span>
                   <span>• {scopedInstallers.length} Teknisi Terdaftar</span>
-                  <span className="inline-flex items-center gap-1 text-[#58149C] dark:text-[#DAB9FF] font-bold">
+                  <span className="inline-flex items-center gap-1 text-[#5145A6] dark:text-[#DAB9FF] font-bold">
                     • {liveTechStats.online} Online ({liveTechStats.fresh} Live GPS)
                   </span>
                 </div>
@@ -1858,8 +1858,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 onClick={() => setShowOpticalLayer(v => !v)}
                 className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
                   showOpticalLayer
-                    ? 'bg-[#7C3AED] border-[#6D28D9] text-white'
-                    : 'bg-white dark:bg-[#1e1135] border-[#cec3d4] dark:border-[#4b386b] text-[#1f1638] dark:text-white'
+                    ? 'bg-[#6657C8] border-[#5145A6] dark:bg-[#7C3AED] dark:border-[#6D28D9] text-white'
+                    : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#4b386b] text-[#26364A] dark:text-white'
                 }`}
               >
                 <Radio className="w-3.5 h-3.5" />
@@ -1883,17 +1883,17 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               onClick={() => setStatusFilter('ALL')}
               className={`mj-tactile-card p-3.5 text-left border transition-all cursor-pointer ${
                 statusFilter === 'ALL'
-                  ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/20'
-                  : 'border-[#e8ddff] dark:border-[#3b1d78]'
+                  ? 'border-[#6657C8] dark:border-[#7C3AED] ring-2 ring-[#6657C8]/20 dark:ring-[#7C3AED]/20'
+                  : 'border-[#DDE6F0] dark:border-[#3b1d78]'
               }`}
             >
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 Total WO Area
               </div>
-              <div className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white mt-1 tabular-nums">
-                {kpiStats.total} <span className="text-xs font-semibold text-[#7d7484]">Tiket</span>
+              <div className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white mt-1 tabular-nums">
+                {kpiStats.total} <span className="text-xs font-semibold text-[#8492A5]">Tiket</span>
               </div>
-              <div className="text-[10.5px] text-[#7C3AED] dark:text-[#DAB9FF] font-semibold mt-1">
+              <div className="text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF] font-semibold mt-1">
                 {mappedEntries.length} terpetakan di GIS
               </div>
             </button>
@@ -1903,15 +1903,15 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               onClick={() => setStatusFilter('assigned')}
               className={`mj-tactile-card p-3.5 text-left border transition-all cursor-pointer ${
                 statusFilter === 'assigned'
-                  ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/20'
-                  : 'border-[#e8ddff] dark:border-[#3b1d78]'
+                  ? 'border-[#6657C8] dark:border-[#7C3AED] ring-2 ring-[#6657C8]/20 dark:ring-[#7C3AED]/20'
+                  : 'border-[#DDE6F0] dark:border-[#3b1d78]'
               }`}
             >
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 WO Ter-Assign
               </div>
-              <div className="font-display text-2xl font-extrabold text-[#7C3AED] dark:text-[#DAB9FF] mt-1 tabular-nums">
-                {kpiStats.assigned} <span className="text-xs font-semibold text-[#7d7484]">Tiket</span>
+              <div className="font-display text-2xl font-extrabold text-[#5145A6] dark:text-[#DAB9FF] mt-1 tabular-nums">
+                {kpiStats.assigned} <span className="text-xs font-semibold text-[#8492A5]">Tiket</span>
               </div>
               <div className="text-[10.5px] text-emerald-600 dark:text-emerald-300 font-semibold mt-1">
                 {kpiStats.total > 0 ? Math.round((kpiStats.assigned / kpiStats.total) * 100) : 0}% Terdistribusi
@@ -1938,13 +1938,13 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               </div>
             </button>
 
-            <div className="mj-tactile-card p-3.5 border border-[#e8ddff] dark:border-[#3b1d78]">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+            <div className="mj-tactile-card p-3.5 border border-[#DDE6F0] dark:border-[#3b1d78]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 Teknisi Tim Bertugas
               </div>
-              <div className="font-display text-2xl font-extrabold text-[#1f1638] dark:text-white mt-1 tabular-nums">
+              <div className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white mt-1 tabular-nums">
                 {kpiStats.activeTechCount}
-                <span className="text-sm font-semibold text-[#7d7484]">/{kpiStats.totalTechCount}</span>
+                <span className="text-sm font-semibold text-[#8492A5]">/{kpiStats.totalTechCount}</span>
               </div>
               <div className="text-[10.5px] text-emerald-600 dark:text-emerald-300 font-semibold mt-1">
                 {kpiStats.withHouseCheckIn} Check-In Foto Rumah
@@ -1959,21 +1959,21 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               } ${
                 statusFilter === 'completed'
                   ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                  : 'border-[#e8ddff] dark:border-[#3b1d78]'
+                  : 'border-[#DDE6F0] dark:border-[#3b1d78]'
               }`}
             >
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7d7484] dark:text-[#cabde8]">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
                 Selesai vs Kendala
               </div>
               <div className="flex items-baseline gap-2 mt-1 tabular-nums">
                 <span className="font-display text-2xl font-extrabold text-emerald-600 dark:text-emerald-300">
                   {kpiStats.completed}
                 </span>
-                <span className="text-xs text-[#7d7484]">Done</span>
+                <span className="text-xs text-[#8492A5]">Done</span>
                 <span className="font-display text-xl font-extrabold text-rose-600 dark:text-rose-300">
                   {kpiStats.problem}
                 </span>
-                <span className="text-xs text-[#7d7484]">Kendala</span>
+                <span className="text-xs text-[#8492A5]">Kendala</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-2 flex">
                 <div
@@ -2004,15 +2004,15 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
         /* =============================================================== */
         /* GLOBAL COMMAND CENTER FLOATING KPI SUMMARY BAR                  */
         /* =============================================================== */
-        <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] p-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => setStatusFilter('ALL')}
               className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                 statusFilter === 'ALL'
-                  ? 'bg-[#58149c] text-white border-[#58149c]'
-                  : 'bg-[#f8f1ff] dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-white'
+                  ? 'bg-[#6657C8] border-[#5145A6] dark:bg-[#58149c] dark:border-[#58149c] text-white'
+                  : 'bg-[#F4F7FB] dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white'
               }`}
             >
               Total WO Aktif: <strong className="font-mono">{kpiStats.total}</strong>
@@ -2023,7 +2023,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                 statusFilter === 'assigned'
                   ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-indigo-700 dark:text-indigo-300'
+                  : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-indigo-700 dark:text-indigo-300'
               }`}
             >
               Assigned: <strong className="font-mono">{kpiStats.assigned}</strong>
@@ -2053,8 +2053,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               onClick={() => setStatusFilter(statusFilter === 'in_progress' ? 'ALL' : 'in_progress')}
               className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                 statusFilter === 'in_progress'
-                  ? 'bg-[#5B289B] text-white border-[#5B289B]'
-                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#5B289B] dark:text-[#D8B4FE]'
+                  ? 'bg-[#6657C8] border-[#6657C8] dark:bg-[#5B289B] dark:border-[#5B289B] text-white'
+                  : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-[#5145A6] dark:text-[#D8B4FE]'
               }`}
             >
               Bertugas: <strong className="font-mono">{kpiStats.inProgress + kpiStats.checkin}</strong>
@@ -2065,7 +2065,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                 statusFilter === 'completed'
                   ? 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-emerald-700 dark:text-emerald-300'
+                  : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-emerald-700 dark:text-emerald-300'
               }`}
             >
               Selesai: <strong className="font-mono">{kpiStats.completed}</strong>
@@ -2083,15 +2083,15 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] font-mono text-[#4b4452] dark:text-[#cabde8]">
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[#52647A] dark:text-[#cabde8]">
             <span>
-              Check-In Foto: <strong className="text-[#7C3AED]">{kpiStats.withHouseCheckIn}</strong>/{kpiStats.total}
+              Check-In Foto: <strong className="text-[#5145A6] dark:text-[#7C3AED]">{kpiStats.withHouseCheckIn}</strong>/{kpiStats.total}
             </span>
             <button
               type="button"
               onClick={handleSyncLive}
               disabled={isSyncingMap}
-              className="px-2.5 py-1.5 rounded-xl bg-[#f3eaff] dark:bg-[#261942] border border-[#dab9ff] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] font-sans font-bold flex items-center gap-1 cursor-pointer hover:bg-[#e8ddff]"
+              className="px-2.5 py-1.5 rounded-xl bg-[#EAE8FF] dark:bg-[#261942] border border-[#C5BEEF] dark:border-[#4b386b] text-[#5145A6] dark:text-[#dab9ff] font-sans font-bold flex items-center gap-1 cursor-pointer hover:bg-[#DDD9FA]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMap ? 'animate-spin' : ''}`} />
               <span>Sync Live</span>
@@ -2103,17 +2103,17 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       {/* ================================================================= */}
       {/* MULTI-LEVEL FILTER TOOLBAR                                        */}
       {/* ================================================================= */}
-      <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-3 space-y-2.5">
+      <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] p-3 space-y-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {/* Quick Search */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 text-[#7d7484] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[#8492A5] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari WO#, Pelanggan, Teknisi, FAT..."
-              className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] text-xs text-[#1f1638] dark:text-white placeholder:text-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7C3AED]"
             />
           </div>
 
@@ -2123,7 +2123,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 value={vendorFilter}
                 onChange={e => setVendorFilter(e.target.value)}
                 aria-label="Filter Vendor"
-                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="ALL">Vendor: Semua ({filterOptions.vendors.length})</option>
                 {filterOptions.vendors.map(v => (
@@ -2137,7 +2137,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 value={areaFilter}
                 onChange={e => setAreaFilter(e.target.value)}
                 aria-label="Filter Area"
-                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="ALL">Area: Semua ({filterOptions.areas.length})</option>
                 {filterOptions.areas.map(a => (
@@ -2151,7 +2151,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 value={leaderFilter}
                 onChange={e => setLeaderFilter(e.target.value)}
                 aria-label="Filter Leader"
-                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+                className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
               >
                 <option value="ALL">Leader: Semua ({filterOptions.leaders.length})</option>
                 {filterOptions.leaders.map(l => (
@@ -2167,7 +2167,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             value={techFilter}
             onChange={e => setTechFilter(e.target.value)}
             aria-label="Filter Teknisi"
-            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
           >
             <option value="ALL">Teknisi: Semua ({filterOptions.techs.length})</option>
             {filterOptions.techs.map(t => (
@@ -2181,7 +2181,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as 'ALL' | MapStatusBucket)}
             aria-label="Filter Status WO"
-            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
           >
             <option value="ALL">Status: Semua Status</option>
             {Object.entries(STATUS_META).map(([k, m]) => (
@@ -2195,7 +2195,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             value={checkInFilter}
             onChange={e => setCheckInFilter(e.target.value as 'ALL' | 'VERIFIED' | 'MISSING')}
             aria-label="Filter Status Check-In Foto"
-            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white"
+            className="px-2.5 py-2 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white"
           >
             <option value="ALL">Check-in Foto: Semua</option>
             <option value="VERIFIED">Sudah Check-in Foto Rumah</option>
@@ -2213,7 +2213,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 hasAutoFittedRef.current = false;
               }}
               aria-label="Tanggal Appointment"
-              className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] text-xs font-semibold text-[#1f1638] dark:text-white disabled:opacity-50"
+              className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] text-xs font-semibold text-[#26364A] dark:text-white disabled:opacity-50"
             />
             <button
               type="button"
@@ -2223,8 +2223,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               }}
               className={`px-2.5 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
                 showAllDates
-                  ? 'bg-[#7C3AED] border-[#7C3AED] text-white'
-                  : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#cabde8]'
+                  ? 'bg-[#6657C8] border-[#6657C8] dark:bg-[#7C3AED] dark:border-[#7C3AED] text-white'
+                  : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#cabde8]'
               }`}
               title="Tampilkan seluruh tanggal atau khusus tanggal dipilih"
             >
@@ -2235,7 +2235,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           <button
             type="button"
             onClick={handleResetFilters}
-            className="p-2 rounded-xl bg-[#f3eaff] dark:bg-[#261942] border border-[#dab9ff] dark:border-[#4b386b] text-[#58149c] dark:text-[#dab9ff] hover:bg-[#e8ddff] cursor-pointer"
+            className="p-2 rounded-xl bg-[#EAE8FF] dark:bg-[#261942] border border-[#C5BEEF] dark:border-[#4b386b] text-[#5145A6] dark:text-[#dab9ff] hover:bg-[#DDD9FA] cursor-pointer"
             title="Reset Semua Filter"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -2244,19 +2244,19 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
 
         {/* Cluster Quick-Jump Chips & Unmapped GPS Drawer Toggle */}
         {(clusterSummaries.length > 0 || unmappedTickets.length > 0) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#e8ddff] dark:border-[#35105E] text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#E2E8F0] dark:border-[#35105E] text-[11px]">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-bold text-[#7d7484] dark:text-[#cabde8] mr-1">Cluster Aktif:</span>
+              <span className="font-bold text-[#8492A5] dark:text-[#cabde8] mr-1">Cluster Aktif:</span>
               {clusterSummaries.map(c => (
                 <button
                   key={c.name}
                   type="button"
                   onClick={() => handlePanToCluster(c.latSum / c.coordCount, c.lngSum / c.coordCount)}
-                  className="px-2 py-0.5 rounded-md bg-white dark:bg-[#1e1135] border border-[#e8ddff] dark:border-[#35105E] hover:border-[#7C3AED] text-[#1f1638] dark:text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="px-2 py-0.5 rounded-md bg-white dark:bg-[#1e1135] border border-[#DDE6F0] dark:border-[#35105E] hover:border-[#6657C8] dark:hover:border-[#7C3AED] text-[#26364A] dark:text-white font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#7C3AED]" />
+                  <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#7C3AED]" />
                   <span>{c.name}</span>
-                  <span className="px-1 rounded bg-[#f3eaff] dark:bg-[#35105E] font-mono text-[10px] font-bold text-[#58149c] dark:text-[#dab9ff]">
+                  <span className="px-1 rounded bg-[#EAE8FF] dark:bg-[#35105E] font-mono text-[10px] font-bold text-[#5145A6] dark:text-[#dab9ff]">
                     {c.count} WO
                   </span>
                 </button>
@@ -2293,7 +2293,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8]">
+          <p className="text-[11px] text-[#52647A] dark:text-[#cabde8]">
             Pin akan otomatis muncul di peta setelah teknisi melakukan Check-In Foto Rumah GPS atau jika koordinat pelanggan tersedia.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -2305,18 +2305,18 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   setSelectedTicketId(t.id);
                   setShowNoGpsDrawer(false);
                 }}
-                className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] hover:border-[#7C3AED] text-left space-y-0.5 cursor-pointer"
+                className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] hover:border-[#6657C8] dark:hover:border-[#7C3AED] text-left space-y-0.5 cursor-pointer"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[11px] font-bold text-[#7C3AED] dark:text-[#DAB9FF]">
+                  <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                     {t.woNumber}
                   </span>
-                  <span className="text-[10px] font-semibold text-[#7d7484]">{t.statusWOInstaller}</span>
+                  <span className="text-[10px] font-semibold text-[#8492A5]">{t.statusWOInstaller}</span>
                 </div>
-                <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                   {t.customerName}
                 </div>
-                <div className="text-[10.5px] text-[#4b4452] dark:text-[#cabde8] truncate">
+                <div className="text-[10.5px] text-[#52647A] dark:text-[#cabde8] truncate">
                   {t.installerName || 'Belum Assigned'} • {t.clusterName || t.area || '-'}
                 </div>
               </button>
@@ -2331,7 +2331,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       <div className={`grid grid-cols-1 ${isCompactUI ? '' : 'lg:grid-cols-12'} gap-4 items-start`}>
         {/* LEFT: INTERACTIVE LEAFLET MAP */}
         <div className={`${isCompactUI ? '' : 'lg:col-span-8'} space-y-3`}>
-          <div className="relative rounded-2xl overflow-hidden border border-[#e8ddff] dark:border-[#3b1d78] bg-[#e8ddff] dark:bg-[#0B1222] shadow-sm isolate z-0">
+          <div className="relative rounded-2xl overflow-hidden border border-[#DDE6F0] dark:border-[#3b1d78] bg-[#EDF3F8] dark:bg-[#0B1222] shadow-sm isolate z-0">
             <div
               ref={mapContainerRef}
               className={`w-full ${isCompactUI ? 'h-[380px]' : 'h-[540px]'} z-0`}
@@ -2342,8 +2342,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
               (layerMode === 'WO' && mappedEntries.length === 0) ||
               (layerMode === 'TECHNICIANS' && plottableInstallers.length === 0)) && (
               <div className="absolute inset-x-4 top-14 z-[450] pointer-events-none flex justify-center">
-                <div className="px-3.5 py-2 rounded-xl bg-[#160D29]/95 text-white text-xs font-semibold shadow-lg border border-[#D8B4FE]/25 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="px-3.5 py-2 rounded-xl bg-white/95 dark:bg-[#160D29]/95 text-[#26364A] dark:text-white text-xs font-semibold shadow-lg border border-[#DDE6F0] dark:border-[#D8B4FE]/25 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
                   <span>
                     {layerMode === 'TECHNICIANS'
                       ? 'Belum ada teknisi dengan koordinat GPS perangkat aktif pada filter ini.'
@@ -2356,20 +2356,20 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             )}
 
             {tileOfflineWarning && (
-              <div className="absolute top-14 left-3 z-[450] px-2.5 py-1 rounded-lg bg-[#160D29]/90 text-amber-300 font-mono text-[10px] pointer-events-none border border-[#D8B4FE]/20">
+              <div className="absolute top-14 left-3 z-[450] px-2.5 py-1 rounded-lg bg-white/95 dark:bg-[#160D29]/90 text-amber-700 dark:text-amber-300 font-mono text-[10px] pointer-events-none border border-[#DDE6F0] dark:border-[#D8B4FE]/20">
                 Layer tile sedang memuat / offline — pin GPS tetap aktif
               </div>
             )}
 
             {/* Top-Left Layer Mode Switcher */}
-            <div className="absolute top-3 left-3 z-[450] flex items-center gap-1 bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md p-1 rounded-xl border border-[#e8ddff] dark:border-[#35105E] shadow-md">
+            <div className="absolute top-3 left-3 z-[450] flex items-center gap-1 bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md p-1 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] shadow-md">
               <button
                 type="button"
                 onClick={() => setLayerMode('ALL')}
                 className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
                   layerMode === 'ALL'
-                    ? 'bg-[#58149C] text-white'
-                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white'
+                    : 'text-[#52647A] dark:text-[#cabde8] hover:bg-[#EDF3F8] dark:hover:bg-[#261942]'
                 }`}
               >
                 Semua Layer
@@ -2380,7 +2380,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
                   layerMode === 'TECHNICIANS'
                     ? 'bg-emerald-600 text-white'
-                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                    : 'text-[#52647A] dark:text-[#cabde8] hover:bg-[#EDF3F8] dark:hover:bg-[#261942]'
                 }`}
               >
                 <span>Teknisi ({plottableInstallers.length})</span>
@@ -2391,7 +2391,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
                   layerMode === 'WO'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-[#4b4452] dark:text-[#cabde8] hover:bg-[#f3eaff] dark:hover:bg-[#261942]'
+                    : 'text-[#52647A] dark:text-[#cabde8] hover:bg-[#EDF3F8] dark:hover:bg-[#261942]'
                 }`}
               >
                 WO ({mappedEntries.length})
@@ -2406,7 +2406,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 className="btn-3d-lilac px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 title="Ganti Layer Peta Jalan / Satelit"
               >
-                <Layers className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#D8B4FE]" />
+                <Layers className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>{mapStyle === 'satellite' ? 'Satelit' : 'Peta Jalan'}</span>
               </button>
               <button
@@ -2414,7 +2414,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 onClick={() => setShowOpticalLayer(v => !v)}
                 className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer ${
                   showOpticalLayer
-                    ? 'btn-3d-primary border-[#6D28D9]'
+                    ? 'btn-3d-primary border-[#5145A6] dark:border-[#6D28D9]'
                     : 'btn-3d-lilac'
                 }`}
                 title="Tampilkan / Sembunyikan Garis & Node FAT"
@@ -2447,23 +2447,23 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 onClick={handleRecenterBounds}
                 aria-label="Pusatkan Peta"
                 title="Pusatkan Semua Pin WO & Teknisi"
-                className="btn-3d-icon w-9 h-9 rounded-xl !text-[#7C3AED] dark:!text-[#DAB9FF] cursor-pointer"
+                className="btn-3d-icon w-9 h-9 rounded-xl !text-[#5145A6] dark:!text-[#DAB9FF] cursor-pointer"
               >
                 <Crosshair className="w-4 h-4" />
               </button>
             </div>
 
             {/* Status Legend Floating Card */}
-            <div className="hidden sm:block absolute bottom-3 left-3 z-[450] rounded-xl bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md border border-[#e8ddff] dark:border-[#35105E] p-2.5 shadow-lg max-w-[310px]">
+            <div className="hidden sm:block absolute bottom-3 left-3 z-[450] rounded-xl bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-md border border-[#DDE6F0] dark:border-[#35105E] p-2.5 shadow-lg max-w-[310px]">
               <div className="flex items-center justify-between gap-3 mb-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-white">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#26364A] dark:text-white">
                   Status Legend
                 </span>
-                <span className="text-[9.5px] font-mono text-[#7d7484] dark:text-[#cabde8]">
+                <span className="text-[9.5px] font-mono text-[#8492A5] dark:text-[#cabde8]">
                   {lastSyncTime ? `Sync ${formatJakartaTimeOnly(lastSyncTime)}` : 'Live GIS'}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-semibold text-[#4b4452] dark:text-[#cabde8]">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-semibold text-[#52647A] dark:text-[#cabde8]">
                 {Object.entries(STATUS_META).map(([key, item]) => (
                   <div key={key} className="flex items-center gap-1.5 truncate">
                     <span
@@ -2474,9 +2474,9 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                   </div>
                 ))}
               </div>
-              <div className="mt-1.5 pt-1.5 border-t border-[#e8ddff] dark:border-[#35105E] grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-semibold text-[#4b4452] dark:text-[#cabde8]">
+              <div className="mt-1.5 pt-1.5 border-t border-[#E2E8F0] dark:border-[#35105E] grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-semibold text-[#52647A] dark:text-[#cabde8]">
                 <div className="flex items-center gap-1.5 truncate">
-                  <span className="w-2.5 h-2.5 rounded-[3px] bg-[#58149C] ring-2 ring-emerald-500 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-[3px] bg-[#6657C8] dark:bg-[#58149C] ring-2 ring-emerald-500 shrink-0" />
                   <span className="truncate">Teknisi Live GPS</span>
                 </div>
                 <div className="flex items-center gap-1.5 truncate">
@@ -2490,14 +2490,14 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           {/* Horizontal Live Technician Quick-Pick Strip */}
           {evaluatedInstallers.length > 0 && (
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-bold text-[#4b4452] dark:text-[#cabde8]">
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#52647A] dark:text-[#cabde8]">
                 <span className="flex items-center gap-1.5">
                   <LocateFixed className="w-3.5 h-3.5 text-emerald-600" />
                   <span>
                     Monitoring Live GPS Teknisi ({liveTechStats.online} Online · {liveTechStats.fresh} Fresh)
                   </span>
                 </span>
-                <span className="font-mono text-[10px] text-[#7d7484]">
+                <span className="font-mono text-[10px] text-[#8492A5]">
                   {plottableInstallers.length}/{evaluatedInstallers.length} memiliki koordinat valid
                 </span>
               </div>
@@ -2513,8 +2513,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                       onClick={() => handlePanToInstaller(tech)}
                       className={`shrink-0 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer ${
                         isActive
-                          ? 'bg-[#58149c] border-[#58149c] text-white shadow-sm'
-                          : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-white hover:border-[#7C3AED]'
+                          ? 'bg-[#6657C8] border-[#6657C8] dark:bg-[#58149c] dark:border-[#58149c] text-white shadow-sm'
+                          : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white hover:border-[#6657C8] dark:hover:border-[#7C3AED]'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
@@ -2528,7 +2528,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                       </div>
                       <div
                         className={`text-[10px] font-mono truncate max-w-[165px] mt-0.5 ${
-                          isActive ? 'text-purple-100' : 'text-[#4b4452] dark:text-[#cabde8]'
+                          isActive ? 'text-indigo-100 dark:text-purple-100' : 'text-[#52647A] dark:text-[#cabde8]'
                         }`}
                       >
                         {tech.onlineStatus} · {tech.locationStatus}
@@ -2553,8 +2553,8 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                     onClick={() => handlePanToTicket(ticket)}
                     className={`shrink-0 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#58149c] border-[#58149c] text-white shadow-sm'
-                        : 'bg-white dark:bg-[#1e1135] border-[#e8ddff] dark:border-[#35105E] text-[#1f1638] dark:text-white hover:border-[#7C3AED]'
+                        ? 'bg-[#6657C8] border-[#6657C8] dark:bg-[#58149c] dark:border-[#58149c] text-white shadow-sm'
+                        : 'bg-white dark:bg-[#1e1135] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white hover:border-[#6657C8] dark:hover:border-[#7C3AED]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -2566,7 +2566,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                     </div>
                     <div
                       className={`text-[10.5px] truncate max-w-[140px] mt-0.5 ${
-                        isActive ? 'text-purple-100' : 'text-[#4b4452] dark:text-[#cabde8]'
+                        isActive ? 'text-indigo-100 dark:text-purple-100' : 'text-[#52647A] dark:text-[#cabde8]'
                       }`}
                     >
                       {ticket.customerName}
@@ -2583,10 +2583,10 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
           {renderSelectedDetailCard()}
 
           {/* Real Activity Timeline for Scoped Team / Selected Filter */}
-          <div className="mj-tactile-card border border-[#e8ddff] dark:border-[#3b1d78] p-4 space-y-2.5">
+          <div className="mj-tactile-card border border-[#DDE6F0] dark:border-[#3b1d78] p-4 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#1f1638] dark:text-white">
-                <Activity className="w-3.5 h-3.5 text-[#7C3AED]" />
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#26364A] dark:text-white">
+                <Activity className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7C3AED]" />
                 <span>
                   {isLeaderMode ? `Log Aktivitas ${leaderContractor || 'Tim'}` : 'Log Aktivitas Lapangan'}
                 </span>
@@ -2597,7 +2597,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             </div>
 
             {scopedRecentActivities.length === 0 ? (
-              <p className="text-xs text-[#7d7484] dark:text-[#cabde8] py-2">
+              <p className="text-xs text-[#8492A5] dark:text-[#cabde8] py-2">
                 Belum ada log aktivitas lapangan terbaru pada scope ini.
               </p>
             ) : (
@@ -2605,17 +2605,17 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
                 {scopedRecentActivities.map(act => (
                   <div
                     key={act.id}
-                    className="p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#160d29] border border-[#e8ddff] dark:border-[#35105E] text-xs space-y-0.5"
+                    className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105E] text-xs space-y-0.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-[#1f1638] dark:text-white truncate">
+                      <span className="font-bold text-[#26364A] dark:text-white truncate">
                         {act.performedBy || 'Sistem'} • {act.woNumber || ''}
                       </span>
-                      <span className="font-mono text-[10px] text-[#7d7484] shrink-0">
+                      <span className="font-mono text-[10px] text-[#8492A5] shrink-0">
                         {formatJakartaTimeOnly(act.timestamp)}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#4b4452] dark:text-[#cabde8] leading-snug line-clamp-2">
+                    <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] leading-snug line-clamp-2">
                       {act.description}
                     </p>
                   </div>
@@ -2629,14 +2629,14 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
       {/* FULLSCREEN PHOTO LIGHTBOX */}
       {lightboxImage && (
         <div
-          className="fixed inset-0 z-[130] bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[130] bg-slate-950/75 dark:bg-[#160D29]/90 flex items-center justify-center p-4 backdrop-blur-xs"
           onClick={() => setLightboxImage(null)}
         >
           <div className="relative max-w-3xl max-h-[88vh]" onClick={e => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setLightboxImage(null)}
-              className="absolute -top-3 -right-3 p-2 rounded-full bg-[#27104A] text-white border border-[#D8B4FE]/30 hover:bg-rose-600 cursor-pointer"
+              className="absolute -top-3 -right-3 p-2 rounded-full bg-white text-[#26364A] border border-[#DDE6F0] dark:bg-[#27104A] dark:text-white dark:border-[#D8B4FE]/30 hover:bg-rose-600 hover:text-white cursor-pointer"
               aria-label="Tutup Lightbox"
             >
               <X className="w-4 h-4" />
@@ -2644,7 +2644,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
             <img
               src={lightboxImage.url}
               alt={lightboxImage.title}
-              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#D8B4FE]/25 shadow-2xl"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 shadow-2xl"
             />
             <div className="mt-2 text-center text-xs font-bold text-white">{lightboxImage.title}</div>
           </div>

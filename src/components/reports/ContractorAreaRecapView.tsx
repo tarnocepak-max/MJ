@@ -532,12 +532,12 @@ export const ContractorAreaRecapView: React.FC = () => {
   const renderCategoryIcon = (categoryName: string) => {
     const lower = categoryName.toLowerCase();
     if (lower.includes('pasang') || lower.includes('install') || lower.includes('psb')) {
-      return <Home className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />;
+      return <Home className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />;
     }
     if (lower.includes('repair') || lower.includes('gangguan') || lower.includes('maint')) {
-      return <Wrench className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />;
+      return <Wrench className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />;
     }
-    return <Wifi className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />;
+    return <Wifi className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />;
   };
 
   const activeScopeSubtitle =
@@ -553,14 +553,14 @@ export const ContractorAreaRecapView: React.FC = () => {
       <div className="card-3d-lavender p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
-            <h1 className="text-base sm:text-lg font-bold text-[#1F1638] dark:text-white font-display">
+            <Calendar className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+            <h1 className="text-base sm:text-lg font-bold text-[#26364A] dark:text-white font-display">
               Periode Laporan
             </h1>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="tactile-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-[#1F1638] dark:text-[#D8B4FE]">
+            <span className="tactile-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-[#26364A] dark:text-[#D8B4FE]">
               <span className={`w-2 h-2 rounded-full ${databaseStatus === 'offline' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
               <span>Sinkron {wibTimeLabel} WIB</span>
             </span>
@@ -570,7 +570,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               onClick={() => setShowAdvancedFilters(prev => !prev)}
               className="btn-3d-lilac inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-full text-[11px] font-bold cursor-pointer"
             >
-              <Filter className="w-3 h-3 text-[#5B289B] dark:text-[#D8B4FE]" />
+              <Filter className="w-3 h-3 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Filter</span>
               {showAdvancedFilters ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
@@ -593,7 +593,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                 className={`min-h-[40px] sm:min-h-0 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   active
                     ? 'btn-3d-primary'
-                    : 'text-[#5A4D73] dark:text-[#C5B3DF] hover:text-[#1F1638] dark:hover:text-white'
+                    : 'text-[#52647A] dark:text-[#C5B3DF] hover:text-[#26364A] dark:hover:text-white'
                 }`}
               >
                 {tab.label}
@@ -602,16 +602,16 @@ export const ContractorAreaRecapView: React.FC = () => {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#4B4452] dark:text-[#C5B3DF]">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#52647A] dark:text-[#C5B3DF]">
           <div className="flex items-center gap-1.5 font-medium">
-            <Calendar className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2]" />
+            <Calendar className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2]" />
             <span>
               {startDate === endDate
                 ? `${formatAppointmentDateDisplay(startDate)} (${startDate})`
                 : `${startDate} s/d ${endDate} WIB`}
             </span>
           </div>
-          <span className="font-bold text-[#5B289B] dark:text-[#D8B4FE] truncate">
+          <span className="font-bold text-[#5145A6] dark:text-[#D8B4FE] truncate">
             {activeScopeSubtitle}
           </span>
         </div>
@@ -620,9 +620,9 @@ export const ContractorAreaRecapView: React.FC = () => {
       {/* Collapsible Multi-Role Filter Toolbar (Area, Contractor, Custom Dates, Search) */}
       {showAdvancedFilters && (
         <div className="card-3d-lavender p-4 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E5D9FF] dark:border-[#361F5E] text-xs font-bold text-[#1F1638] dark:text-[#E8DDFF]">
+          <div className="flex items-center justify-between pb-2 border-b border-[#DDE6F0] dark:border-[#361F5E] text-xs font-bold text-[#26364A] dark:text-[#E8DDFF]">
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+              <Filter className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Filter Area, Kontraktor & Tanggal Custom</span>
             </div>
             <button
@@ -637,13 +637,13 @@ export const ContractorAreaRecapView: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
             <div>
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
                 Pilih Area
               </label>
               <select
                 value={selectedArea}
                 onChange={e => setSelectedArea(e.target.value)}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1F1638] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="ALL">Semua Area ({availableAreas.length})</option>
                 {availableAreas.map(area => (
@@ -655,13 +655,13 @@ export const ContractorAreaRecapView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
                 Pilih Kontraktor
               </label>
               <select
                 value={selectedContractor}
                 onChange={e => setSelectedContractor(e.target.value)}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1F1638] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="ALL">Semua Kontraktor ({availableContractors.length})</option>
                 {availableContractors.map(c => (
@@ -673,7 +673,7 @@ export const ContractorAreaRecapView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
                 Tgl Appointment Mulai
               </label>
               <input
@@ -683,12 +683,12 @@ export const ContractorAreaRecapView: React.FC = () => {
                   setStartDate(e.target.value);
                   setPeriodPreset('custom');
                 }}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1F1638] dark:text-white font-mono"
+                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
                 Tgl Appointment Akhir
               </label>
               <input
@@ -698,22 +698,22 @@ export const ContractorAreaRecapView: React.FC = () => {
                   setEndDate(e.target.value);
                   setPeriodPreset('custom');
                 }}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1F1638] dark:text-white font-mono"
+                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#4B4452] dark:text-[#C5B3DF] mb-1">
+              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
                 Cari WO / Teknisi / Mitra
               </label>
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Area, mitra, #WO..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="tactile-debossed-input w-full pl-8 pr-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#1F1638] dark:text-white"
+                  className="tactile-debossed-input w-full pl-8 pr-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white"
                 />
               </div>
             </div>
@@ -721,17 +721,17 @@ export const ContractorAreaRecapView: React.FC = () => {
         </div>
       )}
 
-      {/* 01 / REKAPITULASI OPERASIONAL: 5-Card Executive KPI Strip (MoraJaws Purple/Lilac/Maroon) */}
+      {/* 01 / REKAPITULASI OPERASIONAL: 5-Card Executive KPI Strip */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 px-1">
           <div>
-            <div className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#58149C] dark:text-[#D8B4FE]">
-              <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#D8CCF3] dark:border-[#5B35B1]">
+            <div className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#5145A6] dark:text-[#D8B4FE]">
+              <span className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2E1459] border border-[#C5BEEF] dark:border-[#5B35B1]">
                 01 / REKAPITULASI OPERASIONAL
               </span>
-              <span className="text-[#7D7484] dark:text-[#A493C2]">{activeScopeSubtitle}</span>
+              <span className="text-[#8492A5] dark:text-[#A493C2]">{activeScopeSubtitle}</span>
             </div>
-            <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white mt-1">
+            <h2 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white mt-1">
               Rekap Work Order (Mitra &amp; Area)
             </h2>
           </div>
@@ -742,7 +742,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               onClick={handlePrint}
               className="btn-3d-lilac px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+              <Printer className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Cetak Ringkasan</span>
             </button>
             <button
@@ -756,75 +756,75 @@ export const ContractorAreaRecapView: React.FC = () => {
           </div>
         </div>
 
-        {/* 5 KPI Cards matching Stitch Layout in MoraJaws Purple/Lilac/Maroon */}
+        {/* 5 KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* KPI 1: Total WO Masuk */}
           <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
                 TOTAL WO MASUK
               </span>
-              <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
                 <Layers className="w-3.5 h-3.5" />
               </span>
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#1F1638] dark:text-white tabular-nums">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#26364A] dark:text-white tabular-nums">
                 {grandTotal.totalWO}
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
                 {executionRates.assignPct}% Assign
               </span>
             </div>
-            <div className="h-1 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
-              <div className="h-full rounded-full bg-[#58149C] transition-all" style={{ width: `${Math.min(100, executionRates.assignPct)}%` }} />
+            <div className="h-1 w-full rounded-full bg-[#DDE6F0] dark:bg-[#2E1654] overflow-hidden">
+              <div className="h-full rounded-full bg-[#6657C8] dark:bg-[#58149C] transition-all" style={{ width: `${Math.min(100, executionRates.assignPct)}%` }} />
             </div>
           </div>
 
-          {/* KPI 2: HIGHLIGHTED DARK PURPLE-TO-MAROON HERO CARD */}
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-[#240C45] via-[#35105E] to-[#480123] text-white border border-[#7135B5]/50 shadow-[0_10px_24px_-6px_rgba(53,16,94,0.45)] flex flex-col justify-between gap-2.5">
+          {/* KPI 2: HIGHLIGHTED HERO CARD */}
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#240C45] dark:via-[#35105E] dark:to-[#480123] text-[#26364A] dark:text-white border border-[#C5BEEF] dark:border-[#7135B5]/50 shadow-sm dark:shadow-[0_10px_24px_-6px_rgba(53,16,94,0.45)] flex flex-col justify-between gap-2.5">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#DAB9FF]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                 TOTAL SELESAI / COMPLETE
               </span>
-              <span className="w-7 h-7 rounded-lg bg-white/15 border border-white/20 text-white flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/80 dark:bg-white/15 border border-[#C5BEEF] dark:border-white/20 text-[#2E7D8B] dark:text-white flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-white tabular-nums">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#26364A] dark:text-white tabular-nums">
                 {grandTotal.complete}
               </span>
-              <span className="text-xs font-mono font-bold text-[#DAB9FF]">
+              <span className="text-xs font-mono font-bold text-[#2E7D8B] dark:text-[#DAB9FF]">
                 {executionRates.completionPct}%
               </span>
             </div>
-            <div className="h-1 w-full rounded-full bg-white/15 overflow-hidden">
-              <div className="h-full rounded-full bg-[#DAB9FF] transition-all" style={{ width: `${executionRates.completionPct}%` }} />
+            <div className="h-1 w-full rounded-full bg-[#DDE6F0] dark:bg-white/15 overflow-hidden">
+              <div className="h-full rounded-full bg-[#6657C8] dark:bg-[#DAB9FF] transition-all" style={{ width: `${executionRates.completionPct}%` }} />
             </div>
           </div>
 
           {/* KPI 3: Dalam Proses / Check-in */}
           <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
                 DALAM PROSES / CHECK-IN
               </span>
-              <span className="w-7 h-7 rounded-lg bg-[#F3EAFF] dark:bg-[#2E1459] text-[#7135B5] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#D8B4FE] flex items-center justify-center shrink-0">
                 <Gauge className="w-3.5 h-3.5" />
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                 {grandTotal.uncomplete}
               </span>
-              <span className="text-xs font-mono font-bold text-[#7D7484] dark:text-[#A493C2]">
+              <span className="text-xs font-mono font-bold text-[#8492A5] dark:text-[#A493C2]">
                 {grandTotal.totalWO > 0 ? Math.round((grandTotal.uncomplete / grandTotal.totalWO) * 1000) / 10 : 0}%
               </span>
             </div>
-            <div className="h-1 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+            <div className="h-1 w-full rounded-full bg-[#DDE6F0] dark:bg-[#2E1654] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#7135B5] transition-all"
+                className="h-full rounded-full bg-[#6657C8] dark:bg-[#7135B5] transition-all"
                 style={{ width: `${grandTotal.totalWO > 0 ? Math.min(100, Math.round((grandTotal.uncomplete / grandTotal.totalWO) * 100)) : 0}%` }}
               />
             </div>
@@ -833,7 +833,7 @@ export const ContractorAreaRecapView: React.FC = () => {
           {/* KPI 4: Belum Di-Assign / Pending Queue */}
           <div className="card-3d-lavender rounded-2xl p-4 flex flex-col justify-between gap-2.5">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A493C2]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A493C2]">
                 BELUM DI-ASSIGN
               </span>
               <span className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
@@ -841,7 +841,7 @@ export const ContractorAreaRecapView: React.FC = () => {
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#1F1638] dark:text-white tabular-nums">
+              <span className="font-display text-2xl sm:text-3xl font-extrabold font-mono text-[#26364A] dark:text-white tabular-nums">
                 {grandTotal.unassign}
               </span>
               <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
@@ -890,21 +890,21 @@ export const ContractorAreaRecapView: React.FC = () => {
         <div className={`${isCompactUI ? '' : 'lg:col-span-8'} card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4`}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#58149C] dark:text-[#D8B4FE]">
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#5145A6] dark:text-[#D8B4FE]">
                 02 / TREN HARIAN (7 HARI HINGGA {endDate || todayWIB})
               </div>
-              <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white mt-0.5 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />
+              <h3 className="font-display text-base font-extrabold text-[#26364A] dark:text-white mt-0.5 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>Tren Penyelesaian Work Order</span>
               </h3>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold">
-              <span className="inline-flex items-center gap-1.5 text-[#1F1638] dark:text-white">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#58149C]" />
+              <span className="inline-flex items-center gap-1.5 text-[#26364A] dark:text-white">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#6657C8] dark:bg-[#58149C]" />
                 <span>Selesai (Complete)</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 text-[#7D7484] dark:text-[#A493C2]">
+              <span className="inline-flex items-center gap-1.5 text-[#8492A5] dark:text-[#A493C2]">
                 <span className="w-3 border-t-2 border-dashed border-[#881337]" />
                 <span>Rata Target ({dailyTrend.targetDaily} WO)</span>
               </span>
@@ -954,7 +954,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                       width={barW}
                       height={totalH}
                       rx="8"
-                      className="fill-[#F3EAFF] dark:fill-[#2E1459]"
+                      className="fill-[#EAE8FF] dark:fill-[#2E1459]"
                     />
                     {/* Foreground completed WO bar */}
                     {compH > 0 && (
@@ -964,7 +964,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                         width={barW}
                         height={compH}
                         rx="8"
-                        fill={isPeak ? '#35105E' : '#7135B5'}
+                        className={isPeak ? 'fill-[#5145A6] dark:fill-[#35105E]' : 'fill-[#2E7D8B] dark:fill-[#7135B5]'}
                       />
                     )}
                     {/* Value Label */}
@@ -972,7 +972,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                       x={centerX}
                       y={145 - Math.max(totalH, compH) - 6}
                       textAnchor="middle"
-                      className="fill-[#1F1638] dark:fill-white text-[11px] font-mono font-bold"
+                      className="fill-[#26364A] dark:fill-white text-[11px] font-mono font-bold"
                     >
                       {day.complete}/{day.total}
                     </text>
@@ -981,7 +981,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                       x={centerX}
                       y={166}
                       textAnchor="middle"
-                      className="fill-[#4B4452] dark:fill-[#E9D5FF] text-[11px] font-bold"
+                      className="fill-[#52647A] dark:fill-[#E9D5FF] text-[11px] font-bold"
                     >
                       {day.dayLabel}
                     </text>
@@ -989,7 +989,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                       x={centerX}
                       y={180}
                       textAnchor="middle"
-                      className="fill-[#7D7484] dark:fill-[#A493C2] text-[9.5px] font-mono"
+                      className="fill-[#8492A5] dark:fill-[#A493C2] text-[9.5px] font-mono"
                     >
                       {day.dateKey.slice(5)}
                     </text>
@@ -1001,18 +1001,18 @@ export const ContractorAreaRecapView: React.FC = () => {
         </div>
 
         {/* Right 4 Cols: Evaluasi Cepat (Performa Kluster Terbaik + OPM & Assign Rate) */}
-        <div className={`${isCompactUI ? '' : 'lg:col-span-4'} card-3d-lavender bg-[#F8F1FF] dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4`}>
+        <div className={`${isCompactUI ? '' : 'lg:col-span-4'} card-3d-lavender bg-[#F4F7FB] dark:bg-[#1E1238] rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-4`}>
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#58149C] dark:text-[#D8B4FE]">
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#5145A6] dark:text-[#D8B4FE]">
                   EVALUASI CEPAT
                 </div>
-                <h3 className="font-display text-base font-extrabold text-[#1F1638] dark:text-white mt-0.5">
+                <h3 className="font-display text-base font-extrabold text-[#26364A] dark:text-white mt-0.5">
                   Performa Kluster Terbaik
                 </h3>
               </div>
-              <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#D8CCF3] dark:border-[#5B35B1] shrink-0">
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#C5BEEF] dark:border-[#5B35B1] shrink-0">
                 <img src={ftthInspectionImg} alt="Inspeksi FTTH" className="w-full h-full object-cover" />
               </div>
             </div>
@@ -1020,48 +1020,48 @@ export const ContractorAreaRecapView: React.FC = () => {
             {topCluster ? (
               <div className="mj-tactile-well p-3.5 rounded-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
                     <Award className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-extrabold text-[#1F1638] dark:text-white truncate">
+                    <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                       {topCluster.areaName}
                     </div>
-                    <div className="text-[11px] text-[#7D7484] dark:text-[#A493C2] font-mono">
+                    <div className="text-[11px] text-[#8492A5] dark:text-[#A493C2] font-mono">
                       {topCluster.subtotal.complete} / {topCluster.subtotal.totalWO} WO Selesai
                     </div>
                   </div>
                 </div>
-                <span className="font-display text-lg font-extrabold text-[#58149C] dark:text-[#DAB9FF] tabular-nums shrink-0">
+                <span className="font-display text-lg font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums shrink-0">
                   {topCluster.subtotal.totalWO > 0
                     ? `${Math.round((topCluster.subtotal.complete / topCluster.subtotal.totalWO) * 1000) / 10}%`
                     : '0%'}
                 </span>
               </div>
             ) : (
-              <div className="mj-tactile-well p-3.5 rounded-xl text-xs text-[#7D7484] dark:text-[#A493C2]">
+              <div className="mj-tactile-well p-3.5 rounded-xl text-xs text-[#8492A5] dark:text-[#A493C2]">
                 Belum ada kluster area pada rentang tanggal ini.
               </div>
             )}
           </div>
 
-          {/* Dark Purple Telemetry Bar: Assign Rate & Real Avg OPM */}
-          <div className="rounded-xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white p-3.5 grid grid-cols-2 gap-3 border border-[#7135B5]/40 shadow-sm">
+          {/* Telemetry Bar: Assign Rate & Real Avg OPM */}
+          <div className="rounded-xl bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#27104A] dark:to-[#480123] text-[#26364A] dark:text-white p-3.5 grid grid-cols-2 gap-3 border border-[#C5BEEF] dark:border-[#7135B5]/40 shadow-sm">
             <div className="min-w-0">
-              <div className="text-[10px] text-[#D8B4FE] uppercase font-bold">Assign Rate</div>
+              <div className="text-[10px] text-[#5145A6] dark:text-[#D8B4FE] uppercase font-bold">Assign Rate</div>
               <div className="text-lg font-bold font-mono leading-tight tabular-nums mt-0.5">
                 {executionRates.assignPct}%
               </div>
-              <div className="text-[10px] text-[#E8DDFF]/75 truncate">
+              <div className="text-[10px] text-[#52647A] dark:text-[#E8DDFF]/75 truncate">
                 {grandTotal.assign}/{grandTotal.totalWO} Terassign
               </div>
             </div>
-            <div className="border-l border-[#D8B4FE]/20 pl-3 min-w-0">
-              <div className="text-[10px] text-[#D8B4FE] uppercase font-bold">Rata-rata OPM</div>
+            <div className="border-l border-[#C5BEEF] dark:border-[#D8B4FE]/20 pl-3 min-w-0">
+              <div className="text-[10px] text-[#2E7D8B] dark:text-[#D8B4FE] uppercase font-bold">Rata-rata OPM</div>
               <div className="text-lg font-bold font-mono leading-tight tabular-nums mt-0.5">
                 {executionRates.avgOpm !== null ? `${executionRates.avgOpm} dBm` : 'N/A'}
               </div>
-              <div className="text-[10px] text-[#E8DDFF]/75 truncate">
+              <div className="text-[10px] text-[#52647A] dark:text-[#E8DDFF]/75 truncate">
                 {executionRates.opmCount > 0 ? `${executionRates.optimalOpmCount}/${executionRates.opmCount} Optimal` : 'Belum ada data OPM'}
               </div>
             </div>
@@ -1075,18 +1075,18 @@ export const ContractorAreaRecapView: React.FC = () => {
         <div className="card-3d-lavender p-4 sm:p-5 space-y-3.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
-              <h2 className="text-sm font-display font-bold text-[#1F1638] dark:text-white">
+              <PieChart className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+              <h2 className="text-sm font-display font-bold text-[#26364A] dark:text-white">
                 Distribusi Jenis Pekerjaan
               </h2>
             </div>
-            <span className="text-[11px] font-semibold text-[#7D7484] dark:text-[#A493C2]">
+            <span className="text-[11px] font-semibold text-[#8492A5] dark:text-[#A493C2]">
               Total {categoryDistribution.length} Kategori
             </span>
           </div>
 
           {categoryDistribution.length === 0 ? (
-            <div className="py-6 text-center text-xs text-[#7D7484] dark:text-[#A493C2]">
+            <div className="py-6 text-center text-xs text-[#8492A5] dark:text-[#A493C2]">
               Belum ada data pekerjaan pada rentang tanggal yang dipilih.
             </div>
           ) : (
@@ -1098,30 +1098,30 @@ export const ContractorAreaRecapView: React.FC = () => {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#241145] border border-[#E5D9FF] dark:border-[#4B2680] flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#241145] border border-[#DDE6F0] dark:border-[#4B2680] flex items-center justify-center shrink-0">
                         {renderCategoryIcon(item.name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+                        <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                           {item.name}
                         </div>
-                        <div className="text-[10.5px] text-[#7D7484] dark:text-[#A493C2]">
+                        <div className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2]">
                           {activeScopeSubtitle}
                         </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-bold font-mono text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
+                      <div className="text-xs font-bold font-mono text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                         {item.count} WO
                       </div>
-                      <div className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A493C2] tabular-nums">
+                      <div className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A493C2] tabular-nums">
                         {item.percent}%
                       </div>
                     </div>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+                  <div className="h-1.5 w-full rounded-full bg-[#DDE6F0] dark:bg-[#2E1654] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#5B289B] to-[#8E52D9] dark:from-[#8E52D9] dark:to-[#D8B4FE] transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-[#5145A6] to-[#2E7D8B] dark:from-[#8E52D9] dark:to-[#D8B4FE] transition-all"
                       style={{ width: `${item.percent}%` }}
                     />
                   </div>
@@ -1135,18 +1135,18 @@ export const ContractorAreaRecapView: React.FC = () => {
         <div className="card-3d-lavender p-4 sm:p-5 space-y-3.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
-              <h2 className="text-sm font-display font-bold text-[#1F1638] dark:text-white">
+              <CheckCircle2 className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE]" />
+              <h2 className="text-sm font-display font-bold text-[#26364A] dark:text-white">
                 WO Selesai Terakhir
               </h2>
             </div>
-            <span className="text-[11px] font-bold text-[#5B289B] dark:text-[#D8B4FE]">
+            <span className="text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE]">
               {recentCompletedTickets.length} Terbaru
             </span>
           </div>
 
           {recentCompletedTickets.length === 0 ? (
-            <div className="py-8 text-center text-xs text-[#7D7484] dark:text-[#A493C2]">
+            <div className="py-8 text-center text-xs text-[#8492A5] dark:text-[#A493C2]">
               Belum ada WO berstatus Selesai (Completed) pada periode ini.
             </div>
           ) : (
@@ -1175,28 +1175,28 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-xs text-[#1F1638] dark:text-white">
+                          <span className="font-mono font-bold text-xs text-[#26364A] dark:text-white">
                             #{t.woNumber}
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
                             {t.approvalStatus === 'APPROVED' ? 'Approved' : t.statusWOInstaller}
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#4B4452] dark:text-[#C5B3DF] truncate mt-0.5">
+                        <div className="text-[11px] text-[#52647A] dark:text-[#C5B3DF] truncate mt-0.5">
                           {t.ticketCategory || 'Work Order'} • {t.customerName}
                         </div>
                       </div>
-                      <span className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A493C2] shrink-0">
+                      <span className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A493C2] shrink-0">
                         {timeDisplay}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E5D9FF] dark:border-[#361F5E] text-[11px]">
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#361F5E] text-[11px]">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-[#F3EAFF] dark:bg-[#2E1654] border border-[#DFC7FF] dark:border-[#5B289B]/40 flex items-center justify-center font-bold text-[10px] text-[#5B289B] dark:text-[#D8B4FE] shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-[#EAE8FF] dark:bg-[#2E1654] border border-[#C5BEEF] dark:border-[#5B289B]/40 flex items-center justify-center font-bold text-[10px] text-[#5145A6] dark:text-[#D8B4FE] shrink-0">
                           {instInitials}
                         </div>
-                        <span className="font-semibold text-[#1F1638] dark:text-white truncate">
+                        <span className="font-semibold text-[#26364A] dark:text-white truncate">
                           {t.installerName || 'Teknisi'}
                         </span>
                       </div>
@@ -1216,11 +1216,11 @@ export const ContractorAreaRecapView: React.FC = () => {
 
       {/* Hierarchical Table: Area (Tingkat 1) -> Contractor (Tingkat 2) */}
       <div className="card-3d-lavender overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-[#E5D9FF] dark:border-[#361F5E] flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 py-3.5 border-b border-[#DDE6F0] dark:border-[#361F5E] flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+            <Layers className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
             <div>
-              <h3 className="text-xs sm:text-sm font-display font-bold text-[#1F1638] dark:text-white">
+              <h3 className="text-xs sm:text-sm font-display font-bold text-[#26364A] dark:text-white">
                 Matriks Rekap Area & Kontraktor ({groupedData.length} Area)
               </h3>
             </div>
@@ -1248,13 +1248,13 @@ export const ContractorAreaRecapView: React.FC = () => {
 
         {groupedData.length === 0 ? (
           <div className="p-10 text-center space-y-3">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-[#F3EAFF] dark:bg-[#2E1654] text-[#5B289B] dark:text-[#D8B4FE] border border-[#DFC7FF] dark:border-[#5B289B]/40 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-[#DDF4F4] dark:bg-[#2E1654] text-[#2E7D8B] dark:text-[#D8B4FE] border border-[#BDE4E8] dark:border-[#5B289B]/40 flex items-center justify-center">
               <Layers className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-[#1F1638] dark:text-[#E8DDFF] text-sm">
+            <h3 className="font-bold text-[#26364A] dark:text-[#E8DDFF] text-sm">
               Tidak Ada Data Work Order Sesuai Filter
             </h3>
-            <p className="text-xs text-[#4B4452] dark:text-[#C5B3DF] max-w-md mx-auto">
+            <p className="text-xs text-[#52647A] dark:text-[#C5B3DF] max-w-md mx-auto">
               Tidak ditemukan tiket WO dengan Appointment Date pada rentang {startDate} s/d {endDate}.
             </p>
             <button
@@ -1267,38 +1267,38 @@ export const ContractorAreaRecapView: React.FC = () => {
           </div>
         ) : isCompactUI ? (
           /* Mobile Grouped Cards Representation for Hierarchical Area -> Contractor Matrix */
-          <div className="p-3 space-y-4 bg-[#F8F1FF]/70 dark:bg-[#160D29]/70">
+          <div className="p-3 space-y-4 bg-[#F4F7FB]/80 dark:bg-[#160D29]/70">
             {groupedData.map(group => (
               <div
                 key={group.areaName}
                 className="mj-tactile-card overflow-hidden"
               >
-                <div className="px-3.5 py-2.5 bg-[#F3EAFF] dark:bg-[#241145] border-b border-[#E5D9FF] dark:border-[#3F2370] flex items-center justify-between gap-2">
+                <div className="px-3.5 py-2.5 bg-[#EDF3F8] dark:bg-[#241145] border-b border-[#DDE6F0] dark:border-[#3F2370] flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <MapPin className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
-                    <span className="font-bold text-xs uppercase tracking-wide text-[#1F1638] dark:text-white truncate">
+                    <MapPin className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE] shrink-0" />
+                    <span className="font-bold text-xs uppercase tracking-wide text-[#26364A] dark:text-white truncate">
                       {group.areaName}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono font-bold text-[#5B289B] dark:text-[#D8B4FE] shrink-0 tabular-nums">
+                  <span className="text-[11px] font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] shrink-0 tabular-nums">
                     {group.contractors.length} Mitra · {group.subtotal.totalWO} WO
                   </span>
                 </div>
 
-                <div className="divide-y divide-[#E5D9FF]/60 dark:divide-[#361F5E]">
+                <div className="divide-y divide-[#E2E8F0] dark:divide-[#361F5E]">
                   {group.contractors.map((c, cIdx) => {
                     const rowRate = c.totalWO > 0 ? Math.round((c.complete / c.totalWO) * 1000) / 10 : 0;
                     return (
-                      <div key={`${group.areaName}-${c.contractorName}`} className="p-3 space-y-2.5">
+                      <div key={`${group.areaName}-${c.contractorName}`} className="p-3 space-y-2.5 bg-white dark:bg-transparent">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[10px] font-mono text-[#7D7484] dark:text-[#A493C2]">#{cIdx + 1}</span>
-                            <Building2 className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#A493C2] shrink-0" />
-                            <span className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+                            <span className="text-[10px] font-mono text-[#8492A5] dark:text-[#A493C2]">#{cIdx + 1}</span>
+                            <Building2 className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] shrink-0" />
+                            <span className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                               {c.contractorName}
                             </span>
                           </div>
-                          <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1654] border border-[#DFC7FF] dark:border-[#5B289B]/40 font-mono text-xs font-extrabold text-[#5B289B] dark:text-[#D8B4FE] shrink-0 tabular-nums">
+                          <span className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2E1654] border border-[#C5BEEF] dark:border-[#5B289B]/40 font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#D8B4FE] shrink-0 tabular-nums">
                             {c.totalWO} WO
                           </span>
                         </div>
@@ -1316,15 +1316,15 @@ export const ContractorAreaRecapView: React.FC = () => {
                               {c.unassign}
                             </div>
                           </div>
-                          <div className="rounded-lg bg-[#F3EAFF] dark:bg-[#2E1654] py-1 px-1">
-                            <div className="text-[#58149C] dark:text-[#D8B4FE] font-semibold">Comp</div>
-                            <div className="font-mono font-bold text-xs text-[#58149C] dark:text-white tabular-nums">
+                          <div className="rounded-lg bg-[#EAE8FF] dark:bg-[#2E1654] py-1 px-1">
+                            <div className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">Comp</div>
+                            <div className="font-mono font-bold text-xs text-[#5145A6] dark:text-white tabular-nums">
                               {c.complete}
                             </div>
                           </div>
-                          <div className="rounded-lg bg-[#F3EAFF]/70 dark:bg-[#2E1654]/60 py-1 px-1">
-                            <div className="text-[#7135B5] dark:text-[#D8B4FE] font-semibold">Pend</div>
-                            <div className="font-mono font-bold text-xs text-[#7135B5] dark:text-[#E8DDFF] tabular-nums">
+                          <div className="rounded-lg bg-[#DDF4F4]/80 dark:bg-[#2E1654]/60 py-1 px-1">
+                            <div className="text-[#2E7D8B] dark:text-[#D8B4FE] font-semibold">Pend</div>
+                            <div className="font-mono font-bold text-xs text-[#2E7D8B] dark:text-[#E8DDFF] tabular-nums">
                               {c.uncomplete}
                             </div>
                           </div>
@@ -1338,10 +1338,10 @@ export const ContractorAreaRecapView: React.FC = () => {
 
                         <div className="flex items-center justify-between gap-2 pt-1">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div className="h-1.5 flex-1 rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
-                              <div className="h-full rounded-full bg-[#58149C]" style={{ width: `${rowRate}%` }} />
+                            <div className="h-1.5 flex-1 rounded-full bg-[#DDE6F0] dark:bg-[#2E1654] overflow-hidden">
+                              <div className="h-full rounded-full bg-[#5145A6] dark:bg-[#58149C]" style={{ width: `${rowRate}%` }} />
                             </div>
-                            <span className="font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#D8B4FE] shrink-0">
+                            <span className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#D8B4FE] shrink-0">
                               {rowRate}%
                             </span>
                           </div>
@@ -1359,41 +1359,41 @@ export const ContractorAreaRecapView: React.FC = () => {
                   })}
                 </div>
 
-                <div className="px-3.5 py-2 bg-[#F8F1FF] dark:bg-[#1E1238] border-t border-[#E5D9FF] dark:border-[#361F5E] flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
-                  <span className="text-[#5B289B] dark:text-[#D8B4FE] uppercase">
+                <div className="px-3.5 py-2 bg-[#F4F7FB] dark:bg-[#1E1238] border-t border-[#DDE6F0] dark:border-[#361F5E] flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
+                  <span className="text-[#5145A6] dark:text-[#D8B4FE] uppercase">
                     Subtotal {group.areaName}
                   </span>
-                  <span className="font-mono tabular-nums text-[#1F1638] dark:text-white">
+                  <span className="font-mono tabular-nums text-[#26364A] dark:text-white">
                     {group.subtotal.totalWO} WO · Comp {group.subtotal.complete} · Pend {group.subtotal.uncomplete}
                   </span>
                 </div>
               </div>
             ))}
 
-            <div className="rounded-2xl bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white p-4 border border-[#7135B5]/50 space-y-2.5 shadow-md">
+            <div className="rounded-2xl bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#27104A] dark:to-[#480123] text-[#26364A] dark:text-white p-4 border border-[#C5BEEF] dark:border-[#7135B5]/50 space-y-2.5 shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-[#D8B4FE]">GRAND TOTAL</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">GRAND TOTAL</span>
                 <span className="font-mono text-lg font-extrabold tabular-nums">{grandTotal.totalWO} WO</span>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-center text-[10px]">
-                <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-emerald-300">Assign</div>
+                <div className="rounded-lg bg-white/80 dark:bg-white/10 border border-[#DDE6F0] dark:border-transparent py-1.5">
+                  <div className="text-emerald-700 dark:text-emerald-300 font-semibold">Assign</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.assign}</div>
                 </div>
-                <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-amber-300">Unasgn</div>
+                <div className="rounded-lg bg-white/80 dark:bg-white/10 border border-[#DDE6F0] dark:border-transparent py-1.5">
+                  <div className="text-amber-700 dark:text-amber-300 font-semibold">Unasgn</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.unassign}</div>
                 </div>
-                <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-[#DAB9FF]">Comp</div>
+                <div className="rounded-lg bg-white/80 dark:bg-white/10 border border-[#DDE6F0] dark:border-transparent py-1.5">
+                  <div className="text-[#5145A6] dark:text-[#DAB9FF] font-semibold">Comp</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.complete}</div>
                 </div>
-                <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-[#D8B4FE]">Pend</div>
+                <div className="rounded-lg bg-white/80 dark:bg-white/10 border border-[#DDE6F0] dark:border-transparent py-1.5">
+                  <div className="text-[#2E7D8B] dark:text-[#D8B4FE] font-semibold">Pend</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.uncomplete}</div>
                 </div>
-                <div className="rounded-lg bg-white/10 py-1.5">
-                  <div className="text-rose-300">Cancel</div>
+                <div className="rounded-lg bg-white/80 dark:bg-white/10 border border-[#DDE6F0] dark:border-transparent py-1.5">
+                  <div className="text-rose-700 dark:text-rose-300 font-semibold">Cancel</div>
                   <div className="font-mono font-bold text-xs tabular-nums">{grandTotal.cancel}</div>
                 </div>
               </div>
@@ -1403,20 +1403,20 @@ export const ContractorAreaRecapView: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#241145] text-white font-bold border-b border-[#3F2370]">
+                <tr className="bg-[#EDF3F8] dark:bg-[#241145] text-[#26364A] dark:text-white font-bold border-b border-[#DDE6F0] dark:border-[#3F2370]">
                   <th className="py-3 px-4 w-12 text-center">No</th>
                   <th className="py-3 px-4">Kluster Area &amp; Kontraktor</th>
                   <th className="py-3 px-3 text-right">Total WO</th>
-                  <th className="py-3 px-3 text-right text-emerald-300">Assign</th>
-                  <th className="py-3 px-3 text-right text-amber-300">Unassign</th>
-                  <th className="py-3 px-3 text-right text-[#DAB9FF]">Complete</th>
-                  <th className="py-3 px-3 text-right text-[#D8B4FE]">Pending</th>
-                  <th className="py-3 px-3 text-right text-rose-300">Cancel</th>
+                  <th className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-300">Assign</th>
+                  <th className="py-3 px-3 text-right text-amber-700 dark:text-amber-300">Unassign</th>
+                  <th className="py-3 px-3 text-right text-[#5145A6] dark:text-[#DAB9FF]">Complete</th>
+                  <th className="py-3 px-3 text-right text-[#2E7D8B] dark:text-[#D8B4FE]">Pending</th>
+                  <th className="py-3 px-3 text-right text-rose-700 dark:text-rose-300">Cancel</th>
                   <th className="py-3 px-4 min-w-[165px]">Tingkat Penyelesaian</th>
                   <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5D9FF]/60 dark:divide-[#361F5E] text-[#4B4452] dark:text-[#C5B3DF]">
+              <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#361F5E] text-[#52647A] dark:text-[#C5B3DF]">
                 {groupedData.map(group => {
                   const groupRate =
                     group.subtotal.totalWO > 0
@@ -1424,11 +1424,11 @@ export const ContractorAreaRecapView: React.FC = () => {
                       : 0;
                   return (
                     <React.Fragment key={group.areaName}>
-                      <tr className="bg-[#F3EAFF] dark:bg-[#241145] border-t-2 border-b border-[#DFC7FF] dark:border-[#3F2370]">
-                        <td colSpan={10} className="py-2.5 px-4 font-bold text-xs text-[#1F1638] dark:text-white">
+                      <tr className="bg-[#EDF3F8] dark:bg-[#241145] border-t-2 border-b border-[#DDE6F0] dark:border-[#3F2370]">
+                        <td colSpan={10} className="py-2.5 px-4 font-bold text-xs text-[#26364A] dark:text-white">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE] shrink-0" />
+                              <MapPin className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE] shrink-0" />
                               <span className="tracking-wide uppercase font-bold text-[12px]">
                                 AREA: {group.areaName}
                               </span>
@@ -1438,7 +1438,7 @@ export const ContractorAreaRecapView: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] font-mono text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
+                            <span className="text-[11px] font-mono text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                               {group.contractors.length} Kontraktor | {group.subtotal.totalWO} WO ({groupRate}% Selesai)
                             </span>
                           </div>
@@ -1450,18 +1450,18 @@ export const ContractorAreaRecapView: React.FC = () => {
                         return (
                           <tr
                             key={`${group.areaName}-${c.contractorName}`}
-                            className="hover:bg-[#F8F1FF] dark:hover:bg-[#1E1238]/60 transition-colors"
+                            className="odd:bg-white even:bg-[#F8FAFD] dark:odd:bg-transparent dark:even:bg-transparent hover:bg-[#EDF3F8] dark:hover:bg-[#1E1238]/60 transition-colors"
                           >
-                            <td className="py-2.5 px-4 text-center font-mono text-[#7D7484] dark:text-[#A493C2] text-[11px] tabular-nums">
+                            <td className="py-2.5 px-4 text-center font-mono text-[#8492A5] dark:text-[#A493C2] text-[11px] tabular-nums">
                               {cIdx + 1}
                             </td>
-                            <td className="py-2.5 px-4 font-semibold text-[#1F1638] dark:text-white">
+                            <td className="py-2.5 px-4 font-semibold text-[#26364A] dark:text-white">
                               <div className="flex items-center gap-2">
-                                <Building2 className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE] shrink-0" />
+                                <Building2 className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE] shrink-0" />
                                 <span>{c.contractorName}</span>
                               </div>
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#1F1638] dark:text-white tabular-nums">
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#26364A] dark:text-white tabular-nums">
                               {c.totalWO}
                             </td>
                             <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
@@ -1470,10 +1470,10 @@ export const ContractorAreaRecapView: React.FC = () => {
                             <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                               {c.unassign}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                               {c.complete}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#7135B5] dark:text-[#E9D5FF] tabular-nums">
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2E7D8B] dark:text-[#E9D5FF] tabular-nums">
                               {c.uncomplete}
                             </td>
                             <td className="py-2.5 px-3 text-right font-mono font-bold text-[#881337] dark:text-rose-400 tabular-nums">
@@ -1481,13 +1481,13 @@ export const ContractorAreaRecapView: React.FC = () => {
                             </td>
                             <td className="py-2.5 px-4">
                               <div className="flex items-center gap-2">
-                                <div className="h-2 flex-1 rounded-full bg-[#E8DDFF] dark:bg-[#2E1654] overflow-hidden">
+                                <div className="h-2 flex-1 rounded-full bg-[#DDE6F0] dark:bg-[#2E1654] overflow-hidden">
                                   <div
-                                    className="h-full rounded-full bg-gradient-to-r from-[#58149C] to-[#7135B5]"
+                                    className="h-full rounded-full bg-gradient-to-r from-[#5145A6] to-[#2E7D8B] dark:from-[#58149C] dark:to-[#7135B5]"
                                     style={{ width: `${rowRate}%` }}
                                   />
                                 </div>
-                                <span className="font-mono text-[11px] font-bold text-[#1F1638] dark:text-white tabular-nums w-11 text-right">
+                                <span className="font-mono text-[11px] font-bold text-[#26364A] dark:text-white tabular-nums w-11 text-right">
                                   {rowRate}%
                                 </span>
                               </div>
@@ -1508,11 +1508,11 @@ export const ContractorAreaRecapView: React.FC = () => {
                         );
                       })}
 
-                      <tr className="bg-[#F8F1FF] dark:bg-[#1E1238] font-bold border-b border-t border-[#E5D9FF] dark:border-[#361F5E] text-[#1F1638] dark:text-white">
-                        <td colSpan={2} className="py-2 px-4 text-right uppercase text-[11px] text-[#5B289B] dark:text-[#D8B4FE]">
+                      <tr className="bg-[#F4F7FB] dark:bg-[#1E1238] font-bold border-b border-t border-[#DDE6F0] dark:border-[#361F5E] text-[#26364A] dark:text-white">
+                        <td colSpan={2} className="py-2 px-4 text-right uppercase text-[11px] text-[#5145A6] dark:text-[#D8B4FE]">
                           Subtotal {group.areaName}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-extrabold text-[#5B289B] dark:text-[#D8B4FE] tabular-nums">
+                        <td className="py-2 px-3 text-right font-mono font-extrabold text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                           {group.subtotal.totalWO}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
@@ -1521,16 +1521,16 @@ export const ContractorAreaRecapView: React.FC = () => {
                         <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                           {group.subtotal.unassign}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-[#58149C] dark:text-[#D8B4FE] tabular-nums">
+                        <td className="py-2 px-3 text-right font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] tabular-nums">
                           {group.subtotal.complete}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-[#7135B5] dark:text-[#E9D5FF] tabular-nums">
+                        <td className="py-2 px-3 text-right font-mono font-bold text-[#2E7D8B] dark:text-[#E9D5FF] tabular-nums">
                           {group.subtotal.uncomplete}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-[#881337] dark:text-rose-400 tabular-nums">
                           {group.subtotal.cancel}
                         </td>
-                        <td className="py-2 px-4 font-mono text-[11px] font-extrabold text-[#58149C] dark:text-[#D8B4FE] text-right">
+                        <td className="py-2 px-4 font-mono text-[11px] font-extrabold text-[#5145A6] dark:text-[#D8B4FE] text-right">
                           {groupRate}%
                         </td>
                         <td className="py-2 px-4 text-right">
@@ -1547,29 +1547,29 @@ export const ContractorAreaRecapView: React.FC = () => {
                   );
                 })}
 
-                <tr className="bg-gradient-to-r from-[#160D29] via-[#27104A] to-[#480123] text-white font-extrabold border-t-2 border-[#7135B5] text-sm">
-                  <td colSpan={2} className="py-3 px-4 text-right uppercase tracking-wider text-xs text-[#D8B4FE]">
+                <tr className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#27104A] dark:to-[#480123] text-[#26364A] dark:text-white font-extrabold border-t-2 border-[#C5BEEF] dark:border-[#7135B5] text-sm">
+                  <td colSpan={2} className="py-3 px-4 text-right uppercase tracking-wider text-xs text-[#5145A6] dark:text-[#D8B4FE]">
                     GRAND TOTAL KESELURUHAN
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-white text-base tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-[#26364A] dark:text-white text-base tabular-nums">
                     {grandTotal.totalWO}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-emerald-300 tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-emerald-700 dark:text-emerald-300 tabular-nums">
                     {grandTotal.assign}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-amber-300 tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-amber-700 dark:text-amber-300 tabular-nums">
                     {grandTotal.unassign}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-[#DAB9FF] tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                     {grandTotal.complete}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-[#E9D5FF] tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-[#2E7D8B] dark:text-[#E9D5FF] tabular-nums">
                     {grandTotal.uncomplete}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono text-rose-300 tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-rose-700 dark:text-rose-300 tabular-nums">
                     {grandTotal.cancel}
                   </td>
-                  <td colSpan={2} className="py-3 px-4 text-right font-mono text-xs text-[#DAB9FF] tabular-nums">
+                  <td colSpan={2} className="py-3 px-4 text-right font-mono text-xs text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                     Completion: {executionRates.completionPct}%
                   </td>
                 </tr>
@@ -1587,7 +1587,7 @@ export const ContractorAreaRecapView: React.FC = () => {
             onClick={handleExportExcel}
             className="btn-3d-lilac flex-1 max-w-md mx-auto sm:mx-0 min-h-[44px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+            <Download className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
             <span>Export Laporan Rekap (Excel)</span>
           </button>
           <button
@@ -1599,7 +1599,7 @@ export const ContractorAreaRecapView: React.FC = () => {
             <span>Cetak / Simpan PDF</span>
           </button>
         </div>
-        <p className="text-[11px] text-[#7D7484] dark:text-[#A493C2]">
+        <p className="text-[11px] text-[#8492A5] dark:text-[#A493C2]">
           Format laporan resmi operasional NOC &amp; Dispatch MoraJaws • Data langsung dari database produksi
         </p>
       </div>
@@ -1615,16 +1615,16 @@ export const ContractorAreaRecapView: React.FC = () => {
               ? `${detailScope.contractorName} • ${detailTickets.length} WO`
               : `Seluruh Kontraktor di Area ${detailScope.areaName} • ${detailTickets.length} WO`
           }
-          icon={<Layers className="w-4 h-4 text-[#58149C] dark:text-[#D8B4FE]" />}
+          icon={<Layers className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />}
           size="xl"
         >
           <div className="p-4 sm:p-5 space-y-3 max-h-[70vh] overflow-y-auto">
             {detailTickets.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#7D7484] dark:text-[#A493C2]">
+              <div className="p-8 text-center text-xs text-[#8492A5] dark:text-[#A493C2]">
                 Tidak ada Work Order aktif pada cakupan ini.
               </div>
             ) : (
-              <div className="divide-y divide-[#E8DDFF] dark:divide-[#361F5E] rounded-xl border border-[#E8DDFF] dark:border-[#361F5E] overflow-hidden">
+              <div className="divide-y divide-[#DDE6F0] dark:divide-[#361F5E] rounded-xl border border-[#DDE6F0] dark:border-[#361F5E] overflow-hidden">
                 {detailTickets.map(t => (
                   <div
                     key={t.id}
@@ -1632,18 +1632,18 @@ export const ContractorAreaRecapView: React.FC = () => {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-[#58149C] dark:text-[#D8B4FE]">#{t.woNumber}</span>
-                        <span className="font-bold text-[#1F1638] dark:text-white">{t.customerName}</span>
-                        <span className="text-[10.5px] font-mono text-[#7D7484] dark:text-[#A493C2]">
+                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">#{t.woNumber}</span>
+                        <span className="font-bold text-[#26364A] dark:text-white">{t.customerName}</span>
+                        <span className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A493C2]">
                           {t.appointmentDate || getTicketAppointmentDate(t) || '-'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] truncate mt-0.5">
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate mt-0.5">
                         Teknisi: <strong>{t.installerName || 'Belum Di-assign'}</strong> · {t.streetName || t.clusterName || '-'}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
                         {t.statusWOInstaller || t.statusWOAgent || 'Open'}
                       </span>
                       {t.approvalStatus && (

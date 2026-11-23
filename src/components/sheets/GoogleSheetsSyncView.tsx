@@ -395,10 +395,10 @@ export const GoogleSheetsSyncView: React.FC = () => {
         <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center mx-auto">
           <ShieldCheck className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-[#1E1035] dark:text-white">
+        <h3 className="text-base font-bold text-[#26364A] dark:text-white">
           Akses Ditolak (403 Forbidden)
         </h3>
-        <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8]">
+        <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
           Hanya Super Admin yang berwenang mengelola Spreadsheet ID, autentikasi Google, mapping kolom, dan menjalankan sinkronisasi data operasional MoraJaws.
         </p>
       </div>
@@ -407,7 +407,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
 
   const getExplicitStatus = () => {
     if (isSyncing || googleSheetsConfig.lastSyncStatus === 'syncing') {
-      return { text: 'Sinkronisasi berlangsung', color: 'bg-[#F3EAFF] dark:bg-[#2A174B] text-[#431599] dark:text-[#E8DDFF] border-[#CBB5F6]' };
+      return { text: 'Sinkronisasi berlangsung', color: 'bg-[#EAE8FF] dark:bg-[#2A174B] text-[#5145A6] dark:text-[#E8DDFF] border-[#C5BEEF] dark:border-[#5B289B]' };
     }
     if (authError || (googleSheetsConfig.lastSyncStatus === 'error' && (googleSheetsConfig.lastSyncMessage || '').toLowerCase().includes('kredensial'))) {
       return { text: 'Kredensial tidak valid', color: 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-300' };
@@ -421,7 +421,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
     if (isConnected) {
       return { text: 'Terhubung', color: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300' };
     }
-    return { text: 'Belum dikonfigurasi', color: 'bg-[#F8F1FF] dark:bg-[#1F1638] text-[#6A5A88] dark:text-[#CEC0E8] border-[#E4D8F8] dark:border-[#35105E]' };
+    return { text: 'Belum dikonfigurasi', color: 'bg-[#F4F7FB] dark:bg-[#1F1638] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E]' };
   };
 
   const statusObj = getExplicitStatus();
@@ -432,22 +432,22 @@ export const GoogleSheetsSyncView: React.FC = () => {
       <div className="card-3d-lavender rounded-2xl p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#5B289B] to-[#35105E] text-white flex items-center justify-center shrink-0 shadow-[0_6px_14px_rgba(53,16,94,0.28)]">
-              <FileSpreadsheet className="w-5 h-5 text-[#E8DDFF]" />
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#5B289B] dark:to-[#35105E] text-white flex items-center justify-center shrink-0 shadow-md dark:shadow-[0_6px_14px_rgba(53,16,94,0.28)]">
+              <FileSpreadsheet className="w-5 h-5 text-white dark:text-[#E8DDFF]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-xs">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#DDF4F4] border border-[#BDE4E8] text-[#2E7D8B] dark:border-transparent dark:bg-gradient-to-b dark:from-[#6b103b] dark:to-[#480123] dark:text-white shadow-xs">
                   GOOGLE WORKSPACE SYNC
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${statusObj.color}`}>
                   Status: {statusObj.text}
                 </span>
               </div>
-              <h2 className="text-base font-display font-extrabold text-[#1E1035] dark:text-white tracking-tight">
+              <h2 className="text-base font-display font-extrabold text-[#26364A] dark:text-white tracking-tight">
                 Konfigurasi Sinkronisasi Otomatis Google Sheets
               </h2>
-              <p className="text-xs text-[#6A5A88] dark:text-[#CEC0E8] mt-1">
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-1">
                 Hubungkan Google Spreadsheet untuk sinkronisasi Work Order dua arah, pembaruan status lapangan teknisi secara live, dan pendaftaran otomatis kategori kontraktor baru.
               </p>
             </div>
@@ -486,7 +486,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
             ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
             : googleSheetsConfig.lastSyncStatus === 'error'
             ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-            : 'bg-[#F3EAFF] dark:bg-[#2A174B] border-[#CBB5F6] dark:border-[#5B289B] text-[#431599] dark:text-[#E8DDFF]'
+            : 'bg-[#EAE8FF] dark:bg-[#2A174B] border-[#C5BEEF] dark:border-[#5B289B] text-[#5145A6] dark:text-[#E8DDFF]'
         }`}>
           <div className="flex items-center gap-2.5">
             {googleSheetsConfig.lastSyncStatus === 'success' ? (
@@ -494,7 +494,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
             ) : googleSheetsConfig.lastSyncStatus === 'error' ? (
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             ) : (
-              <RefreshCw className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE] animate-spin shrink-0" />
+              <RefreshCw className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE] animate-spin shrink-0" />
             )}
             <div>
               <span className="font-semibold">
@@ -526,15 +526,15 @@ export const GoogleSheetsSyncView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CARD 1: GOOGLE AUTHENTICATION & SPREADSHEET TARGET */}
         <div className="card-3d-lavender rounded-2xl p-5 space-y-5">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#E4D8F8] dark:border-[#35105E]">
-            <ShieldCheck className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
-            <h3 className="text-xs font-bold text-[#1E1035] dark:text-white uppercase tracking-wider">
+          <div className="flex items-center gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
+            <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+            <h3 className="text-xs font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
               1. Autentikasi Google Workspace &amp; Spreadsheet Target
             </h3>
           </div>
 
           {/* Google Auth Status */}
-          <div className="p-4 rounded-xl border border-[#E4D8F8] dark:border-[#35105E] bg-[#F8F1FF] dark:bg-[#160D29]">
+          <div className="p-4 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29]">
             {googleUser ? (
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -543,16 +543,16 @@ export const GoogleSheetsSyncView: React.FC = () => {
                       <img
                         src={googleUser.photoURL}
                         alt={googleUser.displayName || 'Google User'}
-                        className="w-10 h-10 rounded-full border border-[#D8CCF3] dark:border-[#5B289B]"
+                        className="w-10 h-10 rounded-full border border-[#C5BEEF] dark:border-[#5B289B]"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5B289B] to-[#35105E] text-white font-bold flex items-center justify-center text-sm shadow-xs">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#5B289B] dark:to-[#35105E] text-white font-bold flex items-center justify-center text-sm shadow-xs">
                         {(googleUser.displayName || googleUser.email || 'R')[0].toUpperCase()}
                       </div>
                     )}
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#1E1035] dark:text-white text-xs">
+                        <span className="font-bold text-[#26364A] dark:text-white text-xs">
                           {googleUser.displayName || currentUser.name || 'Super Admin'}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -563,7 +563,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                           {Boolean(getAccessToken()) ? 'Token Google Aktif' : 'Akun Terhubung'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8] font-mono">
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono">
                         {googleUser.email || currentUser.email || ''}
                       </div>
                       <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
@@ -624,10 +624,10 @@ export const GoogleSheetsSyncView: React.FC = () => {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs font-semibold text-[#1E1035] dark:text-white">
+                  <p className="text-xs font-semibold text-[#26364A] dark:text-white">
                     Akun Google Belum Terhubung
                   </p>
-                  <p className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8] mt-0.5">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
                     Login dengan akun Google untuk memberikan izin bagi aplikasi membaca dan memperbarui data Work Order di Google Spreadsheet Anda.
                   </p>
                 </div>
@@ -637,7 +637,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                     type="button"
                     onClick={handleLoginGoogle}
                     disabled={isAuthLoading}
-                    className="btn-3d-ceramic inline-flex items-center gap-3 px-4 py-2 rounded-xl text-[#1E1035] dark:text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                    className="btn-3d-ceramic inline-flex items-center gap-3 px-4 py-2 rounded-xl text-[#26364A] dark:text-white text-xs font-bold cursor-pointer disabled:opacity-50"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 48 48">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -675,19 +675,19 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 )}
 
                 {/* Collapsible Manual Token Input */}
-                <div className="pt-2 border-t border-[#E4D8F8] dark:border-[#35105E]">
+                <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                   <button
                     type="button"
                     onClick={() => setShowManualTokenInput(prev => !prev)}
-                    className="text-[11px] font-semibold text-[#6A5A88] hover:text-[#1E1035] dark:text-[#CEC0E8] dark:hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-[11px] font-semibold text-[#52647A] hover:text-[#26364A] dark:text-[#CEC0E8] dark:hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <span>{showManualTokenInput ? 'Sembunyikan Opsi Token Manual' : 'Opsi Pengembang: Masukkan OAuth Access Token Manual'}</span>
                     {showManualTokenInput ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
 
                   {showManualTokenInput && (
-                    <form onSubmit={handleApplyManualToken} className="mt-2.5 p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E4D8F8] dark:border-[#35105E] space-y-2">
-                      <p className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
+                    <form onSubmit={handleApplyManualToken} className="mt-2.5 p-3 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                      <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                         Tempelkan OAuth Bearer Access Token Google Sheets (scopes <code>spreadsheets</code> dan <code>drive.file</code>):
                       </p>
                       <div className="flex gap-2">
@@ -696,7 +696,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                           placeholder="ya29.a0AfH6SMC..."
                           value={manualTokenVal}
                           onChange={e => setManualTokenVal(e.target.value)}
-                          className="tactile-debossed-input flex-1 px-3 py-1.5 rounded-lg text-xs font-mono text-[#1E1035] dark:text-white"
+                          className="tactile-debossed-input flex-1 px-3 py-1.5 rounded-lg text-xs font-mono text-[#26364A] dark:text-white"
                         />
                         <button
                           type="submit"
@@ -716,7 +716,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
           {/* Google Cloud Project & Auth Method Config */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">
                 Google Cloud Project ID
               </label>
               <input
@@ -724,17 +724,17 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 value={projectId}
                 onChange={e => setProjectId(e.target.value)}
                 placeholder="clever-gearing-s5wls"
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs font-mono text-[#1E1035] dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs font-mono text-[#26364A] dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">
                 Metode Autentikasi Google
               </label>
               <select
                 value={authMethod}
                 onChange={e => setAuthMethod(e.target.value as any)}
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="oauth_token">Google OAuth 2.0 Access Token</option>
                 <option value="service_account">Google Service Account (Backend)</option>
@@ -746,14 +746,14 @@ export const GoogleSheetsSyncView: React.FC = () => {
           {/* Spreadsheet Target URL/ID */}
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF]">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF]">
                 URL atau ID Google Spreadsheet Target <span className="text-rose-500">*</span>
               </label>
               <button
                 type="button"
                 onClick={handleCreateNewSpreadsheet}
                 disabled={isCreatingSheet || !googleUser}
-                className="text-[11px] font-bold text-[#5B289B] dark:text-[#D8B4FE] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                className="text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{isCreatingSheet ? 'Membuat Spreadsheet...' : 'Buat Spreadsheet Otomatis (1-Click)'}</span>
@@ -766,7 +766,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5.../edit atau ID Spreadsheet"
                 value={spreadsheetInput}
                 onChange={e => setSpreadsheetInput(e.target.value)}
-                className="tactile-debossed-input flex-1 px-3 py-2 rounded-xl text-xs font-mono text-[#1E1035] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7135B5]"
+                className="tactile-debossed-input flex-1 px-3 py-2 rounded-xl text-xs font-mono text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
               />
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
@@ -794,7 +794,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
 
             {/* Latency & Backend Status Metrics */}
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              <span className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] dark:bg-[#2A174B] text-[#431599] dark:text-[#E8DDFF] font-mono">
+              <span className="px-2 py-0.5 rounded-lg bg-[#EAE8FF] border border-[#C5BEEF] dark:border-transparent dark:bg-[#2A174B] text-[#5145A6] dark:text-[#E8DDFF] font-mono">
                 Backend Status: <strong>{backendStatus}</strong>
               </span>
               {latencyMs !== null && (
@@ -803,7 +803,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 </span>
               )}
               {detectedHeaders.length > 0 && (
-                <span className="px-2 py-0.5 rounded-lg bg-[#F3EAFF] dark:bg-[#2A174B] text-[#5B289B] dark:text-[#D8B4FE] font-mono">
+                <span className="px-2 py-0.5 rounded-lg bg-[#DDF4F4] border border-[#BDE4E8] dark:border-transparent dark:bg-[#2A174B] text-[#2E7D8B] dark:text-[#D8B4FE] font-mono">
                   {detectedHeaders.length} Kolom Dikenali
                 </span>
               )}
@@ -831,8 +831,8 @@ export const GoogleSheetsSyncView: React.FC = () => {
             )}
 
             {spreadsheetTitle && (
-              <div className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
-                Judul Dokumen: <strong className="text-[#1E1035] dark:text-white">{spreadsheetTitle}</strong>
+              <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                Judul Dokumen: <strong className="text-[#26364A] dark:text-white">{spreadsheetTitle}</strong>
               </div>
             )}
           </div>
@@ -840,7 +840,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
           {/* Sheet Tab Name Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">
                 Nama Tab (Worksheet) <span className="text-rose-500">*</span>
               </label>
               {availableSheets.length > 1 ? (
@@ -851,7 +851,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
                     setDestSheetName(e.target.value);
                     void handleConfigUpdate({ sheetName: e.target.value });
                   }}
-                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#1E1035] dark:text-white"
+                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#26364A] dark:text-white"
                 >
                   {availableSheets.map(s => (
                     <option key={s} value={s}>{s}</option>
@@ -867,16 +867,16 @@ export const GoogleSheetsSyncView: React.FC = () => {
                     void handleConfigUpdate({ sheetName: e.target.value });
                   }}
                   placeholder="Contoh: Work_Orders"
-                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#1E1035] dark:text-white"
+                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#26364A] dark:text-white"
                 />
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">
                 Data Aktif di MoraJaws
               </label>
-              <div className="px-3 py-2 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl text-xs font-mono tabular-nums text-[#431599] dark:text-[#E8DDFF] border border-[#E4D8F8] dark:border-[#35105E]">
+              <div className="px-3 py-2 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl text-xs font-mono tabular-nums text-[#5145A6] dark:text-[#E8DDFF] border border-[#DDE6F0] dark:border-[#35105E]">
                 {activeTicketsCount} Tiket Aktif / {contractors.length} Mitra
               </div>
             </div>
@@ -885,20 +885,20 @@ export const GoogleSheetsSyncView: React.FC = () => {
 
         {/* CARD 2: AUTO-SYNC SETTINGS & SCHEDULE */}
         <div className="card-3d-lavender rounded-2xl p-5 space-y-5">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#E4D8F8] dark:border-[#35105E]">
-            <Sliders className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
-            <h3 className="text-xs font-bold text-[#1E1035] dark:text-white uppercase tracking-wider">
+          <div className="flex items-center gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
+            <Sliders className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+            <h3 className="text-xs font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
               2. Parameter Sinkronisasi Otomatis
             </h3>
           </div>
 
           {/* Master Enable Toggle */}
-          <div className="flex items-center justify-between p-3.5 bg-[#F8F1FF] dark:bg-[#160D29] rounded-xl border border-[#E4D8F8] dark:border-[#35105E]">
+          <div className="flex items-center justify-between p-3.5 bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
             <div>
-              <span className="font-bold text-[#1E1035] dark:text-white text-xs block">
+              <span className="font-bold text-[#26364A] dark:text-white text-xs block">
                 Aktifkan Auto-Sync Berkala
               </span>
-              <span className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
+              <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                 Sistem akan menyinkronkan data di latar belakang sesuai interval yang dipilih.
               </span>
             </div>
@@ -909,21 +909,21 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 onChange={e => void handleConfigUpdate({ enabled: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-[#D8CCF3] peer-focus:outline-none rounded-full peer dark:bg-[#35105E] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#CBB5F6] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5B289B]"></div>
+              <div className="w-11 h-6 bg-[#CFDCE8] peer-focus:outline-none rounded-full peer dark:bg-[#35105E] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#C5BEEF] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6657C8] dark:peer-checked:bg-[#5B289B]"></div>
             </label>
           </div>
 
           {/* Interval & Direction Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#7135B5]" />
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#7135B5]" />
                 <span>Interval Sinkronisasi</span>
               </label>
               <select
                 value={googleSheetsConfig.syncInterval}
                 onChange={e => void handleConfigUpdate({ syncInterval: Number(e.target.value) })}
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#26364A] dark:text-white font-semibold"
               >
                 <option value={1}>Setiap 1 Menit (Testing / Fast)</option>
                 <option value={5}>Setiap 5 Menit</option>
@@ -935,13 +935,13 @@ export const GoogleSheetsSyncView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#1E1035] dark:text-[#E8DDFF] mb-1">
+              <label className="block text-xs font-semibold text-[#26364A] dark:text-[#E8DDFF] mb-1">
                 Arah Sinkronisasi
               </label>
               <select
                 value={googleSheetsConfig.syncDirection}
                 onChange={e => void handleConfigUpdate({ syncDirection: e.target.value as any })}
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#1E1035] dark:text-white font-semibold"
+                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-xs text-[#26364A] dark:text-white font-semibold"
               >
                 <option value="both">Dua Arah (Pull &amp; Push)</option>
                 <option value="import_only">Tarik Saja (Import dari Sheet)</option>
@@ -951,19 +951,19 @@ export const GoogleSheetsSyncView: React.FC = () => {
           </div>
 
           {/* Additional Operational Switches */}
-          <div className="space-y-3 pt-2 border-t border-[#E4D8F8] dark:border-[#35105E]">
+          <div className="space-y-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
             <label className="flex items-start gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={googleSheetsConfig.autoExportOnStatusChange}
                 onChange={e => void handleConfigUpdate({ autoExportOnStatusChange: e.target.checked })}
-                className="mt-0.5 rounded border-[#CBB5F6] text-[#5B289B] focus:ring-[#7135B5]"
+                className="mt-0.5 rounded border-[#C5BEEF] dark:border-[#CBB5F6] text-[#6657C8] dark:text-[#5B289B] focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
               />
               <div>
-                <span className="text-xs font-semibold text-[#1E1035] dark:text-white block">
+                <span className="text-xs font-semibold text-[#26364A] dark:text-white block">
                   Dorong Otomatis Saat Ada Perubahan Tiket
                 </span>
-                <span className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
+                <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Perubahan status WO Agent, teknisi lapangan, dan penugasan langsung diperbarui ke baris Google Sheet.
                 </span>
               </div>
@@ -974,13 +974,13 @@ export const GoogleSheetsSyncView: React.FC = () => {
                 type="checkbox"
                 checked={googleSheetsConfig.autoRegisterContractors}
                 onChange={e => void handleConfigUpdate({ autoRegisterContractors: e.target.checked })}
-                className="mt-0.5 rounded border-[#CBB5F6] text-[#5B289B] focus:ring-[#7135B5]"
+                className="mt-0.5 rounded border-[#C5BEEF] dark:border-[#CBB5F6] text-[#6657C8] dark:text-[#5B289B] focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
               />
               <div>
-                <span className="text-xs font-semibold text-[#1E1035] dark:text-white block">
+                <span className="text-xs font-semibold text-[#26364A] dark:text-white block">
                   Daftarkan Otomatis Kategori Kontraktor Baru dari Google Sheet
                 </span>
-                <span className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
+                <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Jika baris spreadsheet memuat mitra kontraktor baru, sistem akan otomatis mendaftarkannya ke Master Data MoraJaws.
                 </span>
               </div>
@@ -988,7 +988,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
           </div>
 
           {/* Manual Control Buttons */}
-          <div className="pt-3 border-t border-[#E4D8F8] dark:border-[#35105E] flex flex-wrap items-center gap-2">
+          <div className="pt-3 border-t border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => handleTriggerSync('import_only')}
@@ -1030,22 +1030,22 @@ export const GoogleSheetsSyncView: React.FC = () => {
           className="w-full flex items-center justify-between text-left cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
-            <Info className="w-4 h-4 text-[#5B289B] dark:text-[#D8B4FE]" />
+            <Info className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
             <div>
-              <span className="text-xs font-bold text-[#1E1035] dark:text-white">
+              <span className="text-xs font-bold text-[#26364A] dark:text-white">
                 Panduan Kolom Standar &amp; Pemetaan Otomatis ({STANDARD_SHEET_HEADERS.length} Kolom)
               </span>
-              <p className="text-[11px] text-[#6A5A88] dark:text-[#CEC0E8]">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                 Format kolom yang digunakan untuk pertukaran data antara MoraJaws dan Google Spreadsheet.
               </p>
             </div>
           </div>
-          {showColumnsGuide ? <ChevronUp className="w-4 h-4 text-[#766B83]" /> : <ChevronDown className="w-4 h-4 text-[#766B83]" />}
+          {showColumnsGuide ? <ChevronUp className="w-4 h-4 text-[#8492A5] dark:text-[#766B83]" /> : <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#766B83]" />}
         </button>
 
         {showColumnsGuide && (
-          <div className="pt-3 border-t border-[#E4D8F8] dark:border-[#35105E] space-y-3">
-            <p className="text-xs text-[#4A3B63] dark:text-[#D9CCF2] leading-relaxed">
+          <div className="pt-3 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
+            <p className="text-xs text-[#52647A] dark:text-[#D9CCF2] leading-relaxed">
               Sistem pencocokan cerdas MoraJaws (WOFieldMappingEngine) mendukung alias nama kolom otomatis dalam Bahasa Indonesia dan Bahasa Inggris (misal: <code>WO Number</code>, <code>No WO</code>, <code>ID Customer</code>, <code>Contactor Name</code> / <code>Kategori Kontraktor</code>).
             </p>
 
@@ -1053,9 +1053,9 @@ export const GoogleSheetsSyncView: React.FC = () => {
               {STANDARD_SHEET_HEADERS.map((header, idx) => (
                 <span
                   key={header}
-                  className="px-2 py-1 rounded-lg bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E4D8F8] dark:border-[#35105E] text-[#431599] dark:text-[#E8DDFF]"
+                  className="px-2 py-1 rounded-lg bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#5145A6] dark:text-[#E8DDFF]"
                 >
-                  <span className="text-[#766B83] mr-1">{idx + 1}.</span>
+                  <span className="text-[#8492A5] dark:text-[#766B83] mr-1">{idx + 1}.</span>
                   {header}
                 </span>
               ))}
@@ -1097,7 +1097,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
         }
       >
         <div className="space-y-4">
-          <p className="text-xs text-[#4A3B63] dark:text-[#D9CCF2] leading-relaxed">
+          <p className="text-xs text-[#52647A] dark:text-[#D9CCF2] leading-relaxed">
             Anda akan memperbarui baris data pada tab <strong>{selectedSheetName}</strong> di Google Spreadsheet dengan <strong>{activeTicketsCount} tiket aktif</strong> dari sistem MoraJaws.
           </p>
 

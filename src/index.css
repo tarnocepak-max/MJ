@@ -2311,3 +2311,620 @@ html.dark .mj-ios-toast {
   transform-origin: top center;
   pointer-events: none;
 }
+
+/* ============================================================================
+ * MORAJAWS — LIGHT MODE ONLY: CRYSTAL AQUA LAVENDER (LIGHT 3D WATER GLASS)
+ * Strictly scoped to :root:not(.dark) / html:not(.dark).
+ * Night Mode (html.dark & dark:*) remains 100% preserved and untouched.
+ * ============================================================================ */
+:root:not(.dark),
+html:not(.dark) {
+  --mj-cal-bg: #F4F7FB;
+  --mj-cal-bg-secondary: #EDF3F8;
+  --mj-cal-surface: #FFFFFF;
+  --mj-cal-surface-soft: #F8FAFD;
+  --mj-cal-glass-bg: rgba(255, 255, 255, 0.82);
+  --mj-cal-glass-border: rgba(255, 255, 255, 0.92);
+  --mj-cal-border: #DDE6F0;
+  --mj-cal-violet: #6657C8;
+  --mj-cal-violet-deep: #5145A6;
+  --mj-cal-violet-light: #EAE8FF;
+  --mj-cal-lavender-soft: #F0EDFF;
+  --mj-cal-aqua: #65B8C4;
+  --mj-cal-aqua-soft: #DDF4F4;
+  --mj-cal-text-main: #26364A;
+  --mj-cal-text-secondary: #52647A;
+  --mj-cal-text-muted: #8492A5;
+  --mj-cal-text-disabled: #AAB5C2;
+  --mj-cal-success: #218A63;
+  --mj-cal-success-soft: #E4F5EC;
+  --mj-cal-warning: #C88735;
+  --mj-cal-warning-soft: #FFF2D9;
+  --mj-cal-danger: #D45B66;
+  --mj-cal-danger-soft: #FCE9EB;
+  --mj-cal-info: #3E81C6;
+  --mj-cal-info-soft: #E7F1FB;
+
+  /* Override Lumina Light Tokens with Soft Crystal Mist */
+  --mj-dark-purple: #26364A;
+  --mj-deep-purple: #5145A6;
+  --mj-gloss-purple: #6657C8;
+  --mj-primary: #6657C8;
+  --mj-primary-container: #5145A6;
+  --mj-violet: #65B8C4;
+  --mj-lilac: #EAE8FF;
+  --mj-light-lilac: #F0EDFF;
+  --mj-canvas: #F4F7FB;
+  --mj-canvas-tinted: #EDF3F8;
+  --mj-border: #DDE6F0;
+  --mj-border-lilac: #CFDCE8;
+
+  --mj-aurora-bg-color: #F4F7FB;
+  --mj-aurora-text-color: #26364A;
+  --mj-aurora-gradient:
+    radial-gradient(ellipse 92% 42% at 50% 0%, rgba(255, 255, 255, 0.88) 0%, transparent 65%),
+    radial-gradient(circle clamp(300px, 50vmax, 760px) at 88% 8%, rgba(101, 184, 196, 0.14) 0%, rgba(102, 87, 200, 0.06) 44%, transparent 74%),
+    radial-gradient(circle clamp(240px, 40vmax, 600px) at 96% 44%, rgba(221, 244, 244, 0.45) 0%, rgba(234, 232, 255, 0.25) 45%, transparent 75%),
+    radial-gradient(circle clamp(280px, 48vmax, 720px) at 8% 90%, rgba(234, 232, 255, 0.52) 0%, rgba(101, 184, 196, 0.10) 44%, transparent 76%),
+    linear-gradient(145deg, #F4F7FB 0%, #EDF3F8 52%, #F6F9FC 100%);
+  --mj-glass-bg: rgba(255, 255, 255, 0.82);
+  --mj-glass-bg-subtle: rgba(248, 250, 253, 0.78);
+  --mj-glass-border: rgba(255, 255, 255, 0.92);
+  --mj-glass-shadow:
+    0 12px 30px -10px rgba(38, 54, 74, 0.08),
+    0 4px 12px -4px rgba(101, 184, 196, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+
+  --mj-notif-violet: #6657C8;
+  --mj-notif-deep: #5145A6;
+  --mj-notif-electric: #65B8C4;
+  --mj-notif-lavender: #EAE8FF;
+  --mj-notif-bg: #F4F7FB;
+  --mj-notif-surface: #FFFFFF;
+  --mj-notif-text: #26364A;
+  --mj-notif-muted: #52647A;
+}
+
+@media (max-width: 1023px) {
+  :root:not(.dark),
+  html:not(.dark) {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 95% 40% at 50% 0%, rgba(255, 255, 255, 0.88) 0%, transparent 64%),
+      radial-gradient(circle 54vmax at 86% 9%, rgba(101, 184, 196, 0.14) 0%, rgba(102, 87, 200, 0.06) 44%, transparent 74%),
+      radial-gradient(circle 48vmax at 10% 90%, rgba(234, 232, 255, 0.48) 0%, rgba(101, 184, 196, 0.09) 44%, transparent 76%),
+      linear-gradient(145deg, #F4F7FB 0%, #EDF3F8 52%, #F6F9FC 100%);
+  }
+}
+
+@media (max-width: 639px) {
+  :root:not(.dark),
+  html:not(.dark) {
+    --mj-aurora-gradient:
+      radial-gradient(ellipse 100% 36% at 50% 0%, rgba(255, 255, 255, 0.88) 0%, transparent 62%),
+      radial-gradient(circle 58vmax at 84% 7%, rgba(101, 184, 196, 0.13) 0%, rgba(102, 87, 200, 0.06) 44%, transparent 74%),
+      radial-gradient(circle 52vmax at 10% 92%, rgba(234, 232, 255, 0.45) 0%, rgba(101, 184, 196, 0.09) 44%, transparent 76%),
+      linear-gradient(145deg, #F4F7FB 0%, #EDF3F8 52%, #F6F9FC 100%);
+  }
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(102, 87, 200, 0.22);
+}
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(81, 69, 166, 0.38);
+}
+
+/* Light 3D Water Glass Cards, Wells & Tabs */
+html:not(.dark) .glass-panel {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 12px 30px -10px rgba(38, 54, 74, 0.09),
+    0 0 0 1px rgba(221, 230, 240, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+html:not(.dark) .glass-panel-subtle {
+  background: rgba(248, 250, 253, 0.82);
+  border: 1px solid #DDE6F0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+html:not(.dark) .glass-pill {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #DDE6F0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 2px 8px -2px rgba(38, 54, 74, 0.06);
+}
+
+html:not(.dark) .mj-tactile-card,
+html:not(.dark) .mj-enterprise-card,
+html:not(.dark) .card-3d-lavender,
+html:not(.dark) .mj-stitch-card,
+html:not(.dark) .tactile-card-shell {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.90) 0%, rgba(248, 250, 253, 0.82) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 0 0 1px rgba(221, 230, 240, 0.88),
+    0 3px 0 rgba(221, 230, 240, 0.75),
+    0 12px 26px -10px rgba(38, 54, 74, 0.08);
+}
+
+html:not(.dark) .mj-gloss-card-light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(237, 243, 248, 0.86) 58%, rgba(234, 232, 255, 0.78) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 0 0 1px rgba(221, 230, 240, 0.8),
+    0 12px 30px -10px rgba(38, 54, 74, 0.09);
+}
+
+html:not(.dark) .mj-tactile-well,
+html:not(.dark) .mj-stitch-tonal-well,
+html:not(.dark) .mj-tactile-tab-bar,
+html:not(.dark) .mj-seg-track,
+html:not(.dark) .mj-search-inset-well {
+  background-color: #EDF3F8;
+  border-color: #DDE6F0;
+  box-shadow: inset 0 1.5px 3px rgba(38, 54, 74, 0.06), 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html:not(.dark) .mj-tactile-tab-active {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFD 100%);
+  color: #26364A;
+  border: 1px solid #DDE6F0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 2.5px 0 #CFDCE8,
+    0 6px 12px -4px rgba(38, 54, 74, 0.08);
+}
+
+html:not(.dark) .tab-3d-active {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F0EDFF 100%);
+  border: 1px solid #DDE6F0;
+  border-bottom: 3px solid #6657C8;
+  box-shadow: 0 -2px 6px rgba(102, 87, 200, 0.07);
+  color: #5145A6;
+}
+
+html:not(.dark) .tab-3d-idle {
+  color: #52647A;
+}
+html:not(.dark) .tab-3d-idle:hover {
+  background: #F8FAFD;
+  border-color: #DDE6F0;
+  border-bottom-color: #CFDCE8;
+  color: #26364A;
+}
+
+html:not(.dark) .tactile-debossed-input {
+  background: #F8FAFD;
+  box-shadow: inset 0 1.5px 3px rgba(38, 54, 74, 0.05), inset 0 0 0 1px #DDE6F0, 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+html:not(.dark) .mj-focus-glow:focus-visible,
+html:not(.dark) .mj-focus-glow:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(101, 184, 196, 0.28);
+  border-color: #6657C8;
+}
+
+/* Unified Aqua-Violet Glass Role Banner (Light Mode) */
+html:not(.dark) .banner-maroon-superadmin {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(234, 232, 255, 0.78) 54%, rgba(221, 244, 244, 0.80) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  color: #26364A;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 0 0 1px #DDE6F0,
+    0 4px 0 #DDE6F0,
+    0 14px 28px -10px rgba(38, 54, 74, 0.10);
+}
+
+/* Floating Capsules & Pills (Light Mode) */
+html:not(.dark) .mj-glass-capsule {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 16px 36px -12px rgba(38, 54, 74, 0.14),
+    0 0 0 1px rgba(221, 230, 240, 0.82),
+    0 0 18px 0 rgba(101, 184, 196, 0.12),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+html:not(.dark) .mj-floating-nav-pill-active,
+html:not(.dark) .mj-tactile-cta-pill,
+html:not(.dark) .nav-3d-active {
+  background: linear-gradient(180deg, #7769D6 0%, #6657C8 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.52),
+    0 3px 0 0 #5145A6,
+    0 6px 14px -3px rgba(81, 69, 166, 0.30);
+}
+html:not(.dark) .mj-floating-nav-pill-active:hover:not(:disabled),
+html:not(.dark) .mj-tactile-cta-pill:hover:not(:disabled) {
+  background: linear-gradient(180deg, #8375E2 0%, #6D5ED1 100%);
+}
+html:not(.dark) .mj-floating-nav-pill-active:active:not(:disabled),
+html:not(.dark) .mj-tactile-cta-pill:active:not(:disabled) {
+  transform: translateY(1.5px);
+  box-shadow: inset 0 1.5px 3px rgba(38, 54, 74, 0.22), 0 1px 0 0 #5145A6;
+}
+
+html:not(.dark) .mj-floating-nav-pill-idle {
+  background: rgba(248, 250, 253, 0.78);
+  border: 1px solid #DDE6F0;
+  color: #52647A;
+}
+html:not(.dark) .mj-floating-nav-pill-idle:hover {
+  background: #F0EDFF;
+  border-color: rgba(102, 87, 200, 0.35);
+  color: #5145A6;
+  box-shadow: 0 4px 10px -3px rgba(81, 69, 166, 0.14);
+}
+
+/* ============================================================================
+ * REFINED CRYSTAL BEVEL — UNIFIED 3D BUTTON SYSTEM (LIGHT MODE ONLY)
+ * ============================================================================ */
+html:not(.dark) .btn-3d-primary,
+html:not(.dark) .mj-tactile-btn-primary,
+html:not(.dark) .mj-btn-primary,
+html:not(.dark) .tactile-btn-primary,
+html:not(.dark) .mj-btn-leader-primary,
+html:not(.dark) .mj-btn-leader-secondary,
+html:not(.dark) .mj-btn-superadmin-primary,
+html:not(.dark) .btn-3d-darkpurple,
+html:not(.dark) .btn-3d-maroon,
+html:not(.dark) .mj-btn-superadmin-maroon,
+html:not(.dark) .tactile-micro-key,
+html:not(.dark) .tactile-chip-active,
+html:not(.dark) .mj-notif-btn-3d {
+  background: linear-gradient(180deg, #7A6CE0 0%, #6657C8 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.48),
+    0 3px 0 0 #5145A6,
+    0 6px 14px -4px rgba(81, 69, 166, 0.28);
+}
+html:not(.dark) .btn-3d-primary:hover:not(:disabled),
+html:not(.dark) .mj-tactile-btn-primary:hover:not(:disabled),
+html:not(.dark) .mj-btn-primary:hover:not(:disabled),
+html:not(.dark) .tactile-btn-primary:hover:not(:disabled),
+html:not(.dark) .mj-btn-leader-primary:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-btn-leader-secondary:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-btn-superadmin-primary:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .btn-3d-darkpurple:hover:not(:disabled),
+html:not(.dark) .btn-3d-maroon:hover:not(:disabled),
+html:not(.dark) .mj-btn-superadmin-maroon:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-notif-btn-3d:hover:not(:disabled) {
+  background: linear-gradient(180deg, #8678EA 0%, #6D5ED1 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.58),
+    0 4px 0 0 #5145A6,
+    0 9px 18px -4px rgba(81, 69, 166, 0.34);
+}
+html:not(.dark) .btn-3d-primary:active:not(:disabled),
+html:not(.dark) .mj-tactile-btn-primary:active:not(:disabled),
+html:not(.dark) .mj-btn-primary:active:not(:disabled),
+html:not(.dark) .tactile-btn-primary:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-primary:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-secondary:active:not(:disabled),
+html:not(.dark) .mj-btn-superadmin-primary:active:not(:disabled),
+html:not(.dark) .btn-3d-darkpurple:active:not(:disabled),
+html:not(.dark) .btn-3d-maroon:active:not(:disabled),
+html:not(.dark) .mj-btn-superadmin-maroon:active:not(:disabled),
+html:not(.dark) .tactile-micro-key:active:not(:disabled),
+html:not(.dark) .mj-notif-btn-3d:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1.5px 3px rgba(38, 54, 74, 0.25),
+    0 1px 0 0 #5145A6;
+}
+
+html:not(.dark) .mj-btn-installer-primary,
+html:not(.dark) .mj-btn-installer-secondary {
+  background: linear-gradient(180deg, #7A6CE0 0%, #6657C8 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.52),
+    0 4px 0 0 #5145A6,
+    0 8px 18px -4px rgba(81, 69, 166, 0.30);
+}
+html:not(.dark) .mj-btn-installer-primary:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-btn-installer-secondary:hover:not(:disabled):not(.mj-btn-loading) {
+  background: linear-gradient(180deg, #8678EA 0%, #6D5ED1 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
+    0 5px 0 0 #5145A6,
+    0 10px 20px -4px rgba(81, 69, 166, 0.35);
+}
+html:not(.dark) .mj-btn-installer-primary:active:not(:disabled),
+html:not(.dark) .mj-btn-installer-secondary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 4px rgba(38, 54, 74, 0.25), 0 1px 0 0 #5145A6;
+}
+
+/* Secondary / Ceramic / Neutral / Lilac Crystal Glass Buttons */
+html:not(.dark) .btn-3d-ceramic,
+html:not(.dark) .btn-3d-secondary,
+html:not(.dark) .mj-tactile-btn-secondary,
+html:not(.dark) .mj-btn-secondary,
+html:not(.dark) .tactile-btn-secondary,
+html:not(.dark) .tactile-pill-btn,
+html:not(.dark) .tactile-chip,
+html:not(.dark) .mj-btn-leader-neutral,
+html:not(.dark) .mj-btn-installer-neutral {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F4F7FB 100%);
+  border: 1px solid #DDE6F0;
+  color: #26364A;
+  box-shadow:
+    inset 0 1px 0 0 #FFFFFF,
+    0 2.5px 0 0 #CFDCE8,
+    0 4px 10px -3px rgba(38, 54, 74, 0.07);
+}
+html:not(.dark) .btn-3d-ceramic:hover:not(:disabled),
+html:not(.dark) .btn-3d-secondary:hover:not(:disabled),
+html:not(.dark) .mj-tactile-btn-secondary:hover:not(:disabled),
+html:not(.dark) .mj-btn-secondary:hover:not(:disabled),
+html:not(.dark) .tactile-chip:hover:not(:disabled),
+html:not(.dark) .mj-btn-leader-neutral:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-btn-installer-neutral:hover:not(:disabled):not(.mj-btn-loading) {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F0EDFF 100%);
+  border-color: #65B8C4;
+  color: #5145A6;
+}
+html:not(.dark) .btn-3d-ceramic:active:not(:disabled),
+html:not(.dark) .btn-3d-secondary:active:not(:disabled),
+html:not(.dark) .mj-tactile-btn-secondary:active:not(:disabled),
+html:not(.dark) .mj-btn-secondary:active:not(:disabled),
+html:not(.dark) .tactile-btn-secondary:active:not(:disabled),
+html:not(.dark) .tactile-pill-btn:active:not(:disabled),
+html:not(.dark) .tactile-chip:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-neutral:active:not(:disabled),
+html:not(.dark) .mj-btn-installer-neutral:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 2px rgba(38, 54, 74, 0.08), 0 0.5px 0 0 #CFDCE8;
+}
+
+html:not(.dark) .btn-3d-lilac,
+html:not(.dark) .mj-btn-superadmin-lilac,
+html:not(.dark) .mj-notif-btn-3d-soft {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F0EDFF 100%);
+  border: 1px solid #DCE3F2;
+  color: #5145A6;
+  box-shadow:
+    inset 0 1px 0 0 #FFFFFF,
+    0 2.5px 0 0 #C7C3EA,
+    0 4px 10px -3px rgba(102, 87, 200, 0.10);
+}
+html:not(.dark) .btn-3d-lilac:hover:not(:disabled),
+html:not(.dark) .mj-btn-superadmin-lilac:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-notif-btn-3d-soft:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FFFFFF 0%, #EAE8FF 100%);
+  border-color: #6657C8;
+  color: #5145A6;
+}
+html:not(.dark) .btn-3d-lilac:active:not(:disabled),
+html:not(.dark) .mj-btn-superadmin-lilac:active:not(:disabled),
+html:not(.dark) .mj-notif-btn-3d-soft:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 2px rgba(81, 69, 166, 0.12), 0 0.5px 0 0 #C7C3EA;
+}
+
+/* Tactile Icon Keys (Light Mode) */
+html:not(.dark) .btn-3d-icon,
+html:not(.dark) .mj-tactile-icon-key,
+html:not(.dark) .mj-btn-icon-3d-leader,
+html:not(.dark) .mj-btn-icon-3d-installer {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFD 100%);
+  border: 1px solid #DDE6F0;
+  color: #5145A6;
+  box-shadow:
+    inset 0 1px 0 0 #FFFFFF,
+    0 2.5px 0 0 #CFDCE8,
+    0 4px 8px -2px rgba(38, 54, 74, 0.08);
+}
+html:not(.dark) .btn-3d-icon:hover:not(:disabled),
+html:not(.dark) .mj-tactile-icon-key:hover:not(:disabled),
+html:not(.dark) .mj-btn-icon-3d-leader:hover:not(:disabled),
+html:not(.dark) .mj-btn-icon-3d-installer:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F0EDFF 100%);
+  border-color: #65B8C4;
+  color: #6657C8;
+}
+
+/* Semantic 3D Variants (Calm Crystal Bevel Tones in Light Mode) */
+html:not(.dark) .btn-3d-success,
+html:not(.dark) .btn-3d-emerald,
+html:not(.dark) .mj-tactile-btn-success,
+html:not(.dark) .mj-btn-leader-success,
+html:not(.dark) .mj-btn-installer-success {
+  background: linear-gradient(180deg, #27A074 0%, #218A63 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 3px 0 0 #17694B,
+    0 6px 12px -4px rgba(33, 138, 99, 0.25);
+}
+html:not(.dark) .btn-3d-success:hover:not(:disabled),
+html:not(.dark) .btn-3d-emerald:hover:not(:disabled),
+html:not(.dark) .mj-tactile-btn-success:hover:not(:disabled),
+html:not(.dark) .mj-btn-leader-success:hover:not(:disabled):not(.mj-btn-loading),
+html:not(.dark) .mj-btn-installer-success:hover:not(:disabled):not(.mj-btn-loading) {
+  background: linear-gradient(180deg, #2EB080 0%, #23966C 100%);
+  filter: none;
+}
+html:not(.dark) .btn-3d-success:active:not(:disabled),
+html:not(.dark) .btn-3d-emerald:active:not(:disabled),
+html:not(.dark) .mj-tactile-btn-success:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-success:active:not(:disabled),
+html:not(.dark) .mj-btn-installer-success:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 3px rgba(23, 105, 75, 0.35), 0 1px 0 0 #17694B;
+}
+
+html:not(.dark) .btn-3d-warning,
+html:not(.dark) .btn-3d-amber,
+html:not(.dark) .mj-tactile-btn-warning,
+html:not(.dark) .mj-btn-leader-warning,
+html:not(.dark) .mj-btn-installer-warning {
+  background: linear-gradient(180deg, #DA9A46 0%, #C88735 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 3px 0 0 #9D661F,
+    0 6px 12px -4px rgba(200, 135, 53, 0.24);
+}
+html:not(.dark) .btn-3d-warning:active:not(:disabled),
+html:not(.dark) .btn-3d-amber:active:not(:disabled),
+html:not(.dark) .mj-tactile-btn-warning:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-warning:active:not(:disabled),
+html:not(.dark) .mj-btn-installer-warning:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 3px rgba(157, 102, 31, 0.35), 0 1px 0 0 #9D661F;
+}
+
+html:not(.dark) .btn-3d-danger,
+html:not(.dark) .btn-3d-crimson,
+html:not(.dark) .mj-tactile-btn-danger,
+html:not(.dark) .mj-btn-leader-danger,
+html:not(.dark) .mj-btn-installer-danger {
+  background: linear-gradient(180deg, #E06D77 0%, #D45B66 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 3px 0 0 #AC3C47,
+    0 6px 12px -4px rgba(212, 91, 102, 0.24);
+}
+html:not(.dark) .btn-3d-danger:active:not(:disabled),
+html:not(.dark) .btn-3d-crimson:active:not(:disabled),
+html:not(.dark) .mj-tactile-btn-danger:active:not(:disabled),
+html:not(.dark) .mj-btn-leader-danger:active:not(:disabled),
+html:not(.dark) .mj-btn-installer-danger:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: inset 0 1.5px 3px rgba(172, 60, 71, 0.35), 0 1px 0 0 #AC3C47;
+}
+
+html:not(.dark) .btn-3d-icon-wa,
+html:not(.dark) .mj-btn-icon-3d-wa {
+  background: linear-gradient(180deg, #FFFFFF 0%, #E4F5EC 100%);
+  border: 1px solid #B7E4CC;
+  box-shadow: inset 0 1px 0 #FFFFFF, 0 2.5px 0 0 #218A63, 0 4px 8px -2px rgba(33, 138, 99, 0.14);
+  color: #218A63;
+}
+html:not(.dark) .btn-3d-icon-wa:hover:not(:disabled),
+html:not(.dark) .mj-btn-icon-3d-wa:hover:not(:disabled) {
+  background: linear-gradient(180deg, #27A074 0%, #218A63 100%);
+  border-color: #17694B;
+  color: #FFFFFF;
+}
+
+/* Disabled State (Light Mode) */
+html:not(.dark) [class*="mj-btn-leader-"]:disabled,
+html:not(.dark) [class*="mj-btn-leader-"][aria-disabled="true"],
+html:not(.dark) [class*="mj-btn-installer-"]:disabled,
+html:not(.dark) [class*="mj-btn-installer-"][aria-disabled="true"],
+html:not(.dark) .btn-3d-primary:disabled,
+html:not(.dark) .btn-3d-secondary:disabled,
+html:not(.dark) .btn-3d-ceramic:disabled,
+html:not(.dark) .btn-3d-success:disabled,
+html:not(.dark) .btn-3d-danger:disabled,
+html:not(.dark) .btn-3d-warning:disabled,
+html:not(.dark) .btn-3d-emerald:disabled,
+html:not(.dark) .btn-3d-crimson:disabled,
+html:not(.dark) .btn-3d-amber:disabled,
+html:not(.dark) .btn-3d-maroon:disabled,
+html:not(.dark) .btn-3d-darkpurple:disabled,
+html:not(.dark) .btn-3d-lilac:disabled,
+html:not(.dark) .btn-3d-icon:disabled,
+html:not(.dark) .btn-3d-icon-wa:disabled,
+html:not(.dark) .mj-btn-icon-3d-leader:disabled,
+html:not(.dark) .mj-btn-icon-3d-installer:disabled,
+html:not(.dark) .mj-btn-icon-3d-wa:disabled,
+html:not(.dark) .mj-tactile-btn-primary:disabled,
+html:not(.dark) .mj-tactile-btn-secondary:disabled,
+html:not(.dark) .mj-tactile-btn-success:disabled,
+html:not(.dark) .mj-tactile-btn-danger:disabled,
+html:not(.dark) .mj-tactile-btn-warning:disabled,
+html:not(.dark) .mj-btn-superadmin-primary:disabled,
+html:not(.dark) .mj-btn-superadmin-lilac:disabled,
+html:not(.dark) .mj-btn-superadmin-maroon:disabled {
+  background: #EDF3F8 !important;
+  color: #AAB5C2 !important;
+  border-color: #DDE6F0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.72 !important;
+  cursor: not-allowed !important;
+  filter: none;
+}
+
+/* Switch Controls (Light Mode) */
+html:not(.dark) .mj-switch-track-on {
+  background: linear-gradient(180deg, #7769D6 0%, #6657C8 100%);
+  box-shadow: inset 0 2px 4px rgba(38, 54, 74, 0.22), 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+html:not(.dark) .mj-switch-track-off {
+  background: #DDE6F0;
+  box-shadow: inset 0 2px 4px rgba(38, 54, 74, 0.12);
+}
+html:not(.dark) .mj-switch-thumb {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F4F7FB 100%);
+  box-shadow: 0 2px 4px rgba(38, 54, 74, 0.22), inset 0 1px 0 #FFFFFF;
+}
+
+/* Notification Center & iOS Toast (Light Mode) */
+html:not(.dark) .mj-notif-glass-panel {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(244, 247, 251, 0.92) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 24px 56px -14px rgba(38, 54, 74, 0.18),
+    0 0 0 1px #DDE6F0,
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.98);
+}
+
+html:not(.dark) .mj-notif-header-glass {
+  background: linear-gradient(135deg, #5145A6 0%, #6657C8 65%, #65B8C4 130%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.34),
+    0 8px 20px -10px rgba(81, 69, 166, 0.42);
+}
+
+html:not(.dark) .mj-ios-toast {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 247, 251, 0.92) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 14px 32px -10px rgba(38, 54, 74, 0.18),
+    0 0 0 1px #DDE6F0,
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+/* Light Mode Zebra Ice-Tint Table Rows (Zero Row Blur for Scroll FPS) */
+html:not(.dark) .mj-zebra-table tbody > tr:nth-child(odd) {
+  background-color: #FFFFFF;
+}
+html:not(.dark) .mj-zebra-table tbody > tr:nth-child(even) {
+  background-color: #F8FAFD;
+}
+html:not(.dark) .mj-zebra-table tbody > tr:hover {
+  background-color: rgba(240, 237, 255, 0.65);
+}
+

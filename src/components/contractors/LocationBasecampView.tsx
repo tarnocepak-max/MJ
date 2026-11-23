@@ -87,17 +87,17 @@ export const LocationBasecampView: React.FC = () => {
       {/* Header */}
       <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#241145] dark:bg-[#35105E] text-white flex items-center justify-center font-bold shadow-[0_3px_0_#160D29] shrink-0">
-            <Building2 className="w-5 h-5 text-[#DAB9FF]" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#EAE8FF] to-[#DDF4F4] dark:from-[#35105E] dark:to-[#241145] border border-[#C5BEEF] dark:border-transparent text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center font-bold shadow-[0_3px_0_#D2DAEA] dark:shadow-[0_3px_0_#160D29] shrink-0">
+            <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-display text-base font-bold text-[#1F1638] dark:text-white flex flex-wrap items-center gap-2">
+            <h2 className="font-display text-base font-bold text-[#26364A] dark:text-white flex flex-wrap items-center gap-2">
               <span>Location Basecamp &amp; Hub Lapangan Mitra</span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#5B35B1]/50">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]/50">
                 Pusat Armada &amp; Material
               </span>
             </h2>
-            <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8] mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
               Direktori titik kumpul armada teknisi, gudang dropcore/modem, dan kontak koordinasi basecamp mitra kontraktor.
             </p>
           </div>
@@ -112,12 +112,12 @@ export const LocationBasecampView: React.FC = () => {
             className="card-3d-lavender rounded-2xl p-5 space-y-4 flex flex-col justify-between"
           >
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-2 border-b border-[#E8DDFF] dark:border-[#35105E] pb-3">
+              <div className="flex items-start justify-between gap-2 border-b border-[#E2E8F0] dark:border-[#35105E] pb-3">
                 <div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#5B35B1]/50">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#DAB9FF] border border-[#BDE4E8] dark:border-[#5B35B1]/50">
                     {bc.area}
                   </span>
-                  <h3 className="font-display font-bold text-sm text-[#1F1638] dark:text-white mt-1.5">
+                  <h3 className="font-display font-bold text-sm text-[#26364A] dark:text-white mt-1.5">
                     {bc.name}
                   </h3>
                 </div>
@@ -125,36 +125,36 @@ export const LocationBasecampView: React.FC = () => {
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="text-[#4B4452] dark:text-[#CEC0E8]">
-                  <strong className="text-[#1F1638] dark:text-white block mb-0.5">Kontraktor:</strong>
+                <div className="text-[#52647A] dark:text-[#CEC0E8]">
+                  <strong className="text-[#26364A] dark:text-white block mb-0.5">Kontraktor:</strong>
                   {bc.contractorName}
                 </div>
 
-                <div className="text-[#4B4452] dark:text-[#CEC0E8]">
-                  <strong className="text-[#1F1638] dark:text-white block mb-0.5">Alamat Basecamp:</strong>
+                <div className="text-[#52647A] dark:text-[#CEC0E8]">
+                  <strong className="text-[#26364A] dark:text-white block mb-0.5">Alamat Basecamp:</strong>
                   {bc.address}
                 </div>
 
-                <div className="mj-tactile-well p-2.5 space-y-1.5 text-[11px] border border-[#E8DDFF]/70 dark:border-[#35105E]">
+                <div className="mj-tactile-well p-2.5 space-y-1.5 text-[11px] border border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#7D7484] dark:text-[#C5B3DF]">Leader / Korlap:</span>
-                    <span className="font-semibold text-[#1F1638] dark:text-white text-right">{bc.leaderName}</span>
+                    <span className="text-[#8492A5] dark:text-[#C5B3DF]">Leader / Korlap:</span>
+                    <span className="font-semibold text-[#26364A] dark:text-white text-right">{bc.leaderName}</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#7D7484] dark:text-[#C5B3DF]">Hotline Basecamp:</span>
+                    <span className="text-[#8492A5] dark:text-[#C5B3DF]">Hotline Basecamp:</span>
                     <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{bc.phone}</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#7D7484] dark:text-[#C5B3DF]">Kekuatan Armada:</span>
-                    <span className="font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">{bc.installerCount} Teknisi Aktif</span>
+                    <span className="text-[#8492A5] dark:text-[#C5B3DF]">Kekuatan Armada:</span>
+                    <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">{bc.installerCount} Teknisi Aktif</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#E8DDFF] dark:border-[#35105E] flex items-center gap-2">
+            <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#35105E] flex items-center gap-2">
               <a
                 href={`tel:${bc.phone}`}
                 className="btn-3d-lilac flex-1 py-2 px-3 min-h-[44px] sm:min-h-[38px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer text-center"

@@ -205,36 +205,36 @@ const SectorGeofenceMiniRadar: React.FC<{
   }, [pinSignature, pins]);
 
   return (
-    <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-inner bg-[#e8ddff] dark:bg-[#120926] border border-[#cec3d4]/60 dark:border-[#35105E]">
+    <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-inner bg-[#EDF3F8] dark:bg-[#120926] border border-[#DDE6F0] dark:border-[#35105E]">
       {pins.length > 0 ? (
         <div ref={mapElRef} className="w-full h-full z-0" />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#f3eaff] via-[#fdf7ff] to-[#eee4ff] dark:from-[#1B1033] dark:to-[#120A22]">
-          <Compass className="w-8 h-8 text-[#7135b5] dark:text-[#dab9ff] mb-2 opacity-80" />
-          <div className="text-xs font-bold text-[#1f1638] dark:text-white">
+        <div className="w-full h-full flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:from-[#1B1033] dark:to-[#120A22]">
+          <Compass className="w-8 h-8 text-[#5145A6] dark:text-[#dab9ff] mb-2 opacity-80" />
+          <div className="text-xs font-bold text-[#26364A] dark:text-white">
             Menunggu Koordinat Geotag Lapangan
           </div>
-          <div className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] mt-1">
+          <div className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8] mt-1">
             Pin GIS akan muncul otomatis setelah teknisi mengirim Check-In Camera / GPS rumah pelanggan.
           </div>
         </div>
       )}
 
       {/* Tactical HUD Overlay */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#1f1638]/85 via-[#1f1638]/15 to-transparent flex flex-col justify-between p-3 z-[400]">
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#26364A]/85 via-[#26364A]/15 dark:from-[#1f1638]/85 dark:via-[#1f1638]/15 to-transparent flex flex-col justify-between p-3 z-[400]">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="px-2 py-1 rounded bg-black/65 backdrop-blur-sm text-white font-mono text-[10px] font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             RADAR: {sectorLabel.toUpperCase()} ({pins.length > 0 ? 'ACTIVE' : 'STANDBY'})
           </span>
-          <span className="px-2 py-0.5 rounded bg-[#58149c]/90 backdrop-blur-sm text-white font-mono text-[10px] font-bold">
+          <span className="px-2 py-0.5 rounded bg-[#6657C8]/90 dark:bg-[#58149c]/90 backdrop-blur-sm text-white font-mono text-[10px] font-bold">
             {avgDbmLabel !== '-' ? `AVG RX: ${avgDbmLabel}` : `${pins.length} PIN GIS`}
           </span>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 bg-black/75 backdrop-blur-md p-2 rounded-lg border border-[#a380fe]/45 text-white">
-            <Camera className="w-4 h-4 text-[#dab9ff] shrink-0" />
+          <div className="flex items-center gap-2 bg-black/75 backdrop-blur-md p-2 rounded-lg border border-[#DCE3F2]/45 dark:border-[#a380fe]/45 text-white">
+            <Camera className="w-4 h-4 text-[#DDF4F4] dark:text-[#dab9ff] shrink-0" />
             <div className="min-w-0">
               <div className="text-[11px] font-bold leading-tight truncate">
                 {verifiedHouseCount} Rumah Terverifikasi Foto Geotag
@@ -643,7 +643,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         color = '#A380FE';
         label = 'Check-In Valid';
       } else if (isTicketAssigned(t)) {
-        color = '#7135B5';
+        color = '#6657C8';
         label = 'Assigned';
       } else {
         color = '#D97706';
@@ -1040,7 +1040,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
   const gradeInfo = useMemo(() => {
     const pct = metrics.slaPct;
     if (metrics.total === 0) {
-      return { grade: 'STANDBY', cls: 'bg-[#f3eaff] text-[#58149c] dark:bg-[#35105E] dark:text-[#dab9ff]' };
+      return { grade: 'STANDBY', cls: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#dab9ff]' };
     }
     if (pct >= 95) return { grade: 'GRADE A+', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300' };
     if (pct >= 85) return { grade: 'GRADE A', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300' };
@@ -1069,18 +1069,18 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       {/* 1. LEADER COMMAND HUB HEADER SUB-BAR & SCOPE BANNER                  */}
       {/* ==================================================================== */}
-      <section className="w-full bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.05),0_8px_18px_-4px_rgba(53,16,94,0.07)] border border-[#e8ddff] dark:border-[#35105E]">
+      <section className="w-full bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.05),0_8px_18px_-4px_rgba(53,16,94,0.07)] border border-[#DDE6F0] dark:border-[#35105E]">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#f3eaff] dark:bg-[#2B174D] flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shadow-[inset_0_1px_2px_rgba(255,255,255,0.85),0_2px_4px_rgba(53,16,94,0.08)] shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-[#DDF4F4] dark:bg-[#2B174D] flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_2px_6px_rgba(46,125,139,0.12)] shrink-0">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10.5px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-[#eedbff] dark:bg-[#35105E] text-[#2a0053] dark:text-[#dab9ff]">
+                <span className="text-[10.5px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff]">
                   LEADER COMMAND HUB
                 </span>
-                <span className="text-xs text-[#4b4452] dark:text-[#CEC0E8] flex items-center gap-1.5 font-medium">
+                <span className="text-xs text-[#52647A] dark:text-[#CEC0E8] flex items-center gap-1.5 font-medium">
                   <span
                     className={`w-2 h-2 rounded-full ${
                       databaseStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
@@ -1088,12 +1088,12 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   />
                   {databaseStatus === 'connected' ? 'Live Geofence Telemetry' : 'Offline Sync Mode'}
                 </span>
-                <span className="text-[11px] font-mono text-[#7d7484] dark:text-[#A78BFA] hidden sm:inline">
+                <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A78BFA] hidden sm:inline">
                   · {formatAppointmentDateDisplay(todayWIB)}
                 </span>
               </div>
               <h1
-                className="text-base sm:text-lg font-extrabold text-[#1f1638] dark:text-white tracking-tight mt-0.5 truncate"
+                className="text-base sm:text-lg font-extrabold text-[#26364A] dark:text-white tracking-tight mt-0.5 truncate"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 Vendor {displayContractor} • Sektor {displayArea}
@@ -1121,7 +1121,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               onClick={() => onNavigate('monitoring_maps')}
               className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
-              <MapIcon className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
+              <MapIcon className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
               <span>Buka Monitoring Maps</span>
             </button>
 
@@ -1130,41 +1130,41 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               onClick={handleExportDailyRecap}
               className="mj-btn-leader-neutral px-3.5 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
-              <ExternalLink className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
+              <ExternalLink className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
               <span>Ekspor Rekap Harian</span>
             </button>
           </div>
         </div>
 
         {/* Sub-bar Operational Notice Tag */}
-        <div className="mt-3.5 pt-3 border-t border-[#e8ddff] dark:border-[#35105E]/80 flex flex-wrap items-center justify-between text-xs text-[#4b4452] dark:text-[#CEC0E8] gap-2">
+        <div className="mt-3.5 pt-3 border-t border-[#DDE6F0] dark:border-[#35105E]/80 flex flex-wrap items-center justify-between text-xs text-[#52647A] dark:text-[#CEC0E8] gap-2">
           <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
             <span className="flex items-center gap-1.5">
-              <Users2 className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
-              <strong className="text-[#1f1638] dark:text-white tabular-nums">
+              <Users2 className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
+              <strong className="text-[#26364A] dark:text-white tabular-nums">
                 {myInstallers.length} Teknisi Bertugas
               </strong>
-              <span className="text-[11px] text-[#7d7484] dark:text-[#A78BFA]">
+              <span className="text-[11px] text-[#8492A5] dark:text-[#A78BFA]">
                 ({metrics.houseValidCount} Check-In Foto Valid)
               </span>
             </span>
 
-            <span className="text-[#cec3d4] dark:text-[#5B35B1] hidden sm:inline">•</span>
+            <span className="text-[#CBD5E1] dark:text-[#5B35B1] hidden sm:inline">•</span>
 
             <span className="flex items-center gap-1.5">
-              <PieChart className="w-4 h-4 text-[#6a46c1] dark:text-[#A78BFA]" />
+              <PieChart className="w-4 h-4 text-[#2E7D8B] dark:text-[#A78BFA]" />
               <span>
                 Kuota Sektor:{' '}
-                <strong className="text-[#1f1638] dark:text-white tabular-nums">
+                <strong className="text-[#26364A] dark:text-white tabular-nums">
                   {metrics.assignedCount} / {metrics.totalDailyCapacity} WO
                 </strong>
               </span>
-              <span className="px-1.5 py-0.5 text-[10.5px] rounded bg-[#e9ddff] dark:bg-[#35105E] text-[#22005c] dark:text-[#dab9ff] font-bold tabular-nums">
+              <span className="px-1.5 py-0.5 text-[10.5px] rounded bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#dab9ff] font-bold tabular-nums">
                 {metrics.capacityFillPct}% Terisi
               </span>
             </span>
 
-            <span className="text-[#cec3d4] dark:text-[#5B35B1] hidden sm:inline">•</span>
+            <span className="text-[#CBD5E1] dark:text-[#5B35B1] hidden sm:inline">•</span>
 
             <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold">
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -1176,7 +1176,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             type="button"
             onClick={handleManualSync}
             disabled={isRefreshingNow}
-            className="font-mono text-[11px] text-[#7d7484] dark:text-[#A78BFA] hover:text-[#58149c] dark:hover:text-white flex items-center gap-1.5 cursor-pointer"
+            className="font-mono text-[11px] text-[#52647A] dark:text-[#A78BFA] hover:text-[#5145A6] dark:hover:text-white flex items-center gap-1.5 cursor-pointer"
             title="Sinkronkan ulang data telemetri"
           >
             <span
@@ -1197,30 +1197,30 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* Card 1: TOTAL MASUK */}
         <div
           onClick={() => navigateWithDrilldown('total_today', 'all')}
-          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(53,16,94,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_6px_14px_rgba(53,16,94,0.1)] transition-all duration-200 flex flex-col justify-between border border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-[#d0bcff] cursor-pointer"
+          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.05),inset_0_1px_0_rgba(255,255,255,0.95)] hover:shadow-[0_6px_16px_rgba(81,69,166,0.12)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-[#9E94E2] dark:border-b-[#d0bcff] cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] uppercase font-bold text-[#4b4452] dark:text-[#CEC0E8] tracking-wider">
+            <span className="text-[10.5px] uppercase font-bold text-[#52647A] dark:text-[#CEC0E8] tracking-wider">
               Total Masuk
             </span>
-            <Inbox className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff]" />
+            <Inbox className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
           </div>
           <div className="my-2">
             <div
-              className="text-2xl font-extrabold text-[#1f1638] dark:text-white leading-none tracking-tight tabular-nums"
+              className="text-2xl font-extrabold text-[#26364A] dark:text-white leading-none tracking-tight tabular-nums"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.total).padStart(2, '0')}{' '}
-              <span className="text-xs font-medium text-[#7d7484] dark:text-[#A78BFA]">WO</span>
+              <span className="text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">WO</span>
             </div>
             <div className="text-[11px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1 mt-1.5">
               <TrendingUp className="w-3.5 h-3.5 shrink-0" />
               <span>Kapasitas Sektor: {metrics.totalDailyCapacity} WO</span>
             </div>
           </div>
-          <div className="w-full bg-[#f3eaff] dark:bg-[#2A1650] rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-[#EAE8FF] dark:bg-[#2A1650] rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-[#58149c] dark:bg-[#A78BFA] h-1.5 rounded-full transition-all"
+              className="bg-[#6657C8] dark:bg-[#A78BFA] h-1.5 rounded-full transition-all"
               style={{
                 width: `${
                   metrics.totalDailyCapacity > 0
@@ -1237,7 +1237,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           className={`bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 transition-all duration-200 flex flex-col justify-between border relative overflow-hidden ${
             metrics.unassignedTickets.length > 0
               ? 'border-amber-200 dark:border-amber-700/60 border-b-2 border-b-amber-400 shadow-[0_2px_10px_rgba(245,158,11,0.12)]'
-              : 'border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-emerald-400 shadow-[0_2px_8px_rgba(53,16,94,0.06)]'
+              : 'border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-emerald-400 shadow-[0_2px_10px_rgba(38,54,74,0.05)]'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -1264,7 +1264,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.unassignedTickets.length).padStart(2, '0')}{' '}
-              <span className="text-xs font-medium text-[#7d7484] dark:text-[#CEC0E8]">WO</span>
+              <span className="text-xs font-medium text-[#8492A5] dark:text-[#CEC0E8]">WO</span>
             </div>
             <div className="text-[11px] text-amber-900 dark:text-amber-200/90 font-medium flex items-center gap-1 mt-1.5">
               <Clock className="w-3 h-3 text-amber-600 shrink-0" />
@@ -1295,28 +1295,28 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* Card 3: PROGRESS LAPANGAN */}
         <div
           onClick={() => navigateWithDrilldown('checked_in_progress', 'in_progress')}
-          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(53,16,94,0.06)] hover:shadow-[0_6px_14px_rgba(53,16,94,0.1)] transition-all duration-200 flex flex-col justify-between border border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-[#a380fe] cursor-pointer"
+          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.05)] hover:shadow-[0_6px_16px_rgba(46,125,139,0.12)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-[#5BB5C5] dark:border-b-[#a380fe] cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] uppercase font-bold text-[#4b4452] dark:text-[#CEC0E8] tracking-wider">
+            <span className="text-[10.5px] uppercase font-bold text-[#52647A] dark:text-[#CEC0E8] tracking-wider">
               Progress Lapangan
             </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#7135B5] ring-4 ring-[#f3eaff] dark:ring-[#35105E]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5] ring-4 ring-[#DDF4F4] dark:ring-[#35105E]" />
           </div>
           <div className="my-2">
             <div
-              className="text-2xl font-extrabold text-[#1f1638] dark:text-white leading-none tracking-tight tabular-nums"
+              className="text-2xl font-extrabold text-[#26364A] dark:text-white leading-none tracking-tight tabular-nums"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.progressLapanganTotal).padStart(2, '0')}{' '}
-              <span className="text-xs font-medium text-[#7d7484] dark:text-[#A78BFA]">WO</span>
+              <span className="text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">WO</span>
             </div>
-            <div className="text-[11px] text-[#58149c] dark:text-[#dab9ff] flex items-center gap-1 mt-1.5 truncate">
-              <strong className="text-[#58149c] dark:text-[#dab9ff]">{metrics.checkedInProgress} Check-In</strong>
-              <span className="text-[#7d7484] dark:text-[#CEC0E8]">• {metrics.otwAssigned} Assigned/OTW</span>
+            <div className="text-[11px] text-[#2E7D8B] dark:text-[#dab9ff] flex items-center gap-1 mt-1.5 truncate">
+              <strong className="text-[#2E7D8B] dark:text-[#dab9ff]">{metrics.checkedInProgress} Check-In</strong>
+              <span className="text-[#8492A5] dark:text-[#CEC0E8]">• {metrics.otwAssigned} Assigned/OTW</span>
             </div>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-[#4b4452] dark:text-[#CEC0E8]">
+          <div className="flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
             <span>Foto Rumah Valid: {metrics.houseGeotagPct}%</span>
             <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
@@ -1325,29 +1325,29 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* Card 4: VERIFIKASI NOC */}
         <div
           onClick={() => navigateWithDrilldown('butuh_approval', 'all')}
-          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(53,16,94,0.06)] hover:shadow-[0_6px_14px_rgba(53,16,94,0.1)] transition-all duration-200 flex flex-col justify-between border border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-[#a380fe] cursor-pointer"
+          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.05)] hover:shadow-[0_6px_16px_rgba(81,69,166,0.12)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-[#9E94E2] dark:border-b-[#a380fe] cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] uppercase font-bold text-[#4b4452] dark:text-[#CEC0E8] tracking-wider">
+            <span className="text-[10.5px] uppercase font-bold text-[#52647A] dark:text-[#CEC0E8] tracking-wider">
               Verifikasi NOC
             </span>
-            <ClipboardCheck className="w-4 h-4 text-[#6a46c1] dark:text-[#A78BFA]" />
+            <ClipboardCheck className="w-4 h-4 text-[#5145A6] dark:text-[#A78BFA]" />
           </div>
           <div className="my-2">
             <div
-              className="text-2xl font-extrabold text-[#6a46c1] dark:text-[#dab9ff] leading-none tracking-tight tabular-nums"
+              className="text-2xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] leading-none tracking-tight tabular-nums"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.butuhApproval).padStart(2, '0')}{' '}
-              <span className="text-xs font-medium text-[#7d7484] dark:text-[#A78BFA]">WO</span>
+              <span className="text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">WO</span>
             </div>
-            <div className="text-[11px] text-[#4b4452] dark:text-[#CEC0E8] mt-1.5">
+            <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1.5">
               QC OPM &amp; Redaman Dispatch
             </div>
           </div>
-          <div className="w-full bg-[#f3eaff] dark:bg-[#2A1650] rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-[#EAE8FF] dark:bg-[#2A1650] rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-[#6a46c1] dark:bg-[#A78BFA] h-1.5 rounded-full transition-all"
+              className="bg-[#6657C8] dark:bg-[#A78BFA] h-1.5 rounded-full transition-all"
               style={{
                 width: `${metrics.total > 0 ? Math.min(100, Math.round((metrics.butuhApproval / metrics.total) * 100)) : 0}%`
               }}
@@ -1358,7 +1358,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* Card 5: COMPLETE */}
         <div
           onClick={() => navigateWithDrilldown('approved', 'completed')}
-          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(16,185,129,0.1)] hover:shadow-[0_6px_14px_rgba(16,185,129,0.16)] transition-all duration-200 flex flex-col justify-between border border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-emerald-400 cursor-pointer"
+          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_10px_rgba(16,185,129,0.08)] hover:shadow-[0_6px_14px_rgba(16,185,129,0.16)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-emerald-400 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10.5px] uppercase font-bold text-emerald-800 dark:text-emerald-300 tracking-wider">
@@ -1392,7 +1392,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* Card 6: KENDALA / REVISI */}
         <div
           onClick={() => navigateWithDrilldown('revision_rejected', 'pending')}
-          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] hover:shadow-[0_6px_14px_rgba(239,68,68,0.14)] transition-all duration-200 flex flex-col justify-between border border-[#e8ddff] dark:border-[#35105E] border-b-2 border-b-rose-400 cursor-pointer"
+          className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] hover:shadow-[0_6px_14px_rgba(239,68,68,0.14)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-rose-400 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10.5px] uppercase font-bold text-rose-800 dark:text-rose-300 tracking-wider">
@@ -1406,7 +1406,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               {String(metrics.kendalaRevisiTotal).padStart(2, '0')}{' '}
-              <span className="text-xs font-medium text-[#7d7484] dark:text-[#CEC0E8]">WO</span>
+              <span className="text-xs font-medium text-[#8492A5] dark:text-[#CEC0E8]">WO</span>
             </div>
             <div className="text-[11px] flex flex-col gap-0.5 mt-1.5">
               <span className="text-amber-700 dark:text-amber-300 font-semibold">
@@ -1433,17 +1433,17 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       {/* 3. SECONDARY METRIC STRIP (Capacity, Balance, Geotag, Splicing FTR)  */}
       {/* ==================================================================== */}
-      <section className="w-full bg-[#eee4ff] dark:bg-[#22123F] rounded-2xl p-2.5 shadow-[inset_0_1px_2px_rgba(33,24,58,0.04)] border border-[#e8ddff] dark:border-[#35105E]">
+      <section className="w-full bg-[#EDF3F8] dark:bg-[#22123F] rounded-2xl p-2.5 shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] border border-[#DDE6F0] dark:border-[#35105E]">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
-            <div className="w-8 h-8 rounded-full bg-[#58149c]/10 dark:bg-[#35105E] flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
               <Users2 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] text-[#7d7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
                 Kapasitas Armada
               </div>
-              <div className="text-xs sm:text-sm text-[#1f1638] dark:text-white font-bold tabular-nums truncate">
+              <div className="text-xs sm:text-sm text-[#26364A] dark:text-white font-bold tabular-nums truncate">
                 {myInstallers.length}/{allScopedInstallersIncludingInactive.length || myInstallers.length} Teknisi Aktif{' '}
                 <span className="text-emerald-600 dark:text-emerald-300 text-[11px] font-semibold">
                   ({metrics.availableTechsCount} Siap Slot)
@@ -1453,16 +1453,16 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
 
           <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
-            <div className="w-8 h-8 rounded-full bg-[#6a46c1]/10 dark:bg-[#35105E] flex items-center justify-center text-[#6a46c1] dark:text-[#dab9ff] shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#DDF4F4] dark:bg-[#35105E] flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shrink-0">
               <Scale className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] text-[#7d7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
                 Rata-rata Beban
               </div>
-              <div className="text-xs sm:text-sm text-[#1f1638] dark:text-white font-bold tabular-nums truncate">
+              <div className="text-xs sm:text-sm text-[#26364A] dark:text-white font-bold tabular-nums truncate">
                 {metrics.avgLoadPerTech} WO / Teknisi{' '}
-                <span className="text-[#7d7484] dark:text-[#CEC0E8] text-[11px] font-normal">
+                <span className="text-[#8492A5] dark:text-[#CEC0E8] text-[11px] font-normal">
                   (Maks {quotaConfig.defaultMaxDailyQuota}.0)
                 </span>
               </div>
@@ -1470,14 +1470,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
 
           <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
-            <div className="w-8 h-8 rounded-full bg-[#f3eaff] dark:bg-[#35105E] flex items-center justify-center text-[#58149c] dark:text-[#dab9ff] shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
               <Camera className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] text-[#7d7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
                 Geotag Photo Rate
               </div>
-              <div className="text-xs sm:text-sm text-[#58149c] dark:text-[#dab9ff] font-bold tabular-nums truncate">
+              <div className="text-xs sm:text-sm text-[#5145A6] dark:text-[#dab9ff] font-bold tabular-nums truncate">
                 {metrics.houseGeotagPct}% Valid{' '}
                 <span className="text-emerald-700 dark:text-emerald-300 text-[11px] font-medium">
                   ({metrics.houseValidCount}/{metrics.houseEligibleCount} Rumah)
@@ -1491,12 +1491,12 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <Wrench className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] text-[#7d7484] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
+              <div className="text-[10px] text-[#8492A5] dark:text-[#A78BFA] uppercase font-bold tracking-wider">
                 Splicing 1st-Time Right
               </div>
               <div className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 font-bold tabular-nums truncate">
                 {metrics.ftrRatePct}%{' '}
-                <span className="text-[#7d7484] dark:text-[#CEC0E8] text-[11px] font-normal">
+                <span className="text-[#8492A5] dark:text-[#CEC0E8] text-[11px] font-normal">
                   ({metrics.avgRxLabel !== '-' ? `${metrics.avgRxLabel} avg` : 'OPM Standby'})
                 </span>
               </div>
@@ -1508,21 +1508,21 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       {/* 3B. SLOT APPOINTMENT & DISTRIBUSI JADWAL (PAGI / SIANG / SORE)       */}
       {/* ==================================================================== */}
-      <section className="w-full bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#e8ddff] dark:border-[#35105E]">
+      <section className="w-full bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#DDE6F0] dark:border-[#35105E]">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
           <div>
             <h2
-              className="text-sm sm:text-base text-[#1f1638] dark:text-white font-extrabold tracking-tight"
+              className="text-sm sm:text-base text-[#26364A] dark:text-white font-extrabold tracking-tight"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               Slot Appointment &amp; Distribusi Jadwal
             </h2>
-            <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
               Monitoring load slot pelanggan per shift lapangan hari ini ({todayTickets.length} WO terdaftar).
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f3eaff] dark:bg-[#2B174D] border border-[#d0bcff] dark:border-[#5B35B1] text-[10.5px] font-mono font-bold text-[#58149c] dark:text-[#dab9ff]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#7135B5]" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DDF4F4] dark:bg-[#2B174D] border border-[#BDE4E8] dark:border-[#5B35B1] text-[10.5px] font-mono font-bold text-[#2E7D8B] dark:text-[#dab9ff]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5]" />
             TIMEZONE: WIB (GMT+7)
           </span>
         </div>
@@ -1541,20 +1541,20 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   onNavigate('wo_assignment');
                 }
               }}
-              className="text-left p-3.5 rounded-2xl bg-[#f8f1ff] dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#3E246F] hover:border-[#7135B5] transition-all cursor-pointer space-y-2.5"
+              className="text-left p-3.5 rounded-2xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3E246F] hover:border-[#6657C8] dark:hover:border-[#7135B5] transition-all cursor-pointer space-y-2.5"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#1f1638] dark:text-white">
-                    <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#26364A] dark:text-white">
+                    <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                     <span>{slot.title}</span>
                   </div>
-                  <div className="text-[10.5px] font-mono text-[#7d7484] dark:text-[#A78BFA] mt-0.5">
+                  <div className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A78BFA] mt-0.5">
                     {slot.windowLabel}
                   </div>
                 </div>
-                <span className="text-base font-extrabold font-mono text-[#1f1638] dark:text-white tabular-nums">
-                  {slot.total} <span className="text-[11px] font-semibold text-[#7d7484]">WO</span>
+                <span className="text-base font-extrabold font-mono text-[#26364A] dark:text-white tabular-nums">
+                  {slot.total} <span className="text-[11px] font-semibold text-[#8492A5]">WO</span>
                 </span>
               </div>
 
@@ -1564,28 +1564,28 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     • {slot.unassigned} Belum Assign
                   </span>
                 ) : (
-                  <span className="text-[#58149c] dark:text-[#dab9ff]">
+                  <span className="text-[#5145A6] dark:text-[#dab9ff]">
                     Progress Eksekusi
                   </span>
                 )}
-                <span className="font-mono text-[#1f1638] dark:text-white tabular-nums">
+                <span className="font-mono text-[#26364A] dark:text-white tabular-nums">
                   {slot.progressPct}% Terjadwal
                 </span>
               </div>
 
-              <div className="w-full h-2 rounded-full bg-[#e8ddff] dark:bg-[#2A1650] overflow-hidden flex">
+              <div className="w-full h-2 rounded-full bg-[#E4ECF5] dark:bg-[#2A1650] overflow-hidden flex">
                 {slot.donePct > 0 && (
                   <div className="bg-emerald-500 h-full transition-all" style={{ width: `${slot.donePct}%` }} />
                 )}
                 {slot.runPct > 0 && (
-                  <div className="bg-[#7135B5] h-full transition-all" style={{ width: `${slot.runPct}%` }} />
+                  <div className="bg-[#6657C8] dark:bg-[#7135B5] h-full transition-all" style={{ width: `${slot.runPct}%` }} />
                 )}
               </div>
 
               <div className="flex items-center justify-between text-[10.5px] font-semibold tabular-nums pt-0.5">
-                <span className="text-[#58149c] dark:text-[#dab9ff]">● {slot.inProgress} Berjalan</span>
+                <span className="text-[#5145A6] dark:text-[#dab9ff]">● {slot.inProgress} Berjalan</span>
                 <span className="text-emerald-700 dark:text-emerald-300">● {slot.done} Selesai</span>
-                <span className={slot.unassigned > 0 ? 'text-[#BA1A1A] dark:text-rose-300' : 'text-[#7d7484] dark:text-[#A78BFA]'}>
+                <span className={slot.unassigned > 0 ? 'text-[#BA1A1A] dark:text-rose-300' : 'text-[#8492A5] dark:text-[#A78BFA]'}>
                   ● {slot.unassigned} Unassigned
                 </span>
               </div>
@@ -1601,16 +1601,16 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         {/* LEFT COLUMN (col-span-7) */}
         <div className="lg:col-span-7 flex flex-col gap-4">
           {/* a. Workload & Assignment Distribution Matrix */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#e8ddff] dark:border-[#35105E]">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#e8ddff] dark:border-[#35105E] mb-3.5">
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#DDE6F0] dark:border-[#35105E]">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E] mb-3.5">
               <div>
                 <h2
-                  className="text-sm sm:text-base text-[#1f1638] dark:text-white font-extrabold tracking-tight"
+                  className="text-sm sm:text-base text-[#26364A] dark:text-white font-extrabold tracking-tight"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Distribusi Beban Kerja Teknisi ({myInstallers.length} Personil)
                 </h2>
-                <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                   Monitoring utilisasi kuota pengerjaan dan status live di Sektor {displayArea}.
                 </p>
               </div>
@@ -1624,9 +1624,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             </div>
 
             {richTechRows.length === 0 ? (
-              <div className="py-8 text-center text-xs text-[#7d7484] dark:text-[#CEC0E8] space-y-2">
-                <Users2 className="w-8 h-8 mx-auto opacity-50 text-[#7135b5]" />
-                <div className="font-semibold text-[#1f1638] dark:text-white">
+              <div className="py-8 text-center text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-2">
+                <Users2 className="w-8 h-8 mx-auto opacity-50 text-[#6657C8]" />
+                <div className="font-semibold text-[#26364A] dark:text-white">
                   Belum ada teknisi aktif terdaftar untuk {displayContractor}
                 </div>
                 <button
@@ -1647,18 +1647,18 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   const cardBorderCls = hasIssue
                     ? 'border border-amber-300 dark:border-amber-700/70'
                     : isFull
-                    ? 'border border-[#d0bcff] dark:border-[#5B35B1]'
-                    : 'border border-[#e8ddff] dark:border-[#35105E]';
+                    ? 'border border-[#C5BEEF] dark:border-[#5B35B1]'
+                    : 'border border-[#DDE6F0] dark:border-[#35105E]';
 
                   const barColor = hasIssue
                     ? 'bg-amber-500'
                     : isFull
-                    ? 'bg-[#58149c]'
+                    ? 'bg-[#5145A6]'
                     : summary.liveTone === 'onsite'
                     ? 'bg-emerald-500'
                     : summary.liveTone === 'enroute'
-                    ? 'bg-[#7135B5]'
-                    : 'bg-[#6a46c1]';
+                    ? 'bg-[#2E7D8B]'
+                    : 'bg-[#6657C8]';
 
                   const statusPill = hasIssue
                     ? {
@@ -1668,7 +1668,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     : isFull
                     ? {
                         label: `Kapasitas Penuh (${summary.assignedCount}/${summary.maxLimit})`,
-                        cls: 'bg-purple-100 text-purple-900 dark:bg-purple-950/70 dark:text-purple-200'
+                        cls: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950/70 dark:text-purple-200'
                       }
                     : summary.liveTone === 'onsite'
                     ? {
@@ -1678,7 +1678,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     : summary.liveTone === 'enroute'
                     ? {
                         label: `On Field (${summary.assignedCount}/${summary.maxLimit})`,
-                        cls: 'bg-[#eedbff] text-[#58149c] dark:bg-[#35105E] dark:text-[#dab9ff]'
+                        cls: 'bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#dab9ff]'
                       }
                     : {
                         label: `Tersedia (${summary.assignedCount}/${summary.maxLimit})`,
@@ -1688,32 +1688,32 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   return (
                     <div
                       key={inst.id}
-                      className={`p-2.5 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] hover:bg-[#f3eaff] dark:hover:bg-[#2A1650] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${cardBorderCls}`}
+                      className={`p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] hover:bg-[#EDF3F8] dark:hover:bg-[#2A1650] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${cardBorderCls}`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-[#eedbff] dark:bg-[#35105E] flex items-center justify-center font-extrabold text-[#2a0053] dark:text-[#dab9ff] text-xs shadow-inner shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] flex items-center justify-center font-extrabold text-[#5145A6] dark:text-[#dab9ff] text-xs shadow-inner shrink-0">
                           {getInitials(inst.name)}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-[#1f1638] dark:text-white font-bold truncate">
+                            <span className="text-sm text-[#26364A] dark:text-white font-bold truncate">
                               {inst.name}
                             </span>
-                            <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-[#e8ddff] dark:bg-[#35105E] text-[#4b4452] dark:text-[#CEC0E8] font-semibold">
+                            <span className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-[#E4ECF5] dark:bg-[#35105E] text-[#52647A] dark:text-[#CEC0E8] font-semibold">
                               @{inst.username}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusPill.cls}`}>
                               {statusPill.label}
                             </span>
                           </div>
-                          <div className="text-[11.5px] text-[#4b4452] dark:text-[#CEC0E8] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <div className="text-[11.5px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5 flex items-center gap-1.5 flex-wrap">
                             <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
                               {doneCount} Selesai
                             </span>
                             {checkedInCount + otwAssignedCount > 0 && (
                               <>
                                 <span>•</span>
-                                <span className="text-[#58149c] dark:text-[#dab9ff] font-medium">
+                                <span className="text-[#5145A6] dark:text-[#dab9ff] font-medium">
                                   {checkedInCount > 0
                                     ? `${checkedInCount} On Progress (${summary.liveLocationLabel})`
                                     : `${otwAssignedCount} Terjadwal`}
@@ -1745,7 +1745,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                       </div>
 
                       <div className="flex items-center gap-3 sm:self-center shrink-0">
-                        <div className="w-24 bg-[#e8ddff] dark:bg-[#35105E] rounded-full h-2 overflow-hidden">
+                        <div className="w-24 bg-[#E4ECF5] dark:bg-[#35105E] rounded-full h-2 overflow-hidden">
                           <div
                             className={`${barColor} h-2 rounded-full transition-all`}
                             style={{ width: `${summary.utilizationPct}%` }}
@@ -1781,7 +1781,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             className={`px-3 py-1.5 text-[11px] flex items-center gap-1 cursor-pointer ${
                               summary.assignedCount <= Math.floor(summary.maxLimit / 2)
                                 ? 'mj-btn-leader-primary mj-btn-xs'
-                                : 'mj-btn-leader-neutral mj-btn-xs text-[#58149c] dark:text-[#dab9ff]'
+                                : 'mj-btn-leader-neutral mj-btn-xs text-[#5145A6] dark:text-[#dab9ff]'
                             }`}
                           >
                             <Send className="w-3 h-3" />
@@ -1801,26 +1801,26 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                       return (
                         <div
                           key={s.installer.id}
-                          className={`p-2.5 rounded-xl bg-[#f3eaff] dark:bg-[#22123F] border flex items-center justify-between gap-2 ${
+                          className={`p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border flex items-center justify-between gap-2 ${
                             s.isFull
                               ? 'border-emerald-300 dark:border-emerald-800'
                               : s.liveTone === 'enroute' || s.liveTone === 'onsite'
-                              ? 'border-[#a380fe] dark:border-[#5B35B1]'
-                              : 'border-[#e8ddff] dark:border-[#35105E]'
+                              ? 'border-[#9E94E2] dark:border-[#5B35B1]'
+                              : 'border-[#DDE6F0] dark:border-[#35105E]'
                           }`}
                         >
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-[#1f1638] dark:text-white truncate">
+                            <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                               {s.installer.name}
                             </div>
-                            <div className="text-[11px] text-[#4b4452] dark:text-[#CEC0E8] truncate tabular-nums">
+                            <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate tabular-nums">
                               @{s.installer.username} • {s.assignedCount}/{s.maxLimit} WO ({s.liveStatusLabel})
                             </div>
                           </div>
                           {s.isFull ? (
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           ) : s.liveTone === 'enroute' ? (
-                            <Bike className="w-4 h-4 text-[#7135B5] dark:text-[#dab9ff] shrink-0" />
+                            <Bike className="w-4 h-4 text-[#2E7D8B] dark:text-[#dab9ff] shrink-0" />
                           ) : (
                             <button
                               type="button"
@@ -1840,16 +1840,16 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
 
           {/* b. Live Feed Tiket & Progres Pelanggan */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#e8ddff] dark:border-[#35105E]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[#e8ddff] dark:border-[#35105E] mb-3">
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#DDE6F0] dark:border-[#35105E]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E] mb-3">
               <div>
                 <h2
-                  className="text-sm sm:text-base text-[#1f1638] dark:text-white font-extrabold tracking-tight"
+                  className="text-sm sm:text-base text-[#26364A] dark:text-white font-extrabold tracking-tight"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Live Feed Tiket &amp; Progres Pelanggan
                 </h2>
-                <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                   Work order aktif sektor {displayArea} ({todayTickets.length} WO hari ini).
                 </p>
               </div>
@@ -1860,13 +1860,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   onClick={() => setAutoRefresh15s(prev => !prev)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer ${
                     autoRefresh15s
-                      ? 'bg-[#f3eaff] dark:bg-[#2E1B59] border-[#a380fe] dark:border-[#7135B5] text-[#58149c] dark:text-[#dab9ff]'
-                      : 'bg-[#f8f1ff] dark:bg-[#22123F] border-[#e8ddff] dark:border-[#35105E] text-[#4b4452] dark:text-[#CEC0E8]'
+                      ? 'bg-[#DDF4F4] dark:bg-[#2E1B59] border-[#BDE4E8] dark:border-[#7135B5] text-[#2E7D8B] dark:text-[#dab9ff]'
+                      : 'bg-[#F4F7FB] dark:bg-[#22123F] border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#CEC0E8]'
                   }`}
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      autoRefresh15s ? 'bg-[#7135B5] dark:bg-[#dab9ff] animate-pulse' : 'bg-[#7d7484]'
+                      autoRefresh15s ? 'bg-[#2E7D8B] dark:bg-[#dab9ff] animate-pulse' : 'bg-[#8492A5]'
                     }`}
                   />
                   <span>Auto-Refresh 15s</span>
@@ -1900,11 +1900,11 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             </div>
 
             {liveFeedTickets.length === 0 ? (
-              <div className="py-8 text-center text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+              <div className="py-8 text-center text-xs text-[#52647A] dark:text-[#CEC0E8]">
                 Tidak ada Work Order pada kategori filter ini.
               </div>
             ) : (
-              <div className="flex flex-col divide-y divide-[#e8ddff] dark:divide-[#35105E]/70">
+              <div className="flex flex-col divide-y divide-[#E2E8F0] dark:divide-[#35105E]/70">
                 {liveFeedTickets.map(t => {
                   const approval = getTicketCanonicalApprovalStatus(t);
                   const rep = getTicketCanonicalReportStatus(t);
@@ -1914,8 +1914,8 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
                   let pill = {
                     label: 'ASSIGNED',
-                    dot: 'bg-[#7135b5]',
-                    cls: 'bg-[#f3eaff] text-[#58149c] border-[#d0bcff] dark:bg-[#35105E] dark:text-[#dab9ff] dark:border-[#5B35B1]'
+                    dot: 'bg-[#6657C8]',
+                    cls: 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#dab9ff] dark:border-[#5B35B1]'
                   };
 
                   if (!assigned) {
@@ -1939,8 +1939,8 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   } else if (rep === 'RESCHEDULE') {
                     pill = {
                       label: 'RESCHEDULE',
-                      dot: 'bg-[#a855f7]',
-                      cls: 'bg-[#faf5ff] text-[#6b21a8] border-[#a855f7]/40 dark:bg-purple-950/60 dark:text-purple-300'
+                      dot: 'bg-[#6657C8]',
+                      cls: 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-purple-950/60 dark:text-purple-300'
                     };
                   } else if (t.statusWOInstaller === 'Pending Technical' || rep === 'PENDING') {
                     pill = {
@@ -1951,14 +1951,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   } else if (approval === 'BUTUH APPROVAL') {
                     pill = {
                       label: 'MENUNGGU QC DISPATCH',
-                      dot: 'bg-[#6a46c1]',
-                      cls: 'bg-[#eee4ff] text-[#38008d] border-[#a380fe]/50 dark:bg-[#35105E] dark:text-[#dab9ff]'
+                      dot: 'bg-[#5145A6]',
+                      cls: 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#dab9ff]'
                     };
                   } else if (checkedIn) {
                     pill = {
                       label: 'CHECK-IN VALID',
-                      dot: 'bg-[#7135B5]',
-                      cls: 'bg-[#f3eaff] text-[#58149c] border-[#a380fe]/60 dark:bg-[#2E1B59] dark:text-[#dab9ff] dark:border-[#7135B5]'
+                      dot: 'bg-[#2E7D8B]',
+                      cls: 'bg-[#DDF4F4] text-[#2E7D8B] border-[#BDE4E8] dark:bg-[#2E1B59] dark:text-[#dab9ff] dark:border-[#7135B5]'
                     };
                   }
 
@@ -1975,11 +1975,11 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   return (
                     <div
                       key={t.id}
-                      className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 hover:bg-[#f8f1ff]/60 dark:hover:bg-[#22123F]/60 px-2 rounded-xl transition-colors"
+                      className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 hover:bg-[#F4F7FB] dark:hover:bg-[#22123F]/60 px-2 rounded-xl transition-colors"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-extrabold text-[#58149c] dark:text-[#dab9ff]">
+                          <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#dab9ff]">
                             {t.woNumber}
                           </span>
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${pill.cls}`}>
@@ -1987,28 +1987,28 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             {pill.label}
                           </span>
                           {odpText && (
-                            <span className="text-[11px] font-mono text-[#7d7484] dark:text-[#A78BFA]">
+                            <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A78BFA]">
                               {odpText}
                             </span>
                           )}
                         </div>
 
-                        <div className="text-xs sm:text-sm font-bold text-[#1f1638] dark:text-white mt-1 truncate">
+                        <div className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white mt-1 truncate">
                           {t.customerName}{' '}
-                          <span className="text-[#4b4452] dark:text-[#CEC0E8] font-normal">
+                          <span className="text-[#52647A] dark:text-[#CEC0E8] font-normal">
                             — {addressText || '-'}
                           </span>
                         </div>
 
-                        <div className="text-[11.5px] text-[#4b4452] dark:text-[#CEC0E8] flex items-center gap-2.5 mt-0.5 flex-wrap">
+                        <div className="text-[11.5px] text-[#52647A] dark:text-[#CEC0E8] flex items-center gap-2.5 mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1">
-                            <UserCheck className="w-3.5 h-3.5 text-[#6a46c1] dark:text-[#A78BFA]" />
+                            <UserCheck className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#A78BFA]" />
                             {t.installerName || 'Belum Ditugaskan'}
                           </span>
                           {typeof accMeters === 'number' && (
                             <>
                               <span>•</span>
-                              <span className="flex items-center gap-1 text-[#58149c] dark:text-[#dab9ff] font-medium">
+                              <span className="flex items-center gap-1 text-[#2E7D8B] dark:text-[#dab9ff] font-medium">
                                 <Navigation className="w-3 h-3" />
                                 GPS Lock ±{Math.round(accMeters)}m
                               </span>
@@ -2034,7 +2034,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                       </div>
 
                       <div className="flex md:flex-col items-center md:items-end justify-between gap-1.5 shrink-0">
-                        <span className="font-mono text-[11px] text-[#7d7484] dark:text-[#A78BFA] tabular-nums">
+                        <span className="font-mono text-[11px] text-[#8492A5] dark:text-[#A78BFA] tabular-nums">
                           {timeWib} WIB
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -2084,13 +2084,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
               <div>
                 <div
-                  className="text-sm font-extrabold text-[#1f1638] dark:text-white leading-snug"
+                  className="text-sm font-extrabold text-[#26364A] dark:text-white leading-snug"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   {urgentReassignInfo.topTicket.woNumber} •{' '}
                   {urgentReassignInfo.topTicket.clusterName || urgentReassignInfo.topTicket.area}
                 </div>
-                <p className="text-xs text-[#4b4452] dark:text-[#F5D0D6] mt-1 line-clamp-2">
+                <p className="text-xs text-[#52647A] dark:text-[#F5D0D6] mt-1 line-clamp-2">
                   {urgentReassignInfo.topTicket.rejectionReason ||
                     urgentReassignInfo.topTicket.remarksWOInstaller ||
                     `Status ${urgentReassignInfo.topTicket.statusWOInstaller} pada teknisi ${urgentReassignInfo.topTicket.installerName}.`}
@@ -2099,7 +2099,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
               <div className="p-2.5 rounded-xl bg-white dark:bg-[#1A0E2E] border border-[#FCA5A5]/60 dark:border-[#93000A]/60 grid grid-cols-2 gap-2 text-[11px]">
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase font-bold text-[#7d7484] dark:text-[#CEC0E8] block">
+                  <span className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-[#CEC0E8] block">
                     Teknisi Saat Ini
                   </span>
                   <strong className="text-[#93000A] dark:text-rose-300 truncate block">
@@ -2107,7 +2107,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   </strong>
                 </div>
                 <div className="min-w-0 text-right">
-                  <span className="text-[10px] uppercase font-bold text-[#7d7484] dark:text-[#CEC0E8] block">
+                  <span className="text-[10px] uppercase font-bold text-[#8492A5] dark:text-[#CEC0E8] block">
                     Rekomendasi Teknisi
                   </span>
                   <strong className="text-[#15803D] dark:text-emerald-300 truncate block">
@@ -2132,12 +2132,12 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           )}
 
           {/* a. Radar Geofence Sektor */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#e8ddff] dark:border-[#35105E]">
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#DDE6F0] dark:border-[#35105E]">
             <div className="flex items-center justify-between pb-1.5 mb-1">
               <div className="flex items-center gap-2 min-w-0">
-                <MapPin className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                <MapPin className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff] shrink-0" />
                 <h3
-                  className="text-sm sm:text-base text-[#1f1638] dark:text-white font-extrabold truncate"
+                  className="text-sm sm:text-base text-[#26364A] dark:text-white font-extrabold truncate"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Radar Geofence {displayArea}
@@ -2147,7 +2147,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 GPS Live Stream
               </span>
             </div>
-            <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8] mb-3">
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-3">
               Distribusi real-time {myInstallers.length} armada teknisi dan pin rumah check-in valid kamera di GIS.
             </p>
 
@@ -2163,7 +2163,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('monitoring_maps')}
-                className="mj-btn-leader-neutral w-full py-2.5 text-[#58149c] dark:text-[#dab9ff] text-xs flex items-center justify-center gap-2 cursor-pointer"
+                className="mj-btn-leader-neutral w-full py-2.5 text-[#5145A6] dark:text-[#dab9ff] text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ArrowUpRight className="w-4 h-4" />
                 <span>Perbesar ke Monitoring Maps &amp; Cluster ODP</span>
@@ -2172,14 +2172,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
 
           {/* b. Leader Attention: Unassigned Tickets Ready for Disposition */}
-          <div className="bg-gradient-to-br from-white to-[#f8f1ff] dark:from-[#1A0E2E] dark:to-[#22123F] rounded-2xl p-4 sm:p-5 shadow-[0_4px_14px_rgba(245,158,11,0.12)] border border-amber-300/80 dark:border-amber-700/60">
+          <div className="bg-gradient-to-br from-white to-[#F4F7FB] dark:from-[#1A0E2E] dark:to-[#22123F] rounded-2xl p-4 sm:p-5 shadow-[0_4px_14px_rgba(245,158,11,0.12)] border border-amber-300/80 dark:border-amber-700/60">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm text-[#1f1638] dark:text-white font-extrabold leading-tight">
+                  <h3 className="text-sm text-[#26364A] dark:text-white font-extrabold leading-tight">
                     Leader Attention: {metrics.unassignedTickets.length} WO Siap Disposisi
                   </h3>
                   <p className="text-xs text-amber-900 dark:text-amber-200/90 mt-0.5">
@@ -2196,13 +2196,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 {metrics.unassignedTickets.slice(0, 3).map(t => (
                   <div
                     key={t.id}
-                    className="p-2.5 rounded-xl bg-white dark:bg-[#160D29] border border-[#e8ddff] dark:border-[#35105E] flex items-center justify-between gap-2 text-xs"
+                    className="p-2.5 rounded-xl bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2 text-xs"
                   >
                     <div className="min-w-0">
-                      <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                      <div className="font-bold text-[#26364A] dark:text-white truncate">
                         {t.woNumber} • {t.clusterName || t.streetName || t.area}
                       </div>
-                      <div className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                      <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                         {[t.fatCode || t.fat || t.area, t.slotTime || 'Standar', `Antre ${formatWaitElapsed(t.importedAt || t.createdAt)}`].join(' • ')}
                       </div>
                     </div>
@@ -2239,16 +2239,16 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
 
           {/* c. Kuota Sub-Area Sektor */}
-          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#e8ddff] dark:border-[#35105E]">
-            <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-[#e8ddff] dark:border-[#35105E]">
+          <div className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] border border-[#DDE6F0] dark:border-[#35105E]">
+            <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div>
                 <h3
-                  className="text-sm sm:text-base text-[#1f1638] dark:text-white font-extrabold"
+                  className="text-sm sm:text-base text-[#26364A] dark:text-white font-extrabold"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Kuota Sub-Area {displayArea}
                 </h3>
-                <p className="text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                   Distribusi kapasitas harian berdasarkan cluster / sub-area aktif.
                 </p>
               </div>
@@ -2263,7 +2263,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             </div>
 
             {subAreaBreakdown.length === 0 ? (
-              <div className="py-5 text-center text-xs text-[#7d7484] dark:text-[#CEC0E8]">
+              <div className="py-5 text-center text-xs text-[#8492A5] dark:text-[#CEC0E8]">
                 Belum ada distribusi WO per cluster hari ini.
               </div>
             ) : (
@@ -2271,37 +2271,37 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 {subAreaBreakdown.map((area, idx) => {
                   const barCls =
                     idx === 0
-                      ? 'from-[#58149c] to-[#7135b5]'
+                      ? 'from-[#6657C8] to-[#5145A6]'
                       : idx === 1
-                      ? 'from-[#6a46c1] to-[#a380fe]'
+                      ? 'from-[#2E7D8B] to-[#5BB5C5]'
                       : 'from-emerald-500 to-emerald-400';
                   const textCls =
                     idx === 0
-                      ? 'text-[#58149c] dark:text-[#dab9ff]'
+                      ? 'text-[#5145A6] dark:text-[#dab9ff]'
                       : idx === 1
-                      ? 'text-[#6a46c1] dark:text-[#A78BFA]'
+                      ? 'text-[#2E7D8B] dark:text-[#A78BFA]'
                       : 'text-emerald-700 dark:text-emerald-300';
 
                   return (
                     <div key={area.name}>
                       <div className="flex justify-between items-baseline mb-1 gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-[#1f1638] dark:text-white truncate">
+                        <span className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white truncate">
                           {area.name}
                         </span>
                         <span className={`font-mono text-[11px] font-bold shrink-0 tabular-nums ${textCls}`}>
                           {area.assigned} / {area.capacity} WO{' '}
-                          <span className="text-[#7d7484] dark:text-[#CEC0E8] font-normal">({area.pct}%)</span>
+                          <span className="text-[#8492A5] dark:text-[#CEC0E8] font-normal">({area.pct}%)</span>
                         </span>
                       </div>
-                      <div className="w-full bg-[#e8ddff] dark:bg-[#2A1650] rounded-full h-2.5 overflow-hidden shadow-inner">
+                      <div className="w-full bg-[#E4ECF5] dark:bg-[#2A1650] rounded-full h-2.5 overflow-hidden shadow-inner">
                         <div
                           className={`bg-gradient-to-r ${barCls} h-2.5 rounded-full transition-all duration-500`}
                           style={{ width: `${area.pct}%` }}
                         />
                       </div>
-                      <div className="flex justify-between items-center text-[11px] text-[#7d7484] dark:text-[#CEC0E8] mt-1">
+                      <div className="flex justify-between items-center text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-1">
                         <span>
-                          Sisa Slot: <strong className="text-[#1f1638] dark:text-white">{area.spare} WO</strong>
+                          Sisa Slot: <strong className="text-[#26364A] dark:text-white">{area.spare} WO</strong>
                           {area.unassigned > 0 ? ` (${area.unassigned} Unassigned)` : ''}
                         </span>
                         {area.issues > 0 ? (
@@ -2321,14 +2321,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             )}
 
             {/* Sector SLA Target Summary Box */}
-            <div className="mt-4 p-3 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] flex items-center justify-between gap-2 border border-[#e8ddff] dark:border-[#35105E]">
+            <div className="mt-4 p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] flex items-center justify-between gap-2 border border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Sliders className="w-4 h-4 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                <Sliders className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff] shrink-0" />
                 <div className="text-xs min-w-0">
-                  <div className="font-bold text-[#1f1638] dark:text-white truncate">
+                  <div className="font-bold text-[#26364A] dark:text-white truncate">
                     Target Harian {displayContractor}
                   </div>
-                  <div className="text-[#7d7484] dark:text-[#CEC0E8] text-[11px] tabular-nums">
+                  <div className="text-[#52647A] dark:text-[#CEC0E8] text-[11px] tabular-nums">
                     SLA Penyelesaian Saat Ini: {metrics.slaPct}% (Target &ge;95%)
                   </div>
                 </div>
@@ -2353,14 +2353,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       >
         <div className="space-y-4">
           {/* Mode Tabs */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#f3eaff] dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E]">
+          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
             <button
               type="button"
               onClick={() => setAssignModalMode('manual')}
               className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 assignModalMode === 'manual'
-                  ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-white shadow-xs'
-                  : 'text-[#4b4452] dark:text-[#CEC0E8]'
+                  ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-white shadow-xs'
+                  : 'text-[#52647A] dark:text-[#CEC0E8]'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -2371,8 +2371,8 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               onClick={() => setAssignModalMode('auto')}
               className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 assignModalMode === 'auto'
-                  ? 'bg-white dark:bg-[#35105E] text-[#58149c] dark:text-white shadow-xs'
-                  : 'text-[#4b4452] dark:text-[#CEC0E8]'
+                  ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-white shadow-xs'
+                  : 'text-[#52647A] dark:text-[#CEC0E8]'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -2382,9 +2382,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
           {assignModalMode === 'manual' ? (
             metrics.unassignedTickets.length === 0 ? (
-              <div className="p-6 text-center rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] text-xs text-[#4b4452] dark:text-[#CEC0E8] space-y-2">
+              <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <div className="font-bold text-[#1f1638] dark:text-white">
+                <div className="font-bold text-[#26364A] dark:text-white">
                   Semua Work Order Hari Ini Telah Di-assign
                 </div>
                 <p>Anda dapat mengelola Reassign atau melihat jadwal slot pada menu Assign WO.</p>
@@ -2403,7 +2403,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             ) : (
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block font-bold text-[#1f1638] dark:text-white mb-1">
+                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                     1. Pilih Work Order Unassigned ({metrics.unassignedTickets.length})
                   </label>
                   <select
@@ -2414,7 +2414,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                       const found = todayTickets.find(t => t.id === id);
                       if (found) setModalSlotTime(found.slotTime || '');
                     }}
-                    className="w-full px-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] border border-[#cec3d4] dark:border-[#35105E] text-[#1f1638] dark:text-white font-medium"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
                   >
                     {metrics.unassignedTickets.map(t => (
                       <option key={t.id} value={t.id}>
@@ -2425,13 +2425,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-[#1f1638] dark:text-white mb-1">
+                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                     2. Pilih Teknisi Pelaksana ({myInstallers.length} Aktif)
                   </label>
                   <select
                     value={modalInstallerName}
                     onChange={e => setModalInstallerName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] border border-[#cec3d4] dark:border-[#35105E] text-[#1f1638] dark:text-white font-medium"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
                   >
                     {technicianSummaries.map(s => (
                       <option key={s.installer.id} value={s.installer.name}>
@@ -2442,13 +2442,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-[#1f1638] dark:text-white mb-1">
+                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                     3. Slot Jadwal Kunjungan
                   </label>
                   <select
                     value={modalSlotTime}
                     onChange={e => setModalSlotTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] border border-[#cec3d4] dark:border-[#35105E] text-[#1f1638] dark:text-white font-medium"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
                   >
                     <option value="">Pertahankan Slot Bawaan WO</option>
                     <option value="09:00 - 11:00 WIB">Slot 1 (09:00 - 11:00 WIB)</option>
@@ -2458,7 +2458,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   </select>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                   <button
                     type="button"
                     onClick={() => setAssignModalOpen(false)}
@@ -2482,28 +2482,28 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             )
           ) : (
             <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#f8f1ff] dark:bg-[#22123F] border border-[#e8ddff] dark:border-[#35105E]">
-                <div className="font-bold text-[#1f1638] dark:text-white">
+              <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="font-bold text-[#26364A] dark:text-white">
                   Rencana Auto-Balance: {autoBalancePlan.planned.length} WO Siap Didistribusikan
                 </div>
-                <div className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] mt-0.5">
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
                   Algoritma memilih teknisi cakupan area dengan beban terendah dan bebas bentrok slot jadwal.
                 </div>
               </div>
 
               {autoBalancePlan.planned.length === 0 ? (
-                <div className="p-4 text-center text-[#7d7484] dark:text-[#CEC0E8]">
+                <div className="p-4 text-center text-[#8492A5] dark:text-[#CEC0E8]">
                   Tidak ada WO unassigned atau seluruh teknisi area telah mencapai batas kuota harian.
                 </div>
               ) : (
-                <div className="max-h-60 overflow-y-auto divide-y divide-[#e8ddff] dark:divide-[#35105E] border border-[#e8ddff] dark:border-[#35105E] rounded-xl">
+                <div className="max-h-60 overflow-y-auto divide-y divide-[#E2E8F0] dark:divide-[#35105E] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl">
                   {autoBalancePlan.planned.map(item => (
                     <div key={item.ticket.id} className="p-2.5 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-mono font-bold text-[#58149c] dark:text-[#dab9ff]">
+                        <div className="font-mono font-bold text-[#5145A6] dark:text-[#dab9ff]">
                           {item.ticket.woNumber}
                         </div>
-                        <div className="text-[11px] text-[#4b4452] dark:text-[#CEC0E8] truncate">
+                        <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                           {item.ticket.customerName} • {item.ticket.clusterName || item.ticket.area}
                         </div>
                       </div>
@@ -2511,7 +2511,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                         <div className="font-bold text-emerald-700 dark:text-emerald-300">
                           → {item.installer.name}
                         </div>
-                        <div className="text-[10px] text-[#7d7484]">
+                        <div className="text-[10px] text-[#8492A5]">
                           {item.slotIndex ? `Slot S${item.slotIndex}` : item.ticket.slotTime || 'Fleksibel'}
                         </div>
                       </div>
@@ -2526,7 +2526,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e8ddff] dark:border-[#35105E]">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                 <button
                   type="button"
                   onClick={() => setAssignModalOpen(false)}

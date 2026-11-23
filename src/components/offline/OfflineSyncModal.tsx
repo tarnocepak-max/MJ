@@ -262,7 +262,7 @@ export const OfflineSyncModal: React.FC = () => {
                         {!isOnline ? 'Aplikasi Berjalan dalam Mode Offline' : 'Koneksi Server Terhubung (Online)'}
                       </h3>
                       {isSimulatedOffline && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAE8FF] dark:bg-purple-900 text-[#5145A6] dark:text-purple-300 border border-[#C5BEEF] dark:border-transparent">
                           Simulasi
                         </span>
                       )}
@@ -281,7 +281,7 @@ export const OfflineSyncModal: React.FC = () => {
                     onClick={toggleSimulatedOffline}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                       isSimulatedOffline
-                        ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
+                        ? 'bg-[#6657C8] text-white border-[#5145A6] hover:bg-[#5145A6] dark:bg-purple-600 dark:border-purple-600 dark:hover:bg-purple-700'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
                     }`}
                   >

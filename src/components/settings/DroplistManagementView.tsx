@@ -84,7 +84,7 @@ export const DroplistManagementView: React.FC = () => {
   const [isAddStatusOpen, setIsAddStatusOpen] = useState(false);
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusCode, setNewStatusCode] = useState('');
-  const [newStatusColor, setNewStatusColor] = useState('#7135B5');
+  const [newStatusColor, setNewStatusColor] = useState('#6657C8');
 
   // Reason Modal
   const [targetStatusIdForReason, setTargetStatusIdForReason] = useState<string | null>(null);
@@ -441,8 +441,8 @@ export const DroplistManagementView: React.FC = () => {
   return (
     <div className="space-y-5">
       {!isSuperAdmin && (
-        <div className="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 dark:bg-amber-950/50 dark:border-amber-500/40 dark:text-amber-200 text-xs flex items-center gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <span>
             <strong>Mode Baca (Read-Only):</strong> Perubahan droplist global (Status WO, Reason, Remarks, dan Droplist Statis) hanya dapat dilakukan oleh <strong>Super Admin</strong>.
           </span>
@@ -450,26 +450,26 @@ export const DroplistManagementView: React.FC = () => {
       )}
 
       {/* ============================================================ */}
-      {/* TOP HEADER BANNER (MoraJaws Dark Purple Gloss + Lilac)        */}
+      {/* TOP HEADER BANNER                                            */}
       {/* ============================================================ */}
-      <div className="bg-[#160D29] rounded-2xl border border-[#D8B4FE]/30 p-5 shadow-[0_4px_24px_rgba(22,13,41,0.6)] relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#D8B4FE]/60 to-transparent" />
+      <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] rounded-2xl border border-[#C5BEEF] dark:border-[#D8B4FE]/30 p-5 shadow-sm dark:shadow-[0_4px_24px_rgba(22,13,41,0.6)] relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#9E95DE]/50 dark:via-[#D8B4FE]/60 to-transparent" />
 
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#7135B5] to-[#35105E] border border-[#D8B4FE]/50 text-white flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(113,53,181,0.4)]">
-            <Layers className="w-5 h-5 text-[#E9D5FF]" />
+          <div className="w-11 h-11 rounded-xl bg-white border border-[#C5BEEF] text-[#5145A6] shadow-xs dark:bg-gradient-to-br dark:from-[#7135B5] dark:to-[#35105E] dark:border-[#D8B4FE]/50 dark:text-white flex items-center justify-center shrink-0 dark:shadow-[0_0_15px_rgba(113,53,181,0.4)]">
+            <Layers className="w-5 h-5 text-[#5145A6] dark:text-[#E9D5FF]" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-extrabold text-white tracking-tight">
+              <h2 className="text-base font-extrabold text-[#26364A] dark:text-white tracking-tight">
                 DROPLIST MANAGEMENT
               </h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[#35105E] text-[#D8B4FE] border border-[#D8B4FE]/30">
-                <Database className="w-3 h-3 text-[#A855F7]" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-white/90 text-[#5145A6] border border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#D8B4FE] dark:border-[#D8B4FE]/30">
+                <Database className="w-3 h-3 text-[#6657C8] dark:text-[#A855F7]" />
                 <span>Single Source of Truth • Supabase PostgreSQL</span>
               </span>
             </div>
-            <p className="text-xs text-[#D8B4FE]/80 mt-0.5">
+            <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 mt-0.5">
               Satu sistem konfigurasi terpadu 3-tingkat: <strong>Status WO (Level 1)</strong> → <strong>Reason WO (Level 2)</strong> → <strong>Remarks (Level 3)</strong>.
             </p>
           </div>
@@ -481,10 +481,10 @@ export const DroplistManagementView: React.FC = () => {
             type="button"
             onClick={handleTriggerReconcile}
             disabled={!isSuperAdmin || isReconciling || isSaving}
-            className="px-3 py-1.5 text-xs font-semibold text-[#D8B4FE] hover:text-white bg-[#35105E]/70 hover:bg-[#35105E] border border-[#D8B4FE]/30 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-xs font-semibold text-[#5145A6] hover:text-[#26364A] bg-white/90 hover:bg-white border border-[#C5BEEF] dark:text-[#D8B4FE] dark:hover:text-white dark:bg-[#35105E]/70 dark:hover:bg-[#35105E] dark:border-[#D8B4FE]/30 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Sinkronisasikan dan verifikasi rekonsiliasi data lama ke hierarki utama"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#A855F7] ${isReconciling ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#6657C8] dark:text-[#A855F7] ${isReconciling ? 'animate-spin' : ''}`} />
             <span>{isReconciling ? 'Menyelaraskan...' : 'Rekonsiliasi Data'}</span>
           </button>
 
@@ -495,10 +495,10 @@ export const DroplistManagementView: React.FC = () => {
               if (!isSuperAdmin) return;
               setNewStatusName('');
               setNewStatusCode('');
-              setNewStatusColor('#7135B5');
+              setNewStatusColor('#6657C8');
               setIsAddStatusOpen(true);
             }}
-            className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-[#7135B5] to-[#A855F7] hover:from-[#7E3CC7] hover:to-[#B666FE] rounded-xl flex items-center justify-center gap-1.5 shadow-[0_0_18px_rgba(168,85,247,0.4)] border border-[#E9D5FF]/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-xs font-bold text-white bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] shadow-sm dark:bg-gradient-to-r dark:from-[#7135B5] dark:to-[#A855F7] dark:hover:from-[#7E3CC7] dark:hover:to-[#B666FE] rounded-xl flex items-center justify-center gap-1.5 dark:shadow-[0_0_18px_rgba(168,85,247,0.4)] dark:border-[#E9D5FF]/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             <span>+ Tambah Status WO (Level 1)</span>
@@ -511,55 +511,55 @@ export const DroplistManagementView: React.FC = () => {
       {/* ============================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Level 1: Status WO */}
-        <div className="bg-[#160D29]/80 rounded-2xl border border-[#D8B4FE]/20 p-3.5 flex items-center justify-between">
+        <div className="bg-white dark:bg-[#160D29]/80 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 flex items-center justify-between shadow-xs dark:shadow-none">
           <div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#D8B4FE]/60 block">
+            <span className="text-[10px] font-bold tracking-wider uppercase text-[#8492A5] dark:text-[#D8B4FE]/60 block">
               Level 1 (Parent)
             </span>
-            <div className="text-sm font-extrabold text-white mt-0.5">
+            <div className="text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Status WO
             </div>
-            <div className="text-[11px] text-emerald-300 font-mono mt-0.5">
-              {metrics.activeStatuses} Aktif <span className="text-[#D8B4FE]/40">/ {metrics.totalStatuses} Total</span>
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono mt-0.5">
+              {metrics.activeStatuses} Aktif <span className="text-[#8492A5] dark:text-[#D8B4FE]/40">/ {metrics.totalStatuses} Total</span>
             </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#35105E]/80 border border-[#A855F7]/40 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E]/80 dark:border-[#A855F7]/40 dark:text-white flex items-center justify-center font-bold text-sm">
             {metrics.totalStatuses}
           </div>
         </div>
 
         {/* Level 2: Reason WO */}
-        <div className="bg-[#160D29]/80 rounded-2xl border border-[#D8B4FE]/20 p-3.5 flex items-center justify-between">
+        <div className="bg-white dark:bg-[#160D29]/80 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 flex items-center justify-between shadow-xs dark:shadow-none">
           <div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#D8B4FE]/60 block">
+            <span className="text-[10px] font-bold tracking-wider uppercase text-[#8492A5] dark:text-[#D8B4FE]/60 block">
               Level 2 (Child)
             </span>
-            <div className="text-sm font-extrabold text-white mt-0.5">
+            <div className="text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Reason WO
             </div>
-            <div className="text-[11px] text-emerald-300 font-mono mt-0.5">
-              {metrics.activeReasons} Aktif <span className="text-[#D8B4FE]/40">/ {metrics.totalReasons} Total</span>
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono mt-0.5">
+              {metrics.activeReasons} Aktif <span className="text-[#8492A5] dark:text-[#D8B4FE]/40">/ {metrics.totalReasons} Total</span>
             </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#35105E]/80 border border-[#A855F7]/40 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E]/80 dark:border-[#A855F7]/40 dark:text-white flex items-center justify-center font-bold text-sm">
             {metrics.totalReasons}
           </div>
         </div>
 
         {/* Level 3: Remarks */}
-        <div className="bg-[#160D29]/80 rounded-2xl border border-[#D8B4FE]/20 p-3.5 flex items-center justify-between">
+        <div className="bg-white dark:bg-[#160D29]/80 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 flex items-center justify-between shadow-xs dark:shadow-none">
           <div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#D8B4FE]/60 block">
+            <span className="text-[10px] font-bold tracking-wider uppercase text-[#8492A5] dark:text-[#D8B4FE]/60 block">
               Level 3 (Sub-child / Rootcause)
             </span>
-            <div className="text-sm font-extrabold text-white mt-0.5">
+            <div className="text-sm font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Remarks
             </div>
-            <div className="text-[11px] text-emerald-300 font-mono mt-0.5">
-              {metrics.activeRemarks} Aktif <span className="text-[#D8B4FE]/40">/ {metrics.totalRemarks} Total</span>
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono mt-0.5">
+              {metrics.activeRemarks} Aktif <span className="text-[#8492A5] dark:text-[#D8B4FE]/40">/ {metrics.totalRemarks} Total</span>
             </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#35105E]/80 border border-[#A855F7]/40 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E]/80 dark:border-[#A855F7]/40 dark:text-white flex items-center justify-center font-bold text-sm">
             {metrics.totalRemarks}
           </div>
         </div>
@@ -568,19 +568,23 @@ export const DroplistManagementView: React.FC = () => {
       {/* ============================================================ */}
       {/* NAVIGATION TABS: HIERARCHICAL TREE VS STATIC DROPLISTS       */}
       {/* ============================================================ */}
-      <div className="flex items-center gap-2 border-b border-[#D8B4FE]/20 pb-1 text-xs overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-2 border-b border-[#DDE6F0] dark:border-[#D8B4FE]/20 pb-1 text-xs overflow-x-auto no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveMainTab('hierarchy')}
           className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeMainTab === 'hierarchy'
-              ? 'bg-[#7135B5] text-white shadow-[0_0_15px_rgba(113,53,181,0.4)] border border-[#E9D5FF]/40'
-              : 'bg-[#1E1138]/40 text-[#D8B4FE]/80 hover:bg-[#35105E]/40 hover:text-white border border-[#D8B4FE]/20'
+              ? 'bg-[#6657C8] text-white border border-[#9E95DE] shadow-sm dark:bg-[#7135B5] dark:shadow-[0_0_15px_rgba(113,53,181,0.4)] dark:border-[#E9D5FF]/40'
+              : 'bg-[#F4F7FB] text-[#52647A] hover:bg-[#EDF3F8] hover:text-[#26364A] border border-[#DDE6F0] dark:bg-[#1E1138]/40 dark:text-[#D8B4FE]/80 dark:hover:bg-[#35105E]/40 dark:hover:text-white dark:border-[#D8B4FE]/20'
           }`}
         >
-          <FolderTree className="w-3.5 h-3.5 text-[#E9D5FF]" />
+          <FolderTree className={`w-3.5 h-3.5 ${activeMainTab === 'hierarchy' ? 'text-white dark:text-[#E9D5FF]' : 'text-[#5145A6] dark:text-[#E9D5FF]'}`} />
           <span>Hierarchical Tree (Status → Reason → Remarks)</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+            activeMainTab === 'hierarchy'
+              ? 'bg-white/20 text-white'
+              : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-white/20 dark:text-white'
+          }`}>
             {metrics.totalStatuses}
           </span>
         </button>
@@ -590,8 +594,8 @@ export const DroplistManagementView: React.FC = () => {
           onClick={() => setActiveMainTab('static_droplists')}
           className={`px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeMainTab === 'static_droplists'
-              ? 'bg-[#7135B5] text-white shadow-[0_0_15px_rgba(113,53,181,0.4)] border border-[#E9D5FF]/40'
-              : 'bg-[#1E1138]/40 text-[#D8B4FE]/80 hover:bg-[#35105E]/40 hover:text-white border border-[#D8B4FE]/20'
+              ? 'bg-[#6657C8] text-white border border-[#9E95DE] shadow-sm dark:bg-[#7135B5] dark:shadow-[0_0_15px_rgba(113,53,181,0.4)] dark:border-[#E9D5FF]/40'
+              : 'bg-[#F4F7FB] text-[#52647A] hover:bg-[#EDF3F8] hover:text-[#26364A] border border-[#DDE6F0] dark:bg-[#1E1138]/40 dark:text-[#D8B4FE]/80 dark:hover:bg-[#35105E]/40 dark:hover:text-white dark:border-[#D8B4FE]/20'
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
@@ -605,15 +609,15 @@ export const DroplistManagementView: React.FC = () => {
       {activeMainTab === 'hierarchy' && (
         <div className="space-y-4">
           {/* Controls: Search, Expand All, Active Filter */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#160D29]/70 rounded-2xl border border-[#D8B4FE]/20 p-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#160D29]/70 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 p-3.5 shadow-xs dark:shadow-none">
             <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-[#D8B4FE]/60 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#D8B4FE]/60 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Cari status, reason, atau remarks di seluruh hirarki..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/25 rounded-xl text-xs text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+                className="w-full pl-8 pr-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/30 border border-[#DDE6F0] dark:border-[#D8B4FE]/25 rounded-xl text-xs text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               />
             </div>
 
@@ -622,7 +626,7 @@ export const DroplistManagementView: React.FC = () => {
               <select
                 value={filterActiveState}
                 onChange={e => setFilterActiveState(e.target.value as any)}
-                className="px-3 py-1.5 bg-[#35105E]/40 border border-[#D8B4FE]/25 rounded-xl text-xs text-white focus:border-[#A855F7] focus:outline-none cursor-pointer"
+                className="px-3 py-1.5 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/25 rounded-xl text-xs text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none cursor-pointer"
               >
                 <option value="all">Semua Status (Aktif & Nonaktif)</option>
                 <option value="active_only">Hanya Status Aktif</option>
@@ -632,14 +636,14 @@ export const DroplistManagementView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExpandAll}
-                className="px-2.5 py-1.5 text-xs font-semibold text-[#D8B4FE] hover:text-white bg-[#35105E]/40 hover:bg-[#35105E]/70 rounded-xl border border-[#D8B4FE]/25 cursor-pointer"
+                className="px-2.5 py-1.5 text-xs font-semibold text-[#5145A6] hover:text-[#26364A] bg-[#F4F7FB] hover:bg-[#EAE8FF] dark:text-[#D8B4FE] dark:hover:text-white dark:bg-[#35105E]/40 dark:hover:bg-[#35105E]/70 rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 cursor-pointer"
               >
                 Expand All
               </button>
               <button
                 type="button"
                 onClick={handleCollapseAll}
-                className="px-2.5 py-1.5 text-xs font-semibold text-[#D8B4FE] hover:text-white bg-[#35105E]/40 hover:bg-[#35105E]/70 rounded-xl border border-[#D8B4FE]/25 cursor-pointer"
+                className="px-2.5 py-1.5 text-xs font-semibold text-[#5145A6] hover:text-[#26364A] bg-[#F4F7FB] hover:bg-[#EAE8FF] dark:text-[#D8B4FE] dark:hover:text-white dark:bg-[#35105E]/40 dark:hover:bg-[#35105E]/70 rounded-xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 cursor-pointer"
               >
                 Collapse All
               </button>
@@ -649,9 +653,9 @@ export const DroplistManagementView: React.FC = () => {
           {/* Hierarchical Tree Container */}
           <div className="space-y-3">
             {filteredStatuses.length === 0 ? (
-              <div className="p-10 text-center text-xs text-[#D8B4FE]/70 bg-[#160D29]/60 rounded-2xl border border-[#D8B4FE]/20 space-y-2">
-                <AlertTriangle className="w-8 h-8 text-[#D8B4FE]/50 mx-auto" />
-                <p className="font-semibold text-white">Tidak ada data status yang cocok dengan filter atau pencarian.</p>
+              <div className="p-10 text-center text-xs text-[#52647A] dark:text-[#D8B4FE]/70 bg-white dark:bg-[#160D29]/60 rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/20 space-y-2">
+                <AlertTriangle className="w-8 h-8 text-[#8492A5] dark:text-[#D8B4FE]/50 mx-auto" />
+                <p className="font-semibold text-[#26364A] dark:text-white">Tidak ada data status yang cocok dengan filter atau pencarian.</p>
                 <p className="text-[11px]">Coba reset kata kunci atau klik "+ Tambah Status WO (Level 1)".</p>
               </div>
             ) : (
@@ -667,37 +671,37 @@ export const DroplistManagementView: React.FC = () => {
                     key={status.id}
                     className={`rounded-2xl border transition-all overflow-hidden ${
                       isStatusActive
-                        ? 'bg-[#160D29] border-[#D8B4FE]/30 shadow-md'
-                        : 'bg-[#160D29]/60 border-white/10 opacity-75'
+                        ? 'bg-white border-[#DDE6F0] shadow-xs dark:bg-[#160D29] dark:border-[#D8B4FE]/30 dark:shadow-md'
+                        : 'bg-[#F4F7FB] border-[#E2E8F0] opacity-75 dark:bg-[#160D29]/60 dark:border-white/10'
                     }`}
                   >
                     {/* LEVEL 1: STATUS HEADER BAR */}
-                    <div className="p-3.5 sm:p-4 bg-gradient-to-r from-[#1E0F3D] to-[#160D29] border-b border-[#D8B4FE]/20 flex flex-wrap items-center justify-between gap-3">
+                    <div className="p-3.5 sm:p-4 bg-gradient-to-r from-[#EAE8FF]/70 via-[#F4F7FB] to-[#DDF4F4]/60 dark:from-[#1E0F3D] dark:to-[#160D29] border-b border-[#DDE6F0] dark:border-[#D8B4FE]/20 flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <button
                           type="button"
                           onClick={() => toggleStatusExpand(status.id)}
-                          className="p-1 rounded-lg text-[#D8B4FE] hover:bg-[#35105E] cursor-pointer transition-colors"
+                          className="p-1 rounded-lg text-[#5145A6] hover:bg-[#EAE8FF] dark:text-[#D8B4FE] dark:hover:bg-[#35105E] cursor-pointer transition-colors"
                           title={isExpanded ? 'Tutup Detail' : 'Buka Detail'}
                         >
                           {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-[#A855F7]" />
+                            <ChevronDown className="w-4 h-4 text-[#6657C8] dark:text-[#A855F7]" />
                           ) : (
-                            <ChevronRight className="w-4 h-4 text-[#D8B4FE]/60" />
+                            <ChevronRight className="w-4 h-4 text-[#8492A5] dark:text-[#D8B4FE]/60" />
                           )}
                         </button>
 
                         <span
                           className="w-3.5 h-3.5 rounded-full shadow-[0_0_8px_currentColor] shrink-0"
-                          style={{ backgroundColor: status.color || '#7135B5', color: status.color || '#7135B5' }}
+                          style={{ backgroundColor: status.color || '#6657C8', color: status.color || '#6657C8' }}
                         />
 
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-extrabold text-xs sm:text-sm text-white">
+                            <span className="font-extrabold text-xs sm:text-sm text-[#26364A] dark:text-white">
                               {status.name}
                             </span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#35105E] text-[#D8B4FE] border border-[#D8B4FE]/30 font-bold">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white text-[#5145A6] border border-[#C5BEEF] dark:bg-[#35105E] dark:text-[#D8B4FE] dark:border-[#D8B4FE]/30 font-bold">
                               Level 1 • {status.code || status.name.toUpperCase()}
                             </span>
 
@@ -717,8 +721,8 @@ export const DroplistManagementView: React.FC = () => {
                               }}
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                                 isStatusActive
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 hover:bg-emerald-500/30'
-                                  : 'bg-slate-700/50 text-slate-300 border border-slate-600/40 hover:bg-slate-700'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-400/30 dark:hover:bg-emerald-500/30'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 dark:bg-slate-700/50 dark:text-slate-300 dark:border-slate-600/40 dark:hover:bg-slate-700'
                               }`}
                               title="Klik untuk ubah aktif / nonaktif"
                             >
@@ -727,7 +731,7 @@ export const DroplistManagementView: React.FC = () => {
                             </button>
                           </div>
 
-                          <div className="text-[11px] text-[#D8B4FE]/70 mt-0.5">
+                          <div className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                             {totalStatusReasons} Reason WO • {totalStatusRemarks} Remarks
                           </div>
                         </div>
@@ -736,12 +740,12 @@ export const DroplistManagementView: React.FC = () => {
                       {/* Level 1 Actions */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {/* Order Reorder */}
-                        <div className="flex items-center border border-[#D8B4FE]/25 rounded-lg overflow-hidden bg-[#35105E]/40">
+                        <div className="flex items-center border border-[#DDE6F0] dark:border-[#D8B4FE]/25 rounded-lg overflow-hidden bg-white dark:bg-[#35105E]/40">
                           <button
                             type="button"
                             disabled={!isSuperAdmin || isSaving}
                             onClick={() => handleMoveStatusOrder(status.id, 'up')}
-                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Geser Urutan Status ke Atas"
                           >
                             <ArrowUp className="w-3 h-3" />
@@ -750,7 +754,7 @@ export const DroplistManagementView: React.FC = () => {
                             type="button"
                             disabled={!isSuperAdmin || isSaving}
                             onClick={() => handleMoveStatusOrder(status.id, 'down')}
-                            className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer border-l border-[#DDE6F0] dark:border-[#D8B4FE]/25 disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Geser Urutan Status ke Bawah"
                           >
                             <ArrowDown className="w-3 h-3" />
@@ -767,7 +771,7 @@ export const DroplistManagementView: React.FC = () => {
                             setNewReasonName('');
                             setNewReasonCode('');
                           }}
-                          className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded-lg text-[11px] font-bold flex items-center gap-1 border border-emerald-400/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-600/20 dark:hover:bg-emerald-600/35 dark:text-emerald-300 rounded-lg text-[11px] font-bold flex items-center gap-1 dark:border-emerald-400/30 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Tambah Reason (Level 2) di bawah status ini"
                         >
                           <Plus className="w-3 h-3" />
@@ -788,7 +792,7 @@ export const DroplistManagementView: React.FC = () => {
                               color: status.color
                             });
                           }}
-                          className="p-1.5 text-[#D8B4FE]/70 hover:text-white hover:bg-[#35105E] rounded-lg cursor-pointer border border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="p-1.5 text-[#52647A] hover:text-[#5145A6] hover:bg-[#EAE8FF] border border-[#DDE6F0] dark:text-[#D8B4FE]/70 dark:hover:text-white dark:hover:bg-[#35105E] rounded-lg cursor-pointer dark:border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Edit Status WO"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -815,7 +819,7 @@ export const DroplistManagementView: React.FC = () => {
                               setIsSaving(false);
                             }
                           }}
-                          className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg cursor-pointer border border-rose-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 dark:text-rose-400 dark:hover:text-rose-200 dark:hover:bg-rose-950/50 rounded-lg cursor-pointer dark:border-rose-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Hapus Status WO"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -825,9 +829,9 @@ export const DroplistManagementView: React.FC = () => {
 
                     {/* LEVEL 2: REASONS LIST */}
                     {isExpanded && (
-                      <div className="p-3 sm:p-4 space-y-3 bg-[#110920]/60">
+                      <div className="p-3 sm:p-4 space-y-3 bg-[#F8FAFD] dark:bg-[#110920]/60">
                         {statusReasons.length === 0 ? (
-                          <div className="p-4 text-center text-xs text-[#D8B4FE]/50 italic">
+                          <div className="p-4 text-center text-xs text-[#8492A5] dark:text-[#D8B4FE]/50 italic">
                             Belum ada Reason WO (Level 2) di bawah status ini. Klik "+ Reason" di atas untuk menambahkan.
                           </div>
                         ) : (
@@ -841,33 +845,33 @@ export const DroplistManagementView: React.FC = () => {
                                 key={reason.id}
                                 className={`rounded-xl border transition-all overflow-hidden ml-2 sm:ml-4 ${
                                   isReasonActive
-                                    ? 'bg-[#1A0E2E] border-[#D8B4FE]/20'
-                                    : 'bg-[#140827] border-white/5 opacity-70'
+                                    ? 'bg-white border-[#DDE6F0] dark:bg-[#1A0E2E] dark:border-[#D8B4FE]/20'
+                                    : 'bg-[#F4F7FB] border-[#E2E8F0] opacity-70 dark:bg-[#140827] dark:border-white/5'
                                 }`}
                               >
                                 {/* Reason Header */}
-                                <div className="p-3 bg-[#1F1138]/60 flex flex-wrap items-center justify-between gap-2 border-b border-[#D8B4FE]/15">
+                                <div className="p-3 bg-[#F4F7FB] dark:bg-[#1F1138]/60 flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/15">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <button
                                       type="button"
                                       onClick={() => toggleReasonExpand(reason.id)}
-                                      className="p-0.5 rounded text-[#D8B4FE]/70 hover:text-white cursor-pointer"
+                                      className="p-0.5 rounded text-[#52647A] hover:text-[#26364A] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer"
                                       title={isReasonExpanded ? 'Tutup Remarks' : 'Buka Remarks'}
                                     >
                                       {isReasonExpanded ? (
-                                        <ChevronDown className="w-3.5 h-3.5 text-[#A855F7]" />
+                                        <ChevronDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A855F7]" />
                                       ) : (
                                         <ChevronRight className="w-3.5 h-3.5" />
                                       )}
                                     </button>
 
-                                    <CornerDownRight className="w-3.5 h-3.5 text-[#A855F7] shrink-0" />
+                                    <CornerDownRight className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A855F7] shrink-0" />
 
-                                    <span className="font-bold text-xs text-white">
+                                    <span className="font-bold text-xs text-[#26364A] dark:text-white">
                                       {reason.name}
                                     </span>
 
-                                    <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-[#35105E]/80 text-[#E9D5FF] border border-[#D8B4FE]/20">
+                                    <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#35105E]/80 dark:text-[#E9D5FF] dark:border-[#D8B4FE]/20">
                                       Level 2 {reason.code ? `• ${reason.code}` : ''}
                                     </span>
 
@@ -887,14 +891,14 @@ export const DroplistManagementView: React.FC = () => {
                                       }}
                                       className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                         isReasonActive
-                                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                                          : 'bg-slate-700/50 text-slate-300 border border-slate-600/40'
+                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-400/30'
+                                          : 'bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-700/50 dark:text-slate-300 dark:border-slate-600/40'
                                       }`}
                                     >
                                       {isReasonActive ? 'Aktif' : 'Nonaktif'}
                                     </button>
 
-                                    <span className="text-[10px] text-[#D8B4FE]/60 font-mono">
+                                    <span className="text-[10px] text-[#8492A5] dark:text-[#D8B4FE]/60 font-mono">
                                       ({reasonRemarks.length} Remarks)
                                     </span>
                                   </div>
@@ -902,12 +906,12 @@ export const DroplistManagementView: React.FC = () => {
                                   {/* Reason Actions */}
                                   <div className="flex items-center gap-1 shrink-0">
                                     {/* Reorder Reason */}
-                                    <div className="flex items-center border border-[#D8B4FE]/20 rounded overflow-hidden bg-[#35105E]/40">
+                                    <div className="flex items-center border border-[#DDE6F0] dark:border-[#D8B4FE]/20 rounded overflow-hidden bg-white dark:bg-[#35105E]/40">
                                       <button
                                         type="button"
                                         disabled={!isSuperAdmin || isSaving}
                                         onClick={() => handleMoveReasonOrder(status.id, reason.id, 'up')}
-                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Geser Reason ke Atas"
                                       >
                                         <ArrowUp className="w-2.5 h-2.5" />
@@ -916,7 +920,7 @@ export const DroplistManagementView: React.FC = () => {
                                         type="button"
                                         disabled={!isSuperAdmin || isSaving}
                                         onClick={() => handleMoveReasonOrder(status.id, reason.id, 'down')}
-                                        className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/70 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/70 dark:hover:text-white cursor-pointer border-l border-[#DDE6F0] dark:border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                         title="Geser Reason ke Bawah"
                                       >
                                         <ArrowDown className="w-2.5 h-2.5" />
@@ -935,7 +939,7 @@ export const DroplistManagementView: React.FC = () => {
                                         });
                                         setNewRemarkText('');
                                       }}
-                                      className="px-2 py-0.5 bg-[#7135B5]/30 hover:bg-[#7135B5]/60 text-[#E9D5FF] rounded text-[10.5px] font-semibold flex items-center gap-1 border border-[#D8B4FE]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                      className="px-2 py-0.5 bg-[#EAE8FF] hover:bg-[#DCD7FA] text-[#5145A6] border border-[#C5BEEF] dark:bg-[#7135B5]/30 dark:hover:bg-[#7135B5]/60 dark:text-[#E9D5FF] rounded text-[10.5px] font-semibold flex items-center gap-1 dark:border-[#D8B4FE]/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Tambah Remark (Level 3)"
                                     >
                                       <Plus className="w-3 h-3" />
@@ -954,7 +958,7 @@ export const DroplistManagementView: React.FC = () => {
                                         });
                                         setTargetMoveStatusId(status.id);
                                       }}
-                                      className="p-1 text-[#D8B4FE]/70 hover:text-amber-300 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                      className="p-1 text-[#52647A] hover:text-amber-600 dark:text-[#D8B4FE]/70 dark:hover:text-amber-300 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Pindahkan Reason ke Status WO lain"
                                     >
                                       <MoveRight className="w-3.5 h-3.5" />
@@ -974,7 +978,7 @@ export const DroplistManagementView: React.FC = () => {
                                           code: reason.code
                                         });
                                       }}
-                                      className="p-1 text-[#D8B4FE]/70 hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                      className="p-1 text-[#52647A] hover:text-[#5145A6] dark:text-[#D8B4FE]/70 dark:hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Edit Reason WO"
                                     >
                                       <Edit2 className="w-3 h-3" />
@@ -993,7 +997,7 @@ export const DroplistManagementView: React.FC = () => {
                                           setIsSaving(false);
                                         }
                                       }}
-                                      className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                      className="p-1 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Hapus Reason WO"
                                     >
                                       <Trash2 className="w-3 h-3" />
@@ -1003,9 +1007,9 @@ export const DroplistManagementView: React.FC = () => {
 
                                 {/* LEVEL 3: REMARKS LIST */}
                                 {isReasonExpanded && (
-                                  <div className="p-2.5 sm:p-3 bg-[#140827]/80 space-y-1.5 ml-3 sm:ml-6 border-l-2 border-[#A855F7]/40">
+                                  <div className="p-2.5 sm:p-3 bg-[#F4F7FB]/80 dark:bg-[#140827]/80 space-y-1.5 ml-3 sm:ml-6 border-l-2 border-[#6657C8]/40 dark:border-[#A855F7]/40">
                                     {reasonRemarks.length === 0 ? (
-                                      <div className="p-2 text-center text-[11px] text-[#D8B4FE]/50 italic">
+                                      <div className="p-2 text-center text-[11px] text-[#8492A5] dark:text-[#D8B4FE]/50 italic">
                                         Belum ada remarks/rootcause untuk reason ini. Klik "+ Remark" di atas.
                                       </div>
                                     ) : (
@@ -1016,16 +1020,16 @@ export const DroplistManagementView: React.FC = () => {
                                             key={rem.id}
                                             className={`p-2 rounded-lg border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-colors ${
                                               isRemActive
-                                                ? 'bg-[#1E1138]/60 border-[#D8B4FE]/20 hover:border-[#A855F7]/40'
-                                                : 'bg-[#120822] border-white/5 opacity-60'
+                                                ? 'bg-white border-[#DDE6F0] hover:border-[#9E95DE] dark:bg-[#1E1138]/60 dark:border-[#D8B4FE]/20 dark:hover:border-[#A855F7]/40'
+                                                : 'bg-[#EDF3F8] border-[#E2E8F0] opacity-60 dark:bg-[#120822] dark:border-white/5'
                                             }`}
                                           >
                                             <div className="flex items-center gap-2 min-w-0">
-                                              <Tag className="w-3 h-3 text-[#A855F7] shrink-0" />
-                                              <span className="text-xs text-white font-medium truncate">
+                                              <Tag className="w-3 h-3 text-[#6657C8] dark:text-[#A855F7] shrink-0" />
+                                              <span className="text-xs text-[#26364A] dark:text-white font-medium truncate">
                                                 {rem.text || rem.name}
                                               </span>
-                                              <span className="text-[9px] font-mono px-1 rounded bg-[#35105E]/60 text-[#D8B4FE]/80">
+                                              <span className="text-[9px] font-mono px-1 rounded bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/60 dark:text-[#D8B4FE]/80">
                                                 Level 3
                                               </span>
 
@@ -1045,8 +1049,8 @@ export const DroplistManagementView: React.FC = () => {
                                                 }}
                                                 className={`px-1.5 py-0.2 rounded-full text-[8.5px] font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                                   isRemActive
-                                                    ? 'bg-emerald-500/20 text-emerald-300'
-                                                    : 'bg-slate-700/50 text-slate-400'
+                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:border-transparent dark:bg-emerald-500/20 dark:text-emerald-300'
+                                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-400'
                                                 }`}
                                               >
                                                 {isRemActive ? 'Aktif' : 'Nonaktif'}
@@ -1055,12 +1059,12 @@ export const DroplistManagementView: React.FC = () => {
 
                                             <div className="flex items-center gap-1 shrink-0">
                                               {/* Reorder Remark */}
-                                              <div className="flex items-center border border-[#D8B4FE]/20 rounded overflow-hidden bg-[#35105E]/30">
+                                              <div className="flex items-center border border-[#DDE6F0] dark:border-[#D8B4FE]/20 rounded overflow-hidden bg-white dark:bg-[#35105E]/30">
                                                 <button
                                                   type="button"
                                                   disabled={!isSuperAdmin || isSaving}
                                                   onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'up')}
-                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                  className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/60 dark:hover:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                   title="Geser Remark ke Atas"
                                                 >
                                                   <ArrowUp className="w-2.5 h-2.5" />
@@ -1069,7 +1073,7 @@ export const DroplistManagementView: React.FC = () => {
                                                   type="button"
                                                   disabled={!isSuperAdmin || isSaving}
                                                   onClick={() => handleMoveRemarkOrder(status.id, reason.id, rem.id, 'down')}
-                                                  className="p-1 hover:bg-[#35105E] text-[#D8B4FE]/60 hover:text-white cursor-pointer border-l border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                  className="p-1 hover:bg-[#EDF3F8] text-[#52647A] hover:text-[#26364A] dark:hover:bg-[#35105E] dark:text-[#D8B4FE]/60 dark:hover:text-white cursor-pointer border-l border-[#DDE6F0] dark:border-[#D8B4FE]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                                                   title="Geser Remark ke Bawah"
                                                 >
                                                   <ArrowDown className="w-2.5 h-2.5" />
@@ -1090,7 +1094,7 @@ export const DroplistManagementView: React.FC = () => {
                                                     name: rem.text || rem.name
                                                   });
                                                 }}
-                                                className="p-1 text-[#D8B4FE]/60 hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                className="p-1 text-[#52647A] hover:text-[#5145A6] dark:text-[#D8B4FE]/60 dark:hover:text-white rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                 title="Edit Remark"
                                               >
                                                 <Edit2 className="w-3 h-3" />
@@ -1109,7 +1113,7 @@ export const DroplistManagementView: React.FC = () => {
                                                     setIsSaving(false);
                                                   }
                                                 }}
-                                                className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                                className="p-1 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                                 title="Hapus Remark"
                                               >
                                                 <Trash2 className="w-3 h-3" />
@@ -1141,8 +1145,8 @@ export const DroplistManagementView: React.FC = () => {
       {activeMainTab === 'static_droplists' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left: Category Selector */}
-          <div className="lg:col-span-4 bg-[#160D29] rounded-2xl border border-[#D8B4FE]/25 p-4 shadow-sm space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#D8B4FE]/60 block mb-2">
+          <div className="lg:col-span-4 bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 p-4 shadow-xs space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#D8B4FE]/60 block mb-2">
               Kategori Droplist Tambahan
             </span>
             <div className="space-y-1.5">
@@ -1160,13 +1164,13 @@ export const DroplistManagementView: React.FC = () => {
                     onClick={() => setActiveGeneralCategory(c.key as any)}
                     className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
-                        ? 'bg-[#7135B5] text-white border-[#A855F7] font-bold shadow-[0_0_15px_rgba(113,53,181,0.4)]'
-                        : 'bg-[#1E1138]/40 text-[#D8B4FE]/80 border-[#D8B4FE]/20 hover:bg-[#35105E]/40 hover:text-white'
+                        ? 'bg-[#6657C8] text-white border-[#9E95DE] font-bold shadow-sm dark:bg-[#7135B5] dark:border-[#A855F7] dark:shadow-[0_0_15px_rgba(113,53,181,0.4)]'
+                        : 'bg-[#F4F7FB] text-[#52647A] border-[#DDE6F0] hover:bg-[#EDF3F8] hover:text-[#26364A] dark:bg-[#1E1138]/40 dark:text-[#D8B4FE]/80 dark:border-[#D8B4FE]/20 dark:hover:bg-[#35105E]/40 dark:hover:text-white'
                     }`}
                   >
                     <span className="text-xs">{c.label}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-[#35105E]/70 text-[#D8B4FE]'
+                      isSelected ? 'bg-white/20 text-white' : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/70 dark:text-[#D8B4FE]'
                     }`}>
                       {count}
                     </span>
@@ -1177,13 +1181,13 @@ export const DroplistManagementView: React.FC = () => {
           </div>
 
           {/* Right: Items Editor */}
-          <div className="lg:col-span-8 bg-[#160D29] rounded-2xl border border-[#D8B4FE]/25 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#D8B4FE]/15">
+          <div className="lg:col-span-8 bg-white dark:bg-[#160D29] rounded-2xl border border-[#DDE6F0] dark:border-[#D8B4FE]/25 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-[#D8B4FE]/15">
               <div>
-                <h3 className="font-extrabold text-white text-sm">
+                <h3 className="font-extrabold text-[#26364A] dark:text-white text-sm">
                   Kelola Opsi: {activeGeneralCategory === 'slot_time' ? 'Slot Waktu Kunjungan' : activeGeneralCategory === 'ticket_category' ? 'Kategori Tiket WO' : 'Status WO Agent'}
                 </h3>
-                <p className="text-[11px] text-[#D8B4FE]/70 mt-0.5">
+                <p className="text-[11px] text-[#52647A] dark:text-[#D8B4FE]/70 mt-0.5">
                   Daftar opsi statis tersimpan permanen di Supabase PostgreSQL.
                 </p>
               </div>
@@ -1198,7 +1202,7 @@ export const DroplistManagementView: React.FC = () => {
                 placeholder="Label opsi baru..."
                 value={newGeneralLabel}
                 onChange={e => setNewGeneralLabel(e.target.value)}
-                className="flex-1 min-w-0 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none disabled:opacity-50"
+                className="flex-1 min-w-0 px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/30 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none disabled:opacity-50"
               />
               <input
                 type="text"
@@ -1206,12 +1210,12 @@ export const DroplistManagementView: React.FC = () => {
                 placeholder="Nilai kode (opsional)..."
                 value={newGeneralValue}
                 onChange={e => setNewGeneralValue(e.target.value)}
-                className="w-full sm:w-48 px-3 py-2 bg-[#35105E]/30 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono disabled:opacity-50"
+                className="w-full sm:w-48 px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/30 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!isSuperAdmin || isSaving}
-                className="px-4 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md border border-[#E9D5FF]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className="px-4 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm dark:border-[#E9D5FF]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSaving ? 'Menyimpan...' : 'Tambah'}</span>
@@ -1219,22 +1223,22 @@ export const DroplistManagementView: React.FC = () => {
             </form>
 
             {/* Items list */}
-            <div className="divide-y divide-[#D8B4FE]/15 border border-[#D8B4FE]/20 rounded-xl overflow-hidden text-xs">
+            <div className="divide-y divide-[#E2E8F0] dark:divide-[#D8B4FE]/15 border border-[#DDE6F0] dark:border-[#D8B4FE]/20 rounded-xl overflow-hidden text-xs">
               {currentGeneralItems.length === 0 ? (
-                <div className="p-4 text-center text-[#D8B4FE]/50 italic">
+                <div className="p-4 text-center text-[#8492A5] dark:text-[#D8B4FE]/50 italic">
                   Belum ada opsi dalam kategori ini.
                 </div>
               ) : (
                 currentGeneralItems.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="p-3 bg-[#1A0E2E]/60 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 hover:bg-[#1E1138]/80 transition-colors"
+                    className="p-3 odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:bg-[#1A0E2E]/60 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 dark:hover:bg-[#1E1138]/80 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-[#D8B4FE]/50 text-[11px] w-6">{idx + 1}.</span>
+                      <span className="font-mono text-[#8492A5] dark:text-[#D8B4FE]/50 text-[11px] w-6">{idx + 1}.</span>
                       <div>
-                        <span className="font-bold text-white">{item.label}</span>
-                        <span className="text-[11px] text-[#D8B4FE]/60 font-mono ml-2">[{item.value}]</span>
+                        <span className="font-bold text-[#26364A] dark:text-white">{item.label}</span>
+                        <span className="text-[11px] text-[#8492A5] dark:text-[#D8B4FE]/60 font-mono ml-2">[{item.value}]</span>
                       </div>
                     </div>
 
@@ -1245,8 +1249,8 @@ export const DroplistManagementView: React.FC = () => {
                         onClick={() => handleToggleGeneralActive(item.id)}
                         className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           item.active
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                            : 'bg-slate-700/50 text-slate-300 border border-slate-600/40'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-400/30'
+                            : 'bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-700/50 dark:text-slate-300 dark:border-slate-600/40'
                         }`}
                       >
                         {item.active ? 'Aktif' : 'Nonaktif'}
@@ -1255,7 +1259,7 @@ export const DroplistManagementView: React.FC = () => {
                         type="button"
                         disabled={!isSuperAdmin || isSaving}
                         onClick={() => handleDeleteGeneralItem(item.id)}
-                        className="p-1 text-rose-400 hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="p-1 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1285,7 +1289,7 @@ export const DroplistManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsAddStatusOpen(false)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1315,7 +1319,7 @@ export const DroplistManagementView: React.FC = () => {
                   setIsSaving(false);
                 }
               }}
-              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Status'}
             </button>
@@ -1324,35 +1328,35 @@ export const DroplistManagementView: React.FC = () => {
       >
         <div className="space-y-3 text-xs">
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Status <span className="text-rose-400">*</span></label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Nama Status <span className="text-rose-500 dark:text-rose-400">*</span></label>
             <input
               type="text"
               placeholder="Contoh: Installed, Pending Technical..."
               value={newStatusName}
               onChange={e => setNewStatusName(e.target.value)}
-              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Status (Identifier)</label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Kode Status (Identifier)</label>
             <input
               type="text"
               placeholder="Contoh: INSTALLED, PENDING_TECH..."
               value={newStatusCode}
               onChange={e => setNewStatusCode(e.target.value)}
-              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono uppercase"
             />
           </div>
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Warna Label</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={newStatusColor}
                 onChange={e => setNewStatusColor(e.target.value)}
-                className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
+                className="w-8 h-8 rounded border border-[#DDE6F0] dark:border-[#D8B4FE]/30 cursor-pointer"
               />
-              <span className="font-mono text-xs text-white">{newStatusColor}</span>
+              <span className="font-mono text-xs text-[#26364A] dark:text-white">{newStatusColor}</span>
             </div>
           </div>
         </div>
@@ -1375,7 +1379,7 @@ export const DroplistManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setTargetStatusIdForReason(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1406,7 +1410,7 @@ export const DroplistManagementView: React.FC = () => {
                   setIsSaving(false);
                 }
               }}
-              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Reason'}
             </button>
@@ -1415,23 +1419,23 @@ export const DroplistManagementView: React.FC = () => {
       >
         <div className="space-y-3 text-xs">
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Nama Reason / Alasan <span className="text-rose-400">*</span></label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Nama Reason / Alasan <span className="text-rose-500 dark:text-rose-400">*</span></label>
             <input
               type="text"
               placeholder="Contoh: Redaman OPM Normal (-18dBm)..."
               value={newReasonName}
               onChange={e => setNewReasonName(e.target.value)}
-              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none"
+              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
             />
           </div>
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Reason (Opsional)</label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Kode Reason (Opsional)</label>
             <input
               type="text"
               placeholder="Contoh: RSN_COMP_NORMAL..."
               value={newReasonCode}
               onChange={e => setNewReasonCode(e.target.value)}
-              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono uppercase"
             />
           </div>
         </div>
@@ -1454,7 +1458,7 @@ export const DroplistManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setTargetReasonIdForRemark(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1490,7 +1494,7 @@ export const DroplistManagementView: React.FC = () => {
                   setIsSaving(false);
                 }
               }}
-              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Remark'}
             </button>
@@ -1499,13 +1503,13 @@ export const DroplistManagementView: React.FC = () => {
       >
         <div className="space-y-3 text-xs">
           <div>
-            <label className="font-semibold block text-[#E9D5FF] mb-1">Teks Catatan / Rootcause <span className="text-rose-400">*</span></label>
+            <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Teks Catatan / Rootcause <span className="text-rose-500 dark:text-rose-400">*</span></label>
             <textarea
               rows={3}
               placeholder="Contoh: Instalasi selesai sesuai standar SOP MoraJaws. Redaman terukur -18.2 dBm..."
               value={newRemarkText}
               onChange={e => setNewRemarkText(e.target.value)}
-              className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white placeholder-[#D8B4FE]/40 focus:border-[#A855F7] focus:outline-none text-xs"
+              className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#D8B4FE]/40 focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none text-xs"
             />
           </div>
         </div>
@@ -1518,7 +1522,7 @@ export const DroplistManagementView: React.FC = () => {
         isOpen={Boolean(movingReason)}
         onClose={() => setMovingReason(null)}
         title="Pindahkan Reason ke Status Lain"
-        icon={<MoveRight className="w-4 h-4 text-amber-400" />}
+        icon={<MoveRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -1528,7 +1532,7 @@ export const DroplistManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setMovingReason(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1552,7 +1556,7 @@ export const DroplistManagementView: React.FC = () => {
                   setIsSaving(false);
                 }
               }}
-              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Memindahkan...' : 'Pindahkan'}
             </button>
@@ -1561,15 +1565,15 @@ export const DroplistManagementView: React.FC = () => {
       >
         {movingReason && (
           <div className="space-y-4 text-xs">
-            <p className="text-[#D8B4FE]/80">
-              Pindahkan reason <strong className="text-white">"{movingReason.reason.name}"</strong> beserta seluruh ({movingReason.reason.remarks?.length || 0}) remarks-nya ke Status WO tujuan.
+            <p className="text-[#52647A] dark:text-[#D8B4FE]/80">
+              Pindahkan reason <strong className="text-[#26364A] dark:text-white">"{movingReason.reason.name}"</strong> beserta seluruh ({movingReason.reason.remarks?.length || 0}) remarks-nya ke Status WO tujuan.
             </p>
             <div className="space-y-2">
-              <label className="font-semibold block text-[#E9D5FF]">Pilih Status Tujuan (Level 1):</label>
+              <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF]">Pilih Status Tujuan (Level 1):</label>
               <select
                 value={targetMoveStatusId}
                 onChange={e => setTargetMoveStatusId(e.target.value)}
-                className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none"
+                className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               >
                 {hierarchicalStatuses.map(s => (
                   <option key={s.id} value={s.id}>
@@ -1603,7 +1607,7 @@ export const DroplistManagementView: React.FC = () => {
             <button
               type="button"
               onClick={() => setEditingItem(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1643,7 +1647,7 @@ export const DroplistManagementView: React.FC = () => {
                   setIsSaving(false);
                 }
               }}
-              className="px-5 py-2 bg-[#7135B5] hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold border border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 bg-[#6657C8] hover:bg-[#5145A6] border border-[#9E95DE] dark:bg-[#7135B5] dark:hover:bg-[#8542D1] text-white rounded-xl text-xs font-bold dark:border-[#E9D5FF]/30 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
             </button>
@@ -1653,38 +1657,38 @@ export const DroplistManagementView: React.FC = () => {
         {editingItem && (
           <div className="space-y-3 text-xs">
             <div>
-              <label className="font-semibold block text-[#E9D5FF] mb-1">Nama / Teks <span className="text-rose-400">*</span></label>
+              <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Nama / Teks <span className="text-rose-500 dark:text-rose-400">*</span></label>
               <input
                 type="text"
                 value={editingItem.name}
                 onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
-                className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none"
+                className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none"
               />
             </div>
 
             {editingItem.type !== 'remark' && (
               <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Kode Identifier</label>
+                <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Kode Identifier</label>
                 <input
                   type="text"
                   value={editingItem.code || ''}
                   onChange={e => setEditingItem({ ...editingItem, code: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#35105E]/40 border border-[#D8B4FE]/30 rounded-xl text-white focus:border-[#A855F7] focus:outline-none font-mono uppercase"
+                  className="w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#35105E]/40 border border-[#DDE6F0] dark:border-[#D8B4FE]/30 rounded-xl text-[#26364A] dark:text-white focus:border-[#6657C8] dark:focus:border-[#A855F7] focus:outline-none font-mono uppercase"
                 />
               </div>
             )}
 
             {editingItem.type === 'status' && (
               <div>
-                <label className="font-semibold block text-[#E9D5FF] mb-1">Warna Label</label>
+                <label className="font-semibold block text-[#26364A] dark:text-[#E9D5FF] mb-1">Warna Label</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={editingItem.color || '#7135B5'}
+                    value={editingItem.color || '#6657C8'}
                     onChange={e => setEditingItem({ ...editingItem, color: e.target.value })}
-                    className="w-8 h-8 rounded border border-[#D8B4FE]/30 cursor-pointer"
+                    className="w-8 h-8 rounded border border-[#DDE6F0] dark:border-[#D8B4FE]/30 cursor-pointer"
                   />
-                  <span className="font-mono text-xs text-white">{editingItem.color || '#7135B5'}</span>
+                  <span className="font-mono text-xs text-[#26364A] dark:text-white">{editingItem.color || '#6657C8'}</span>
                 </div>
               </div>
             )}
@@ -1699,7 +1703,7 @@ export const DroplistManagementView: React.FC = () => {
         isOpen={Boolean(confirmDeleteStatus)}
         onClose={() => { if (!isSaving) setConfirmDeleteStatus(null); }}
         title={confirmDeleteStatus ? `Hapus Status WO "${confirmDeleteStatus.status.name}"?` : 'Konfirmasi Hapus'}
-        icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+        icon={<AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
         variant="dark_purple"
         size="sm"
         mobileVariant="sheet"
@@ -1710,7 +1714,7 @@ export const DroplistManagementView: React.FC = () => {
               type="button"
               disabled={isSaving}
               onClick={() => setConfirmDeleteStatus(null)}
-              className="px-4 py-2 rounded-xl text-xs text-[#D8B4FE] hover:bg-[#35105E]/40 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs text-[#52647A] hover:bg-[#EDF3F8] dark:text-[#D8B4FE] dark:hover:bg-[#35105E]/40 cursor-pointer"
             >
               Batal
             </button>
@@ -1738,8 +1742,8 @@ export const DroplistManagementView: React.FC = () => {
         }
       >
         {confirmDeleteStatus && (
-          <p className="text-xs text-[#D8B4FE]/80 leading-relaxed">
-            Status WO ini memiliki <strong className="text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
+          <p className="text-xs text-[#52647A] dark:text-[#D8B4FE]/80 leading-relaxed">
+            Status WO ini memiliki <strong className="text-[#26364A] dark:text-white">{confirmDeleteStatus.totalReasons}</strong> child reasons dan <strong className="text-[#26364A] dark:text-white">{confirmDeleteStatus.totalRemarks}</strong> remarks. Menghapus status ini akan menghapus seluruh cabang di bawahnya secara global dari database.
           </p>
         )}
       </ResponsiveModal>

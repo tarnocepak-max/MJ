@@ -15,9 +15,9 @@ interface NotificationModalProps {
 
 const MODAL_HEADER_GRADIENT: Record<NonNullable<NotificationModalProps['variant']>, string> = {
   violet: 'mj-notif-header-glass',
-  danger: 'bg-gradient-to-r from-[#480123] via-[#93000A] to-[#BA1A1A]',
-  warning: 'bg-gradient-to-r from-[#78350F] via-[#B45309] to-[#D97706]',
-  success: 'bg-gradient-to-r from-[#064E3B] via-[#047857] to-[#10B981]'
+  danger: 'bg-gradient-to-r from-[#D45B66] via-[#E06D77] to-[#AC3C47] dark:from-[#480123] dark:via-[#93000A] dark:to-[#BA1A1A]',
+  warning: 'bg-gradient-to-r from-[#C88735] via-[#DA9A46] to-[#9D661F] dark:from-[#78350F] dark:via-[#B45309] dark:to-[#D97706]',
+  success: 'bg-gradient-to-r from-[#218A63] via-[#27A074] to-[#17694B] dark:from-[#064E3B] dark:via-[#047857] dark:to-[#10B981]'
 };
 
 export const NotificationModal: React.FC<NotificationModalProps> = ({
@@ -44,14 +44,14 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#30104B]/45 dark:bg-black/70 backdrop-blur-[4px]"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px]"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={`w-full ${maxWidthClass} mj-notif-glass-panel rounded-[22px] overflow-hidden text-[#28203A] dark:text-white animate-in fade-in zoom-in-95 duration-200`}
+        className={`w-full ${maxWidthClass} mj-notif-glass-panel rounded-[22px] overflow-hidden text-[#26364A] dark:text-white animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* Header */}
         <div className={`px-5 py-4 text-white flex items-center justify-between gap-3 ${MODAL_HEADER_GRADIENT[variant]}`}>
@@ -66,7 +66,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 {title}
               </h3>
               {subtitle && (
-                <p className="text-[11px] text-white/80 mt-0.5 truncate">{subtitle}</p>
+                <p className="text-[11px] text-white/85 dark:text-white/80 mt-0.5 truncate">{subtitle}</p>
               )}
             </div>
           </div>
@@ -86,7 +86,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-5 py-3.5 bg-[#F7F4FC] dark:bg-[#140929] border-t border-[#EEE5FF] dark:border-[#3D1D72] flex flex-wrap items-center justify-end gap-2.5">
+          <div className="px-5 py-3.5 bg-[#EDF3F8]/85 dark:bg-[#140929] border-t border-[#DDE6F0] dark:border-[#3D1D72] flex flex-wrap items-center justify-end gap-2.5">
             {footer}
           </div>
         )}

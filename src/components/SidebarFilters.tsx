@@ -65,7 +65,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
     <div className="space-y-4 text-xs">
       {/* Search Bar */}
       <div className="space-y-1.5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400">
           Pencarian Cepat
         </label>
         <div className="relative">
@@ -74,13 +74,13 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
             value={searchTerm}
             onChange={e => onSearchChange(e.target.value)}
             placeholder="No WO, Nama, HP, Cluster..."
-            className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-xs focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+            className="w-full pl-8 pr-7 py-2 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-slate-800 text-[#26364A] dark:text-slate-100 placeholder-[#8492A5] dark:placeholder-slate-400 text-xs focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none transition-colors"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
+          <Search className="w-4 h-4 text-[#8492A5] dark:text-slate-400 absolute left-2.5 top-2.5" />
           {searchTerm && (
             <button
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute right-2.5 top-2.5 text-[#8492A5] hover:text-[#26364A] dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -90,13 +90,13 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
 
       {/* Status Agent Filter */}
       <div className="space-y-1.5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400">
           Status WO Agent
         </label>
         <select
           value={selectedAgentStatus}
           onChange={e => onAgentStatusChange(e.target.value)}
-          className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+          className="w-full py-2 px-3 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-slate-800 text-[#26364A] dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none cursor-pointer"
         >
           <option value="ALL">Semua Status Agent</option>
           <option value="Pending">Pending</option>
@@ -110,13 +110,13 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
 
       {/* Status Installer Filter */}
       <div className="space-y-1.5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400">
           Status WO Installer
         </label>
         <select
           value={selectedInstallerStatus}
           onChange={e => onInstallerStatusChange(e.target.value)}
-          className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+          className="w-full py-2 px-3 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-slate-800 text-[#26364A] dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none cursor-pointer"
         >
           <option value="ALL">Semua Status Installer</option>
           <option value="Unassigned">Unassigned (Belum Ditugaskan)</option>
@@ -132,14 +132,14 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
       {/* Area Coverage Filter */}
       {availableAreas.length > 0 && (
         <div className="space-y-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+          <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-[#6657C8] dark:text-indigo-500" />
             <span>Wilayah / Area</span>
           </label>
           <select
             value={selectedArea}
             onChange={e => onAreaChange(e.target.value)}
-            className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+            className="w-full py-2 px-3 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-slate-800 text-[#26364A] dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none cursor-pointer"
           >
             <option value="ALL">Semua Wilayah</option>
             {availableAreas.map(a => (
@@ -154,14 +154,14 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
       {/* Contractor / Vendor Filter */}
       {availableContractors.length > 0 && onContractorChange && (
         <div className="space-y-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+          <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400 flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5 text-[#6657C8] dark:text-indigo-500" />
             <span>Vendor / Kontraktor</span>
           </label>
           <select
             value={selectedContractor}
             onChange={e => onContractorChange(e.target.value)}
-            className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+            className="w-full py-2 px-3 rounded-xl border border-[#DDE6F0] dark:border-slate-700 bg-[#F8FAFD] dark:bg-slate-800 text-[#26364A] dark:text-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none cursor-pointer"
           >
             <option value="ALL">Semua Mitra Kontraktor</option>
             {availableContractors.map(c => (
@@ -179,7 +179,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
           <button
             type="button"
             onClick={onResetFilters}
-            className="w-full py-2 px-3 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="w-full py-2 px-3 rounded-xl text-xs font-bold text-[#9B2C37] dark:text-rose-400 bg-[#FCE9EB] dark:bg-rose-950/40 hover:bg-[#FCE9EB]/80 dark:hover:bg-rose-900/60 border border-[#F3C5CA] dark:border-rose-900/60 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Semua Filter</span>
@@ -188,7 +188,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
       )}
 
       {totalFilteredCount !== undefined && (
-        <div className="text-center pt-1 text-[11px] text-slate-400 font-mono">
+        <div className="text-center pt-1 text-[11px] text-[#8492A5] dark:text-slate-400 font-mono">
           Hasil: {totalFilteredCount} WO ditemukan
         </div>
       )}
@@ -200,17 +200,17 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
     if (!isOpenMobile) return null;
     return (
       <div
-        className="fixed inset-0 z-[95] bg-slate-950/70 backdrop-blur-xs flex justify-end animate-in fade-in"
+        className="fixed inset-0 z-[95] bg-[#26364A]/45 dark:bg-slate-950/70 backdrop-blur-xs flex justify-end animate-in fade-in"
         onClick={onCloseMobile}
       >
         <div
-          className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white dark:bg-[#160D29] border-l border-[#D8CCF3] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="w-80 max-w-[calc(100vw-2rem)] h-full bg-white/95 dark:bg-[#160D29] border-l border-[#DDE6F0] dark:border-[#35105E] shadow-2xl flex flex-col p-4 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
           onClick={e => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#DDE6F0] dark:border-slate-800 mb-4">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
-              <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Filter Tiket WO</span>
+              <SlidersHorizontal className="w-4 h-4 text-[#6657C8] dark:text-indigo-600" />
+              <span className="font-bold text-sm text-[#26364A] dark:text-slate-100">Filter Tiket WO</span>
             </div>
             <button
               type="button"
@@ -229,17 +229,17 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
 
   // Desktop Card Mode
   return (
-    <div className="bg-white dark:bg-[#1a0f30] rounded-2xl border-2 border-[#D8CCF3] dark:border-[#3B1D78] p-4 shadow-xs space-y-3">
+    <div className="bg-white/95 dark:bg-[#1a0f30] rounded-2xl border border-[#DDE6F0] dark:border-2 dark:border-[#3B1D78] p-4 shadow-xs space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-[#5B35B1] dark:text-purple-400" />
-          <h3 className="font-bold text-xs uppercase tracking-wider text-[#3B1D78] dark:text-purple-200">
+          <Filter className="w-4 h-4 text-[#6657C8] dark:text-purple-400" />
+          <h3 className="font-bold text-xs uppercase tracking-wider text-[#5145A6] dark:text-purple-200">
             Filter & Pencarian
           </h3>
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-slate-400 hover:text-slate-600 p-1"
+          className="text-[#8492A5] hover:text-[#26364A] dark:text-slate-400 dark:hover:text-slate-200 p-1 cursor-pointer"
         >
           <ChevronDown className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>

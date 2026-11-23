@@ -179,21 +179,21 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
       {/* Submitted Report Summary Card */}
       {existingReport && !isEditing && (
-        <div className="bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div className="bg-white/95 dark:bg-[#0F172A] border border-[#DDE6F0] dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDE6F0] dark:border-slate-800">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700/50">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-300 border border-[#B7E4CC] dark:border-emerald-700/50">
                   {existingReport.workResult}
                 </span>
                 {existingReport.verifiedByDispatch && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/60 dark:text-[#38BDF8] border border-blue-200 dark:border-blue-800">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-blue-950/60 dark:text-[#38BDF8] border border-[#BDE4E8] dark:border-blue-800">
                     <ShieldCheck className="w-3.5 h-3.5" /> Terverifikasi Dispatch
                   </span>
                 )}
               </div>
-              <div className="text-slate-500 dark:text-slate-400 text-[11px] mt-1.5">
-                Diserahkan oleh: <span className="font-bold text-slate-900 dark:text-white">{existingReport.submittedBy}</span> pada{' '}
+              <div className="text-[#52647A] dark:text-slate-400 text-[11px] mt-1.5">
+                Diserahkan oleh: <span className="font-bold text-[#26364A] dark:text-white">{existingReport.submittedBy}</span> pada{' '}
                 {new Date(existingReport.submittedAt).toLocaleString('id-ID')}
               </div>
             </div>
@@ -203,7 +203,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 <button
                   type="button"
                   onClick={() => verifyTechnicalReport(ticket.id)}
-                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="btn-3d-primary min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Verifikasi Laporan</span>
@@ -214,7 +214,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                  className="btn-3d-ceramic min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Edit Laporan
                 </button>
@@ -222,26 +222,26 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
           </div>
 
-          {/* Dark Optical Telemetry Live Summary */}
-          <div className="rounded-2xl bg-[#0F172A] dark:bg-[#0B1220] border border-slate-700/80 p-3.5 text-white space-y-2.5">
-            <div className="flex items-center justify-between text-[10.5px] font-mono uppercase tracking-wider text-[#38BDF8]">
+          {/* Optical Telemetry Live Summary */}
+          <div className="rounded-2xl bg-gradient-to-br from-[#EDF3F8] via-[#F0EDFF]/75 to-[#DDF4F4]/70 dark:bg-none dark:bg-[#0B1220] border border-[#DCE3F2] dark:border-slate-700/80 p-3.5 text-[#26364A] dark:text-white space-y-2.5">
+            <div className="flex items-center justify-between text-[10.5px] font-mono uppercase tracking-wider text-[#2E7D8B] dark:text-[#38BDF8]">
               <span className="flex items-center gap-1.5 font-bold">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 <span>OPTICAL TELEMETRY RECORD</span>
               </span>
-              <span className="text-emerald-400 font-bold">VERIFIED</span>
+              <span className="text-[#218A63] dark:text-emerald-400 font-bold">VERIFIED</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div className="rounded-xl bg-[#1E293B] border border-slate-700 p-3">
-                <div className="text-[11px] text-slate-300">Optical Power (Redaman OPM)</div>
-                <div className="mt-1 font-mono text-[18px] font-bold text-emerald-400 tabular-nums">
+              <div className="rounded-xl bg-white/90 dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 p-3">
+                <div className="text-[11px] text-[#52647A] dark:text-slate-300">Optical Power (Redaman OPM)</div>
+                <div className="mt-1 font-mono text-[18px] font-bold text-[#218A63] dark:text-emerald-400 tabular-nums">
                   {existingReport.opticalPowerDbm || '-'}
                 </div>
               </div>
-              <div className="rounded-xl bg-[#1E293B] border border-slate-700 p-3">
-                <div className="text-[11px] text-slate-300">Serial Number ONT / CPE</div>
-                <div className="mt-1 font-mono text-[15px] font-bold text-white flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-[#38BDF8]" />
+              <div className="rounded-xl bg-white/90 dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 p-3">
+                <div className="text-[11px] text-[#52647A] dark:text-slate-300">Serial Number ONT / CPE</div>
+                <div className="mt-1 font-mono text-[15px] font-bold text-[#26364A] dark:text-white flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#38BDF8]" />
                   <span>{existingReport.deviceSerialNumber || '-'}</span>
                 </div>
               </div>
@@ -249,73 +249,73 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase font-mono block">Kategori Utama</span>
-              <span className="font-bold text-slate-900 dark:text-white text-xs">{existingReport.mainCategory}</span>
+            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
+              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Kategori Utama</span>
+              <span className="font-bold text-[#26364A] dark:text-white text-xs">{existingReport.mainCategory}</span>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase font-mono block">Penyebab Utama (Root Cause)</span>
-              <span className="font-bold text-rose-600 dark:text-rose-300 text-xs">{existingReport.rootCause}</span>
+            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
+              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Penyebab Utama (Root Cause)</span>
+              <span className="font-bold text-[#9B2C37] dark:text-rose-300 text-xs">{existingReport.rootCause}</span>
             </div>
 
-            <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase font-mono block">Deskripsi Teknis Kendala</span>
-              <p className="text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.technicalDescription}</p>
+            <div className="md:col-span-2 p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
+              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Deskripsi Teknis Kendala</span>
+              <p className="text-[#26364A] dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.technicalDescription}</p>
             </div>
 
-            <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase font-mono block">Tindakan Perbaikan / Langkah Kerja</span>
-              <p className="text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.correctiveAction}</p>
+            <div className="md:col-span-2 p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
+              <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono block">Tindakan Perbaikan / Langkah Kerja</span>
+              <p className="text-[#26364A] dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{existingReport.correctiveAction}</p>
             </div>
 
             {existingReport.usedMaterials && (
-              <div className="md:col-span-2 p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
-                <span className="text-[10.5px] text-slate-500 dark:text-slate-400 uppercase font-mono flex items-center gap-1">
-                  <Package className="w-3 h-3 text-[#2563EB] dark:text-[#38BDF8]" />
+              <div className="md:col-span-2 p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-1">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-slate-400 uppercase font-mono flex items-center gap-1">
+                  <Package className="w-3 h-3 text-[#6657C8] dark:text-[#38BDF8]" />
                   <span>Material &amp; Spare Part Terpakai</span>
                 </span>
-                <p className="font-semibold text-slate-900 dark:text-white">{existingReport.usedMaterials}</p>
+                <p className="font-semibold text-[#26364A] dark:text-white">{existingReport.usedMaterials}</p>
               </div>
             )}
           </div>
 
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-            <h5 className="font-display font-bold text-slate-900 dark:text-white text-xs mb-3">Foto Bukti Pengerjaan</h5>
+          <div className="pt-2 border-t border-[#DDE6F0] dark:border-slate-800">
+            <h5 className="font-display font-bold text-[#26364A] dark:text-white text-xs mb-3">Foto Bukti Pengerjaan</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 mb-1 block">Foto Kondisi Awal (Before):</span>
+                <span className="text-[11px] text-[#52647A] dark:text-slate-400 mb-1 block">Foto Kondisi Awal (Before):</span>
                 {existingReport.photoBeforeUrl ? (
                   <div
                     onClick={() => setZoomImage(existingReport.photoBeforeUrl!)}
-                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-40 bg-slate-100 dark:bg-[#1E293B]"
+                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-slate-700 h-40 bg-[#EDF3F8] dark:bg-[#1E293B]"
                   >
                     <img src={getSafePreviewUrl(existingReport.photoBeforeUrl)} alt="Foto Sebelum" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <div className="absolute inset-0 bg-[#0B1220]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <div className="absolute inset-0 bg-[#26364A]/45 dark:bg-[#0B1220]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
                       <Maximize2 className="w-5 h-5" />
                     </div>
                   </div>
                 ) : (
-                  <div className="h-40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs">
+                  <div className="h-40 rounded-xl border border-dashed border-[#CFDCE8] dark:border-slate-700 flex items-center justify-center text-[#8492A5] dark:text-slate-400 text-xs">
                     Tidak ada foto awal
                   </div>
                 )}
               </div>
 
               <div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 mb-1 block">Foto Kondisi Akhir (After &amp; OPM):</span>
+                <span className="text-[11px] text-[#52647A] dark:text-slate-400 mb-1 block">Foto Kondisi Akhir (After &amp; OPM):</span>
                 {existingReport.photoAfterUrl ? (
                   <div
                     onClick={() => setZoomImage(existingReport.photoAfterUrl!)}
-                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-40 bg-slate-100 dark:bg-[#1E293B]"
+                    className="cursor-pointer group relative rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-slate-700 h-40 bg-[#EDF3F8] dark:bg-[#1E293B]"
                   >
                     <img src={getSafePreviewUrl(existingReport.photoAfterUrl)} alt="Foto Sesudah" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <div className="absolute inset-0 bg-[#0B1220]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                    <div className="absolute inset-0 bg-[#26364A]/45 dark:bg-[#0B1220]/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
                       <Maximize2 className="w-5 h-5" />
                     </div>
                   </div>
                 ) : (
-                  <div className="h-40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs">
+                  <div className="h-40 rounded-xl border border-dashed border-[#CFDCE8] dark:border-slate-700 flex items-center justify-center text-[#8492A5] dark:text-slate-400 text-xs">
                     Tidak ada foto akhir
                   </div>
                 )}
@@ -327,17 +327,17 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
       {/* Editing / New Form */}
       {isEditing && (
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+        <form onSubmit={handleSubmit} className="bg-white/95 dark:bg-[#0F172A] border border-[#DDE6F0] dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-[#DDE6F0] dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#2563EB] text-white flex items-center justify-center shadow-xs shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:bg-none dark:bg-[#2563EB] text-white flex items-center justify-center shadow-xs shrink-0">
                 <Wrench className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="font-display font-bold text-slate-900 dark:text-white text-[13.5px]">
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-[13.5px]">
                   Formulir Laporan Lapangan &amp; Root Cause
                 </h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-[#52647A] dark:text-slate-400">
                   Wajib diisi oleh teknisi sebelum WO diverifikasi &amp; ditutup oleh Dispatch.
                 </p>
               </div>
@@ -347,7 +347,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="min-h-[40px] sm:min-h-[34px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#1E293B] dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                className="btn-3d-ceramic min-h-[40px] sm:min-h-[34px] px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
               >
                 Batal
               </button>
@@ -373,13 +373,13 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                Kategori Utama Gangguan <span className="text-rose-600">*</span>
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
+                Kategori Utama Gangguan <span className="text-[#D45B66]">*</span>
               </label>
               <select
                 value={mainCategory}
                 onChange={e => handleMainCategoryChange(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               >
                 {rootCauseCategories.map(cat => (
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
@@ -388,13 +388,13 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                Penyebab Masalah (Root Cause) <span className="text-rose-600">*</span>
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
+                Penyebab Masalah (Root Cause) <span className="text-[#D45B66]">*</span>
               </label>
               <select
                 value={rootCause}
                 onChange={e => setRootCause(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               >
                 {availableRootCauses.map(rc => (
                   <option key={rc} value={rc}>{rc}</option>
@@ -404,13 +404,13 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                Hasil Pengerjaan Lapangan <span className="text-rose-600">*</span>
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
+                Hasil Pengerjaan Lapangan <span className="text-[#D45B66]">*</span>
               </label>
               <select
                 value={workResult}
                 onChange={e => setWorkResult(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               >
                 {workResultsList.map(res => (
                   <option key={res} value={res}>{res}</option>
@@ -419,7 +419,7 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
                 Redaman Fiber Optik (OPM dBm)
               </label>
               <input
@@ -427,12 +427,12 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 placeholder="Contoh: -18.5 dBm"
                 value={opticalPowerDbm}
                 onChange={e => setOpticalPowerDbm(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl font-mono font-bold text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
                 Serial Number Perangkat (ONT / Router)
               </label>
               <input
@@ -440,12 +440,12 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 placeholder="Contoh: HWTC12345678"
                 value={deviceSerialNumber}
                 onChange={e => setDeviceSerialNumber(e.target.value.toUpperCase())}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white uppercase focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl font-mono font-bold text-[#26364A] dark:text-white uppercase focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
                 Material / Spare Part Terpakai
               </label>
               <input
@@ -453,55 +453,55 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
                 placeholder="Contoh: Dropcore 120m, Fast Connector 2 pcs, Roset 1 port"
                 value={usedMaterials}
                 onChange={e => setUsedMaterials(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                Deskripsi Teknis Kendala / Kondisi Lapangan <span className="text-rose-600">*</span>
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
+                Deskripsi Teknis Kendala / Kondisi Lapangan <span className="text-[#D45B66]">*</span>
               </label>
               <textarea
                 rows={2}
                 placeholder="Jelaskan kondisi sebelum diperbaiki, posisi kabel, titik redaman tinggi, atau kendala akses..."
                 value={technicalDescription}
                 onChange={e => setTechnicalDescription(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full px-3 py-2.5 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                Tindakan Perbaikan / Langkah Solusi <span className="text-rose-600">*</span>
+              <label className="block text-[#26364A] dark:text-slate-300 font-bold mb-1">
+                Tindakan Perbaikan / Langkah Solusi <span className="text-[#D45B66]">*</span>
               </label>
               <textarea
                 rows={2}
                 placeholder="Jelaskan tindakan yang dilakukan: penarikan ulang kabel, pembersihan konektor, splicing ulang, atau penggantian ONT..."
                 value={correctiveAction}
                 onChange={e => setCorrectiveAction(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#2563EB]"
+                className="w-full px-3 py-2.5 bg-[#F8FAFD] dark:bg-[#1E293B] border border-[#DDE6F0] dark:border-slate-700 rounded-xl text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#2563EB]"
               />
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <label className="font-bold text-slate-900 dark:text-white block">
+            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-2">
+              <label className="font-bold text-[#26364A] dark:text-white block">
                 Foto Sebelum Perbaikan
               </label>
               {photoBeforeUrl ? (
-                <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-32">
+                <div className="relative group rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-slate-700 h-32">
                   <img src={getSafePreviewUrl(photoBeforeUrl)} alt="Foto Sebelum" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => setPhotoBeforeUrl('')}
-                    className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center bg-[#0B1220]/80 text-white rounded-full hover:bg-rose-600 cursor-pointer"
+                    className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center bg-[#26364A]/80 dark:bg-[#0B1220]/80 text-white rounded-full hover:bg-[#D45B66] cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : (
-                <label className="h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <Camera className="w-6 h-6 text-[#2563EB] dark:text-[#38BDF8] mb-1" />
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Klik untuk upload foto awal</span>
+                <label className="h-32 border-2 border-dashed border-[#CFDCE8] dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#EAE8FF]/45 dark:hover:bg-slate-800 transition-colors">
+                  <Camera className="w-6 h-6 text-[#6657C8] dark:text-[#38BDF8] mb-1" />
+                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">Klik untuk upload foto awal</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -512,25 +512,25 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               )}
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <label className="font-bold text-slate-900 dark:text-white block">
+            <div className="p-3 bg-[#F8FAFD] dark:bg-[#1E293B] rounded-xl border border-[#DDE6F0] dark:border-slate-700 space-y-2">
+              <label className="font-bold text-[#26364A] dark:text-white block">
                 Foto Sesudah Perbaikan / Redaman OPM
               </label>
               {photoAfterUrl ? (
-                <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-32">
+                <div className="relative group rounded-xl overflow-hidden border border-[#DDE6F0] dark:border-slate-700 h-32">
                   <img src={getSafePreviewUrl(photoAfterUrl)} alt="Foto Sesudah" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => setPhotoAfterUrl('')}
-                    className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center bg-[#0B1220]/80 text-white rounded-full hover:bg-rose-600 cursor-pointer"
+                    className="absolute top-1.5 right-1.5 w-8 h-8 flex items-center justify-center bg-[#26364A]/80 dark:bg-[#0B1220]/80 text-white rounded-full hover:bg-[#D45B66] cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : (
-                <label className="h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <Camera className="w-6 h-6 text-[#2563EB] dark:text-[#38BDF8] mb-1" />
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Klik untuk upload foto hasil &amp; OPM</span>
+                <label className="h-32 border-2 border-dashed border-[#CFDCE8] dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#EAE8FF]/45 dark:hover:bg-slate-800 transition-colors">
+                  <Camera className="w-6 h-6 text-[#6657C8] dark:text-[#38BDF8] mb-1" />
+                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">Klik untuk upload foto hasil &amp; OPM</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -542,12 +542,12 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#DDE6F0] dark:border-slate-800">
             <button
               type="submit"
               disabled={requiresCheckIn}
               title={requiresCheckIn ? 'Kirim pesan LiveChat kategori PROGRESS terlebih dahulu untuk Check-in' : 'Simpan Laporan Teknis & Check-out'}
-              className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+              className="btn-3d-primary w-full sm:w-auto px-5 py-2.5 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Simpan Laporan &amp; Selesaikan Tugas Lapangan</span>

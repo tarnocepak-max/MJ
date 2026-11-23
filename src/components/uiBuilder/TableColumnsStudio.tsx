@@ -361,14 +361,14 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
   return (
     <div className="space-y-5">
       {/* Contextual Top Action Strip for Tab 03 */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] px-5 py-3.5 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] px-5 py-3.5 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-[#F5F1FF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center justify-center text-[#431599] dark:text-[#D8B4FE] shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-[#EAE8FF] dark:bg-[#35105E] border border-[#C5BEEF] dark:border-[#5B35B1] flex items-center justify-center text-[#5145A6] dark:text-[#D8B4FE] shrink-0">
             <Columns3 className="w-4.5 h-4.5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="font-display font-bold text-sm text-[#211A2E] dark:text-white truncate">
+              <h4 className="font-display font-bold text-sm text-[#26364A] dark:text-white truncate">
                 Studio Konfigurasi 46 Kolom Kanonik &amp; Ergonomi Tabel WO
               </h4>
               {isDrafting && (
@@ -377,7 +377,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate">
+            <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
               Kelola visibilitas, urutan horizontal, sticky freeze, lebar kolom, dan kepadatan tampilan tabel Work Order secara global.
             </p>
           </div>
@@ -390,7 +390,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
             disabled={!isSuperAdmin || isCloudSyncing}
             className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+            <RotateCcw className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
             <span>Pulihkan Default Kolom</span>
           </button>
 
@@ -399,7 +399,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
             onClick={() => setShowPreviewModal(true)}
             className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
           >
-            <Eye className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
+            <Eye className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
             <span>Pratinjau Tabel WO</span>
           </button>
 
@@ -416,32 +416,32 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
       </div>
 
       {/* Search + Preset Selector + Smart Omit + 5 Real KPI Summary Cards */}
-      <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] p-4 shadow-2xs space-y-4">
+      <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] p-4 shadow-2xs space-y-4">
         {/* Search & Presets Row */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5 flex-1">
             {/* Search Box */}
             <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-[#8492A5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Cari kolom / field key..."
-                className="w-full pl-8 pr-14 py-1.5 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] placeholder:text-[#8B8495] focus:outline-none focus:ring-2 focus:ring-[#7135B5]/25 focus:border-[#7135B5]"
+                className="w-full pl-8 pr-14 py-1.5 text-xs bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg text-[#26364A] dark:text-[#F5F1FF] placeholder:text-[#8492A5] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 focus:border-[#6657C8]"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded bg-[#E9E5F0] dark:bg-[#35105E] text-[#494453] dark:text-[#D8B4FE] cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded bg-[#EDF3F8] dark:bg-[#35105E] text-[#52647A] dark:text-[#D8B4FE] cursor-pointer"
                   title="Bersihkan pencarian"
                 >
                   <X className="w-3 h-3" />
                 </button>
               ) : (
-                <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[10px] font-mono text-[#8B8495]">
+                <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[10px] font-mono text-[#8492A5]">
                   Ctrl+F
                 </kbd>
               )}
@@ -449,7 +449,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
 
             {/* Preset Tampilan Pills */}
             <div className="flex items-center flex-wrap gap-1.5">
-              <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA] mr-1">
+              <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A78BFA] mr-1">
                 PRESET TAMPILAN:
               </span>
               {config.ticketsTable.presets.map(preset => {
@@ -468,11 +468,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                     title={preset.description}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap disabled:opacity-60 ${
                       isActive
-                        ? 'bg-[#2D115B] text-white border-[#2D115B] shadow-xs'
-                        : 'bg-white dark:bg-[#251545] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A78BFA] hover:text-[#431599]'
+                        ? 'bg-[#6657C8] dark:bg-[#2D115B] text-white border-[#5145A6] dark:border-[#2D115B] shadow-xs'
+                        : 'bg-white dark:bg-[#251545] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE] hover:text-[#5145A6]'
                     }`}
                   >
-                    {isActive && <SlidersHorizontal className="w-3 h-3 text-[#D8B4FE]" />}
+                    {isActive && <SlidersHorizontal className="w-3 h-3 text-[#EAE8FF] dark:text-[#D8B4FE]" />}
                     <span>{displayLabel}</span>
                   </button>
                 );
@@ -485,7 +485,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 className="btn-3d-lilac inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
                 title="Simpan konfigurasi kolom saat ini menjadi preset kustom baru"
               >
-                <Plus className="w-3 h-3 text-[#58149C] dark:text-[#D8B4FE]" />
+                <Plus className="w-3 h-3 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>Simpan Preset</span>
               </button>
             </div>
@@ -508,7 +508,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 }))
               }
               className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
-                smartOmitEmpty ? 'bg-[#431599]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                smartOmitEmpty ? 'bg-[#6657C8] dark:bg-[#431599]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
               }`}
             >
               <span
@@ -517,7 +517,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 }`}
               />
             </button>
-            <span className="text-xs font-semibold text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap">
+            <span className="text-xs font-semibold text-[#26364A] dark:text-[#F5F1FF] whitespace-nowrap">
               Smart Omit (Kosong)
             </span>
           </div>
@@ -526,30 +526,30 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
         {/* 5 Real Dynamically Computed KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* KPI 1: Kanonik Total */}
-          <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA]/70 dark:bg-[#160D29]/60 p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#251545] border border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-center text-[#766B83] dark:text-[#A78BFA] shrink-0">
+          <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29]/60 p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#251545] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-center text-[#52647A] dark:text-[#A78BFA] shrink-0">
               <Columns3 className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-lg font-extrabold tabular-nums text-[#211A2E] dark:text-white leading-none">
+              <div className="font-display text-lg font-extrabold tabular-nums text-[#26364A] dark:text-white leading-none">
                 {kpiStats.total}
               </div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#CEC0E8] truncate">
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8] truncate">
                 Kanonik Total
               </div>
             </div>
           </div>
 
           {/* KPI 2: Kolom Aktif */}
-          <div className="rounded-xl border border-[#D8CCF3] dark:border-[#5B35B1] bg-[#F5F1FF] dark:bg-[#251545] p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center justify-center text-[#431599] dark:text-[#D8B4FE] shrink-0">
+          <div className="rounded-xl border border-[#C5BEEF] dark:border-[#5B35B1] bg-[#EAE8FF]/70 dark:bg-[#251545] p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#1E1238] border border-[#C5BEEF] dark:border-[#5B35B1] flex items-center justify-center text-[#5145A6] dark:text-[#D8B4FE] shrink-0">
               <Eye className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-lg font-extrabold tabular-nums text-[#431599] dark:text-white leading-none">
+              <div className="font-display text-lg font-extrabold tabular-nums text-[#5145A6] dark:text-white leading-none">
                 {kpiStats.active}
               </div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE] truncate">
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE] truncate">
                 Kolom Aktif
               </div>
             </div>
@@ -571,30 +571,30 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
           </div>
 
           {/* KPI 4: Disembunyikan */}
-          <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] bg-[#F7F6FA]/70 dark:bg-[#160D29]/60 p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#251545] border border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-center text-[#8B8495] shrink-0">
+          <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29]/60 p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#251545] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-center text-[#8492A5] shrink-0">
               <EyeOff className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-lg font-extrabold tabular-nums text-[#494453] dark:text-[#CEC0E8] leading-none">
+              <div className="font-display text-lg font-extrabold tabular-nums text-[#52647A] dark:text-[#CEC0E8] leading-none">
                 {kpiStats.hidden}
               </div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#CEC0E8] truncate">
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8] truncate">
                 Disembunyikan
               </div>
             </div>
           </div>
 
           {/* KPI 5: Sticky Freeze Horizontal */}
-          <div className="rounded-xl border border-[#D8CCF3] dark:border-[#5B35B1] bg-white dark:bg-[#1E1238] p-3 flex items-center gap-3 col-span-2 sm:col-span-1">
-            <div className="w-9 h-9 rounded-lg bg-[#F4EAFF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center justify-center text-[#7135B5] dark:text-[#D8B4FE] shrink-0">
+          <div className="rounded-xl border border-[#BDE4E8] dark:border-[#5B35B1] bg-[#DDF4F4]/60 dark:bg-[#1E1238] p-3 flex items-center gap-3 col-span-2 sm:col-span-1">
+            <div className="w-9 h-9 rounded-lg bg-white dark:bg-[#35105E] border border-[#BDE4E8] dark:border-[#5B35B1] flex items-center justify-center text-[#2E7D8B] dark:text-[#D8B4FE] shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-sm font-extrabold tabular-nums text-[#431599] dark:text-white leading-tight truncate">
+              <div className="font-display text-sm font-extrabold tabular-nums text-[#26364A] dark:text-white leading-tight truncate">
                 Sticky 1-{freezeCount} Locked
               </div>
-              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#A78BFA] truncate">
+              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#A78BFA] truncate">
                 Freeze Horizontal
               </div>
             </div>
@@ -608,28 +608,28 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
         <div className="xl:col-span-7 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="font-display font-extrabold text-base text-[#211A2E] dark:text-white">
+              <h3 className="font-display font-extrabold text-base text-[#26364A] dark:text-white">
                 Kamus {columns.length} Kolom Kanonik (BASE_DATA_WO)
               </h3>
-              <span className="px-2 py-0.5 rounded bg-[#E9D5FF]/70 dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-mono text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-transparent font-mono text-[10px] font-bold">
                 SCHEMA v4.{config.version || 18}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-              <GripVertical className="w-3.5 h-3.5 text-[#8B8495]" />
+            <div className="flex items-center gap-1.5 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+              <GripVertical className="w-3.5 h-3.5 text-[#8492A5]" />
               <span>Tarik ikon untuk mengubah urutan horizontal</span>
             </div>
           </div>
 
           {filteredColumns.length === 0 && (
-            <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] p-8 text-center space-y-2">
-              <p className="text-sm font-bold text-[#211A2E] dark:text-white">
+            <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] p-8 text-center space-y-2">
+              <p className="text-sm font-bold text-[#26364A] dark:text-white">
                 Kolom tidak ditemukan untuk kueri &ldquo;{searchQuery}&rdquo;
               </p>
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F5F1FF] text-[#431599] border border-[#D8CCF3] cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#5B35B1] cursor-pointer"
               >
                 Tampilkan Semua 46 Kolom
               </button>
@@ -648,7 +648,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
             return (
               <div
                 key={group.id}
-                className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs"
+                className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] overflow-hidden shadow-2xs"
               >
                 {/* Group Header */}
                 <button
@@ -656,15 +656,15 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                   onClick={() => toggleGroupCollapse(group.id)}
                   className={`w-full px-4 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
                     isDarkGroup
-                      ? 'bg-[#2D115B] text-white hover:bg-[#35105E]'
-                      : 'bg-[#F7F4FD] dark:bg-[#251545] text-[#211A2E] dark:text-white border-b border-[#E9E5F0] dark:border-[#35105E] hover:bg-[#F0E9FC] dark:hover:bg-[#35105E]/80'
+                      ? 'bg-gradient-to-r from-[#EAE8FF] to-[#DDF4F4] text-[#26364A] border-b border-[#C5BEEF] hover:from-[#DFDCFA] hover:to-[#CEF0F0] dark:bg-none dark:bg-[#2D115B] dark:text-white dark:border-[#35105E] dark:hover:bg-[#35105E]'
+                      : 'bg-[#F4F7FB] dark:bg-[#251545] text-[#26364A] dark:text-white border-b border-[#DDE6F0] dark:border-[#35105E] hover:bg-[#EDF3F8] dark:hover:bg-[#35105E]/80'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                     {isCollapsed ? (
-                      <ChevronRight className={`w-4 h-4 shrink-0 ${isDarkGroup ? 'text-[#D8B4FE]' : 'text-[#431599] dark:text-[#D8B4FE]'}`} />
+                      <ChevronRight className="w-4 h-4 shrink-0 text-[#5145A6] dark:text-[#D8B4FE]" />
                     ) : (
-                      <ChevronDown className={`w-4 h-4 shrink-0 ${isDarkGroup ? 'text-[#D8B4FE]' : 'text-[#431599] dark:text-[#D8B4FE]'}`} />
+                      <ChevronDown className="w-4 h-4 shrink-0 text-[#5145A6] dark:text-[#D8B4FE]" />
                     )}
                     <span className="font-display font-bold text-xs sm:text-[13px] tracking-tight">
                       {group.title}
@@ -672,8 +672,8 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
                         isDarkGroup
-                          ? 'bg-white/15 text-[#E9D5FF]'
-                          : 'bg-white dark:bg-[#1E1238] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1]'
+                          ? 'bg-white text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-white/15 dark:text-[#E9D5FF]'
+                          : 'bg-white dark:bg-[#1E1238] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#5B35B1]'
                       }`}
                     >
                       {group.subtitle
@@ -686,11 +686,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     {group.mandatoryGroup ? (
-                      <Lock className="w-3.5 h-3.5 text-[#D8B4FE]" />
+                      <Lock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                     ) : (
                       <span
                         className={`text-[11px] font-mono font-semibold whitespace-nowrap ${
-                          isDarkGroup ? 'text-[#E9D5FF]' : 'text-[#766B83] dark:text-[#CEC0E8]'
+                          isDarkGroup ? 'text-[#2E7D8B] dark:text-[#E9D5FF]' : 'text-[#52647A] dark:text-[#CEC0E8]'
                         }`}
                       >
                         {hiddenInGroup === 0 && isDarkGroup ? 'Semua Aktif' : `${groupCols.length} Kolom`}
@@ -701,7 +701,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
 
                 {/* Group Rows */}
                 {!isCollapsed && (
-                  <div className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  <div className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                     {groupCols.map(col => {
                       const globalIdx = columns.findIndex(c => c.key === col.key);
                       const isDragging = draggedKey === col.key;
@@ -734,38 +734,38 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                           }}
                           className={`px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${
                             isDragging
-                              ? 'opacity-45 bg-[#F5F1FF] dark:bg-[#35105E]'
+                              ? 'opacity-45 bg-[#EAE8FF] dark:bg-[#35105E]'
                               : isDragTarget
-                              ? 'bg-[#F0E3FF]/70 dark:bg-[#35105E]/70 ring-1 ring-inset ring-[#7135B5]'
+                              ? 'bg-[#DDF4F4]/80 dark:bg-[#35105E]/70 ring-1 ring-inset ring-[#6657C8] dark:ring-[#7135B5]'
                               : !col.visible
-                              ? 'bg-[#F7F6FA]/70 dark:bg-[#160D29]/50 opacity-75 hover:opacity-100'
-                              : 'hover:bg-[#F7F6FA]/70 dark:hover:bg-[#251545]/50'
+                              ? 'bg-[#F4F7FB]/80 dark:bg-[#160D29]/50 opacity-75 hover:opacity-100'
+                              : 'hover:bg-[#EDF3F8]/70 dark:hover:bg-[#251545]/50'
                           }`}
                         >
                           {/* Left Side: Drag Handle + Order + Name + Key + Description */}
                           <div className="flex items-start gap-2.5 min-w-0 flex-1">
                             <div className="flex items-center gap-1 pt-0.5 shrink-0">
                               <span
-                                className={`text-[#8B8495] ${isSuperAdmin ? 'cursor-grab active:cursor-grabbing hover:text-[#431599]' : 'opacity-40'}`}
+                                className={`text-[#8492A5] ${isSuperAdmin ? 'cursor-grab active:cursor-grabbing hover:text-[#5145A6]' : 'opacity-40'}`}
                                 title="Tarik untuk mengubah urutan kolom"
                               >
                                 <GripVertical className="w-4 h-4" />
                               </span>
-                              <span className="w-7 text-[11px] font-mono font-bold tabular-nums text-[#766B83] dark:text-[#A78BFA]">
+                              <span className="w-7 text-[11px] font-mono font-bold tabular-nums text-[#52647A] dark:text-[#A78BFA]">
                                 #{globalIdx + 1}
                               </span>
                             </div>
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs font-bold text-[#211A2E] dark:text-white">
+                                <span className="text-xs font-bold text-[#26364A] dark:text-white">
                                   {col.label}
                                 </span>
-                                <span className="font-mono text-[10.5px] text-[#766B83] dark:text-[#CEC0E8]">
+                                <span className="font-mono text-[10.5px] text-[#52647A] dark:text-[#CEC0E8]">
                                   {col.key}
                                 </span>
                                 {frozenIdx >= 0 && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
+                                  <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#5B35B1] whitespace-nowrap">
                                     Sticky {frozenIdx + 1}
                                   </span>
                                 )}
@@ -780,7 +780,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                         ? 'bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#16A36A] border border-emerald-200 dark:border-emerald-800'
                                         : col.badgeHint === 'G-Maps Link'
                                         ? 'bg-[#EFF6FF] dark:bg-blue-950/60 text-[#3977C9] border border-blue-200 dark:border-blue-800'
-                                        : 'bg-[#F5F1FF] dark:bg-[#35105E] text-[#7135B5] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1]'
+                                        : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#5B35B1]'
                                     }`}
                                   >
                                     {col.badgeHint}
@@ -788,7 +788,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                 )}
                               </div>
                               {col.description && (
-                                <p className="text-[11px] text-[#8B8495] dark:text-[#CEC0E8]/80 truncate mt-0.5">
+                                <p className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80 truncate mt-0.5">
                                   {col.description}
                                 </p>
                               )}
@@ -804,7 +804,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                 disabled={!isSuperAdmin || globalIdx === 0}
                                 onClick={() => handleMoveColumnStep(col.key, 'up')}
                                 title="Naikkan urutan kolom"
-                                className="p-1 rounded text-[#8B8495] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] disabled:opacity-25 cursor-pointer"
+                                className="p-1 rounded text-[#8492A5] hover:text-[#5145A6] hover:bg-[#EAE8FF] dark:hover:bg-[#35105E] disabled:opacity-25 cursor-pointer"
                               >
                                 <ArrowUp className="w-3 h-3" />
                               </button>
@@ -813,14 +813,14 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                 disabled={!isSuperAdmin || globalIdx === columns.length - 1}
                                 onClick={() => handleMoveColumnStep(col.key, 'down')}
                                 title="Turunkan urutan kolom"
-                                className="p-1 rounded text-[#8B8495] hover:text-[#431599] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] disabled:opacity-25 cursor-pointer"
+                                className="p-1 rounded text-[#8492A5] hover:text-[#5145A6] hover:bg-[#EAE8FF] dark:hover:bg-[#35105E] disabled:opacity-25 cursor-pointer"
                               >
                                 <ArrowDown className="w-3 h-3" />
                               </button>
                             </div>
 
                             {/* Editable Width */}
-                            <div className="flex items-center gap-1 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
+                            <div className="flex items-center gap-1 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                               <span>Width:</span>
                               <input
                                 type="number"
@@ -829,7 +829,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                 disabled={!isSuperAdmin}
                                 value={col.width || 120}
                                 onChange={e => handleWidthChange(col.key, parseInt(e.target.value, 10))}
-                                className="w-14 px-1.5 py-0.5 text-right font-mono text-[11px] font-semibold bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded text-[#211A2E] dark:text-white disabled:opacity-60 tabular-nums"
+                                className="w-14 px-1.5 py-0.5 text-right font-mono text-[11px] font-semibold bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded text-[#26364A] dark:text-white disabled:opacity-60 tabular-nums"
                               />
                               <span className="text-[10px]">px</span>
                             </div>
@@ -863,8 +863,8 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                               className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:cursor-not-allowed ${
                                 col.visible
                                   ? col.mandatory
-                                    ? 'bg-[#431599]/80'
-                                    : 'bg-[#431599]'
+                                    ? 'bg-[#6657C8]/80 dark:bg-[#431599]/80'
+                                    : 'bg-[#6657C8] dark:bg-[#431599]'
                                   : 'bg-[#CBD5E1] dark:bg-[#35105E]'
                               }`}
                             >
@@ -888,11 +888,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
         {/* RIGHT PANEL (5 Cols, Sticky): Simulator Live Tabel WO + Ergonomi */}
         <div className="xl:col-span-5 xl:sticky xl:top-20 space-y-4">
           {/* Card 1: Simulator Live Tabel WO */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
-            <div className="px-4 py-3 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2">
+          <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
+            <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Monitor className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE]" />
-                <h4 className="font-display font-bold text-sm text-[#211A2E] dark:text-white">
+                <Monitor className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+                <h4 className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                   Simulator Live Tabel WO
                 </h4>
               </div>
@@ -903,15 +903,15 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
             </div>
 
             <div className="p-3.5 space-y-3">
-              <p className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] leading-relaxed">
-                Preview tampilan interaktif dengan <strong className="text-[#211A2E] dark:text-white">{freezeCount} kolom pertama terkunci (Sticky Left Freeze)</strong> saat tabel digulir secara horizontal:
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
+                Preview tampilan interaktif dengan <strong className="text-[#26364A] dark:text-white">{freezeCount} kolom pertama terkunci (Sticky Left Freeze)</strong> saat tabel digulir secara horizontal:
               </p>
 
               {/* Scrollable Live Grid */}
-              <div className="rounded-lg border border-[#E9E5F0] dark:border-[#35105E] overflow-x-auto bg-white dark:bg-[#160D29]">
+              <div className="rounded-lg border border-[#DDE6F0] dark:border-[#35105E] overflow-x-auto bg-white dark:bg-[#160D29]">
                 <table className={`w-full border-collapse text-left ${simFontSizeClass}`}>
                   <thead>
-                    <tr className="bg-[#2D115B] text-white text-[10.5px] font-mono font-bold">
+                    <tr className="bg-[#EDF3F8] dark:bg-[#2D115B] text-[#26364A] dark:text-white text-[10.5px] font-mono font-bold border-b border-[#DDE6F0] dark:border-white/10">
                       {activeColumns.map((col, idx) => {
                         const isFrozen = idx < freezeCount;
                         const w = col.key === 'selection' ? 40 : Math.min(col.width || 130, 160);
@@ -924,11 +924,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                               width: `${w}px`,
                               left: leftPos !== undefined ? `${leftPos}px` : undefined
                             }}
-                            className={`px-2.5 py-2 whitespace-nowrap border-r border-white/10 ${
-                              isFrozen ? 'sticky z-20 bg-[#2D115B]' : ''
+                            className={`px-2.5 py-2 whitespace-nowrap border-r border-[#DDE6F0] dark:border-white/10 ${
+                              isFrozen ? 'sticky z-20 bg-[#EAE8FF] dark:bg-[#2D115B]' : ''
                             } ${
                               isFrozen && idx === freezeCount - 1
-                                ? 'shadow-[3px_0_6px_-2px_rgba(0,0,0,0.28)]'
+                                ? 'shadow-[3px_0_6px_-2px_rgba(38,54,74,0.14)] dark:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.28)]'
                                 : ''
                             }`}
                             title={showHoverTooltips ? `${col.label} (${col.key})` : undefined}
@@ -939,11 +939,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                       })}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                  <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                     {simulatorRows.map((row, rowIdx) => (
                       <tr
                         key={row.id || rowIdx}
-                        className="hover:bg-[#F5F1FF]/50 dark:hover:bg-[#251545]/60 transition-colors"
+                        className="odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-[#251545]/60 transition-colors"
                       >
                         {activeColumns.map((col, idx) => {
                           const isFrozen = idx < freezeCount;
@@ -956,14 +956,14 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                               <td
                                 key={col.key}
                                 style={{ minWidth: `${w}px`, width: `${w}px`, left: `${leftPos}px` }}
-                                className={`px-2.5 text-center border-r border-[#E9E5F0] dark:border-[#35105E] ${simDensityRowHeight} ${
+                                className={`px-2.5 text-center border-r border-[#DDE6F0] dark:border-[#35105E] ${simDensityRowHeight} ${
                                   isFrozen ? 'sticky z-10 bg-white dark:bg-[#1E1238]' : ''
                                 }`}
                               >
                                 <span
                                   className={`inline-flex w-3.5 h-3.5 rounded border items-center justify-center text-[9px] ${
                                     rowIdx === 0
-                                      ? 'bg-[#431599] border-[#431599] text-white'
+                                      ? 'bg-[#6657C8] border-[#5145A6] dark:bg-[#431599] dark:border-[#431599] text-white'
                                       : 'border-[#CBD5E1] dark:border-[#5B35B1]'
                                   }`}
                                 >
@@ -982,20 +982,20 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                                 left: leftPos !== undefined ? `${leftPos}px` : undefined
                               }}
                               title={showHoverTooltips ? val : undefined}
-                              className={`px-2.5 truncate whitespace-nowrap border-r border-[#E9E5F0]/70 dark:border-[#35105E]/70 ${simDensityRowHeight} ${
+                              className={`px-2.5 truncate whitespace-nowrap border-r border-[#DDE6F0]/70 dark:border-[#35105E]/70 ${simDensityRowHeight} ${
                                 isFrozen ? 'sticky z-10 bg-white dark:bg-[#1E1238]' : ''
                               } ${
                                 isFrozen && idx === freezeCount - 1
-                                  ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.12)]'
+                                  ? 'shadow-[3px_0_6px_-2px_rgba(38,54,74,0.12)]'
                                   : ''
                               } ${
                                 col.key === 'woNumber'
-                                  ? 'font-mono font-bold text-[#211A2E] dark:text-white'
+                                  ? 'font-mono font-bold text-[#26364A] dark:text-white'
                                   : col.key === 'customerPhone'
                                   ? 'font-mono font-semibold text-[#16A36A]'
                                   : col.key === 'idCustomer'
-                                  ? 'font-mono tabular-nums text-[#766B83] dark:text-[#CEC0E8]'
-                                  : 'text-[#211A2E] dark:text-[#F5F1FF]'
+                                  ? 'font-mono tabular-nums text-[#52647A] dark:text-[#CEC0E8]'
+                                  : 'text-[#26364A] dark:text-[#F5F1FF]'
                               }`}
                             >
                               {val}
@@ -1008,11 +1008,11 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                 </table>
               </div>
 
-              <div className="px-3 py-2 rounded-lg bg-[#F5F1FF] dark:bg-[#251545] border border-[#D8CCF3] dark:border-[#5B35B1] flex items-center justify-between gap-2 text-[11px]">
-                <span className="text-[#431599] dark:text-[#D8B4FE] font-medium">
+              <div className="px-3 py-2 rounded-lg bg-[#EAE8FF]/70 dark:bg-[#251545] border border-[#C5BEEF] dark:border-[#5B35B1] flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-[#5145A6] dark:text-[#D8B4FE] font-medium">
                   Gulir ke kanan untuk melihat <strong>{Math.max(0, activeColumns.length - freezeCount)}</strong> kolom berikutnya
                 </span>
-                <span className="font-bold text-[#431599] dark:text-white tabular-nums whitespace-nowrap">
+                <span className="font-bold text-[#5145A6] dark:text-white tabular-nums whitespace-nowrap">
                   Active: {kpiStats.active} Kolom
                 </span>
               </div>
@@ -1023,12 +1023,12 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
           <div className="card-3d-lavender rounded-xl p-4 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-[#58149C] dark:text-[#D8B4FE]" />
-                <span className="text-[10.5px] font-extrabold uppercase tracking-[0.07em] text-[#58149C] dark:text-[#D8B4FE]">
+                <Eye className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
+                <span className="text-[10.5px] font-extrabold uppercase tracking-[0.07em] text-[#5145A6] dark:text-[#D8B4FE]">
                   PREVIEW URUTAN KOLOM AKTIF
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#D8CCF3] dark:border-[#5B35B1] tabular-nums">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1] tabular-nums">
                 {activeColumns.length} / {columns.length} Tampil
               </span>
             </div>
@@ -1041,12 +1041,12 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                     key={`active-chip-${col.key}`}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
                       isFrozen
-                        ? 'bg-[#2D115B] text-white border-[#431599] dark:bg-[#58149C]'
-                        : 'bg-white dark:bg-[#160D29] text-[#1F1638] dark:text-[#E9D5FF] border-[#D8CCF3] dark:border-[#3B1D78]'
+                        ? 'bg-[#6657C8] text-white border-[#5145A6] dark:bg-[#58149C] dark:border-[#431599]'
+                        : 'bg-white dark:bg-[#160D29] text-[#26364A] dark:text-[#E9D5FF] border-[#C5BEEF] dark:border-[#3B1D78]'
                     }`}
                     title={`${col.label} (${col.key}) · ${col.width || 120}px`}
                   >
-                    <span className={`font-mono text-[10px] ${isFrozen ? 'text-[#DAB9FF]' : 'text-[#7135B5] dark:text-[#D8B4FE]'}`}>
+                    <span className={`font-mono text-[10px] ${isFrozen ? 'text-[#EAE8FF] dark:text-[#DAB9FF]' : 'text-[#5145A6] dark:text-[#D8B4FE]'}`}>
                       {idx + 1}.
                     </span>
                     <span className="truncate max-w-[140px]">{col.label}</span>
@@ -1057,10 +1057,10 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
           </div>
 
           {/* Card 2: Pengaturan Ergonomi Tampilan UI */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
-            <div className="px-4 py-3 border-b border-[#E9E5F0] dark:border-[#35105E] flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE]" />
-              <h4 className="font-display font-bold text-sm text-[#211A2E] dark:text-white">
+          <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] overflow-hidden shadow-2xs">
+            <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+              <h4 className="font-display font-bold text-sm text-[#26364A] dark:text-white">
                 Pengaturan Ergonomi Tampilan UI
               </h4>
             </div>
@@ -1068,7 +1068,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
             <div className="p-4 space-y-4 text-xs">
               {/* Row Density */}
               <div className="space-y-1.5">
-                <label className="block font-bold text-[#211A2E] dark:text-[#F5F1FF]">
+                <label className="block font-bold text-[#26364A] dark:text-[#F5F1FF]">
                   Kepadatan Baris Tabel (Row Density)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1094,8 +1094,8 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                         }
                         className={`px-2.5 py-2 rounded-lg font-semibold border text-center transition-all cursor-pointer disabled:opacity-50 ${
                           active
-                            ? 'bg-[#2D115B] text-white border-[#2D115B] shadow-xs'
-                            : 'bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A78BFA]'
+                            ? 'bg-[#6657C8] dark:bg-[#2D115B] text-white border-[#5145A6] dark:border-[#2D115B] shadow-xs'
+                            : 'bg-[#F4F7FB] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE]'
                         }`}
                       >
                         {opt.label}
@@ -1107,7 +1107,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
 
               {/* Typography Cell Font Size */}
               <div className="space-y-1.5">
-                <label className="block font-bold text-[#211A2E] dark:text-[#F5F1FF]">
+                <label className="block font-bold text-[#26364A] dark:text-[#F5F1FF]">
                   Ukuran Tipografi Sel Data
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1133,8 +1133,8 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                         }
                         className={`px-2.5 py-2 rounded-lg font-semibold border text-center transition-all cursor-pointer disabled:opacity-50 ${
                           active
-                            ? 'bg-[#2D115B] text-white border-[#2D115B] shadow-xs'
-                            : 'bg-[#F7F6FA] dark:bg-[#160D29] text-[#494453] dark:text-[#CEC0E8] border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A78BFA]'
+                            ? 'bg-[#6657C8] dark:bg-[#2D115B] text-white border-[#5145A6] dark:border-[#2D115B] shadow-xs'
+                            : 'bg-[#F4F7FB] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E] hover:border-[#9E95DE]'
                         }`}
                       >
                         {opt.label}
@@ -1147,7 +1147,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
               {/* Freeze Column Count */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="font-bold text-[#211A2E] dark:text-[#F5F1FF]">
+                  <label className="font-bold text-[#26364A] dark:text-[#F5F1FF]">
                     Kolom Terkunci Kiri (Freeze Count)
                   </label>
                   <div className="flex items-center gap-1">
@@ -1167,20 +1167,20 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                         }
                         className={`px-2 py-0.5 rounded font-mono text-[11px] font-bold border transition-all cursor-pointer disabled:opacity-50 ${
                           freezeCount === n
-                            ? 'bg-[#431599] text-white border-[#431599]'
-                            : 'bg-[#F5F1FF] dark:bg-[#251545] text-[#431599] dark:text-[#D8B4FE] border-[#D8CCF3] dark:border-[#5B35B1]'
+                            ? 'bg-[#6657C8] dark:bg-[#431599] text-white border-[#5145A6] dark:border-[#431599]'
+                            : 'bg-[#EAE8FF] dark:bg-[#251545] text-[#5145A6] dark:text-[#D8B4FE] border-[#C5BEEF] dark:border-[#5B35B1]'
                         }`}
                       >
                         {n}
                       </button>
                     ))}
-                    <span className="ml-1 px-2 py-0.5 rounded bg-[#F5F1FF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-bold text-[10.5px]">
+                    <span className="ml-1 px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] font-bold text-[10.5px]">
                       {freezeCount} Kolom
                     </span>
                   </div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between gap-2">
-                  <span className="font-mono text-[11px] text-[#494453] dark:text-[#CEC0E8] truncate">
+                <div className="px-3 py-2 rounded-lg bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                     {frozenColumns
                       .map((c, i) => `#${i + 1} ${c.label.split(' ')[0]}`)
                       .join(', ')}
@@ -1192,10 +1192,10 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
               {/* Hover Tooltips Toggle */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <div className="min-w-0">
-                  <div className="font-bold text-[#211A2E] dark:text-[#F5F1FF]">
+                  <div className="font-bold text-[#26364A] dark:text-[#F5F1FF]">
                     Tampilkan Tooltip Lengkap saat Hover
                   </div>
-                  <div className="text-[11px] text-[#8B8495] dark:text-[#CEC0E8]/80">
+                  <div className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]/80">
                     Munculkan alamat utuh, remark &amp; telemetry saat pointer diarahkan
                   </div>
                 </div>
@@ -1214,7 +1214,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                     }))
                   }
                   className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
-                    showHoverTooltips ? 'bg-[#431599]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
+                    showHoverTooltips ? 'bg-[#6657C8] dark:bg-[#431599]' : 'bg-[#CBD5E1] dark:bg-[#35105E]'
                   }`}
                 >
                   <span
@@ -1226,19 +1226,19 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
               </div>
 
               {/* Supabase Storage Location Note */}
-              <div className="p-3 rounded-xl bg-[#F5F1FF] dark:bg-[#251545] border border-[#D8CCF3] dark:border-[#5B35B1] flex items-start gap-2.5">
-                <Database className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE] shrink-0 mt-0.5" />
+              <div className="p-3 rounded-xl bg-[#DDF4F4]/70 dark:bg-[#251545] border border-[#BDE4E8] dark:border-[#5B35B1] flex items-start gap-2.5">
+                <Database className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE] shrink-0 mt-0.5" />
                 <div className="space-y-1 text-[11px] leading-relaxed">
-                  <div className="font-bold text-[#211A2E] dark:text-white">
+                  <div className="font-bold text-[#26364A] dark:text-white">
                     Lokasi Penyimpanan Preferensi
                   </div>
-                  <div className="text-[#494453] dark:text-[#CEC0E8]">
+                  <div className="text-[#52647A] dark:text-[#CEC0E8]">
                     Database Supabase:{' '}
-                    <span className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE]">
+                    <span className="font-mono font-bold text-[#2E7D8B] dark:text-[#D8B4FE]">
                       app_settings.ui_configuration
                     </span>
                   </div>
-                  <div className="text-[#766B83] dark:text-[#CEC0E8]/80">
+                  <div className="text-[#52647A] dark:text-[#CEC0E8]/80">
                     Perubahan disimpan secara global dan langsung didistribusikan ke sesi seluruh agent, korlap, dan supervisor secara instan via Server-Sent Events (SSE).
                   </div>
                 </div>
@@ -1278,7 +1278,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
           onClose={() => setShowPreviewModal(false)}
           title={`Pratinjau Penuh Tabel Work Order (${activeColumns.length} Kolom Aktif)`}
           subtitle={`Densitas: ${config.ticketsTable.density} • Font: ${cellFontSize} • Sticky Left: ${freezeCount} Kolom`}
-          icon={<Eye className="w-4 h-4 text-[#431599]" />}
+          icon={<Eye className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />}
           size="2xl"
           mobileVariant="fullscreen"
           zIndexClass="z-60"
@@ -1290,7 +1290,7 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                   setShowPreviewModal(false);
                   onNavigateToTickets();
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#431599] text-white hover:bg-[#35105E] cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#6657C8] hover:bg-[#5145A6] dark:bg-[#431599] text-white dark:hover:bg-[#35105E] cursor-pointer whitespace-nowrap"
               >
                 Buka Halaman Ticket MyRepublic
               </button>
@@ -1298,18 +1298,18 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
           }
         >
           <div className="p-4 sm:p-5">
-            <div className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-x-auto">
+            <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] overflow-x-auto">
               <table className={`w-full border-collapse text-left ${simFontSizeClass}`}>
                 <thead>
-                  <tr className="bg-[#2D115B] text-white text-[11px] font-bold uppercase tracking-wider">
+                  <tr className="bg-[#EDF3F8] dark:bg-[#2D115B] text-[#26364A] dark:text-white text-[11px] font-bold uppercase tracking-wider border-b border-[#DDE6F0] dark:border-white/10">
                     {activeColumns.map((col, idx) => {
                       const isFrozen = idx < freezeCount;
                       return (
                         <th
                           key={col.key}
                           style={{ minWidth: `${col.width || 120}px` }}
-                          className={`px-3 py-2.5 whitespace-nowrap border-r border-white/10 ${
-                            isFrozen ? 'bg-[#35105E]' : ''
+                          className={`px-3 py-2.5 whitespace-nowrap border-r border-[#DDE6F0] dark:border-white/10 ${
+                            isFrozen ? 'bg-[#EAE8FF] dark:bg-[#35105E]' : ''
                           }`}
                         >
                           {col.label}
@@ -1318,14 +1318,14 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                   {simulatorRows.map((row, rIdx) => (
-                    <tr key={row.id || rIdx} className="hover:bg-[#F5F1FF]/40 dark:hover:bg-[#251545]/60">
+                    <tr key={row.id || rIdx} className="odd:bg-white even:bg-[#F8FAFD] hover:bg-[#EDF3F8] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-[#251545]/60">
                       {activeColumns.map(col => (
                         <td
                           key={col.key}
                           style={{ minWidth: `${col.width || 120}px` }}
-                          className={`px-3 whitespace-nowrap truncate max-w-xs border-r border-[#E9E5F0]/50 dark:border-[#35105E]/50 ${simDensityRowHeight}`}
+                          className={`px-3 whitespace-nowrap truncate max-w-xs border-r border-[#DDE6F0]/60 dark:border-[#35105E]/50 text-[#26364A] dark:text-[#F5F1FF] ${simDensityRowHeight}`}
                         >
                           {col.key === 'selection' ? '☐' : getTicketCellValue(row, col.key)}
                         </td>
@@ -1336,8 +1336,8 @@ export const TableColumnsStudio: React.FC<TableColumnsStudioProps> = ({
               </table>
             </div>
             {!isShowingLiveTickets && (
-              <div className="mt-3 flex items-center gap-2 text-[11px] text-[#766B83] dark:text-[#CEC0E8]">
-                <Info className="w-3.5 h-3.5 text-[#431599]" />
+              <div className="mt-3 flex items-center gap-2 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                <Info className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
                 <span>Menampilkan contoh baris pratinjau karena belum ada WO aktif yang termuat.</span>
               </div>
             )}

@@ -620,7 +620,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       t.statusWOInstaller === 'On Site' ||
       t.statusWOAgent === 'In Progress'
     ) {
-      return { category: 'in_progress', label: 'Sedang Dikerjakan', progressPercent: 65, color: 'text-[#58149c] dark:text-[#dab9ff]' };
+      return { category: 'in_progress', label: 'Sedang Dikerjakan', progressPercent: 65, color: 'text-[#5145A6] dark:text-[#dab9ff]' };
     }
 
     // 6. Waiting / Belum Dimulai (Assigned but not yet departed)
@@ -1445,7 +1445,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 selectedTicketIds.length === sortedTickets.length
               }
               onChange={handleSelectAll}
-              className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] dark:border-[#4b386b] cursor-pointer"
+              className="w-4 h-4 accent-[#5145A6] rounded border-[#CBD5E1] dark:border-[#4b386b] cursor-pointer"
             />
           </th>
         );
@@ -1727,7 +1727,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               type="checkbox"
               checked={isSelected}
               onChange={() => handleToggleSelectTicket(t.id)}
-              className="w-4 h-4 accent-[#58149c] rounded border-[#cec3d4] dark:border-[#4b386b] cursor-pointer"
+              className="w-4 h-4 accent-[#5145A6] rounded border-[#CBD5E1] dark:border-[#4b386b] cursor-pointer"
             />
           </td>
         );
@@ -1742,14 +1742,14 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 title="Buka / Tutup Rincian Alamat & Teknis"
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  <ChevronDown className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 ) : (
                   <ChevronRight className="w-3.5 h-3.5" />
                 )}
               </button>
               <span
                 onClick={() => onSelectTicket(t)}
-                className="text-[#58149c] dark:text-[#dab9ff] hover:underline cursor-pointer"
+                className="text-[#5145A6] dark:text-[#dab9ff] hover:underline cursor-pointer"
               >
                 {t.woNumber}
               </span>
@@ -1783,7 +1783,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       case 'area':
         return (
           <td key={col.id} className="py-2.5 px-3">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-[#DDF4F4] text-[#2E7D8B] dark:bg-purple-950 dark:text-purple-300 border border-[#BDE4E8] dark:border-purple-800">
               {t.area || '-'}
             </span>
           </td>
@@ -1803,10 +1803,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 e.stopPropagation();
                 openCustomerAddressInGoogleMaps(t);
               }}
-              className="flex items-center gap-1.5 text-left text-slate-700 dark:text-slate-200 hover:text-purple-700 dark:hover:text-purple-300 transition-colors group cursor-pointer max-w-full"
+              className="flex items-center gap-1.5 text-left text-slate-700 dark:text-slate-200 hover:text-[#5145A6] dark:hover:text-purple-300 transition-colors group cursor-pointer max-w-full"
               title="Klik untuk membuka lokasi di Google Maps"
             >
-              <MapPin className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-purple-400 shrink-0 group-hover:scale-110 transition-transform" />
               <span className="truncate group-hover:underline">{t.streetName || t.clusterName || '-'}</span>
             </button>
           </td>
@@ -1845,7 +1845,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 !isLeaderRole ? 'opacity-70 cursor-not-allowed ' : ''
               }${
                 t.installerName
-                  ? 'bg-[#f8f1ff] dark:bg-[#160D29] text-[#1f1638] dark:text-white border-[#d0bcff] dark:border-[#4b386b]'
+                  ? 'bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white border-[#DDE6F0] dark:border-[#4b386b]'
                   : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold'
               }`}
             >
@@ -1918,10 +1918,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     progressPercent === 100
                       ? 'bg-emerald-500'
                       : progressPercent > 50
-                      ? 'bg-[#7135b5]'
+                      ? 'bg-[#6657C8]'
                       : progressPercent > 0
                       ? 'bg-amber-500'
-                      : 'bg-[#e8ddff] dark:bg-[#35105E]'
+                      : 'bg-[#E4ECF5] dark:bg-[#35105E]'
                   }`}
                   style={{ width: `${progressPercent}%` }}
                 />
@@ -2019,7 +2019,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <div className={`flex flex-col justify-between gap-3.5 ${isCompactUI ? '' : 'lg:flex-row lg:items-end'}`}>
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#58149c] dark:text-[#dab9ff]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
                   ANTREAN LAPANGAN
                 </span>
                 <span
@@ -2039,20 +2039,20 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </div>
 
               <h1
-                className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tracking-tight leading-tight"
+                className="text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight leading-tight"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 {activeTab === 'quota_settings' ? 'Manajemen Kuota & Kolom' : 'Penugasan Perintah Kerja'}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
-                <span className="inline-flex items-center gap-1 font-semibold text-[#1f1638] dark:text-white">
-                  <Building2 className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                <span className="inline-flex items-center gap-1 font-semibold text-[#26364A] dark:text-white">
+                  <Building2 className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                   {displayContractor}
                 </span>
                 <span>·</span>
                 <span className="inline-flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-[#58149c] dark:text-[#dab9ff]" />
+                  <MapPin className="w-3 h-3 text-[#2E7D8B] dark:text-[#dab9ff]" />
                   {displayArea} ({clusterOptions.length || 1} Cluster)
                 </span>
                 <span>·</span>
@@ -2080,7 +2080,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 onClick={() => setIsUploadAssignModalOpen(true)}
                 className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <FileUp className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <FileUp className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span className="hidden sm:inline">Upload Assign</span>
                 <span className="sm:hidden">Upload</span>
               </button>
@@ -2092,7 +2092,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   onClick={() => setIsBulkReassignModalOpen(true)}
                   className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <ArrowRightLeft className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                   <span className="hidden sm:inline">Bulk Reassign</span>
                   <span className="sm:hidden">Reassign</span>
                 </button>
@@ -2103,7 +2103,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 onClick={() => setIsDailyLimitModalOpen(true)}
                 className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Sliders className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <Sliders className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span className="hidden sm:inline">Limit Harian</span>
                 <span className="sm:hidden">Limit</span>
               </button>
@@ -2113,7 +2113,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 onClick={handleExportExcel}
                 className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Download className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff]" />
+                <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span>Export</span>
               </button>
             </div>
@@ -2130,24 +2130,24 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 setActiveTab('wo_assignment');
                 setCurrentPage(1);
               }}
-              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#6657C8] transition-all"
             >
-              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+              <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                 <span className="text-[10.5px] font-bold truncate">Unassigned</span>
                 <AlertCircle className="w-3.5 h-3.5 text-[#d97706] shrink-0" />
               </div>
               <div className="mt-1.5 flex items-baseline gap-1">
                 <span
-                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  className="text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   {summaryMetrics.unassigned}
                 </span>
                 <span className="text-[10.5px] font-bold text-[#ba1a1a] dark:text-rose-400">WO</span>
               </div>
-              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+              <div className="mt-2 w-full h-1.5 bg-[#EAE8FF] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#58149c] rounded-full"
+                  className="h-full bg-[#6657C8] rounded-full"
                   style={{ width: `${summaryMetrics.total > 0 ? Math.min(100, Math.round((summaryMetrics.unassigned / summaryMetrics.total) * 100)) : 0}%` }}
                 />
               </div>
@@ -2156,24 +2156,24 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             {/* Mobile Compact 2 / Desktop 4: Teknisi Ready */}
             <div
               onClick={() => setActiveTab('installer_mgmt')}
-              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#16A36A] transition-all"
+              className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex flex-col justify-between cursor-pointer hover:border-[#16A36A] transition-all"
             >
-              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+              <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                 <span className="text-[10.5px] font-bold truncate">Teknisi Ready</span>
                 <Users2 className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
               </div>
               <div className="mt-1.5 flex items-baseline gap-1">
                 <span
-                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  className="text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   {summaryMetrics.activeInstallers}
                 </span>
-                <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0] tabular-nums">
+                <span className="text-[11px] font-semibold text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                   / {myInstallers.length}
                 </span>
               </div>
-              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+              <div className="mt-2 w-full h-1.5 bg-[#E4ECF5] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#16A36A] rounded-full"
                   style={{ width: `${myInstallers.length > 0 ? Math.min(100, Math.round((summaryMetrics.activeInstallers / myInstallers.length) * 100)) : 0}%` }}
@@ -2182,23 +2182,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             </div>
 
             {/* Mobile Compact 3 / Desktop 6: Avg SLA */}
-            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+            <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                 <span className="text-[10.5px] font-bold truncate">Avg SLA</span>
-                <Clock className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#dab9ff] shrink-0" />
               </div>
               <div className="mt-1.5 flex items-baseline gap-1">
                 <span
-                  className="text-xl sm:text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums"
+                  className="text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   {avgAssignSlaMinutes}
                 </span>
-                <span className="text-[11px] font-semibold text-[#7d7484] dark:text-[#A79BC0]">mnt</span>
+                <span className="text-[11px] font-semibold text-[#8492A5] dark:text-[#A79BC0]">mnt</span>
               </div>
-              <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+              <div className="mt-2 w-full h-1.5 bg-[#DDF4F4] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${avgAssignSlaMinutes <= 30 ? 'bg-[#6a46c1]' : 'bg-[#d97706]'}`}
+                  className={`h-full rounded-full ${avgAssignSlaMinutes <= 30 ? 'bg-[#2E7D8B]' : 'bg-[#d97706]'}`}
                   style={{ width: `${avgAssignSlaMinutes > 0 ? Math.min(100, Math.round((avgAssignSlaMinutes / 60) * 100)) : 12}%` }}
                 />
               </div>
@@ -2212,19 +2212,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     setStatusFilter('all');
                     setActiveTab('wo_assignment');
                   }}
-                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex-col justify-between cursor-pointer hover:border-[#6657C8] transition-all"
                 >
-                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                  <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                     <span className="text-[10.5px] font-bold truncate">Total WO</span>
-                    <Calendar className="w-3.5 h-3.5 text-[#58149c] shrink-0" />
+                    <Calendar className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff] shrink-0" />
                   </div>
                   <div className="mt-1.5 flex items-baseline gap-1">
-                    <span className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+                    <span className="text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums">
                       {summaryMetrics.total}
                     </span>
-                    <span className="text-[11px] font-semibold text-[#7d7484]">Hari Ini</span>
+                    <span className="text-[11px] font-semibold text-[#8492A5]">Hari Ini</span>
                   </div>
-                  <div className="text-[10.5px] text-[#7d7484] mt-1 tabular-nums">{todayAppointmentDisplay}</div>
+                  <div className="text-[10.5px] text-[#8492A5] mt-1 tabular-nums">{todayAppointmentDisplay}</div>
                 </div>
 
                 <div
@@ -2233,45 +2233,45 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     setActiveTab('reassign_wo');
                     setCurrentPage(1);
                   }}
-                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex-col justify-between cursor-pointer hover:border-[#6657C8] transition-all"
                 >
-                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                  <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                     <span className="text-[10.5px] font-bold truncate">Assigned</span>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#58149c] dark:text-[#dab9ff] shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff] shrink-0" />
                   </div>
                   <div className="mt-1.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-extrabold text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+                    <span className="text-2xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
                       {summaryMetrics.assigned}
                     </span>
                     <span className="text-[11px] font-bold text-[#16A36A] tabular-nums">
                       {summaryMetrics.total > 0 ? Math.round((summaryMetrics.assigned / summaryMetrics.total) * 100) : 0}%
                     </span>
                   </div>
-                  <div className="text-[10.5px] text-[#7d7484] mt-1 truncate">
+                  <div className="text-[10.5px] text-[#8492A5] mt-1 truncate">
                     Ke {assignedTechnicianCount} Teknisi
                   </div>
                 </div>
 
                 <div
                   onClick={() => setIsDailyLimitModalOpen(true)}
-                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-3.5 shadow-[0_2px_8px_rgba(31,22,56,0.04)] flex-col justify-between cursor-pointer hover:border-[#58149c] transition-all"
+                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex-col justify-between cursor-pointer hover:border-[#6657C8] transition-all"
                 >
-                  <div className="flex items-center justify-between gap-1 text-[#7d7484] dark:text-[#CEC0E8]">
+                  <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                     <span className="text-[10.5px] font-bold truncate">Utilisasi Kuota</span>
-                    <Gauge className="w-3.5 h-3.5 text-[#58149c] shrink-0" />
+                    <Gauge className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#dab9ff] shrink-0" />
                   </div>
                   <div className="mt-1.5">
-                    <span className="text-2xl font-extrabold text-[#1f1638] dark:text-white tabular-nums">
+                    <span className="text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums">
                       {quotaUtilizationPct}%
                     </span>
                   </div>
-                  <div className="mt-2 w-full h-1.5 bg-[#f3eaff] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
+                  <div className="mt-2 w-full h-1.5 bg-[#EAE8FF] dark:bg-[#2C1A4E] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${
                         quotaUtilizationPct >= 95
                           ? 'bg-[#ba1a1a]'
                           : quotaUtilizationPct >= 80
-                          ? 'bg-[#58149c]'
+                          ? 'bg-[#6657C8]'
                           : 'bg-[#16A36A]'
                       }`}
                       style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
@@ -2288,7 +2288,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* 3. NAVIGATION SWITCHER (DESKTOP SEGMENTED + MOBILE SUB-TABS) */}
       {/* ============================================================ */}
       {!isCompactUI ? (
-        <div className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E] overflow-x-auto scrollbar-none">
+        <div className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-[#EDF3F8] dark:bg-[#1A0E2E] border border-[#DDE6F0] dark:border-[#35105E] overflow-x-auto scrollbar-none">
           {[
             { id: 'wo_assignment' as const, label: 'Assign WO', badge: summaryMetrics.unassigned, icon: Layers },
             { id: 'reassign_wo' as const, label: 'Reassign WO', badge: activeAssignedEligibleForReassign.length, icon: ArrowRightLeft },
@@ -2305,8 +2305,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 onClick={() => setActiveTab(item.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer transition-all ${
                   isActive
-                    ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-[0_2px_6px_rgba(31,22,56,0.08)]'
-                    : 'text-[#4b4452] dark:text-[#CEC0E8] hover:text-[#1f1638] dark:hover:text-white'
+                    ? 'bg-white dark:bg-[#342b4e] text-[#5145A6] dark:text-[#dab9ff] shadow-[0_2px_6px_rgba(38,54,74,0.08)]'
+                    : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -2316,7 +2316,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold tabular-nums ${
                       item.id === 'wo_assignment' && item.badge > 0
                         ? 'bg-[#d97706] text-white'
-                        : 'bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff]'
+                        : 'bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff]'
                     }`}
                   >
                     {item.badge}
@@ -2327,19 +2327,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           })}
         </div>
       ) : (activeTab === 'wo_assignment' || activeTab === 'reassign_wo') ? (
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#f3eaff] dark:bg-[#1A0E2E] border border-[#e8ddff] dark:border-[#35105E]">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#EDF3F8] dark:bg-[#1A0E2E] border border-[#DDE6F0] dark:border-[#35105E]">
           <button
             type="button"
             onClick={() => setActiveTab('wo_assignment')}
             className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
               activeTab === 'wo_assignment'
-                ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-xs'
-                : 'text-[#4b4452] dark:text-[#CEC0E8]'
+                ? 'bg-white dark:bg-[#342b4e] text-[#5145A6] dark:text-[#dab9ff] shadow-xs'
+                : 'text-[#52647A] dark:text-[#CEC0E8]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Assign WO</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
               {summaryMetrics.unassigned}
             </span>
           </button>
@@ -2348,13 +2348,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             onClick={() => setActiveTab('reassign_wo')}
             className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
               activeTab === 'reassign_wo'
-                ? 'bg-white dark:bg-[#342b4e] text-[#58149c] dark:text-[#dab9ff] shadow-xs'
-                : 'text-[#4b4452] dark:text-[#CEC0E8]'
+                ? 'bg-white dark:bg-[#342b4e] text-[#5145A6] dark:text-[#dab9ff] shadow-xs'
+                : 'text-[#52647A] dark:text-[#CEC0E8]'
             }`}
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
             <span>Reassign WO</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] tabular-nums">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
               {activeAssignedEligibleForReassign.length}
             </span>
           </button>
@@ -2401,25 +2401,25 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {activeTab === 'wo_assignment' && (
         <div className="space-y-4">
           {activeKpiDrilldown && (
-            <div className="rounded-xl bg-[#160D29] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+            <div className="rounded-xl bg-gradient-to-r from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-[#160D29] dark:from-[#160D29] dark:via-[#160D29] dark:to-[#160D29] text-[#26364A] dark:text-white px-4 py-3 border border-[#BDE4E8] dark:border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+                <span className="px-2 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#7135B5] text-white font-bold text-[10.5px]">
                   Filter KPI Dashboard
                 </span>
                 <span className="font-bold">
                   {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
                 </span>
                 {activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL' && (
-                  <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                  <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-white/10 text-[#5145A6] dark:text-purple-200 border border-[#DDE6F0] dark:border-transparent font-medium">
                     Vendor: {activeKpiDrilldown.contractor}
                   </span>
                 )}
                 {activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL' && (
-                  <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+                  <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-white/10 text-[#2E7D8B] dark:text-purple-200 border border-[#BDE4E8] dark:border-transparent font-medium">
                     Area: {activeKpiDrilldown.area}
                   </span>
                 )}
-                <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+                <span className="font-mono font-bold text-[#5145A6] dark:text-[#E9D5FF] tabular-nums">
                   ({filteredTickets.length} WO ditemukan)
                 </span>
               </div>
@@ -2683,33 +2683,33 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {activeTab === 'quota_settings' && (
         <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12 items-start'}`}>
           {/* Card 1: Pengaturan Kuota Harian & Limit Teknisi */}
-          <div className="lg:col-span-7 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E8DDFF,0_6px_16px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
-            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#f3eaff] dark:border-[#35105E]">
+          <div className="lg:col-span-7 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
+            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <h3
-                    className="font-bold text-sm sm:text-base text-[#1f1638] dark:text-white truncate"
+                    className="font-bold text-sm sm:text-base text-[#26364A] dark:text-white truncate"
                     style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   >
                     Pengaturan Kuota Harian &amp; Limit Teknisi
                   </h3>
-                  <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                     Kontrol distribusi beban kerja harian {displayContractor} · {displayArea}
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+              <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#C5BEEF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0 tabular-nums">
                 AKTIF: {summaryMetrics.assigned}/{totalMaxSlots} WO
               </span>
             </div>
 
             {/* 2-Column Numeric Limit & Capacity Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="p-3.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                   <span>Limit Maksimal per Teknisi</span>
                   <Users2 className="w-3.5 h-3.5" />
                 </div>
@@ -2721,68 +2721,68 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     disabled={!isLeaderRole || isSavingQuota}
                     value={quotaSettings.defaultMaxDailyQuota}
                     onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
-                    className="tactile-debossed-input w-20 px-3 py-2 bg-white dark:bg-[#1E1238] border border-[#cec3d4] dark:border-[#4b386b] rounded-xl font-mono font-extrabold text-base text-[#1f1638] dark:text-white focus:outline-hidden focus:border-[#58149c] tabular-nums"
+                    className="tactile-debossed-input w-20 px-3 py-2 bg-white dark:bg-[#1E1238] border border-[#CBD5E1] dark:border-[#4b386b] rounded-xl font-mono font-extrabold text-base text-[#26364A] dark:text-white focus:outline-hidden focus:border-[#6657C8] tabular-nums"
                   />
-                  <span className="text-[11px] font-bold text-[#4b4452] dark:text-[#CEC0E8]">
+                  <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
                     WO / TEKNISI
                   </span>
                 </div>
-                <p className="text-[10.5px] text-[#7d7484] dark:text-[#A493C2]">
+                <p className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2]">
                   Kapasitas standar per teknisi sebelum status menjadi penuh.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="p-3.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#2E7D8B] dark:text-[#DAB9FF]">
                   <span>Kapasitas Sektor Hari Ini</span>
                   <Gauge className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-mono font-extrabold text-xl text-[#1f1638] dark:text-white tabular-nums">
+                  <span className="font-mono font-extrabold text-xl text-[#26364A] dark:text-white tabular-nums">
                     {totalMaxSlots}
                   </span>
-                  <span className="text-[11px] font-bold text-[#4b4452] dark:text-[#CEC0E8]">
+                  <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
                     SLOT ({technicianSummaries.length} TEKNISI)
                   </span>
                 </div>
-                <p className="text-[10.5px] text-[#7d7484] dark:text-[#A493C2]">
+                <p className="text-[10.5px] text-[#8492A5] dark:text-[#A493C2]">
                   Total kapasitas aktif seluruh installer terdaftar hari ini.
                 </p>
               </div>
             </div>
 
             {/* Utilisasi Kapasitas Tim Gauge */}
-            <div className="p-3.5 rounded-xl bg-[#FDF7FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] space-y-2">
+            <div className="p-3.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
               <div className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="font-bold text-[#1f1638] dark:text-white">
+                <span className="font-bold text-[#26364A] dark:text-white">
                   Utilisasi Kapasitas Tim ({technicianSummaries.length} Teknisi)
                 </span>
-                <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] tabular-nums">
+                <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
                   {summaryMetrics.assigned} WO / {totalMaxSlots} Slot Terpakai ({quotaUtilizationPct}%)
                 </span>
               </div>
-              <div className="h-2.5 rounded-full bg-[#E8DDFF] dark:bg-[#2E1B59] overflow-hidden">
+              <div className="h-2.5 rounded-full bg-[#E4ECF5] dark:bg-[#2E1B59] overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    quotaUtilizationPct >= 90 ? 'bg-[#BA1A1A]' : 'bg-gradient-to-r from-[#58149C] to-[#A380FE]'
+                    quotaUtilizationPct >= 90 ? 'bg-[#BA1A1A]' : 'bg-gradient-to-r from-[#5145A6] to-[#2E7D8B] dark:from-[#58149C] dark:to-[#A380FE]'
                   }`}
                   style={{ width: `${Math.min(100, quotaUtilizationPct)}%` }}
                 />
               </div>
             </div>
 
-            {/* Dark Purple-to-Maroon Strict Limit Enforcement Card */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#160D29] via-[#2D115B] to-[#480123] border border-[#58149C]/60 text-white p-4 space-y-3 shadow-md">
+            {/* Strict Limit Enforcement Card (Crystal Mist Light Mode / Preserved Dark Purple-Maroon Night Mode) */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#2D115B] dark:to-[#480123] border border-[#BDE4E8] dark:border-[#58149C]/60 text-[#26364A] dark:text-white p-4 space-y-3 shadow-md">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-[#DAB9FF] shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#EAE8FF] dark:bg-white/10 border border-[#C5BEEF] dark:border-white/15 flex items-center justify-center text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                     <Lock className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="font-bold text-[13px] text-white block truncate">
+                    <span className="font-bold text-[13px] text-[#26364A] dark:text-white block truncate">
                       Strict Limit Enforcement
                     </span>
-                    <span className="text-[11px] text-[#E8DDFF]/80 block truncate">
+                    <span className="text-[11px] text-[#52647A] dark:text-[#E8DDFF]/80 block truncate">
                       Kunci penugasan otomatis jika teknisi mencapai kuota ({quotaSettings.defaultMaxDailyQuota}/{quotaSettings.defaultMaxDailyQuota})
                     </span>
                   </div>
@@ -2795,11 +2795,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#16A36A]" />
+                  <div className="w-11 h-6 bg-[#CBD5E1] dark:bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#16A36A]" />
                 </label>
               </div>
-              <div className="rounded-xl bg-white/8 border border-white/12 px-3 py-2 text-[11px] text-[#E8DDFF] flex items-start gap-2">
-                <AlertCircle className="w-3.5 h-3.5 text-[#DAB9FF] shrink-0 mt-0.5" />
+              <div className="rounded-xl bg-white/80 dark:bg-white/8 border border-[#DDE6F0] dark:border-white/12 px-3 py-2 text-[11px] text-[#52647A] dark:text-[#E8DDFF] flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
                 <span>
                   {quotaSettings.enforceStrictLimit
                     ? 'Aktif: Sistem memblokir Assign/Reassign ke teknisi berkuota penuh kecuali diberi pengecualian manual di bawah ini.'
@@ -2812,31 +2812,31 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             <div className="space-y-2.5 pt-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4 className="font-bold text-xs text-[#1f1638] dark:text-white">
+                  <h4 className="font-bold text-xs text-[#26364A] dark:text-white">
                     Pengecualian &amp; Penyesuaian Kapasitas Teknisi
                   </h4>
-                  <span className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8]">
+                  <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                     {Object.keys(quotaSettings.customInstallerLimits || {}).length} override kuota khusus tersimpan
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsDailyLimitModalOpen(true)}
-                  className="mj-btn-leader-neutral mj-btn-compact px-3.5 py-2 text-[#58149c] dark:text-[#dab9ff] text-xs cursor-pointer shrink-0"
+                  className="mj-btn-leader-neutral mj-btn-compact px-3.5 py-2 text-[#5145A6] dark:text-[#dab9ff] text-xs cursor-pointer shrink-0"
                 >
                   Kelola Custom Limit
                 </button>
               </div>
 
               {Object.keys(quotaSettings.customInstallerLimits || {}).length > 0 && (
-                <div className="rounded-xl border border-[#E8DDFF] dark:border-[#35105E] divide-y divide-[#F3EAFF] dark:divide-[#35105E] overflow-hidden">
+                <div className="rounded-xl border border-[#DDE6F0] dark:border-[#35105E] divide-y divide-[#E2E8F0] dark:divide-[#35105E] overflow-hidden">
                   {Object.entries(quotaSettings.customInstallerLimits || {}).slice(0, 4).map(([instName, limitVal]) => (
                     <div
                       key={instName}
-                      className="px-3 py-2 bg-[#FDF7FF] dark:bg-[#160D29] flex items-center justify-between gap-2"
+                      className="px-3 py-2 bg-[#F4F7FB] dark:bg-[#160D29] flex items-center justify-between gap-2"
                     >
-                      <span className="font-semibold text-[#1f1638] dark:text-white truncate">{instName}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] text-[#58149C] dark:text-[#DAB9FF] font-mono font-bold text-[10.5px] shrink-0">
+                      <span className="font-semibold text-[#26364A] dark:text-white truncate">{instName}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] text-[#5145A6] dark:text-[#DAB9FF] font-mono font-bold text-[10.5px] shrink-0">
                         {limitVal} WO / Hari
                       </span>
                     </div>
@@ -2847,26 +2847,26 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           </div>
 
           {/* Card 2: Visibilitas Kolom Tabel */}
-          <div className="lg:col-span-5 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#e8ddff] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E8DDFF,0_6px_16px_rgba(31,22,56,0.05)] dark:shadow-[0_3px_0_#120826] space-y-4 flex flex-col justify-between">
+          <div className="lg:col-span-5 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-4 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#f3eaff] dark:border-[#35105E]">
+              <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-[#eedbff] dark:bg-[#35105E] text-[#58149c] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
                     <Table className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
                     <h3
-                      className="font-bold text-sm sm:text-base text-[#1f1638] dark:text-white truncate"
+                      className="font-bold text-sm sm:text-base text-[#26364A] dark:text-white truncate"
                       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                     >
                       Visibilitas Kolom Tabel
                     </h3>
-                    <p className="text-[11px] text-[#7d7484] dark:text-[#CEC0E8] truncate">
+                    <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
                       Kustomisasi kolom tabel Assign WO &amp; ekspor data
                     </p>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-[#F3EAFF] dark:bg-[#2E1B59] border border-[#D0BCFF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+                <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#C5BEEF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                   {tableColumns.filter(c => c.visible).length}/{tableColumns.length} AKTIF
                 </span>
               </div>
@@ -2880,11 +2880,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                       key={col.id}
                       className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
                         col.visible
-                          ? 'bg-[#F8F1FF] dark:bg-[#160D29] border-[#E8DDFF] dark:border-[#35105E]'
-                          : 'bg-white dark:bg-[#1E1238]/60 border-[#F3EAFF] dark:border-[#2E1B59] opacity-70'
+                          ? 'bg-[#F4F7FB] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
+                          : 'bg-white dark:bg-[#1E1238]/60 border-[#E2E8F0] dark:border-[#2E1B59] opacity-70'
                       } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <span className="font-semibold text-[#1f1638] dark:text-white truncate">{col.label}</span>
+                      <span className="font-semibold text-[#26364A] dark:text-white truncate">{col.label}</span>
                       <input
                         type="checkbox"
                         checked={col.visible}
@@ -2895,7 +2895,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                             tableColumns.map(c => (c.id === col.id ? { ...c, visible: !c.visible } : c))
                           );
                         }}
-                        className="w-4 h-4 accent-[#58149C] rounded cursor-pointer shrink-0"
+                        className="w-4 h-4 accent-[#5145A6] rounded cursor-pointer shrink-0"
                       />
                     </label>
                   );
@@ -2903,8 +2903,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </div>
 
               {/* Preview Urutan Kolom Aktif */}
-              <div className="rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E] p-3 space-y-2">
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+              <div className="rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-2">
+                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                   PREVIEW URUTAN KOLOM AKTIF
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -2914,9 +2914,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     .map((col, idx) => (
                       <span
                         key={col.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-[#27104A] border border-[#DFC7FF] dark:border-[#5B35B1] text-[10.5px] font-semibold text-[#1F1638] dark:text-[#E8DDFF]"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-[#27104A] border border-[#DCE3F2] dark:border-[#5B35B1] text-[10.5px] font-semibold text-[#26364A] dark:text-[#E8DDFF]"
                       >
-                        <span className="font-mono font-bold text-[#58149C] dark:text-[#DAB9FF]">{idx + 1}.</span>
+                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{idx + 1}.</span>
                         <span>{col.label}</span>
                       </span>
                     ))}
@@ -2976,8 +2976,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             }
           >
             <div className="space-y-4 text-xs">
-              <div className="p-3.5 bg-[#F5F1FF] dark:bg-[#21113B] rounded-xl border border-[#D8CCF3] dark:border-purple-800 space-y-2 text-xs">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5B35B1] dark:text-purple-300 flex items-center gap-1.5">
+              <div className="p-3.5 bg-[#F4F7FB] dark:bg-[#21113B] rounded-xl border border-[#DDE6F0] dark:border-purple-800 space-y-2 text-xs">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-purple-300 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5" />
                   <span>Rincian Tiket Work Order</span>
                 </div>
@@ -2985,7 +2985,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-slate-700 dark:text-slate-300">
                   <div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">1. Nomor WO:</span>
-                    <span className="font-mono font-bold text-[#3B1D78] dark:text-purple-300 break-all">
+                    <span className="font-mono font-bold text-[#5145A6] dark:text-purple-300 break-all">
                       {isSingle ? firstTicket?.woNumber : `${modalTargetTickets.length} Tiket (${modalTargetTickets.slice(0, 3).map(t => t.woNumber).join(', ')}${modalTargetTickets.length > 3 ? '...' : ''})`}
                     </span>
                   </div>
@@ -3034,7 +3034,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <select
                   value={bulkTargetInstaller}
                   onChange={e => setBulkTargetInstaller(e.target.value)}
-                  className="tactile-debossed-input w-full px-3 py-2.5 bg-[#f8f1ff] dark:bg-[#160D29] border-2 border-[#D8CCF3] dark:border-purple-800 rounded-xl font-medium text-xs text-[#1f1638] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#58149c] min-h-[44px]"
+                  className="tactile-debossed-input w-full px-3 py-2.5 bg-[#F4F7FB] dark:bg-[#160D29] border-2 border-[#DDE6F0] dark:border-purple-800 rounded-xl font-medium text-xs text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] min-h-[44px]"
                 >
                   <option value="">Pilih teknisi aktif...</option>
                   {myInstallers.map(inst => {
@@ -3057,7 +3057,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <select
                   value={bulkSlotTime}
                   onChange={e => setBulkSlotTime(e.target.value)}
-                  className="tactile-debossed-input w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4b386b] rounded-xl text-xs text-[#1f1638] dark:text-white min-h-[40px]"
+                  className="tactile-debossed-input w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4b386b] rounded-xl text-xs text-[#26364A] dark:text-white min-h-[40px]"
                 >
                   <option value="">Pertahankan slot waktu asli masing-masing tiket</option>
                   {STANDARD_SLOTS.map(slot => (
@@ -3066,7 +3066,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </select>
               </div>
 
-              <div className="p-3 bg-[#F5F1FF] dark:bg-purple-950/40 rounded-xl border border-[#D8CCF3] dark:border-purple-900 text-[11px] text-purple-900 dark:text-purple-200">
+              <div className="p-3 bg-[#EAE8FF]/70 dark:bg-purple-950/40 rounded-xl border border-[#C5BEEF] dark:border-purple-900 text-[11px] text-[#5145A6] dark:text-purple-200">
                 Sistem MoraJaws memvalidasi batas beban kerja teknisi ({quotaSettings.defaultMaxDailyQuota} WO/hari). Penugasan hanya dapat dilakukan oleh Leader/Korlap terdaftar.
               </div>
             </div>
@@ -3118,7 +3118,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         {assignmentNoticeModal && (
           <div className="space-y-3 text-xs">
             <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-              Penugasan WO <strong className="font-mono text-[#58149c] dark:text-[#dab9ff]">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
+              Penugasan WO <strong className="font-mono text-[#5145A6] dark:text-[#dab9ff]">{assignmentNoticeModal.ticket.woNumber}</strong> berhasil disimpan di sistem. Kirimkan pesan rincian tugas langsung ke WhatsApp teknisi <strong>{assignmentNoticeModal.installer.name}</strong>:
             </p>
 
             <div>
@@ -3129,7 +3129,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 type="text"
                 value={assignmentNoticeModal.targetPhone}
                 onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, targetPhone: e.target.value })}
-                className="tactile-debossed-input w-full px-3 py-2 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3E246F] rounded-lg font-mono text-xs text-[#1f1638] dark:text-white"
+                className="tactile-debossed-input w-full px-3 py-2 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3E246F] rounded-lg font-mono text-xs text-[#26364A] dark:text-white"
               />
             </div>
 
@@ -3141,7 +3141,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 rows={6}
                 value={assignmentNoticeModal.renderedMessage}
                 onChange={e => setAssignmentNoticeModal({ ...assignmentNoticeModal, renderedMessage: e.target.value })}
-                className="tactile-debossed-input w-full p-2.5 bg-[#f8f1ff] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3E246F] rounded-xl font-mono text-[11px] text-[#1f1638] dark:text-white"
+                className="tactile-debossed-input w-full p-2.5 bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3E246F] rounded-xl font-mono text-[11px] text-[#26364A] dark:text-white"
               />
             </div>
           </div>

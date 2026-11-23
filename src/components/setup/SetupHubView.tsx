@@ -275,10 +275,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         <div className="w-12 h-12 bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="font-display font-extrabold text-[#1F1638] dark:text-white text-base">
+        <h3 className="font-display font-extrabold text-[#26364A] dark:text-white text-base">
           Akses Ditolak: SETUP TERPUSAT MORAJAWS
         </h3>
-        <p className="text-xs text-[#4B4452] dark:text-[#CABDE8] leading-relaxed">
+        <p className="text-xs text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
           Pusat Setup Terpusat MoraJaws dilindungi dan tidak dapat diakses oleh peran <strong>{userRole}</strong>.
         </p>
       </div>
@@ -334,9 +334,9 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
       {/* ================================================================ */}
       {/* MOBILE CLUSTER STATUS STRIP (STITCH TEMPLATE 3)                  */}
       {/* ================================================================ */}
-      <div className="lg:hidden flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#3B1D78] shadow-xs text-[11px]">
+      <div className="lg:hidden flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3B1D78] shadow-xs text-[11px]">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center gap-1.5 font-mono font-bold text-[#1F1638] dark:text-white truncate">
+          <span className="inline-flex items-center gap-1.5 font-mono font-bold text-[#26364A] dark:text-white truncate">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 databaseStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'
@@ -344,8 +344,8 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             />
             Cloud Live · JKT-01
           </span>
-          <span className="text-[#CEC3D4] dark:text-[#4B386B]">·</span>
-          <span className="font-mono font-semibold text-[#58149C] dark:text-[#DAB9FF] truncate">
+          <span className="text-[#CBD5E1] dark:text-[#4B386B]">·</span>
+          <span className="font-mono font-semibold text-[#5145A6] dark:text-[#DAB9FF] truncate">
             {isCloudSyncing || isRefreshingCloud ? 'Syncing...' : cloudSyncStatus === 'synced' ? 'SSE Active' : 'Lokal'}
           </span>
         </div>
@@ -364,18 +364,18 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
       {/* ================================================================ */}
       {/* ZONE A: SETUP HUB HERO HEADER (STITCH TEMPLATES 1 & 3)           */}
       {/* ================================================================ */}
-      <div className="card-3d-lavender rounded-2xl px-4 sm:px-6 py-4 sm:py-5 text-[#1F1638] dark:text-white">
+      <div className="card-3d-lavender rounded-2xl px-4 sm:px-6 py-4 sm:py-5 text-[#26364A] dark:text-white">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5 min-w-0">
             {/* Badges & Breadcrumb */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-b from-[#6b103b] to-[#480123] text-white shadow-[0_2px_0_#260112] whitespace-nowrap">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-gradient-to-b dark:from-[#6b103b] dark:to-[#480123] dark:text-white dark:shadow-[0_2px_0_#260112] whitespace-nowrap">
                 {currentUser?.role?.replace('_', ' ')} · {accessibleTabs.length}-TAB
               </span>
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border whitespace-nowrap ${
                   isCloudSyncing || isRefreshingCloud
-                    ? 'bg-[#F3EAFF] text-[#58149C] border-[#D8CCF3] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
+                    ? 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-[#2E1459] dark:text-[#DAB9FF] dark:border-[#5B35B1]'
                     : cloudSyncStatus === 'synced'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
                     : cloudSyncStatus === 'error'
@@ -396,7 +396,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               </span>
 
               {activeCategoryMeta && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] font-mono font-bold text-[#58149C] dark:text-[#DAB9FF] bg-[#F3EAFF] dark:bg-[#2A164F] px-2.5 py-0.5 rounded-md border border-[#E8DDFF] dark:border-[#4A258D]">
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] bg-[#EAE8FF] dark:bg-[#2A164F] px-2.5 py-0.5 rounded-md border border-[#C5BEEF] dark:border-[#4A258D]">
                   <span>{activeCategoryMeta.code}</span>
                   <ChevronRight className="w-3 h-3" />
                   <span>{activeTabMeta?.label}</span>
@@ -404,29 +404,29 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               )}
             </div>
 
-            <h1 className="font-display text-lg sm:text-2xl font-extrabold tracking-tight text-[#1F1638] dark:text-white">
+            <h1 className="font-display text-lg sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white">
               SETUP TERPUSAT MORAJAWS
             </h1>
 
             {/* Metadata Strip */}
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[#4B4452] dark:text-[#CABDE8]">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[#52647A] dark:text-[#CABDE8]">
               <span className="inline-flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                <Database className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>Supabase PostgreSQL (</span>
-                <strong className="font-mono text-[#1F1638] dark:text-white">Cluster: JKT-01</strong>
+                <strong className="font-mono text-[#26364A] dark:text-white">Cluster: JKT-01</strong>
                 <span>)</span>
               </span>
-              <span className="text-[#CEC3D4] dark:text-[#4B386B]">·</span>
+              <span className="text-[#CBD5E1] dark:text-[#4B386B]">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Sinkronisasi Otomatis {cloudSyncStatus === 'synced' ? 'Aktif' : 'Siaga'}</span>
               </span>
-              <span className="text-[#CEC3D4] dark:text-[#4B386B]">·</span>
+              <span className="text-[#CBD5E1] dark:text-[#4B386B]">·</span>
               <span className="inline-flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#7D7484] dark:text-[#CABDE8]" />
+                <Clock className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#CABDE8]" />
                 <span>
                   Last Modified: <span className="font-mono tabular-nums">{formattedLastModified}</span> oleh{' '}
-                  <strong className="text-[#1F1638] dark:text-white">
+                  <strong className="text-[#26364A] dark:text-white">
                     {currentUser?.name || 'Super Admin'}
                   </strong>
                 </span>
@@ -436,10 +436,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
 
           {/* Right Quick Status & Actions (Desktop) */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            <div className="flex items-center gap-2 bg-[#F8F1FF] dark:bg-[#160D29] px-3.5 py-2 rounded-xl border border-[#E8DDFF] dark:border-[#3B1D78] text-xs shadow-[inset_0_1px_2px_rgba(31,22,56,0.05)]">
-              <ShieldCheck className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF]" />
-              <span className="text-[#4B4452] dark:text-[#CABDE8]">Hak Akses:</span>
-              <span className="font-extrabold font-mono uppercase text-[#58149C] dark:text-[#DAB9FF]">
+            <div className="flex items-center gap-2 bg-[#F4F7FB] dark:bg-[#160D29] px-3.5 py-2 rounded-xl border border-[#DDE6F0] dark:border-[#3B1D78] text-xs shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)]">
+              <ShieldCheck className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
+              <span className="text-[#52647A] dark:text-[#CABDE8]">Hak Akses:</span>
+              <span className="font-extrabold font-mono uppercase text-[#5145A6] dark:text-[#DAB9FF]">
                 {currentUser?.role?.replace('_', ' ')}
               </span>
             </div>
@@ -476,33 +476,33 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
           <button
             type="button"
             onClick={() => setMobileDrawerOpen(prev => !prev)}
-            className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#4A258D] text-left cursor-pointer"
+            className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4A258D] text-left cursor-pointer"
           >
             <div className="min-w-0">
-              <div className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF] truncate">
+              <div className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF] truncate">
                 Modul Terpilih · {activeCategoryMeta?.code}
               </div>
-              <div className="text-xs font-extrabold text-[#1F1638] dark:text-white flex items-center gap-1.5 mt-0.5">
+              <div className="text-xs font-extrabold text-[#26364A] dark:text-white flex items-center gap-1.5 mt-0.5">
                 {activeTabMeta && (
                   <>
-                    <activeTabMeta.icon className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                    <activeTabMeta.icon className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                     <span>{activeTabMeta.label}</span>
                   </>
                 )}
               </div>
             </div>
             <ChevronDown
-              className={`w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 transition-transform ${
+              className={`w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0 transition-transform ${
                 mobileDrawerOpen ? 'rotate-180' : ''
               }`}
             />
           </button>
 
           {mobileDrawerOpen && (
-            <div className="p-3 rounded-xl bg-[#F8F1FF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#3B1D78] space-y-3">
+            <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#3B1D78] space-y-3">
               {visibleCategories.map(cat => (
                 <div key={cat.id} className="space-y-1.5">
-                  <div className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0] px-1">
+                  <div className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] px-1">
                     {cat.code}
                   </div>
                   <div className="grid grid-cols-1 gap-1.5">
@@ -520,14 +520,14 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                           className={`w-full flex items-center justify-between gap-2 px-3 py-2 min-h-[42px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
                             isActive
                               ? 'btn-3d-primary text-white'
-                              : 'bg-white dark:bg-[#1E1238] text-[#1F1638] dark:text-[#EEDBFF] border border-[#E8DDFF] dark:border-[#35105E]'
+                              : 'bg-white dark:bg-[#1E1238] text-[#26364A] dark:text-[#EEDBFF] border border-[#DDE6F0] dark:border-[#35105E]'
                           }`}
                         >
                           <span className="flex items-center gap-2 min-w-0">
-                            <span className={`font-mono text-[10px] ${isActive ? 'text-[#EEDBFF]' : 'text-[#7D7484]'}`}>
+                            <span className={`font-mono text-[10px] ${isActive ? 'text-white/85 dark:text-[#EEDBFF]' : 'text-[#8492A5]'}`}>
                               {tabNumberMap.get(tab.key)}
                             </span>
-                            <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#58149C] dark:text-[#DAB9FF]'}`} />
+                            <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-[#5145A6] dark:text-[#DAB9FF]'}`} />
                             <span className="truncate">{tab.label}</span>
                           </span>
                           {tab.badge && (
@@ -535,7 +535,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                               className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums ${
                                 isActive
                                   ? 'bg-white/20 text-white'
-                                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#35105E] dark:text-[#DAB9FF]'
+                                  : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#DAB9FF]'
                               }`}
                             >
                               {tab.badge}
@@ -564,17 +564,17 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-lg text-xs whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                     isActive
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] font-semibold hover:text-[#1F1638] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] font-semibold hover:text-[#26364A] dark:hover:text-white hover:bg-white/75 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <span
                     className={`font-mono text-[10.5px] font-bold tabular-nums ${
-                      isActive ? 'text-[#EEDBFF]' : 'text-[#7D7484] dark:text-[#A79BC0]'
+                      isActive ? 'text-white/85 dark:text-[#EEDBFF]' : 'text-[#8492A5] dark:text-[#A79BC0]'
                     }`}
                   >
                     {tabNumber}
                   </span>
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#EEDBFF]' : 'text-[#58149C] dark:text-[#DAB9FF]'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white/95 dark:text-[#EEDBFF]' : 'text-[#5145A6] dark:text-[#DAB9FF]'}`} />
                   <span>{tab.shortLabel}</span>
                 </button>
               );
@@ -590,11 +590,11 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         {/* ZONE B: Desktop Vertical 5-Category Navigation + Edge Node Telemetry */}
         <aside className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-4 sticky top-4">
           <div className="card-3d-lavender rounded-2xl p-3.5 space-y-4">
-            <div className="flex items-center justify-between px-1.5 pb-2 border-b border-[#EFE7FC] dark:border-[#35105E]">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#58149C] dark:text-[#DAB9FF]">
+            <div className="flex items-center justify-between px-1.5 pb-2 border-b border-[#E2E8F0] dark:border-[#35105E]">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
                 Kategori Setup
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
                 {accessibleTabs.length} Modul
               </span>
             </div>
@@ -602,7 +602,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             <div className="space-y-4">
               {visibleCategories.map(cat => (
                 <div key={cat.id} className="space-y-1.5">
-                  <div className="px-1.5 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#7D7484] dark:text-[#A79BC0]">
+                  <div className="px-1.5 text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
                     {cat.code}
                   </div>
                   <div className="space-y-1.5">
@@ -618,20 +618,20 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                           className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer text-left ${
                             isActive
                               ? 'btn-3d-primary font-bold text-white'
-                              : 'bg-[#F8F1FF]/80 dark:bg-[#160D29]/80 hover:bg-white dark:hover:bg-[#261942] border border-[#E8DDFF]/80 dark:border-[#35105E] text-[#1F1638] dark:text-[#EEDBFF] font-semibold'
+                              : 'bg-[#F4F7FB]/85 dark:bg-[#160D29]/80 hover:bg-white dark:hover:bg-[#261942] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#EEDBFF] font-semibold'
                           }`}
                         >
                           <span className="flex items-center gap-2 min-w-0">
                             <span
                               className={`font-mono text-[10px] font-bold tabular-nums shrink-0 ${
-                                isActive ? 'text-[#EEDBFF]' : 'text-[#7D7484] dark:text-[#A79BC0]'
+                                isActive ? 'text-white/85 dark:text-[#EEDBFF]' : 'text-[#8492A5] dark:text-[#A79BC0]'
                               }`}
                             >
                               {num}
                             </span>
                             <Icon
                               className={`w-4 h-4 shrink-0 ${
-                                isActive ? 'text-white' : 'text-[#58149C] dark:text-[#DAB9FF]'
+                                isActive ? 'text-white' : 'text-[#5145A6] dark:text-[#DAB9FF]'
                               }`}
                             />
                             <span className="truncate">{tab.label}</span>
@@ -642,7 +642,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                               className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tabular-nums shrink-0 ${
                                 isActive
                                   ? 'bg-white/20 text-white'
-                                  : 'bg-white dark:bg-[#2B1A4B] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4A258D]'
+                                  : 'bg-white dark:bg-[#2B1A4B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4A258D]'
                               }`}
                             >
                               {tab.badge}
@@ -657,18 +657,18 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             </div>
           </div>
 
-          {/* Edge Node Dark Telemetry Card */}
-          <div className="bg-[#160D29] text-white rounded-2xl border border-[#35105E] p-4 shadow-[0_4px_0_#0d061b] space-y-3">
+          {/* Edge Node Telemetry Card (Soft Crystal Mist in Light Mode, Preserved Dark Purple in Night Mode) */}
+          <div className="bg-gradient-to-br from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:from-[#160D29] dark:via-[#160D29] dark:to-[#160D29] text-[#26364A] dark:text-white rounded-2xl border border-[#C5BEEF] dark:border-[#35105E] p-4 shadow-[0_4px_0_#D2DAEA] dark:shadow-[0_4px_0_#0d061b] space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#35105E] border border-[#7135B5]/50 flex items-center justify-center text-[#DAB9FF] shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#35105E] border border-[#C5BEEF] dark:border-[#7135B5]/50 flex items-center justify-center text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                   <Cpu className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#A78BFA]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#5145A6] dark:text-[#A78BFA]">
                     Edge Node · JKT-01
                   </div>
-                  <div className="text-xs font-extrabold text-white truncate">
+                  <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                     {databaseStatus === 'connected' ? 'PostgreSQL Realtime' : 'Mode Offline / Lokal'}
                   </div>
                 </div>
@@ -676,8 +676,8 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <span
                 className={`px-2 py-0.5 rounded-md text-[9.5px] font-mono font-extrabold uppercase shrink-0 ${
                   databaseStatus === 'connected'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
                 }`}
               >
                 {databaseStatus === 'connected' ? 'LIVE' : 'LOCAL'}
@@ -685,13 +685,13 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="p-2 rounded-xl bg-[#22123F] border border-[#35105E]">
-                <div className="text-[9.5px] text-[#A78BFA] uppercase font-bold">Sync Queue</div>
-                <div className="font-mono font-bold text-white truncate mt-0.5">{syncStatus}</div>
+              <div className="p-2 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="text-[9.5px] text-[#52647A] dark:text-[#A78BFA] uppercase font-bold">Sync Queue</div>
+                <div className="font-mono font-bold text-[#26364A] dark:text-white truncate mt-0.5">{syncStatus}</div>
               </div>
-              <div className="p-2 rounded-xl bg-[#22123F] border border-[#35105E]">
-                <div className="text-[9.5px] text-[#A78BFA] uppercase font-bold">Cloud State</div>
-                <div className="font-mono font-bold text-emerald-300 truncate mt-0.5">
+              <div className="p-2 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="text-[9.5px] text-[#52647A] dark:text-[#A78BFA] uppercase font-bold">Cloud State</div>
+                <div className="font-mono font-bold text-emerald-700 dark:text-emerald-300 truncate mt-0.5">
                   {cloudSyncStatus}
                 </div>
               </div>
@@ -701,7 +701,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('health_logs')}
-                className="w-full py-2 px-3 rounded-xl bg-[#2E1459] hover:bg-[#3F1C78] border border-[#7135B5]/50 text-[#EEDBFF] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full py-2 px-3 rounded-xl bg-white hover:bg-[#EDF3F8] border border-[#C5BEEF] text-[#5145A6] dark:bg-[#2E1459] dark:hover:bg-[#3F1C78] dark:border-[#7135B5]/50 dark:text-[#EEDBFF] text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Activity className="w-3.5 h-3.5" />
                 <span>Buka Kesehatan &amp; Audit Log</span>
@@ -780,7 +780,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     dbSubTab === 'management'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <Database className="w-3.5 h-3.5" />
@@ -792,7 +792,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     dbSubTab === 'monitoring'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <Server className="w-3.5 h-3.5" />
@@ -804,10 +804,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     dbSubTab === 'sheets'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
-                  <FileSpreadsheet className={`w-3.5 h-3.5 ${dbSubTab === 'sheets' ? 'text-[#EEDBFF]' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                  <FileSpreadsheet className={`w-3.5 h-3.5 ${dbSubTab === 'sheets' ? 'text-white/95 dark:text-[#EEDBFF]' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   <span>Google Sheets Live Sync</span>
                 </button>
               </div>
@@ -835,7 +835,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     logSubTab === 'health'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
@@ -847,7 +847,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     logSubTab === 'audit'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
@@ -859,7 +859,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                   className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[34px] rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     logSubTab === 'login'
                       ? 'btn-3d-primary font-bold'
-                      : 'text-[#4B4452] dark:text-[#CABDE8] hover:text-[#1F1638] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
+                      : 'text-[#52647A] dark:text-[#CABDE8] hover:text-[#26364A] dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#261942]'
                   }`}
                 >
                   <Lock className="w-3.5 h-3.5" />

@@ -78,7 +78,7 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
           <button
             type="button"
             onClick={handleResetToAuto}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer text-left sm:text-center"
+            className="text-xs text-[#5145A6] dark:text-indigo-400 hover:underline font-semibold cursor-pointer text-left sm:text-center"
           >
             Reset ke Pemetaan Otomatis
           </button>
@@ -86,14 +86,14 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer min-h-[38px]"
+              className="btn-3d-ceramic px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer min-h-[38px]"
             >
               Batal
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2 bg-[#5B35B1] hover:bg-[#3B1D78] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer min-h-[38px]"
+              className="btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer min-h-[38px]"
             >
               <Check className="w-4 h-4" />
               <span>Terapkan Pemetaan</span>
@@ -104,8 +104,8 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
     >
       <div className="space-y-4">
         {/* Informational Guidance Banner */}
-        <div className="px-4 py-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 flex items-start sm:items-center gap-2 text-xs text-indigo-900 dark:text-indigo-200">
-          <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
+        <div className="px-4 py-2.5 rounded-xl bg-[#EAE8FF]/70 dark:bg-indigo-950/40 border border-[#DCE3F2] dark:border-indigo-900/60 flex items-start sm:items-center gap-2 text-xs text-[#5145A6] dark:text-indigo-200">
+          <Info className="w-4 h-4 text-[#6657C8] dark:text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
           <span>
             Satu kolom hanya dapat dipetakan ke 1 field kanonis. Kolom yang diabaikan tetap disimpan aman dalam{' '}
             <em>additionalFields</em> tanpa membuat data palsu.
@@ -113,7 +113,7 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
         </div>
 
         {/* Desktop Column Headers */}
-        <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-2">
+        <div className="hidden sm:grid grid-cols-12 gap-3 pb-2 border-b border-[#DDE6F0] dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-slate-400 px-2">
           <div className="col-span-4">Kolom Header File</div>
           <div className="col-span-4">Contoh Nilai (Baris 1)</div>
           <div className="col-span-4">Target Field MoraJaws</div>
@@ -128,28 +128,28 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
             return (
               <div
                 key={`${rawH}-${idx}`}
-                className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-start sm:items-center p-3 sm:p-2.5 rounded-xl bg-slate-50/60 sm:bg-transparent dark:bg-slate-800/30 sm:dark:bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-slate-200/70 sm:border-transparent hover:border-slate-200 dark:border-slate-700/60 sm:dark:border-transparent dark:hover:border-slate-700/60 text-xs"
+                className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-start sm:items-center p-3 sm:p-2.5 rounded-xl bg-[#F8FAFD] sm:bg-transparent dark:bg-slate-800/30 sm:dark:bg-transparent hover:bg-[#F0EDFF]/55 dark:hover:bg-slate-800/50 transition-colors border border-[#DDE6F0] sm:border-transparent hover:border-[#DDE6F0] dark:border-slate-700/60 sm:dark:border-transparent dark:hover:border-slate-700/60 text-xs"
               >
                 {/* Raw Header Name */}
                 <div className="sm:col-span-4 min-w-0">
-                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-[#8492A5] block mb-0.5">
                     Header File
                   </span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate block" title={rawH}>
+                  <span className="font-mono font-bold text-[#26364A] dark:text-slate-200 truncate block" title={rawH}>
                     {rawH}
                   </span>
                   {matchedDef?.requiredForWO && (
-                    <span className="text-[10px] text-rose-500 font-semibold">Wajib untuk WO</span>
+                    <span className="text-[10px] text-[#D45B66] font-semibold">Wajib untuk WO</span>
                   )}
                 </div>
 
                 {/* Sample Value */}
                 <div className="sm:col-span-4 min-w-0">
-                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-[#8492A5] block mb-0.5">
                     Contoh Nilai
                   </span>
                   <span
-                    className="font-mono text-slate-500 dark:text-slate-400 truncate block bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-md text-[11px]"
+                    className="font-mono text-[#52647A] dark:text-slate-400 truncate block bg-[#EDF3F8] dark:bg-slate-900 px-2 py-1 rounded-md text-[11px]"
                     title={sampleVal}
                   >
                     {sampleVal}
@@ -158,16 +158,16 @@ export const ColumnMapperModal: React.FC<ColumnMapperModalProps> = ({
 
                 {/* Field Selector */}
                 <div className="sm:col-span-4 w-full">
-                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-[#8492A5] block mb-0.5">
                     Target Field MoraJaws
                   </span>
                   <select
                     value={currentCanonical || '__IGNORE__'}
                     onChange={e => handleSelectField(rawH, e.target.value)}
-                    className={`w-full py-2 sm:py-1.5 px-2.5 rounded-lg border text-xs font-medium transition-colors focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer ${
+                    className={`w-full py-2 sm:py-1.5 px-2.5 rounded-lg border text-xs font-medium transition-colors focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-indigo-500 outline-none cursor-pointer ${
                       currentCanonical
-                        ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                        ? 'border-[#DCE3F2] dark:border-indigo-700 bg-[#EAE8FF]/70 dark:bg-indigo-950/40 text-[#5145A6] dark:text-indigo-200'
+                        : 'border-[#DDE6F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#8492A5] dark:text-slate-500'
                     }`}
                   >
                     <option value="__IGNORE__">-- Abaikan Kolom Ini --</option>

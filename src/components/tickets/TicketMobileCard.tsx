@@ -74,14 +74,14 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
     ['En Route', 'On Site', 'In Progress', 'PROGRESS'].includes(String(ticket.statusWOInstaller));
 
   const accentBarClass = isRevision
-    ? 'bg-rose-600'
+    ? 'bg-[#D45B66]'
     : isButuhApproval
-    ? 'bg-amber-500'
+    ? 'bg-[#C88735]'
     : isLiveProgress
-    ? 'bg-gradient-to-r from-[#7135B5] to-[#58149C]'
+    ? 'bg-gradient-to-r from-[#6657C8] to-[#65B8C4] dark:from-[#7135B5] dark:to-[#58149C]'
     : ticketClosed || ticket.approvalStatus === 'APPROVED'
-    ? 'bg-emerald-600'
-    : 'bg-[#D8CCF3] dark:bg-[#4B386B]';
+    ? 'bg-[#218A63]'
+    : 'bg-[#DCE3F2] dark:bg-[#4B386B]';
 
   const handleCopyWo = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -108,7 +108,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
     <article
       className={`card-3d-lavender relative overflow-hidden rounded-2xl flex flex-col transition-all duration-150 ${
         isSelected
-          ? 'ring-2 ring-[#7135B5] dark:ring-[#D8B4FE] border-[#7135B5] bg-[#F3EAFF]/80 dark:bg-[#2E1459]/90'
+          ? 'ring-2 ring-[#6657C8] dark:ring-[#D8B4FE] border-[#6657C8] bg-[#EAE8FF]/80 dark:bg-[#2E1459]/90'
           : ''
       } ${densityPadding}`}
     >
@@ -121,11 +121,11 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           <button
             type="button"
             onClick={() => onToggleSelect(ticket.id)}
-            className="w-10 h-10 -ml-1.5 flex items-center justify-center rounded-lg text-[#7D7484] dark:text-[#C5B3DF] hover:text-[#58149C] dark:hover:text-[#DAB9FF] cursor-pointer shrink-0"
+            className="w-10 h-10 -ml-1.5 flex items-center justify-center rounded-lg text-[#8492A5] dark:text-[#C5B3DF] hover:text-[#5145A6] dark:hover:text-[#DAB9FF] cursor-pointer shrink-0"
             aria-label={`Pilih ${ticket.woNumber}`}
           >
             {isSelected ? (
-              <CheckSquare className="w-4.5 h-4.5 text-[#58149C] dark:text-[#DAB9FF]" />
+              <CheckSquare className="w-4.5 h-4.5 text-[#5145A6] dark:text-[#DAB9FF]" />
             ) : (
               <Square className="w-4.5 h-4.5" />
             )}
@@ -135,13 +135,13 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             type="button"
             onClick={handleCopyWo}
             title="Salin Nomor WO"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8F1FF] dark:bg-[#160D29] text-[#58149C] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[11px] font-bold tracking-tight hover:bg-[#EEE4FF] dark:hover:bg-[#241145] cursor-pointer tabular-nums shadow-[0_1.5px_0_#E8DDFF] dark:shadow-none"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4B386B] font-mono text-[11px] font-bold tracking-tight hover:bg-[#EAE8FF] dark:hover:bg-[#241145] cursor-pointer tabular-nums shadow-[0_1.5px_0_#DDE6F0] dark:shadow-none"
           >
             <span>{ticket.woNumber}</span>
             {copiedWo ? (
-              <Check className="w-3 h-3 text-emerald-600" />
+              <Check className="w-3 h-3 text-[#218A63] dark:text-emerald-600" />
             ) : (
-              <Copy className="w-3 h-3 text-[#7D7484] dark:text-[#C5B3DF]" />
+              <Copy className="w-3 h-3 text-[#8492A5] dark:text-[#C5B3DF]" />
             )}
           </button>
 
@@ -149,8 +149,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             <span
               className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase truncate max-w-[115px] ${
                 isRevision
-                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200'
-                  : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#D8B4FE]'
+                  ? 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/70 dark:text-rose-200'
+                  : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#D8B4FE]'
               }`}
             >
               {ticket.ticketCategory}
@@ -160,8 +160,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
 
         {/* Right Slot Time / Schedule Badge */}
         {ticket.slotTime && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F8F1FF] dark:bg-[#160D29] text-[#1F1638] dark:text-[#DAB9FF] border border-[#E8DDFF] dark:border-[#4B386B] font-mono text-[10.5px] font-bold tabular-nums shrink-0">
-            <Clock className="w-3 h-3 shrink-0 text-[#58149C] dark:text-[#DAB9FF]" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDF3F8] dark:bg-[#160D29] text-[#26364A] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4B386B] font-mono text-[10.5px] font-bold tabular-nums shrink-0">
+            <Clock className="w-3 h-3 shrink-0 text-[#2E7D8B] dark:text-[#DAB9FF]" />
             <span>{ticket.slotTime}</span>
           </span>
         )}
@@ -173,10 +173,10 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         onClick={() => onSelectTicket(ticket, 'overview')}
         className="text-left group cursor-pointer"
       >
-        <h3 className="font-display font-bold text-[15.5px] text-[#1F1638] dark:text-white leading-snug group-hover:text-[#58149C] dark:group-hover:text-[#DAB9FF] transition-colors line-clamp-1">
+        <h3 className="font-display font-bold text-[15.5px] text-[#26364A] dark:text-white leading-snug group-hover:text-[#5145A6] dark:group-hover:text-[#DAB9FF] transition-colors line-clamp-1">
           {ticket.customerName}
         </h3>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-[#7D7484] dark:text-[#C5B3DF]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-[#8492A5] dark:text-[#C5B3DF]">
           <span className="font-mono font-semibold tabular-nums">
             ID: {ticket.idCustomer || '-'}
           </span>
@@ -184,7 +184,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             <>
               <span aria-hidden="true">•</span>
               <span className="inline-flex items-center gap-1 font-mono tabular-nums">
-                <Calendar className="w-3 h-3 text-[#58149C] dark:text-[#DAB9FF]" />
+                <Calendar className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
                 {ticket.appointmentDate}
               </span>
             </>
@@ -199,16 +199,16 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
             e.stopPropagation();
             openCustomerAddressInGoogleMaps(ticket);
           }}
-          className="mj-tactile-well rounded-xl p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[#F3EAFF]/70 dark:hover:bg-[#241145] transition-colors"
+          className="mj-tactile-well rounded-xl p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[#EDF3F8] dark:hover:bg-[#241145] transition-colors"
           title="Ketuk untuk buka Google Maps"
         >
           <div className="flex items-start gap-2 min-w-0">
-            <MapPin className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+            <MapPin className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-[#1F1638] dark:text-white truncate">
+              <p className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                 {ticket.clusterName || ticket.area || 'Lokasi Pelanggan'}
               </p>
-              <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8] line-clamp-2 leading-snug">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2 leading-snug">
                 {addressStr || 'Alamat belum tercatat'}
                 {ticket.fatCode ? ` • FAT ${ticket.fatCode}${ticket.fatPort ? ` #${ticket.fatPort}` : ''}` : ''}
               </p>
@@ -227,17 +227,17 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           <div
             className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
               ticket.installerName
-                ? 'bg-gradient-to-b from-[#7135B5] to-[#58149C] text-white shadow-[0_2px_0_#35105E]'
-                : 'bg-[#F8F1FF] dark:bg-[#160D29] text-[#7D7484] dark:text-[#C5B3DF] border border-[#E8DDFF] dark:border-[#4B386B]'
+                ? 'bg-gradient-to-b from-[#6657C8] to-[#5145A6] dark:from-[#7135B5] dark:to-[#58149C] text-white shadow-[0_2px_0_#3E3588] dark:shadow-[0_2px_0_#35105E]'
+                : 'bg-[#F8FAFD] dark:bg-[#160D29] text-[#8492A5] dark:text-[#C5B3DF] border border-[#DDE6F0] dark:border-[#4B386B]'
             }`}
           >
             {ticket.installerName ? <Wrench className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-[10px] font-medium text-[#7D7484] dark:text-[#C5B3DF] leading-none">
+            <span className="text-[10px] font-medium text-[#8492A5] dark:text-[#C5B3DF] leading-none">
               {ticket.installerName ? 'Teknisi Bertugas' : 'Mitra / Penugasan'}
             </span>
-            <span className="text-xs font-bold text-[#1F1638] dark:text-white truncate mt-0.5">
+            <span className="text-xs font-bold text-[#26364A] dark:text-white truncate mt-0.5">
               {ticket.installerName || contractorName || 'Belum Ditugaskan'}
             </span>
           </div>
@@ -246,8 +246,8 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         {/* Live / Operational Status Chip */}
         <div className="flex items-center gap-1 shrink-0">
           {isLiveProgress && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F3EAFF] dark:bg-[#2E1459] text-[#58149C] dark:text-[#D8B4FE] border border-[#D8B4FE] dark:border-[#5B35B1] text-[10.5px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#7135B5] dark:bg-[#DAB9FF]" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1459] text-[#5145A6] dark:text-[#D8B4FE] border border-[#DCE3F2] dark:border-[#5B35B1] text-[10.5px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6657C8] dark:bg-[#DAB9FF]" />
               <span>{ticket.statusWOInstaller}</span>
             </span>
           )}
@@ -263,19 +263,19 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
         <StatusAgentBadge status={ticket.statusWOAgent} />
         {ticketClosed && ticket.statusWOAgent !== 'Closed' && (
-          <span className="px-2 py-0.5 rounded bg-[#27104A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[10px] font-bold">
+          <span className="px-2 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[10px] font-bold">
             Ticket: Closed
           </span>
         )}
         {ticket.area && (
-          <span className="px-2 py-0.5 rounded bg-[#F8F1FF] dark:bg-[#160D29] text-[#4B4452] dark:text-[#CEC0E8] border border-[#E8DDFF] dark:border-[#4B386B] text-[10px] font-semibold">
+          <span className="px-2 py-0.5 rounded bg-[#EDF3F8] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border border-[#DDE6F0] dark:border-[#4B386B] text-[10px] font-semibold">
             {ticket.area}
           </span>
         )}
       </div>
 
       {/* Compact Phone / WhatsApp & LiveChat Bar */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
         <div className="flex items-center gap-1.5 min-w-0">
           {phoneStr ? (
             <>
@@ -285,7 +285,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
                 className="btn-3d-ceramic inline-flex items-center gap-1 px-2.5 min-h-[38px] rounded-lg text-[11px] font-mono font-semibold truncate"
                 title={`Telepon ${phoneStr}`}
               >
-                <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                <Phone className="w-3 h-3 text-[#218A63] dark:text-emerald-600 shrink-0" />
                 <span className="truncate">{phoneStr}</span>
               </a>
               <button
@@ -302,7 +302,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
               </button>
             </>
           ) : (
-            <span className="text-[11px] text-[#7D7484] dark:text-[#C5B3DF] italic">Tanpa nomor kontak</span>
+            <span className="text-[11px] text-[#8492A5] dark:text-[#C5B3DF] italic">Tanpa nomor kontak</span>
           )}
         </div>
 

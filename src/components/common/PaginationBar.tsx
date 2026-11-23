@@ -38,25 +38,25 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
 
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 px-4 py-3 bg-[#F8F1FF]/80 dark:bg-[#160D29] border-t border-[#E8DDFF] dark:border-[#35105E] text-xs ${className}`}
+      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 px-4 py-3 bg-[#EDF3F8]/85 dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] text-xs ${className}`}
     >
-      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 text-[#4B4452] dark:text-[#CEC0E8]">
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 text-[#52647A] dark:text-[#CEC0E8]">
         <span className="tabular-nums font-medium">
-          Menampilkan <strong className="text-[#1F1638] dark:text-white">{startItem}</strong>–
-          <strong className="text-[#1F1638] dark:text-white">{endItem}</strong> dari{' '}
-          <strong className="text-[#58149C] dark:text-[#DAB9FF]">{totalItems}</strong> {itemLabel}
+          Menampilkan <strong className="text-[#26364A] dark:text-white">{startItem}</strong>–
+          <strong className="text-[#26364A] dark:text-white">{endItem}</strong> dari{' '}
+          <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{totalItems}</strong> {itemLabel}
         </span>
 
         {onPageSizeChange && pageSize !== undefined && (
           <label className="inline-flex items-center gap-1.5">
-            <span className="text-[11px] text-[#7D7484] dark:text-[#A78BFA]">Baris:</span>
+            <span className="text-[11px] text-[#8492A5] dark:text-[#A78BFA]">Baris:</span>
             <select
               value={String(pageSize)}
               onChange={e => {
                 const raw = e.target.value;
                 onPageSizeChange(raw === 'ALL' ? 'ALL' : Number(raw));
               }}
-              className="px-2 py-1 min-h-[34px] rounded-lg bg-white dark:bg-[#22123F] border border-[#CEC3D4] dark:border-[#4B386B] text-xs font-semibold text-[#1F1638] dark:text-white cursor-pointer"
+              className="px-2 py-1 min-h-[34px] rounded-lg bg-white dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
             >
               {pageSizeOptions.map(opt => (
                 <option key={String(opt)} value={String(opt)}>
@@ -80,7 +80,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
           <span>Prev</span>
         </button>
 
-        <span className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#22123F] border border-[#E8DDFF] dark:border-[#35105E] font-mono text-[11px] font-bold text-[#1F1638] dark:text-[#F5EEFF] tabular-nums whitespace-nowrap">
+        <span className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] font-mono text-[11px] font-bold text-[#26364A] dark:text-[#F5EEFF] tabular-nums whitespace-nowrap">
           Hal {safePage} / {safeTotalPages}
         </span>
 

@@ -134,32 +134,32 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
   return (
     <div ref={sectionRef as React.RefObject<HTMLDivElement | null>} className="space-y-3">
       {/* Progress Summary Bar */}
-      <div className="bg-[#f8f1ff] rounded-xl p-3 border border-[#e8ddff] space-y-2">
+      <div className="bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#e8ddff] space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="text-xs font-bold text-[#1f1638]">
+          <span className="text-xs font-bold text-[#26364A] dark:text-[#1f1638]">
             Kelengkapan Berkas Foto SOP
           </span>
           <span
             className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border ${
               remaining === 0
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-[#f3eaff] text-[#58149c] border-[#d8ccf3]'
+                ? 'bg-[#E4F5EC] dark:bg-emerald-50 text-[#218A63] dark:text-emerald-700 border-[#B7E4CC] dark:border-emerald-200'
+                : 'bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]'
             }`}
           >
             {uploadedCount} / {totalSlots} Foto ({progressPct.toFixed(0)}%)
           </span>
         </div>
 
-        <div className="w-full h-2 rounded-full bg-[#e8ddff] overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-[#EDF3F8] dark:bg-[#e8ddff] overflow-hidden">
           <div
-            className="h-full rounded-full bg-[#7135b5] transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:bg-none dark:bg-[#7135b5] transition-all duration-300"
             style={{ width: `${Math.max(uploadedCount > 0 ? 5 : 0, Math.min(100, progressPct))}%` }}
           />
         </div>
 
-        <p className="text-[11px] text-[#4b4452] leading-snug">
+        <p className="text-[11px] text-[#52647A] dark:text-[#4b4452] leading-snug">
           Foto diambil langsung via kamera GPS terenkripsi.{' '}
-          <span className="font-semibold text-[#58149c]">
+          <span className="font-semibold text-[#5145A6] dark:text-[#58149c]">
             Foto #01 mengisi Lokasi Rumah &amp; Foto #03 mengisi Lokasi FAT.
           </span>
         </p>
@@ -182,22 +182,22 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
           if (slotData?.url) {
             const overlayBadgeText = resolveOverlayBadge(slotDef, slotData);
             const statusSummary = isBusy
-              ? { cls: 'text-[#58149c]', text: 'Mengunggah...', icon: 'busy' as const }
+              ? { cls: 'text-[#5145A6] dark:text-[#58149c]', text: 'Mengunggah...', icon: 'busy' as const }
               : isFailed
-              ? { cls: 'text-[#ba1a1a]', text: 'Upload Tertunda', icon: 'error' as const }
+              ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Upload Tertunda', icon: 'error' as const }
               : hasValidCoords && slotData.geotagStatus === 'weak'
-              ? { cls: 'text-amber-700', text: 'Weak GPS', icon: 'warn' as const }
-              : { cls: 'text-emerald-700', text: slotDef.validLabel, icon: 'ok' as const };
+              ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Weak GPS', icon: 'warn' as const }
+              : { cls: 'text-[#218A63] dark:text-emerald-700', text: slotDef.validLabel, icon: 'ok' as const };
 
             return (
               <div
                 key={slotDef.slotKey}
-                className={`bg-white rounded-xl overflow-hidden flex flex-col border transition-colors shadow-xs ${
-                  isFailed ? 'border-rose-300' : 'border-[#e8ddff]'
+                className={`bg-white/95 dark:bg-white rounded-xl overflow-hidden flex flex-col border transition-colors shadow-xs ${
+                  isFailed ? 'border-[#F3C5CA] dark:border-rose-300' : 'border-[#DDE6F0] dark:border-[#e8ddff]'
                 }`}
               >
                 {/* 4:3 Photo Thumbnail */}
-                <div className="relative w-full aspect-[4/3] bg-[#f8f1ff] overflow-hidden">
+                <div className="relative w-full aspect-[4/3] bg-[#F8FAFD] dark:bg-[#f8f1ff] overflow-hidden">
                   {safeUrl && !imageBroken ? (
                     <img
                       src={safeUrl}
@@ -213,7 +213,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                       type="button"
                       onClick={() => onOpenCamera(slotDef)}
                       disabled={ticketClosed || isBusy}
-                      className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 text-[#7d7484] hover:text-[#58149c] cursor-pointer"
+                      className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 text-[#8492A5] dark:text-[#7d7484] hover:text-[#5145A6] dark:hover:text-[#58149c] cursor-pointer"
                     >
                       <Camera className="w-6 h-6" />
                       <span className="font-mono text-[10px]">Pratinjau tidak tersedia · Foto Ulang</span>
@@ -221,15 +221,15 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                   )}
 
                   {/* Slot Order Tag Top Left */}
-                  <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-white/95 text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide border border-[#e8ddff] shadow-2xs">
+                  <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-white/95 text-[#5145A6] dark:text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide border border-[#DDE6F0] dark:border-[#e8ddff] shadow-2xs">
                     {slotDef.slotNumber}. {slotDef.codeLabel}
                   </span>
 
                   {/* Telemetry Tag Bottom Left */}
                   <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 pointer-events-none">
-                    <span className="px-1.5 py-0.5 rounded bg-white/95 text-[#1f1638] border border-[#e8ddff] font-mono text-[9.5px] font-semibold truncate max-w-full inline-flex items-center gap-1 shadow-2xs">
+                    <span className="px-1.5 py-0.5 rounded bg-white/95 text-[#26364A] dark:text-[#1f1638] border border-[#DDE6F0] dark:border-[#e8ddff] font-mono text-[9.5px] font-semibold truncate max-w-full inline-flex items-center gap-1 shadow-2xs">
                       {slotDef.slotKey === 'customer_house' && (
-                        <LocateFixed className="w-3 h-3 text-[#58149c] shrink-0" />
+                        <LocateFixed className="w-3 h-3 text-[#2E7D8B] dark:text-[#58149c] shrink-0" />
                       )}
                       <span className="truncate">{overlayBadgeText}</span>
                     </span>
@@ -239,7 +239,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                 {/* Metadata + Actions */}
                 <div className="p-2.5 flex flex-col justify-between flex-1 gap-2">
                   <div className="min-w-0 space-y-0.5">
-                    <h4 className="text-[11.5px] text-[#1f1638] font-bold truncate">
+                    <h4 className="text-[11.5px] text-[#26364A] dark:text-[#1f1638] font-bold truncate">
                       {slotDef.title}
                     </h4>
                     <div className="flex items-center justify-between gap-1">
@@ -257,7 +257,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                         <button
                           type="button"
                           onClick={() => onToggleMapSlot(isMapExpanded ? null : slotDef.slotKey)}
-                          className="text-[10px] font-mono font-bold text-[#58149c] hover:underline inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
+                          className="text-[10px] font-mono font-bold text-[#2E7D8B] dark:text-[#58149c] hover:underline inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
                           title={isMapExpanded ? 'Tutup Mini Map' : 'Lihat Titik GPS'}
                         >
                           <MapPin className="w-3 h-3" />
@@ -267,14 +267,14 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                     </div>
 
                     {isFailed && uploadMeta?.error && (
-                      <p className="text-[10px] text-[#ba1a1a] leading-tight line-clamp-2 pt-0.5">
+                      <p className="text-[10px] text-[#9B2C37] dark:text-[#ba1a1a] leading-tight line-clamp-2 pt-0.5">
                         {uploadMeta.error}
                       </p>
                     )}
 
                     {isMapExpanded && hasValidCoords && (
                       <div className="pt-1.5 space-y-1">
-                        <div className="flex items-center justify-between gap-1 text-[9.5px] font-mono text-[#1f1638] bg-[#f8f1ff] border border-[#e8ddff] px-2 py-1 rounded">
+                        <div className="flex items-center justify-between gap-1 text-[9.5px] font-mono text-[#26364A] dark:text-[#1f1638] bg-[#F8FAFD] dark:bg-[#f8f1ff] border border-[#DDE6F0] dark:border-[#e8ddff] px-2 py-1 rounded">
                           <span className="truncate">
                             {formatCoordinates(slotData.latitude!, slotData.longitude!)}
                           </span>
@@ -282,7 +282,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                             href={buildGoogleMapsCoordinateUrl(slotData.latitude!, slotData.longitude!)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 text-[#58149c] font-bold hover:underline shrink-0"
+                            className="inline-flex items-center gap-0.5 text-[#5145A6] dark:text-[#58149c] font-bold hover:underline shrink-0"
                           >
                             <span>Maps</span>
                             <ExternalLink className="w-2.5 h-2.5" />
@@ -328,7 +328,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                         onClick={() => onViewPhoto(slotData.url, slotDef)}
                         className="mj-btn-installer-neutral mj-btn-compact flex-1 py-1.5 px-2 text-[11px] gap-1 cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5 text-[#58149c] dark:text-[#DAB9FF]" />
+                        <Eye className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                         <span>Lihat</span>
                       </button>
                     )}
@@ -357,25 +357,25 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
           return (
             <div
               key={slotDef.slotKey}
-              className="bg-white rounded-xl p-2.5 flex flex-col justify-between border border-[#e8ddff] shadow-xs"
+              className="bg-white/95 dark:bg-white rounded-xl p-2.5 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#e8ddff] shadow-xs"
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="px-1.5 py-0.5 rounded bg-[#f3eaff] text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide truncate">
+                <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] font-mono text-[9.5px] font-bold tracking-wide truncate">
                   {slotDef.slotNumber}. {slotDef.codeLabel}
                 </span>
-                <span className="px-1.5 py-0.5 rounded bg-rose-50 text-[#ba1a1a] border border-rose-200 font-mono text-[9.5px] font-bold shrink-0">
+                <span className="px-1.5 py-0.5 rounded bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] border border-[#F3C5CA] dark:border-rose-200 font-mono text-[9.5px] font-bold shrink-0">
                   Belum Ada
                 </span>
               </div>
 
-              <div className="my-2 py-2.5 px-2 rounded-lg bg-[#f8f1ff] border border-[#e8ddff]/80 flex flex-col items-center justify-center text-center min-h-[96px]">
-                <div className="w-9 h-9 rounded-full bg-[#eedbff] text-[#58149c] flex items-center justify-center mb-1.5">
+              <div className="my-2 py-2.5 px-2 rounded-lg bg-[#F8FAFD] dark:bg-[#f8f1ff] border border-[#DDE6F0] dark:border-[#e8ddff]/80 flex flex-col items-center justify-center text-center min-h-[96px]">
+                <div className="w-9 h-9 rounded-full bg-[#DDF4F4] dark:bg-[#eedbff] text-[#2E7D8B] dark:text-[#58149c] flex items-center justify-center mb-1.5">
                   {getEmptySlotIcon(slotDef.slotKey)}
                 </div>
-                <div className="text-[11px] font-bold text-[#1f1638] leading-tight mb-0.5 line-clamp-1">
+                <div className="text-[11px] font-bold text-[#26364A] dark:text-[#1f1638] leading-tight mb-0.5 line-clamp-1">
                   {slotDef.title}
                 </div>
-                <p className="text-[10px] text-[#4b4452] leading-tight line-clamp-2">
+                <p className="text-[10px] text-[#52647A] dark:text-[#4b4452] leading-tight line-clamp-2">
                   {isBusy ? 'Mengunggah foto...' : slotDef.emptyHint}
                 </p>
               </div>

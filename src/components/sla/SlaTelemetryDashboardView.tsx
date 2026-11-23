@@ -78,48 +78,48 @@ function getTierStyles(tier: SlaVendorRow['slaStatus']) {
   switch (tier) {
     case 'EXCELLENT':
       return {
-        badge: 'bg-[#16A36A] text-white',
-        bar: 'bg-[#16A36A]',
-        text: 'text-[#16A36A] dark:text-emerald-400',
-        rank: 'bg-[#16A36A]/20 text-[#16A36A] dark:bg-emerald-950/60 dark:text-emerald-300',
-        iconBox: 'bg-[#5B35B1]/10 text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]',
-        rowBg: 'hover:bg-[#F5F1FF] dark:hover:bg-[#160D29]/60'
+        badge: 'bg-[#218A63] dark:bg-[#16A36A] text-white',
+        bar: 'bg-[#218A63] dark:bg-[#16A36A]',
+        text: 'text-[#218A63] dark:text-emerald-400',
+        rank: 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/60 dark:text-emerald-300',
+        iconBox: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#D8B4FE]',
+        rowBg: 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#160D29]/60'
       };
     case 'GOOD':
       return {
-        badge: 'bg-[#16A36A]/20 text-[#16A36A] dark:bg-emerald-950/60 dark:text-emerald-300',
-        bar: 'bg-[#16A36A]/85',
-        text: 'text-[#16A36A] dark:text-emerald-400',
-        rank: 'bg-[#F4EAFF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]',
-        iconBox: 'bg-[#F4EAFF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE]',
-        rowBg: 'hover:bg-[#F5F1FF] dark:hover:bg-[#160D29]/60'
+        badge: 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/60 dark:text-emerald-300',
+        bar: 'bg-[#218A63]/85 dark:bg-[#16A36A]/85',
+        text: 'text-[#218A63] dark:text-emerald-400',
+        rank: 'bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE]',
+        iconBox: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#D8B4FE]',
+        rowBg: 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#160D29]/60'
       };
     case 'WARNING':
       return {
-        badge: 'bg-[#E59A27] text-white',
-        bar: 'bg-[#E59A27]',
-        text: 'text-[#E59A27] dark:text-amber-400',
-        rank: 'bg-[#E59A27]/20 text-[#E59A27] dark:bg-amber-950/60 dark:text-amber-300',
-        iconBox: 'bg-[#E59A27]/15 text-[#E59A27] dark:bg-amber-950/50 dark:text-amber-300',
-        rowBg: 'bg-[#E59A27]/5 hover:bg-[#F5F1FF] dark:bg-amber-950/10 dark:hover:bg-[#160D29]/60'
+        badge: 'bg-[#C88735] dark:bg-[#E59A27] text-white',
+        bar: 'bg-[#C88735] dark:bg-[#E59A27]',
+        text: 'text-[#9D661F] dark:text-amber-400',
+        rank: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/60 dark:text-amber-300',
+        iconBox: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300',
+        rowBg: 'bg-[#FFF2D9]/35 hover:bg-[#F0EDFF]/65 dark:bg-amber-950/10 dark:hover:bg-[#160D29]/60'
       };
     case 'CRITICAL':
       return {
-        badge: 'bg-[#DC4C5A] text-white',
-        bar: 'bg-[#DC4C5A]',
-        text: 'text-[#DC4C5A] dark:text-rose-400',
-        rank: 'bg-[#DC4C5A]/20 text-[#DC4C5A] dark:bg-rose-950/60 dark:text-rose-300',
-        iconBox: 'bg-[#DC4C5A]/15 text-[#DC4C5A] dark:bg-rose-950/50 dark:text-rose-300',
-        rowBg: 'bg-[#DC4C5A]/5 hover:bg-[#F5F1FF] dark:bg-rose-950/10 dark:hover:bg-[#160D29]/60'
+        badge: 'bg-[#D45B66] dark:bg-[#DC4C5A] text-white',
+        bar: 'bg-[#D45B66] dark:bg-[#DC4C5A]',
+        text: 'text-[#9B2C37] dark:text-rose-400',
+        rank: 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/60 dark:text-rose-300',
+        iconBox: 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/50 dark:text-rose-300',
+        rowBg: 'bg-[#FCE9EB]/35 hover:bg-[#F0EDFF]/65 dark:bg-rose-950/10 dark:hover:bg-[#160D29]/60'
       };
     default:
       return {
-        badge: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-        bar: 'bg-slate-300 dark:bg-slate-700',
-        text: 'text-[#766B83] dark:text-slate-400',
-        rank: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-        iconBox: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300',
-        rowBg: 'hover:bg-[#F5F1FF] dark:hover:bg-[#160D29]/60'
+        badge: 'bg-[#EDF3F8] text-[#52647A] dark:bg-slate-800 dark:text-slate-300',
+        bar: 'bg-[#CFDCE8] dark:bg-slate-700',
+        text: 'text-[#52647A] dark:text-slate-400',
+        rank: 'bg-[#EDF3F8] text-[#52647A] dark:bg-slate-800 dark:text-slate-300',
+        iconBox: 'bg-[#EDF3F8] text-[#52647A] dark:bg-slate-800 dark:text-slate-300',
+        rowBg: 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#160D29]/60'
       };
   }
 }
@@ -407,33 +407,33 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   if (isLoading && !telemetry) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-36 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E]" />
+        <div className="h-36 rounded-xl bg-white/85 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-36 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E]" />
+            <div key={i} className="h-36 rounded-xl bg-white/85 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]" />
           ))}
         </div>
-        <div className="h-72 rounded-xl bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E]" />
+        <div className="h-72 rounded-xl bg-white/85 dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E]" />
       </div>
     );
   }
 
   if (errorMsg && !telemetry) {
     return (
-      <div className="max-w-xl mx-auto my-12 p-8 rounded-2xl bg-white dark:bg-[#1E1238] border border-rose-200 dark:border-rose-900/60 shadow-sm text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-[#DC4C5A] flex items-center justify-center mx-auto">
+      <div className="card-3d-lavender max-w-xl mx-auto my-12 p-8 rounded-2xl border border-[#F3C5CA] dark:border-rose-900/60 shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#FCE9EB] dark:bg-rose-950/50 text-[#D45B66] flex items-center justify-center mx-auto">
           <AlertOctagon className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="font-display font-bold text-base text-[#211A2E] dark:text-white">
+          <h3 className="font-display font-bold text-base text-[#26364A] dark:text-white">
             Gagal Memuat SLA Telemetry Engine
           </h3>
-          <p className="text-xs text-[#766B83] dark:text-slate-300 mt-1">{errorMsg}</p>
+          <p className="text-xs text-[#52647A] dark:text-slate-300 mt-1">{errorMsg}</p>
         </div>
         <button
           type="button"
           onClick={() => loadTelemetry(false)}
-          className="px-4 py-2 rounded-lg bg-[#431599] hover:bg-[#35105E] text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
+          className="btn-3d-primary px-4 py-2 rounded-lg text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Coba Muat Ulang
@@ -454,30 +454,30 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   return (
     <div className="flex flex-col w-full space-y-4 pb-6">
       {/* 1. INTEGRATED TOP OPERATIONAL SUB-BAR & FILTER TOOLBAR RIBBON */}
-      <section className="rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden shadow-sm bg-white dark:bg-[#1E1238]">
+      <section className="card-3d-lavender rounded-xl overflow-hidden">
         {/* Top Operational Sub-bar */}
         <div
-          className={`px-4 sm:px-5 py-3.5 bg-white dark:bg-[#1E1238] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-3 ${
+          className={`px-4 sm:px-5 py-3.5 bg-white/85 dark:bg-[#1E1238] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-col gap-3 ${
             isCompactUI ? '' : 'xl:flex-row xl:items-center xl:justify-between'
           }`}
         >
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-[#8B8495] dark:text-[#A78BFA]">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">
               <button
                 type="button"
                 onClick={() => onNavigate?.('dashboard')}
-                className="hover:text-[#431599] transition-colors cursor-pointer"
+                className="hover:text-[#5145A6] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer"
               >
                 MoraJaws
               </button>
               <span>/</span>
               <span>{breadcrumbSection}</span>
               <span>/</span>
-              <span className="text-[#431599] dark:text-[#D8B4FE] font-semibold">{breadcrumbPage}</span>
+              <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{breadcrumbPage}</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#160D29] dark:text-white leading-tight">
+              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white leading-tight">
                 SLA Telemetry &amp; Vendor Performance Engine
               </h1>
             </div>
@@ -486,20 +486,20 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               <div
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
                   autoSync
-                    ? 'bg-[#16A36A]/10 text-[#16A36A] dark:bg-emerald-950/50 dark:text-emerald-300'
-                    : 'bg-[#E59A27]/15 text-[#E59A27] dark:bg-amber-950/50 dark:text-amber-300'
+                    ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-[#16A36A] animate-pulse' : 'bg-[#E59A27]'}`} />
+                <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse' : 'bg-[#C88735]'}`} />
                 <span>{autoSync ? 'CALCULATION ACTIVE (REAL-TIME)' : 'AUTO-SYNC PAUSED'}</span>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#5B35B1]/10 text-[#7135B5] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
                 <Database className="w-3.5 h-3.5" />
                 <span>{telemetry.databaseSource === 'supabase' ? 'SUPABASE POSTGRESQL (CLUSTER: JKT-01)' : 'LOCAL DEV STORE'}</span>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F4EAFF] text-[#431599] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
                 <Radio className="w-3.5 h-3.5" />
                 <span>TARGET GLOBAL: {telemetry.config.globalSlaTarget.toFixed(2)}%</span>
               </div>
@@ -514,9 +514,9 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 setConfigModalTab('thresholds');
                 setConfigModalOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F4EAFF] hover:bg-[#F0E3FF] dark:bg-[#35105E] dark:hover:bg-[#5B35B1]/60 text-[#35105E] dark:text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+              className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
             >
-              <Sliders className="w-3.5 h-3.5 text-[#431599] dark:text-[#D8B4FE]" />
+              <Sliders className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />
               <span>Ambang Batas SLA</span>
             </button>
 
@@ -524,29 +524,29 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               <button
                 type="button"
                 onClick={() => setExportMenuOpen(prev => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#160D29] hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-[#431599] dark:text-[#A78BFA]" />
+                <Download className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A78BFA]" />
                 <span>Export Scorecard (XLS/PDF)</span>
-                <ChevronDown className="w-3 h-3 text-[#766B83]" />
+                <ChevronDown className="w-3 h-3 text-[#52647A] dark:text-[#A78BFA]" />
               </button>
 
               {exportMenuOpen && (
-                <div className="absolute right-0 mt-1.5 w-52 bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl shadow-xl z-30 py-1.5">
+                <div className="absolute right-0 mt-1.5 w-52 bg-white/95 dark:bg-[#1E1238] backdrop-blur-md border border-[#CFDCE8] dark:border-[#35105E] rounded-xl shadow-xl z-30 py-1.5">
                   <button
                     type="button"
                     onClick={handleExportXlsx}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-[#211A2E] dark:text-white hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 cursor-pointer"
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-[#26364A] dark:text-white hover:bg-[#F0EDFF]/70 dark:hover:bg-[#35105E] flex items-center gap-2 cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-[#16A36A]" />
+                    <FileSpreadsheet className="w-4 h-4 text-[#218A63] dark:text-[#16A36A]" />
                     Unduh Excel (.XLSX)
                   </button>
                   <button
                     type="button"
                     onClick={handlePrintPdf}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-[#211A2E] dark:text-white hover:bg-[#F5F1FF] dark:hover:bg-[#35105E] flex items-center gap-2 cursor-pointer"
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-[#26364A] dark:text-white hover:bg-[#F0EDFF]/70 dark:hover:bg-[#35105E] flex items-center gap-2 cursor-pointer"
                   >
-                    <Printer className="w-4 h-4 text-[#431599]" />
+                    <Printer className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
                     Cetak / Save PDF Scorecard
                   </button>
                 </div>
@@ -564,7 +564,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     defaultMessage: `[PERINGATAN MASAL SLA] Terdapat ${kpis.criticalBreachCount} Work Order berisiko breach SLA (<${telemetry.config.criticalRemainingMinutes} mnt) pada tanggal operasional ${telemetry.operationalDateWIB}. Seluruh Korlap wajib melakukan konfirmasi status teknisi segera.`
                   })
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#DC4C5A]/10 hover:bg-[#DC4C5A]/20 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-[#DC4C5A] dark:text-rose-300 text-[11px] font-bold transition-all cursor-pointer"
+                className="btn-3d-crimson inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 <MailWarning className="w-3.5 h-3.5" />
                 <span>Peringatan Masal Korlap</span>
@@ -574,11 +574,11 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         </div>
 
         {/* Operational Filter Toolbar (Integrated Canvas Ribbon) */}
-        <div className="px-4 sm:px-5 py-2.5 bg-[#F5F1FF] dark:bg-[#160D29] flex flex-col gap-2">
+        <div className="px-4 sm:px-5 py-2.5 bg-[#EDF3F8] dark:bg-[#160D29] flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {/* Time Slot Selector Pill */}
-              <div className="flex flex-wrap items-center bg-white dark:bg-[#1E1238] p-0.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E] shadow-xs w-full sm:w-auto">
+              <div className="flex flex-wrap items-center bg-white dark:bg-[#1E1238] p-0.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] shadow-xs w-full sm:w-auto">
                 {(
                   [
                     { id: 'today', label: 'Hari Ini (todayWIB)' },
@@ -592,8 +592,8 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     onClick={() => setPeriod(tab.id)}
                     className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 min-h-[34px] rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
                       period === tab.id
-                        ? 'bg-[#7135B5] text-white shadow-xs'
-                        : 'text-[#766B83] dark:text-slate-300 hover:text-[#211A2E] dark:hover:text-white'
+                        ? 'bg-[#6657C8] dark:bg-[#7135B5] text-white shadow-xs'
+                        : 'text-[#52647A] dark:text-slate-300 hover:text-[#26364A] dark:hover:text-white'
                     }`}
                   >
                     {tab.label}
@@ -602,12 +602,12 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               </div>
 
               {/* Area Region Dropdown */}
-              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#211A2E] dark:text-white shadow-xs w-full sm:w-auto">
-                <MapPin className="w-3.5 h-3.5 text-[#8B8495] mr-1.5 shrink-0" />
+              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#26364A] dark:text-white shadow-xs w-full sm:w-auto">
+                <MapPin className="w-3.5 h-3.5 text-[#8492A5] mr-1.5 shrink-0" />
                 <select
                   value={areaFilter}
                   onChange={e => setAreaFilter(e.target.value)}
-                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none"
+                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#26364A] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none"
                 >
                   <option value="ALL" className="dark:bg-[#1E1238]">
                     Semua Wilayah Operasional ({telemetry.filterOptions.areas.length} Area)
@@ -618,12 +618,12 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8B8495] absolute right-2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#8492A5] absolute right-2 pointer-events-none" />
               </div>
 
               {/* Contractor Partner Filter */}
-              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#E9E5F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#211A2E] dark:text-white shadow-xs w-full sm:w-auto">
-                <Building2 className="w-3.5 h-3.5 text-[#8B8495] mr-1.5 shrink-0" />
+              <div className="relative flex items-center bg-white dark:bg-[#1E1238] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-1.5 min-h-[38px] text-[#26364A] dark:text-white shadow-xs w-full sm:w-auto">
+                <Building2 className="w-3.5 h-3.5 text-[#8492A5] mr-1.5 shrink-0" />
                 <select
                   value={
                     isLeader && telemetry.filterOptions.contractors[0]
@@ -632,7 +632,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   }
                   disabled={isLeader}
                   onChange={e => setContractorFilter(e.target.value)}
-                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#211A2E] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none disabled:opacity-75"
+                  className="w-full sm:w-auto bg-transparent text-xs font-medium text-[#26364A] dark:text-white pr-6 focus:outline-none cursor-pointer appearance-none disabled:opacity-75"
                 >
                   {!isLeader && (
                     <option value="ALL" className="dark:bg-[#1E1238]">
@@ -645,19 +645,19 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8B8495] absolute right-2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#8492A5] absolute right-2 pointer-events-none" />
               </div>
             </div>
 
             {/* Telemetry Pulse & Quick Sync */}
-            <div className="flex flex-wrap items-center gap-3 text-[#766B83] dark:text-[#CEC0E8] font-mono text-[11px]">
+            <div className="flex flex-wrap items-center gap-3 text-[#52647A] dark:text-[#CEC0E8] font-mono text-[11px]">
               <button
                 type="button"
                 onClick={() => setAutoSync(prev => !prev)}
-                className="flex items-center gap-1.5 font-semibold hover:text-[#431599] dark:hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 font-semibold hover:text-[#5145A6] dark:hover:text-white transition-colors cursor-pointer"
                 title="Toggle Sinkronisasi Otomatis SSE & 30s Polling"
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${autoSync ? 'bg-[#7135B5] animate-ping' : 'bg-slate-400'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${autoSync ? 'bg-[#6657C8] dark:bg-[#7135B5] animate-ping' : 'bg-slate-400'}`} />
                 <span>SINKRONISASI OTOMATIS: {formatWibClock(new Date(telemetry.generatedAt))} WIB</span>
               </button>
 
@@ -665,7 +665,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 type="button"
                 onClick={handleManualRefresh}
                 disabled={isRefreshing}
-                className="p-1 rounded hover:bg-white dark:hover:bg-[#35105E] text-[#211A2E] dark:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                className="p-1 rounded hover:bg-white dark:hover:bg-[#35105E] text-[#26364A] dark:text-white transition-colors disabled:opacity-50 cursor-pointer"
                 title="Refresh Live Data"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -675,7 +675,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 <button
                   type="button"
                   onClick={() => setShowLogsDrawer(prev => !prev)}
-                  className="font-sans font-bold text-[11px] text-[#431599] dark:text-[#D8B4FE] hover:underline cursor-pointer"
+                  className="font-sans font-bold text-[11px] text-[#5145A6] dark:text-[#D8B4FE] hover:underline cursor-pointer"
                 >
                   Log Tindakan ({telemetry.recentGovernanceLogs.length})
                 </button>
@@ -687,32 +687,32 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
 
       {/* Optional Governance Logs Banner */}
       {showLogsDrawer && telemetry.recentGovernanceLogs.length > 0 && (
-        <section className="bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] rounded-xl p-4 space-y-2.5 shadow-sm">
+        <section className="card-3d-lavender rounded-xl p-4 space-y-2.5">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#211A2E] dark:text-white">
+            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-[#26364A] dark:text-white">
               Riwayat Tindakan &amp; Eskalasi SLA Terbaru
             </h3>
             <button
               type="button"
               onClick={() => setShowLogsDrawer(false)}
-              className="text-xs font-semibold text-[#766B83] hover:text-[#211A2E] cursor-pointer"
+              className="text-xs font-semibold text-[#52647A] hover:text-[#26364A] dark:text-[#A78BFA] dark:hover:text-white cursor-pointer"
             >
               Tutup
             </button>
           </div>
-          <div className="divide-y divide-[#E9E5F0] dark:divide-[#35105E] max-h-48 overflow-y-auto">
+          <div className="divide-y divide-[#DDE6F0] dark:divide-[#35105E] max-h-48 overflow-y-auto">
             {telemetry.recentGovernanceLogs.slice(0, 8).map(log => (
               <div key={log.id} className="py-2 flex items-start justify-between gap-3 text-xs">
                 <div>
-                  <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-[#F4EAFF] text-[#431599] dark:bg-[#35105E] dark:text-[#D8B4FE] mr-2">
+                  <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E] dark:text-[#D8B4FE] mr-2">
                     {log.actionType}
                   </span>
-                  <span className="font-semibold text-[#211A2E] dark:text-white">
+                  <span className="font-semibold text-[#26364A] dark:text-white">
                     {log.woNumber || log.contractorName || 'Global'}
                   </span>
-                  <p className="text-[11px] text-[#766B83] mt-0.5">{log.message}</p>
+                  <p className="text-[11px] text-[#52647A] dark:text-slate-300 mt-0.5">{log.message}</p>
                 </div>
-                <div className="text-right shrink-0 text-[10px] text-[#8B8495]">
+                <div className="text-right shrink-0 text-[10px] text-[#8492A5]">
                   <div>{log.performedBy}</div>
                   <div className="font-mono">{formatWibClock(new Date(log.createdAt))} WIB</div>
                 </div>
@@ -725,54 +725,54 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       {/* 2. KPI METRIC SUMMARY ROW (5 MODERN EXECUTIVE CARDS) */}
       <section className={`grid gap-3 ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
         {/* Card 1: Kepatuhan SLA Global */}
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div className="card-3d-lavender rounded-xl p-3.5 flex flex-col justify-between relative overflow-hidden">
           <div
             className={`absolute -right-3 -top-3 w-16 h-16 rounded-full pointer-events-none ${
               kpis.complianceStatus === 'ON_TARGET'
-                ? 'bg-[#16A36A]/10'
+                ? 'bg-[#218A63]/10'
                 : kpis.complianceStatus === 'CRITICAL'
-                ? 'bg-[#DC4C5A]/10'
-                : 'bg-[#E59A27]/10'
+                ? 'bg-[#D45B66]/10'
+                : 'bg-[#C88735]/10'
             }`}
           />
           <div>
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-bold text-[#8B8495] dark:text-[#A78BFA] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                 Kepatuhan SLA Global
               </span>
               {kpis.complianceGap !== null ? (
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
                     kpis.complianceGap >= 0
-                      ? 'bg-[#16A36A]/15 text-[#16A36A]'
+                      ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/15 dark:text-[#16A36A]'
                       : kpis.complianceStatus === 'CRITICAL'
-                      ? 'bg-[#DC4C5A]/15 text-[#DC4C5A]'
-                      : 'bg-[#E59A27]/15 text-[#E59A27]'
+                      ? 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-[#DC4C5A]/15 dark:text-[#DC4C5A]'
+                      : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-[#E59A27]/15 dark:text-[#E59A27]'
                   }`}
                 >
                   {kpis.complianceGap >= 0 ? 'ON TARGET' : `GAP ${kpis.complianceGap}%`}
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 shrink-0">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EDF3F8] text-[#52647A] shrink-0">
                   NO DATA
                 </span>
               )}
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-[26px] font-extrabold text-[#160D29] dark:text-white tabular-nums leading-none">
+              <span className="font-display text-[26px] font-extrabold text-[#26364A] dark:text-white tabular-nums leading-none">
                 {kpis.globalComplianceRate !== null ? `${kpis.globalComplianceRate.toFixed(1)}%` : '0.0%'}
               </span>
-              <span className="font-mono text-[11px] text-[#8B8495]">Target {kpis.globalTarget.toFixed(1)}%</span>
+              <span className="font-mono text-[11px] text-[#8492A5]">Target {kpis.globalTarget.toFixed(1)}%</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between text-xs">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-xs">
             <span
               className={`font-semibold flex items-center gap-1 ${
                 kpis.complianceStatus === 'ON_TARGET'
-                  ? 'text-[#16A36A]'
+                  ? 'text-[#218A63] dark:text-[#16A36A]'
                   : kpis.complianceStatus === 'NO_DATA'
-                  ? 'text-[#766B83]'
-                  : 'text-[#E59A27]'
+                  ? 'text-[#52647A] dark:text-[#766B83]'
+                  : 'text-[#9D661F] dark:text-[#E59A27]'
               }`}
             >
               {kpis.complianceStatus === 'ON_TARGET' ? (
@@ -790,126 +790,126 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   : 'Perlu Perhatian'}
               </span>
             </span>
-            <span className="font-mono text-[11px] text-[#8B8495]">
+            <span className="font-mono text-[11px] text-[#8492A5]">
               {kpis.compliantWoCount}/{kpis.evaluatedWoCount} Sesuai
             </span>
           </div>
         </div>
 
         {/* Card 2: Total Work Orders */}
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div className="card-3d-lavender rounded-xl p-3.5 flex flex-col justify-between relative overflow-hidden">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#8B8495] dark:text-[#A78BFA] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                 Total WO Terdistribusi
               </span>
-              <BarChart3 className="w-4 h-4 text-[#7135B5] shrink-0" />
+              <BarChart3 className="w-4 h-4 text-[#6657C8] dark:text-[#7135B5] shrink-0" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-[26px] font-extrabold text-[#160D29] dark:text-white tabular-nums leading-none">
+              <span className="font-display text-[26px] font-extrabold text-[#26364A] dark:text-white tabular-nums leading-none">
                 {kpis.totalDistributedWo}
               </span>
-              <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8]">
+              <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
                 {period === 'today' ? 'SPK Hari Ini' : period === '7d' ? 'SPK 7 Hari' : 'SPK Bulan Ini'}
               </span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] grid grid-cols-3 gap-1 text-center font-mono text-[11px]">
-            <div className="bg-[#16A36A]/10 rounded py-0.5 text-[#16A36A] font-bold" title={`${kpis.okCount} WO Tepat Waktu`}>
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-3 gap-1 text-center font-mono text-[11px]">
+            <div className="bg-[#E4F5EC] dark:bg-[#16A36A]/10 rounded py-0.5 text-[#218A63] dark:text-[#16A36A] font-bold" title={`${kpis.okCount} WO Tepat Waktu`}>
               {kpis.okCount} OK
             </div>
-            <div className="bg-[#F4EAFF] dark:bg-[#35105E] rounded py-0.5 text-[#7135B5] dark:text-[#D8B4FE] font-bold" title={`${kpis.wipCount} WO Dalam Pengerjaan`}>
+            <div className="bg-[#EAE8FF] dark:bg-[#35105E] rounded py-0.5 text-[#5145A6] dark:text-[#D8B4FE] font-bold" title={`${kpis.wipCount} WO Dalam Pengerjaan`}>
               {kpis.wipCount} WIP
             </div>
-            <div className="bg-[#DC4C5A]/10 rounded py-0.5 text-[#DC4C5A] font-bold" title={`${kpis.latCount} WO Terkendala`}>
+            <div className="bg-[#FCE9EB] dark:bg-[#DC4C5A]/10 rounded py-0.5 text-[#9B2C37] dark:text-[#DC4C5A] font-bold" title={`${kpis.latCount} WO Terkendala`}>
               {kpis.latCount} LAT
             </div>
           </div>
         </div>
 
         {/* Card 3: First-Time-Right */}
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-[#16A36A]/10 pointer-events-none" />
+        <div className="card-3d-lavender rounded-xl p-3.5 flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-[#218A63]/10 pointer-events-none" />
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#8B8495] dark:text-[#A78BFA] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                 First-Time-Right (FTR)
               </span>
               <span
                 className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
                   kpis.ftrStatus === 'STABIL'
-                    ? 'bg-[#16A36A]/15 text-[#16A36A]'
+                    ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/15 dark:text-[#16A36A]'
                     : kpis.ftrStatus === 'NO_DATA'
-                    ? 'bg-slate-100 text-slate-600'
-                    : 'bg-[#E59A27]/15 text-[#E59A27]'
+                    ? 'bg-[#EDF3F8] text-[#52647A]'
+                    : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-[#E59A27]/15 dark:text-[#E59A27]'
                 }`}
               >
                 {kpis.ftrStatus}
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-[26px] font-extrabold text-[#16A36A] tabular-nums leading-none">
+              <span className="font-display text-[26px] font-extrabold text-[#218A63] dark:text-[#16A36A] tabular-nums leading-none">
                 {kpis.ftrRate !== null ? `${kpis.ftrRate.toFixed(1)}%` : '0.0%'}
               </span>
-              <span className="font-mono text-[11px] text-[#8B8495]">Target {kpis.ftrTarget.toFixed(0)}%</span>
+              <span className="font-mono text-[11px] text-[#8492A5]">Target {kpis.ftrTarget.toFixed(0)}%</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between text-xs">
-            <span className="text-[#766B83] dark:text-[#CEC0E8]">Zero-Rework Instalasi</span>
-            <span className="font-mono text-[11px] text-[#16A36A] font-bold">{kpis.ftrPassCount} Pass</span>
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-xs">
+            <span className="text-[#52647A] dark:text-[#CEC0E8]">Zero-Rework Instalasi</span>
+            <span className="font-mono text-[11px] text-[#218A63] dark:text-[#16A36A] font-bold">{kpis.ftrPassCount} Pass</span>
           </div>
         </div>
 
         {/* Card 4: Kepatuhan Foto & OPM */}
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div className="card-3d-lavender rounded-xl p-3.5 flex flex-col justify-between relative overflow-hidden">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#8B8495] dark:text-[#A78BFA] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#8492A5] dark:text-[#A78BFA] uppercase tracking-wider">
                 Kepatuhan Foto &amp; OPM
               </span>
-              <Award className="w-4 h-4 text-[#431599] dark:text-[#D8B4FE] shrink-0" />
+              <Award className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE] shrink-0" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-[26px] font-extrabold text-[#160D29] dark:text-white tabular-nums leading-none">
+              <span className="font-display text-[26px] font-extrabold text-[#26364A] dark:text-white tabular-nums leading-none">
                 {kpis.photoOpmComplianceRate !== null ? `${kpis.photoOpmComplianceRate.toFixed(1)}%` : '0.0%'}
               </span>
-              <span className="font-mono text-[11px] text-[#8B8495]">Eviden {kpis.requiredPhotoCount} Titik</span>
+              <span className="font-mono text-[11px] text-[#8492A5]">Eviden {kpis.requiredPhotoCount} Titik</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-[#35105E] flex items-center justify-between text-xs">
-            <span className="text-[#766B83] dark:text-[#CEC0E8]">Redaman &gt; {kpis.opmThresholdDbm} dBm</span>
-            <span className="font-mono text-[11px] text-[#431599] dark:text-[#D8B4FE] font-bold">
+          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between text-xs">
+            <span className="text-[#52647A] dark:text-[#CEC0E8]">Redaman &gt; {kpis.opmThresholdDbm} dBm</span>
+            <span className="font-mono text-[11px] text-[#5145A6] dark:text-[#D8B4FE] font-bold">
               {kpis.photoOpmValidCount} Valid
             </span>
           </div>
         </div>
 
         {/* Card 5: Critical Threshold Breaches */}
-        <div className="bg-gradient-to-br from-white via-white to-[#DC4C5A]/5 dark:from-[#1E1238] dark:via-[#1E1238] dark:to-rose-950/30 rounded-xl p-3.5 border border-[#DC4C5A]/30 shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-2 -bottom-2 opacity-10 text-[#DC4C5A] pointer-events-none">
+        <div className="bg-gradient-to-br from-white via-white to-[#FCE9EB]/80 dark:from-[#1E1238] dark:via-[#1E1238] dark:to-rose-950/30 rounded-xl p-3.5 border border-[#F3C5CA] dark:border-[#DC4C5A]/30 shadow-sm flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute -right-2 -bottom-2 opacity-10 text-[#D45B66] pointer-events-none">
             <AlertOctagon className="w-16 h-16" />
           </div>
           <div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#DC4C5A] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#9B2C37] dark:text-[#DC4C5A] uppercase tracking-wider">
                 Kritis (&lt;{telemetry.config.criticalRemainingMinutes} Mnt SLA)
               </span>
               <span className="flex h-2 w-2 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#DC4C5A] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#DC4C5A]" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D45B66] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D45B66]" />
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-[26px] font-extrabold text-[#DC4C5A] tabular-nums leading-none">
+              <span className="font-display text-[26px] font-extrabold text-[#9B2C37] dark:text-[#DC4C5A] tabular-nums leading-none">
                 {kpis.criticalBreachCount}{' '}
                 <span className="text-base font-bold">WO</span>
               </span>
-              <span className="font-mono text-[11px] text-[#DC4C5A] font-bold">Overdue Risk</span>
+              <span className="font-mono text-[11px] text-[#D45B66] font-bold">Overdue Risk</span>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#E9E5F0] dark:border-rose-900/50 flex items-center justify-between text-xs relative z-10">
-            <span className="text-[#DC4C5A] font-semibold">Tindakan Cepat</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#DC4C5A] text-white text-[10px] font-bold">
+          <div className="mt-3 pt-2 border-t border-[#F3C5CA] dark:border-rose-900/50 flex items-center justify-between text-xs relative z-10">
+            <span className="text-[#9B2C37] dark:text-[#DC4C5A] font-semibold">Tindakan Cepat</span>
+            <span className="px-1.5 py-0.5 rounded bg-[#D45B66] dark:bg-[#DC4C5A] text-white text-[10px] font-bold">
               {kpis.criticalVendorCount} Vendor
             </span>
           </div>
@@ -917,32 +917,32 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
       </section>
 
       {/* 3. VENDOR SLA LEADERBOARD & EXECUTION SCORECARD */}
-      <section className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm overflow-hidden">
+      <section className="card-3d-lavender rounded-xl overflow-hidden">
         {/* Section Header */}
-        <div className="px-5 py-3.5 bg-[#F5F1FF] dark:bg-[#160D29] border-b border-[#E9E5F0] dark:border-[#35105E] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="px-5 py-3.5 bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#35105E] text-white shadow-xs shrink-0">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:bg-none dark:bg-[#35105E] text-white shadow-xs shrink-0">
               <BarChart3 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-display text-base sm:text-lg font-bold text-[#160D29] dark:text-white leading-tight">
+              <h2 className="font-display text-base sm:text-lg font-bold text-[#26364A] dark:text-white leading-tight">
                 Leaderboard &amp; Matrix Performa {vendorLeaderboard.length} Mitra Kontraktor
               </h2>
-              <p className="text-xs text-[#766B83] dark:text-[#A78BFA]">
+              <p className="text-xs text-[#52647A] dark:text-[#A78BFA]">
                 Peringkat kepatuhan Service Level Agreement (SLA) FTTH harian terhitung otomatis berdasarkan telemetri sistem
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="font-bold text-[#8B8495] uppercase">Legend:</span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[#16A36A]/15 text-[#16A36A] font-mono font-bold">
+            <span className="font-bold text-[#8492A5] uppercase">Legend:</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/15 dark:text-[#16A36A] font-mono font-bold">
               ≥{telemetry.config.excellentMin}% EXCELLENT
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[#E59A27]/15 text-[#E59A27] font-mono font-bold">
+            <span className="px-2.5 py-0.5 rounded-full bg-[#FFF2D9] text-[#9D661F] dark:bg-[#E59A27]/15 dark:text-[#E59A27] font-mono font-bold">
               {telemetry.config.goodMin}-{(telemetry.config.excellentMin - 0.1).toFixed(1)}% GOOD/WARN
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[#DC4C5A]/15 text-[#DC4C5A] font-mono font-bold">
+            <span className="px-2.5 py-0.5 rounded-full bg-[#FCE9EB] text-[#9B2C37] dark:bg-[#DC4C5A]/15 dark:text-[#DC4C5A] font-mono font-bold">
               &lt;{telemetry.config.goodMin}% CRITICAL
             </span>
           </div>
@@ -1036,7 +1036,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               <button
                 type="button"
                 onClick={() => setDrilldownVendor(vendor)}
-                className="px-2 py-1 rounded bg-[#F4EAFF] hover:bg-[#F0E3FF] dark:bg-[#35105E] dark:hover:bg-[#5B35B1]/60 text-[#431599] dark:text-[#D8B4FE] text-[11px] font-bold transition-colors cursor-pointer"
+                className="btn-3d-lilac px-2 py-1 rounded text-[11px] font-bold cursor-pointer"
               >
                 Detail WO
               </button>
@@ -1044,7 +1044,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
               <button
                 type="button"
                 onClick={() => openVendorChat(vendor)}
-                className="p-1.5 rounded text-[#8B8495] hover:text-[#211A2E] dark:hover:text-white hover:bg-[#F7F6FA] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
+                className="p-1.5 rounded text-[#8492A5] hover:text-[#26364A] dark:hover:text-white hover:bg-[#EDF3F8] dark:hover:bg-[#35105E] transition-colors cursor-pointer"
                 title="Kontak Koordinator Lapangan"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -1065,7 +1065,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                       defaultMessage: `[TEGURAN SLA] Kepada Yth. Korlap ${vendor.leaderName} (${vendor.contractorName}), pencapaian SLA saat ini berada di ${vendor.slaRate ?? 0}% (Target ${telemetry.config.globalSlaTarget}%). Mohon percepatan penyelesaian ${vendor.breachWoCount} WO kritis & optimasi respon teknisi.`
                     })
                   }
-                  className="px-2 py-1 rounded bg-[#E59A27]/15 hover:bg-[#E59A27]/25 text-[#E59A27] text-[11px] font-bold transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded bg-[#FFF2D9] hover:bg-[#C88735]/20 text-[#9D661F] dark:bg-[#E59A27]/15 dark:text-[#E59A27] text-[11px] font-bold transition-colors cursor-pointer"
                 >
                   Tegur Korlap
                 </button>
@@ -1086,7 +1086,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                       defaultMessage: `[SURAT PERINGATAN 1 / SP-1] Kepada Mitra ${vendor.contractorName} (Korlap: ${vendor.leaderName}), tingkat kepatuhan SLA tercatat ${vendor.slaRate ?? 0}% di bawah ambang minimum ${telemetry.config.goodMin}% dengan ${vendor.lateCount} WO terlambat. Harap lakukan corrective action plan hari ini.`
                     })
                   }
-                  className="px-2 py-1 rounded bg-[#DC4C5A] hover:bg-rose-700 text-white text-[11px] font-bold transition-colors shadow-xs cursor-pointer"
+                  className="btn-3d-crimson px-2 py-1 rounded text-[11px] font-bold cursor-pointer"
                 >
                   Surat SP-1
                 </button>
@@ -1128,11 +1128,11 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                         {vendor.contractorCode.slice(0, 3)}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-[#160D29] dark:text-white truncate">{vendor.contractorName}</div>
-                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#8B8495] mt-0.5">
+                        <div className="font-bold text-[#26364A] dark:text-white truncate">{vendor.contractorName}</div>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#8492A5] mt-0.5">
                           <span>Area: {vendor.primaryArea}</span>
                           <span>•</span>
-                          <span className="text-[#7135B5] dark:text-[#D8B4FE] font-semibold">
+                          <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">
                             {vendor.activeTechniciansCount} Teknisi Aktif
                           </span>
                         </div>
@@ -1169,12 +1169,12 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                           {vendor.slaRate !== null ? `${vendor.slaRate.toFixed(1)}%` : 'Belum ada data'}
                         </span>
                         {vendor.targetGap !== null && vendor.targetGap < 0 ? (
-                          <span className="text-[#DC4C5A] font-semibold">{vendor.targetGap.toFixed(1)}%</span>
+                          <span className="text-[#D45B66] font-semibold">{vendor.targetGap.toFixed(1)}%</span>
                         ) : (
-                          <span className="text-[#8B8495]">Target: {telemetry.config.globalSlaTarget.toFixed(1)}%</span>
+                          <span className="text-[#8492A5]">Target: {telemetry.config.globalSlaTarget.toFixed(1)}%</span>
                         )}
                       </div>
-                      <div className="w-full bg-[#F7F6FA] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-[#EDF3F8] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${styles.bar}`}
                           style={{ width: `${slaWidth}%` }}
@@ -1191,7 +1191,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 numeric: true,
                 priority: 'primary',
                 render: vendor => (
-                  <span className="font-mono font-semibold text-[#211A2E] dark:text-white">{vendor.volumeWo} WO</span>
+                  <span className="font-mono font-semibold text-[#26364A] dark:text-white">{vendor.volumeWo} WO</span>
                 )
               },
               {
@@ -1213,7 +1213,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 numeric: true,
                 priority: 'secondary',
                 render: vendor => (
-                  <span className="font-mono font-semibold text-[#211A2E] dark:text-white">
+                  <span className="font-mono font-semibold text-[#26364A] dark:text-white">
                     {vendor.ftrRate !== null ? `${vendor.ftrRate.toFixed(1)}%` : '-'}
                   </span>
                 )
@@ -1229,8 +1229,8 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                     className={
                       vendor.avgResponseMinutes !== null &&
                       vendor.avgResponseMinutes > telemetry.config.maxDispatchResponseMinutes
-                        ? 'text-[#DC4C5A] font-bold'
-                        : 'text-[#766B83] dark:text-slate-300'
+                        ? 'text-[#D45B66] font-bold'
+                        : 'text-[#52647A] dark:text-slate-300'
                     }
                   >
                     {vendor.avgResponseMinutes !== null ? `<${vendor.avgResponseMinutes} mnt` : '-'}
@@ -1246,22 +1246,22 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 render: vendor =>
                   vendor.quotaTotal > 0 ? (
                     <div>
-                      <div className="font-mono text-[#211A2E] dark:text-white font-semibold">
+                      <div className="font-mono text-[#26364A] dark:text-white font-semibold">
                         {vendor.quotaUtilizationRate?.toFixed(1)}%
                       </div>
-                      <div className="text-[10px] text-[#8B8495] font-mono">
+                      <div className="text-[10px] text-[#8492A5] font-mono">
                         {vendor.quotaUsed}/{vendor.quotaTotal} Slot
                       </div>
                     </div>
                   ) : (
-                    <span className="text-[11px] text-[#8B8495]">0 Teknisi</span>
+                    <span className="text-[11px] text-[#8492A5]">0 Teknisi</span>
                   )
               }
             ] as ResponsiveColumn<SlaVendorRow>[]
           }
         />
 
-        <div className="px-4 py-2.5 bg-white dark:bg-[#1E1238] border-t border-[#E9E5F0] dark:border-[#35105E] flex flex-col sm:flex-row items-center justify-between text-[#766B83] dark:text-[#A78BFA] text-xs gap-2">
+        <div className="px-4 py-2.5 bg-white/85 dark:bg-[#1E1238] border-t border-[#DDE6F0] dark:border-[#35105E] flex flex-col sm:flex-row items-center justify-between text-[#52647A] dark:text-[#A78BFA] text-xs gap-2">
           <span>
             Menampilkan {vendorLeaderboard.length} dari {activeVendorCount} Vendor Resmi Terdaftar di MoraJaws FTTH Core.
           </span>
@@ -1274,26 +1274,26 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         {/* Left Column (7 cols): Time Hourly Breakdown & Parameter Matrix */}
         <div className={isCompactUI ? 'space-y-4' : 'lg:col-span-7 space-y-4'}>
           {/* Hourly SLA Performance Trend Chart Card */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm p-4 sm:p-5">
+          <div className="card-3d-lavender rounded-xl p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
-                <h3 className="font-display text-base sm:text-lg font-bold text-[#160D29] dark:text-white">
+                <h3 className="font-display text-base sm:text-lg font-bold text-[#26364A] dark:text-white">
                   Tren Performa SLA per Slot Jam Kerja
                 </h3>
-                <p className="text-xs text-[#766B83] dark:text-[#A78BFA]">
+                <p className="text-xs text-[#52647A] dark:text-[#A78BFA]">
                   Distribusi kepatuhan SLA dispatch pada 4 slot appointment (WIB)
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-block w-3 h-3 rounded-full bg-[#7135B5]" />
-                <span className="font-mono text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#6657C8] dark:bg-[#7135B5]" />
+                <span className="font-mono text-xs text-[#52647A] dark:text-[#CEC0E8]">
                   Target ({telemetry.config.globalSlaTarget.toFixed(1)}%)
                 </span>
               </div>
             </div>
 
             {/* Inline Bar Visualization (Responsive SVG inside Tinted Card) */}
-            <div className="w-full bg-[#F5F1FF] dark:bg-[#140827] p-2.5 sm:p-4 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="w-full bg-[#EDF3F8] dark:bg-[#140827] p-2.5 sm:p-4 rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
               <svg
                 viewBox="0 0 540 165"
                 className="w-full h-auto max-h-52 select-none"
@@ -1314,10 +1314,10 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                       y1={tick.y}
                       y2={tick.y}
                       stroke="currentColor"
-                      className="text-[#E9E5F0] dark:text-[#35105E]"
+                      className="text-[#DDE6F0] dark:text-[#35105E]"
                       strokeDasharray={tick.dashed ? '3 3' : undefined}
                     />
-                    <text x="15" y={tick.y + 4} fill="#8B8495" className="text-[10px] font-mono">
+                    <text x="15" y={tick.y + 4} fill="#8492A5" className="text-[10px] font-mono">
                       {tick.pct}%
                     </text>
                   </g>
@@ -1333,7 +1333,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                       x2="520"
                       y1={targetY}
                       y2={targetY}
-                      stroke="#7135B5"
+                      stroke="#6657C8"
                       strokeDasharray="4 2"
                       strokeWidth="1.5"
                     />
@@ -1357,17 +1357,17 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   let labelColor = '#64748B';
                   if (rate !== null) {
                     if (rate >= telemetry.config.excellentMin) {
-                      fill = '#16A36A';
-                      labelColor = '#16A36A';
+                      fill = '#218A63';
+                      labelColor = '#218A63';
                     } else if (rate >= telemetry.config.goodMin) {
-                      fill = '#5B35B1';
-                      labelColor = '#5B35B1';
+                      fill = '#6657C8';
+                      labelColor = '#6657C8';
                     } else if (rate >= telemetry.config.warningMin) {
-                      fill = '#E59A27';
-                      labelColor = '#E59A27';
+                      fill = '#C88735';
+                      labelColor = '#9D661F';
                     } else {
-                      fill = '#DC4C5A';
-                      labelColor = '#DC4C5A';
+                      fill = '#D45B66';
+                      labelColor = '#9B2C37';
                     }
                   }
 
@@ -1395,7 +1395,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                         x={colCenterX}
                         y="145"
                         textAnchor="middle"
-                        className="fill-[#494453] dark:fill-white text-[11px] font-semibold"
+                        className="fill-[#26364A] dark:fill-white text-[11px] font-semibold"
                       >
                         {slot.shortLabel}
                       </text>
@@ -1403,7 +1403,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                         x={colCenterX}
                         y="158"
                         textAnchor="middle"
-                        fill={slot.wipCount > 0 && slot.lateCount > 0 ? '#DC4C5A' : '#8B8495'}
+                        fill={slot.wipCount > 0 && slot.lateCount > 0 ? '#D45B66' : '#8492A5'}
                         className="text-[10px] font-mono"
                       >
                         {slot.volume} WO{slot.wipCount > 0 ? ` (${slot.wipCount} WIP)` : ''}
@@ -1420,20 +1420,20 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                   insight.tone === 'warning' ? AlertTriangle : insight.tone === 'success' ? CheckCircle2 : Info;
                 const iconColor =
                   insight.tone === 'warning'
-                    ? 'text-[#E59A27]'
+                    ? 'text-[#C88735]'
                     : insight.tone === 'success'
-                    ? 'text-[#16A36A]'
-                    : 'text-[#431599]';
+                    ? 'text-[#218A63]'
+                    : 'text-[#5145A6]';
 
                 return (
                   <div
                     key={insight.id}
-                    className="p-2.5 rounded-lg bg-[#F4EAFF]/60 dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] flex items-start gap-2"
+                    className="p-2.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-start gap-2"
                   >
                     <ToneIcon className={`w-4 h-4 shrink-0 mt-0.5 ${iconColor}`} />
                     <div>
-                      <span className="font-bold text-[#160D29] dark:text-white block">{insight.title}</span>
-                      <span className="text-[#766B83] dark:text-slate-300 text-[11px] leading-tight block mt-0.5">
+                      <span className="font-bold text-[#26364A] dark:text-white block">{insight.title}</span>
+                      <span className="text-[#52647A] dark:text-slate-300 text-[11px] leading-tight block mt-0.5">
                         {insight.description}
                       </span>
                     </div>
@@ -1444,17 +1444,17 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
           </div>
 
           {/* SLA Compliance Parameter Matrix Card */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] shadow-sm p-4 sm:p-5">
+          <div className="card-3d-lavender rounded-xl p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3 mb-3.5">
               <div>
-                <h3 className="font-display text-base sm:text-lg font-bold text-[#160D29] dark:text-white">
+                <h3 className="font-display text-base sm:text-lg font-bold text-[#26364A] dark:text-white">
                   Matriks Kepatuhan 4 Parameter Operasional
                 </h3>
-                <p className="text-xs text-[#766B83] dark:text-[#A78BFA]">
+                <p className="text-xs text-[#52647A] dark:text-[#A78BFA]">
                   Standard Operational Procedure (SOP) pengerjaan teknisi di lapangan
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-[#431599] dark:text-[#D8B4FE] px-2 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] shrink-0">
+              <span className="text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] shrink-0">
                 Audit Otomatis
               </span>
             </div>
@@ -1466,26 +1466,26 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 const barWidth = pct !== null ? Math.min(100, Math.max(0, pct)) : 0;
                 const barClass =
                   item.statusTone === 'emerald'
-                    ? 'bg-[#16A36A]'
+                    ? 'bg-[#218A63] dark:bg-[#16A36A]'
                     : item.statusTone === 'amber'
-                    ? 'bg-[#E59A27]'
+                    ? 'bg-[#C88735] dark:bg-[#E59A27]'
                     : item.statusTone === 'rose'
-                    ? 'bg-[#DC4C5A]'
-                    : 'bg-[#7135B5]';
+                    ? 'bg-[#D45B66] dark:bg-[#DC4C5A]'
+                    : 'bg-[#6657C8] dark:bg-[#7135B5]';
                 const pctClass =
                   item.statusTone === 'emerald'
-                    ? 'text-[#16A36A]'
+                    ? 'text-[#218A63] dark:text-[#16A36A]'
                     : item.statusTone === 'amber'
-                    ? 'text-[#E59A27]'
+                    ? 'text-[#9D661F] dark:text-[#E59A27]'
                     : item.statusTone === 'rose'
-                    ? 'text-[#DC4C5A]'
-                    : 'text-[#7135B5] dark:text-[#D8B4FE]';
-                const iconClass = item.statusTone === 'amber' ? 'text-[#E59A27]' : 'text-[#7135B5] dark:text-[#D8B4FE]';
+                    ? 'text-[#9B2C37] dark:text-[#DC4C5A]'
+                    : 'text-[#5145A6] dark:text-[#D8B4FE]';
+                const iconClass = item.statusTone === 'amber' ? 'text-[#C88735]' : 'text-[#5145A6] dark:text-[#D8B4FE]';
 
                 return (
                   <div key={item.id}>
                     <div className="flex items-center justify-between text-xs mb-1 gap-2">
-                      <span className="font-semibold text-[#211A2E] dark:text-white flex items-center gap-1.5 min-w-0">
+                      <span className="font-semibold text-[#26364A] dark:text-white flex items-center gap-1.5 min-w-0">
                         <Icon className={`w-4 h-4 shrink-0 ${iconClass}`} />
                         <span className="truncate">{item.title}</span>
                       </span>
@@ -1493,7 +1493,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                         {pct !== null ? `${pct.toFixed(1)}% Terpenuhi` : 'Belum ada sampel'}
                       </span>
                     </div>
-                    <div className="w-full bg-[#F7F6FA] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-[#EDF3F8] dark:bg-[#140827] rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${barClass}`}
                         style={{ width: `${barWidth}%` }}
@@ -1509,20 +1509,20 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         {/* Right Column (5 cols): Critical SLA Breach Alerts & Penalty/Incentive Ledger */}
         <div className={isCompactUI ? 'space-y-4' : 'lg:col-span-5 space-y-4'}>
           {/* Critical SLA Breach Warning Feed (<15 Mins) */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#DC4C5A]/30 shadow-md p-4 sm:p-5 relative overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E9E5F0] dark:border-[#35105E] gap-2">
+          <div className="card-3d-lavender rounded-xl border border-[#F3C5CA] dark:border-[#DC4C5A]/30 shadow-md p-4 sm:p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-[#DDE6F0] dark:border-[#35105E] gap-2">
               <div className="flex items-center gap-2">
-                <AlertOctagon className="w-5 h-5 text-[#DC4C5A] animate-pulse shrink-0" />
+                <AlertOctagon className="w-5 h-5 text-[#D45B66] animate-pulse shrink-0" />
                 <div>
-                  <h3 className="font-display text-base sm:text-lg font-bold text-[#DC4C5A] leading-none">
+                  <h3 className="font-display text-base sm:text-lg font-bold text-[#9B2C37] dark:text-[#DC4C5A] leading-none">
                     Antrean Berisiko Breach SLA
                   </h3>
-                  <span className="text-[11px] font-bold text-[#8B8495] uppercase tracking-wide">
+                  <span className="text-[11px] font-bold text-[#8492A5] uppercase tracking-wide">
                     Peringatan Kritis &lt;{telemetry.config.criticalRemainingMinutes} Menit Tersisa
                   </span>
                 </div>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#DC4C5A] text-white font-mono font-bold text-xs shrink-0">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#D45B66] dark:bg-[#DC4C5A] text-white font-mono font-bold text-xs shrink-0">
                 {breachQueue.length} Tiket Aktif
               </span>
             </div>
@@ -1530,11 +1530,11 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
             <div className="mt-3 space-y-2.5 max-h-[540px] overflow-y-auto">
               {breachQueue.length === 0 ? (
                 <div className="py-10 text-center space-y-2">
-                  <CheckCircle2 className="w-8 h-8 text-[#16A36A] mx-auto opacity-80" />
-                  <p className="text-xs font-bold text-[#211A2E] dark:text-white">
+                  <CheckCircle2 className="w-8 h-8 text-[#218A63] dark:text-[#16A36A] mx-auto opacity-80" />
+                  <p className="text-xs font-bold text-[#26364A] dark:text-white">
                     Tidak Ada Antrean Berisiko Breach SLA
                   </p>
-                  <p className="text-[11px] text-[#766B83] max-w-xs mx-auto">
+                  <p className="text-[11px] text-[#52647A] dark:text-slate-300 max-w-xs mx-auto">
                     Seluruh Work Order aktif masih memiliki buffer waktu ≥ {telemetry.config.criticalRemainingMinutes} menit pada periode ini.
                   </p>
                 </div>
@@ -1550,21 +1550,21 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                       key={breach.ticketId}
                       className={`p-3 rounded-lg border transition-colors ${
                         isUrgent
-                          ? 'border-[#DC4C5A]/30 bg-[#DC4C5A]/5 hover:bg-[#DC4C5A]/10 dark:bg-rose-950/20'
-                          : 'border-[#E59A27]/40 bg-[#E59A27]/5 hover:bg-[#E59A27]/10 dark:bg-amber-950/20'
+                          ? 'border-[#F3C5CA] bg-[#FCE9EB]/65 hover:bg-[#FCE9EB] dark:border-[#DC4C5A]/30 dark:bg-rose-950/20 dark:hover:bg-[#DC4C5A]/10'
+                          : 'border-[#F2CF95] bg-[#FFF2D9]/65 hover:bg-[#FFF2D9] dark:border-[#E59A27]/40 dark:bg-amber-950/20 dark:hover:bg-[#E59A27]/10'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1 gap-2">
                         <button
                           type="button"
                           onClick={() => openBreachTicket(breach, 'overview')}
-                          className="font-mono text-xs font-bold text-[#160D29] dark:text-white hover:text-[#431599] hover:underline text-left cursor-pointer"
+                          className="font-mono text-xs font-bold text-[#26364A] dark:text-white hover:text-[#5145A6] hover:underline text-left cursor-pointer"
                         >
                           {breach.woNumber}
                         </button>
                         <span
                           className={`px-2 py-0.5 rounded text-white font-mono text-[11px] font-bold flex items-center gap-1 shrink-0 ${
-                            isUrgent ? 'bg-[#DC4C5A]' : 'bg-[#E59A27]'
+                            isUrgent ? 'bg-[#D45B66] dark:bg-[#DC4C5A]' : 'bg-[#C88735] dark:bg-[#E59A27]'
                           }`}
                         >
                           <Clock className="w-3 h-3" />
@@ -1572,25 +1572,25 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                         </span>
                       </div>
 
-                      <div className="text-xs text-[#211A2E] dark:text-white">
+                      <div className="text-xs text-[#26364A] dark:text-white">
                         <div className="font-semibold">
                           {breach.customerName} • {breach.address}
                         </div>
-                        <div className="text-[11px] text-[#8B8495] dark:text-slate-300 mt-0.5">
+                        <div className="text-[11px] text-[#52647A] dark:text-slate-300 mt-0.5">
                           Mitra:{' '}
-                          <strong className={isUrgent ? 'text-[#DC4C5A]' : 'text-[#E59A27]'}>{breach.contractorName}</strong> • Teknisi:{' '}
+                          <strong className={isUrgent ? 'text-[#9B2C37] dark:text-[#DC4C5A]' : 'text-[#9D661F] dark:text-[#E59A27]'}>{breach.contractorName}</strong> • Teknisi:{' '}
                           {breach.installerName}
                         </div>
                       </div>
 
                       <div
                         className={`mt-2.5 pt-2 border-t flex flex-wrap items-center justify-between gap-2 ${
-                          isUrgent ? 'border-[#DC4C5A]/20' : 'border-[#E59A27]/30'
+                          isUrgent ? 'border-[#F3C5CA] dark:border-[#DC4C5A]/20' : 'border-[#F2CF95] dark:border-[#E59A27]/30'
                         }`}
                       >
                         <span
                           className={`text-[11px] font-semibold flex-1 min-w-[130px] ${
-                            isUrgent ? 'text-[#DC4C5A]' : 'text-[#E59A27]'
+                            isUrgent ? 'text-[#9B2C37] dark:text-[#DC4C5A]' : 'text-[#9D661F] dark:text-[#E59A27]'
                           }`}
                         >
                           Kendala: {breach.issueSummary}
@@ -1601,8 +1601,8 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                             <button
                               type="button"
                               onClick={actionCfg.onClick}
-                              className={`px-2 py-1 rounded text-white text-[11px] font-bold shadow-xs transition-colors cursor-pointer ${
-                                isUrgent ? 'bg-[#DC4C5A] hover:bg-rose-700' : 'bg-[#431599] hover:bg-[#35105E]'
+                              className={`px-2 py-1 rounded text-white text-[11px] font-bold cursor-pointer ${
+                                isUrgent ? 'btn-3d-crimson' : 'btn-3d-primary'
                               }`}
                             >
                               {actionCfg.label}
@@ -1611,7 +1611,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                             <button
                               type="button"
                               onClick={() => openBreachTicket(breach, 'chat')}
-                              className="px-2 py-1 rounded bg-[#431599] text-white text-[11px] font-bold cursor-pointer"
+                              className="btn-3d-primary px-2 py-1 rounded text-[11px] font-bold cursor-pointer"
                             >
                               Buka Chat
                             </button>
@@ -1620,16 +1620,16 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                           {cleanPhone ? (
                             <a
                               href={`tel:${breach.leaderPhone}`}
-                              className="px-2 py-1 rounded bg-white dark:bg-[#1E1238] text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] text-[11px] font-bold hover:bg-[#F7F6FA] inline-flex items-center gap-1"
+                              className="btn-3d-ceramic px-2 py-1 rounded text-[11px] font-bold inline-flex items-center gap-1"
                             >
-                              <PhoneCall className="w-3 h-3 text-[#431599]" />
+                              <PhoneCall className="w-3 h-3 text-[#5145A6] dark:text-[#D8B4FE]" />
                               Call Korlap
                             </a>
                           ) : (
                             <button
                               type="button"
                               onClick={() => openBreachTicket(breach, 'overview')}
-                              className="px-2 py-1 rounded bg-white dark:bg-[#1E1238] text-[#211A2E] dark:text-white border border-[#E9E5F0] dark:border-[#35105E] text-[11px] font-bold hover:bg-[#F7F6FA] cursor-pointer"
+                              className="btn-3d-ceramic px-2 py-1 rounded text-[11px] font-bold cursor-pointer"
                             >
                               Detail WO
                             </button>
@@ -1647,23 +1647,23 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
 
       {/* 5. LIVE TELEMETRY LOG FOOTER BAR */}
       <footer
-        className={`bg-white dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#E9E5F0] dark:border-[#35105E] flex flex-col gap-2 shadow-sm text-[#766B83] dark:text-[#A78BFA] text-xs ${
+        className={`card-3d-lavender rounded-xl p-3.5 flex flex-col gap-2 text-[#52647A] dark:text-[#A78BFA] text-xs ${
           isCompactUI ? 'items-start' : 'md:flex-row items-center justify-between'
         }`}
       >
         <div className="flex items-center gap-2">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              sseConnected && databaseStatus === 'connected' ? 'bg-[#16A36A]' : 'bg-[#E59A27]'
+              sseConnected && databaseStatus === 'connected' ? 'bg-[#218A63] dark:bg-[#16A36A]' : 'bg-[#C88735]'
             }`}
           />
           {sseConnected && databaseStatus === 'connected' ? (
-            <Wifi className="w-3.5 h-3.5 text-[#16A36A] shrink-0" />
+            <Wifi className="w-3.5 h-3.5 text-[#218A63] dark:text-[#16A36A] shrink-0" />
           ) : (
-            <WifiOff className="w-3.5 h-3.5 text-[#E59A27] shrink-0" />
+            <WifiOff className="w-3.5 h-3.5 text-[#C88735] shrink-0" />
           )}
           <span>
-            Realtime Stream: <strong className="text-[#160D29] dark:text-white font-mono">/api/supabase/realtime/stream</strong>{' '}
+            Realtime Stream: <strong className="text-[#26364A] dark:text-white font-mono">/api/supabase/realtime/stream</strong>{' '}
             {autoSync ? 'terhubung (Event-Driven + 30s Sync).' : 'mode sinkronisasi manual.'}
           </span>
         </div>
@@ -1673,7 +1673,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
           <span>•</span>
           <span>Tanggal Ops: {telemetry.operationalDateWIB}</span>
           <span>•</span>
-          <span className="text-[#431599] dark:text-[#D8B4FE] font-bold">MoraJaws Core Enterprise</span>
+          <span className="text-[#5145A6] dark:text-[#D8B4FE] font-bold">MoraJaws Core Enterprise</span>
         </div>
       </footer>
 

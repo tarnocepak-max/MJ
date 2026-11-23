@@ -1078,24 +1078,24 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     const ontSn = ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber;
 
     return (
-      <tr className="bg-[#F5F1FF] dark:bg-[#251247]/80 border-b border-[#E9E5F0] dark:border-[#5B35B1]">
-        <td colSpan={colSpan} className="p-3 sm:p-4 border-y border-[#D8CCF3] dark:border-[#5B35B1]">
-          <div className="bg-white dark:bg-[#1E1238] rounded-xl p-4 shadow-md border border-[#D8CCF3] dark:border-[#5B35B1] space-y-3.5">
+      <tr className="bg-[#EDF3F8] dark:bg-[#251247]/80 border-b border-[#DDE6F0] dark:border-[#5B35B1]">
+        <td colSpan={colSpan} className="p-3 sm:p-4 border-y border-[#DCE3F2] dark:border-[#5B35B1]">
+          <div className="card-3d-lavender rounded-xl p-4 shadow-md border border-[#DCE3F2] dark:border-[#5B35B1] space-y-3.5">
             {/* Drawer Header with 3D Tactile CTA Buttons */}
-            <div className="flex flex-wrap items-center justify-between pb-3 gap-3 border-b border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="flex flex-wrap items-center justify-between pb-3 gap-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-[#E59A27]/20 border border-[#E59A27]/40 text-[#E59A27] flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="w-9 h-9 rounded-lg bg-[#FFF2D9] dark:bg-[#E59A27]/20 border border-[#F2CF95] dark:border-[#E59A27]/40 text-[#9D661F] dark:text-[#E59A27] flex items-center justify-center shrink-0 shadow-2xs">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-display text-sm sm:text-base font-bold text-[#211A2E] dark:text-white">
+                    <h4 className="font-display text-sm sm:text-base font-bold text-[#26364A] dark:text-white">
                       Verifikasi Hasil Pekerjaan Teknisi
                     </h4>
                     <StatusApprovalBadge status={ticket.approvalStatus} />
                   </div>
-                  <p className="text-xs text-[#766B83] dark:text-[#CEC0E8] mt-0.5 truncate">
-                    <span className="font-mono font-semibold text-[#431599] dark:text-[#D8B4FE]">
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5 truncate">
+                    <span className="font-mono font-semibold text-[#5145A6] dark:text-[#D8B4FE]">
                       {ticket.woNumber}
                     </span>{' '}
                     — Teknisi: {ticket.installerName || 'Belum Ditugaskan'} (
@@ -1115,7 +1115,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       aria-label="Final Status WO Agent"
                       value={inlineWoAgentStatus}
                       onChange={e => setInlineWoAgentStatus(e.target.value as DispatchApprovalWoAgentStatus)}
-                      className="px-2.5 py-1.5 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#5B35B1] text-[11px] font-bold text-[#211A2E] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#7135B5]"
+                      className="px-2.5 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#5B35B1] text-[11px] font-bold text-[#26364A] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
                     >
                       {DISPATCH_APPROVAL_OPTIONS.map(opt => (
                         <option key={opt.woAgentStatus} value={opt.woAgentStatus}>
@@ -1149,9 +1149,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectTicket(ticket, 'report')}
-                  className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#35105E] dark:text-[#E9D5FF] cursor-pointer whitespace-nowrap"
+                  className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#26364A] dark:text-[#E9D5FF] cursor-pointer whitespace-nowrap"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
                   <span>Buka Detail Penuh</span>
                 </button>
 
@@ -1169,13 +1169,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
             {/* Inline Reject Input Bar */}
             {showInlineRejectBox && canApproveInline && (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg bg-[#FEF2F2] dark:bg-rose-950/30 border border-[#FECACA] dark:border-rose-800">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg bg-[#FCE9EB] dark:bg-rose-950/30 border border-[#F3C5CA] dark:border-rose-800">
                 <input
                   type="text"
                   value={inlineRejectReason}
                   onChange={e => setInlineRejectReason(e.target.value)}
                   placeholder="Wajib isi alasan penolakan / item yang harus direvisi teknisi (min. 3 karakter)..."
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#160D29] border border-[#FECACA] dark:border-rose-800 text-[#211A2E] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#DC4C5A]"
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#160D29] border border-[#F3C5CA] dark:border-rose-800 text-[#26364A] dark:text-white focus:outline-none focus:ring-1 focus:ring-[#D45B66] dark:focus:ring-[#DC4C5A]"
                 />
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
@@ -1199,18 +1199,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
             {/* 4-Card Telemetry & Optical Specifications Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
                   Redaman OPM (dBm)
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span
                     className={`font-display text-xl font-bold tabular-nums ${
                       opDbmNum === null
-                        ? 'text-[#766B83] dark:text-[#CEC0E8]'
+                        ? 'text-[#52647A] dark:text-[#CEC0E8]'
                         : opInSpec
-                        ? 'text-[#16A36A]'
-                        : 'text-[#DC4C5A]'
+                        ? 'text-[#218A63] dark:text-[#16A36A]'
+                        : 'text-[#D45B66] dark:text-[#DC4C5A]'
                     }`}
                   >
                     {rawOpDbm !== undefined && rawOpDbm !== null && String(rawOpDbm).trim() !== ''
@@ -1222,26 +1222,26 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   {opDbmNum !== null && (
                     <span
                       className={`text-[10px] font-bold ${
-                        opInSpec ? 'text-[#16A36A]' : 'text-[#DC4C5A]'
+                        opInSpec ? 'text-[#218A63] dark:text-[#16A36A]' : 'text-[#D45B66] dark:text-[#DC4C5A]'
                       }`}
                     >
                       {opInSpec ? 'PASS (< -24 dBm)' : 'OUT OF SPEC'}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] text-[#8B8495] mt-0.5 block">
+                <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495] mt-0.5 block">
                   Diukur pada port ONT {ticket.oltCode ? `• OLT ${ticket.oltCode}` : ''}
                 </span>
               </div>
 
-              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
                   Nomor Seri ONT / Modem
                 </span>
-                <span className="font-mono text-xs font-bold text-[#211A2E] dark:text-white block mt-1 truncate">
+                <span className="font-mono text-xs font-bold text-[#26364A] dark:text-white block mt-1 truncate">
                   {ontSn || 'Belum diinput'}
                 </span>
-                <span className="text-[11px] text-[#16A36A] font-medium flex items-center gap-1 mt-1 truncate">
+                <span className="text-[11px] text-[#218A63] dark:text-[#16A36A] font-medium flex items-center gap-1 mt-1 truncate">
                   <Check className="w-3 h-3 shrink-0" />
                   <span>
                     {ticket.oltRegistrationStatus ||
@@ -1250,46 +1250,46 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 </span>
               </div>
 
-              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
                   Panjang Dropcore Digunakan
                 </span>
                 <div className="flex items-baseline gap-1.5 mt-1">
-                  <span className="font-display text-lg font-bold text-[#211A2E] dark:text-white tabular-nums">
+                  <span className="font-display text-lg font-bold text-[#26364A] dark:text-white tabular-nums">
                     {dropcoreVal !== undefined && dropcoreVal !== null && String(dropcoreVal).trim() !== ''
                       ? String(dropcoreVal)
                       : '-'}
                   </span>
                   {dropcoreVal && (
-                    <span className="text-xs text-[#766B83] dark:text-[#CEC0E8]">
+                    <span className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
                       {String(dropcoreVal).toLowerCase().includes('m') ? '' : 'Meter'}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] text-[#8B8495] mt-0.5 block truncate font-mono">
+                <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495] mt-0.5 block truncate font-mono">
                   FAT: {ticket.fatCode || ticket.fat || '-'} | Port: {ticket.fatPort || '-'}
                 </span>
               </div>
 
-              <div className="p-3 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="text-[11px] font-bold uppercase text-[#8B8495] block">
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="text-[11px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
                   LiveChat Check-In Dispatch
                 </span>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-bold shadow-2xs ${
                       ticket.checkInAt
-                        ? 'bg-[#35105E] text-white'
-                        : 'bg-[#E9E5F0] dark:bg-[#35105E]/50 text-[#766B83] dark:text-[#CEC0E8]'
+                        ? 'bg-[#5145A6] dark:bg-[#35105E] text-white'
+                        : 'bg-[#EDF3F8] dark:bg-[#35105E]/50 text-[#52647A] dark:text-[#CEC0E8]'
                     }`}
                   >
                     {ticket.checkInAt ? 'PROGRESS' : 'BELUM CHECK-IN'}
                   </span>
-                  <span className="font-mono text-xs font-bold text-[#211A2E] dark:text-white tabular-nums">
+                  <span className="font-mono text-xs font-bold text-[#26364A] dark:text-white tabular-nums">
                     {ticket.checkInAt ? formatTimeOnlyWIB(ticket.checkInAt) : '-'}
                   </span>
                 </div>
-                <span className="text-[11px] text-[#8B8495] mt-0.5 block truncate">
+                <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495] mt-0.5 block truncate">
                   {ticket.workDurationFormatted
                     ? `Durasi Kerja: ${ticket.workDurationFormatted}`
                     : ticket.workSessionStatus || 'Status Sesi Lapangan'}
@@ -1301,8 +1301,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 pt-1">
               <div className="lg:col-span-8 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#766B83] dark:text-[#D8B4FE] flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-[#7135B5]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#D8B4FE] flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                     <span>Bukti Dokumentasi Fisik ({drawerPhotos.length} Foto)</span>
                   </span>
                 </div>
@@ -1314,10 +1314,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         key={photoUrl + idx}
                         type="button"
                         onClick={() => onSelectTicket(ticket, 'report')}
-                        className="rounded-lg overflow-hidden bg-[#F4EAFF] dark:bg-[#160D29] border border-[#D8CCF3] dark:border-[#35105E] shadow-2xs text-left group cursor-pointer"
+                        className="rounded-lg overflow-hidden bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] shadow-2xs text-left group cursor-pointer"
                       >
-                        <div className="h-24 w-full bg-[#E9E5F0] dark:bg-[#22123F] relative flex items-center justify-center overflow-hidden">
-                          <ImageIcon className="w-5 h-5 text-[#8B8495] opacity-50" />
+                        <div className="h-24 w-full bg-[#EDF3F8] dark:bg-[#22123F] relative flex items-center justify-center overflow-hidden">
+                          <ImageIcon className="w-5 h-5 text-[#8492A5] dark:text-[#8B8495] opacity-50" />
                           <img
                             src={photoUrl}
                             alt={`Dokumentasi #${idx + 1} - ${ticket.woNumber}`}
@@ -1329,10 +1329,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           />
                         </div>
                         <div className="p-1.5 bg-white dark:bg-[#1E1238]">
-                          <span className="text-[10.5px] font-bold text-[#211A2E] dark:text-white block truncate">
+                          <span className="text-[10.5px] font-bold text-[#26364A] dark:text-white block truncate">
                             Foto Dokumentasi #{idx + 1}
                           </span>
-                          <span className="font-mono text-[9.5px] text-[#16A36A] font-semibold block truncate">
+                          <span className="font-mono text-[9.5px] text-[#218A63] dark:text-[#16A36A] font-semibold block truncate">
                             Klik untuk perbesar
                           </span>
                         </div>
@@ -1340,43 +1340,43 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="py-5 px-4 text-center rounded-lg border border-dashed border-[#D8CCF3] dark:border-[#35105E] bg-[#F7F6FA]/70 dark:bg-[#160D29]/50 text-xs text-[#8B8495]">
+                  <div className="py-5 px-4 text-center rounded-lg border border-dashed border-[#DCE3F2] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29]/50 text-xs text-[#8492A5] dark:text-[#8B8495]">
                     Belum ada foto bukti dokumentasi yang diunggah pada Technical Report.
                   </div>
                 )}
               </div>
 
-              <div className="lg:col-span-4 rounded-lg bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#431599] dark:text-[#D8B4FE]">
+              <div className="lg:col-span-4 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE]">
                   <FileText className="w-3.5 h-3.5" />
                   <span>Ringkasan Laporan 3-Tingkat</span>
                 </div>
                 {latestReport ? (
                   <div className="space-y-1 text-xs">
-                    <div className="font-semibold text-[#211A2E] dark:text-white">
+                    <div className="font-semibold text-[#26364A] dark:text-white">
                       {latestReport.reportStatusLabel || latestReport.reportStatus} &rarr;{' '}
                       {latestReport.reasonReportLabel || latestReport.reasonReport}
                     </div>
-                    <div className="text-[#766B83] dark:text-[#CEC0E8] text-[11px]">
+                    <div className="text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
                       Rootcause: {latestReport.rootcauseLabel || latestReport.rootCause || '-'}
                     </div>
                     {latestReport.remarksReport && (
-                      <p className="p-2 rounded bg-white dark:bg-[#1E1238] border border-[#E9E5F0] dark:border-[#35105E] text-[#494453] dark:text-[#CEC0E8] text-[11px]">
+                      <p className="p-2 rounded bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
                         {latestReport.remarksReport}
                       </p>
                     )}
                   </div>
                 ) : ticket.technicalReport ? (
                   <div className="space-y-1 text-xs">
-                    <div className="font-semibold text-[#211A2E] dark:text-white">
+                    <div className="font-semibold text-[#26364A] dark:text-white">
                       {ticket.technicalReport.workResult} ({ticket.technicalReport.mainCategory})
                     </div>
-                    <p className="text-[#494453] dark:text-[#CEC0E8] text-[11px]">
+                    <p className="text-[#52647A] dark:text-[#CEC0E8] text-[11px]">
                       {ticket.technicalReport.technicalDescription || '-'}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-[#8B8495] italic">
+                  <p className="text-xs text-[#8492A5] dark:text-[#8B8495] italic">
                     Belum ada laporan progress tersubmit dari teknisi.
                   </p>
                 )}
@@ -1384,9 +1384,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             {/* Dispatch Operator Note Input with Tactile Save Button */}
-            <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-2 border-t border-[#E9E5F0] dark:border-[#35105E]">
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex items-center gap-2 flex-1">
-                <MessageSquare className="w-4 h-4 text-[#8B8495] shrink-0" />
+                <MessageSquare className="w-4 h-4 text-[#8492A5] dark:text-[#8B8495] shrink-0" />
                 <input
                   type="text"
                   value={inlineNotes}
@@ -1397,7 +1397,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       ? 'Tambahkan catatan dispatch internal untuk mitra / arsip approval...'
                       : 'Catatan internal dispatch (hanya Dispatch / Super Admin yang dapat mengubah)'
                   }
-                  className="flex-1 px-3 py-1.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:ring-1 focus:ring-[#A78BFA] disabled:opacity-70"
+                  className="flex-1 px-3 py-1.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] dark:placeholder:text-[#8B8495] border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA] disabled:opacity-70"
                 />
               </div>
               {canApproveInline && (
@@ -1405,7 +1405,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   type="button"
                   disabled={savingNoteId === ticket.id}
                   onClick={() => handleSaveInlineNote(ticket)}
-                  className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[#35105E] dark:text-[#E9D5FF] text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  className="btn-3d-ceramic px-3 py-1.5 rounded-lg text-[#26364A] dark:text-[#E9D5FF] text-[11px] font-bold cursor-pointer whitespace-nowrap disabled:opacity-50"
                 >
                   {savingNoteId === ticket.id ? 'Menyimpan...' : 'Simpan Catatan'}
                 </button>
@@ -1420,25 +1420,25 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   return (
     <div className="space-y-4">
       {activeKpiDrilldown && (
-        <div className="rounded-xl bg-[#160D29] text-white px-4 py-3 border border-[#3E246F] flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-xl bg-gradient-to-r from-[#DDF4F4]/95 via-white/95 to-[#EAE8FF]/95 dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white px-4 py-3 border border-[#BDE4E8] dark:border-[#3E246F] shadow-sm flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-2 py-0.5 rounded-full bg-[#7135B5] text-white font-bold text-[10.5px]">
+            <span className="px-2 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#7135B5] text-white font-bold text-[10.5px]">
               Filter KPI Dashboard
             </span>
             <span className="font-bold">
               {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
             </span>
             {activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL' && (
-              <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/10 text-[#5145A6] dark:text-purple-200 font-medium">
                 Vendor: {activeKpiDrilldown.contractor}
               </span>
             )}
             {activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL' && (
-              <span className="px-2 py-0.5 rounded bg-white/10 text-purple-200 font-medium">
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/10 text-[#5145A6] dark:text-purple-200 font-medium">
                 Area: {activeKpiDrilldown.area}
               </span>
             )}
-            <span className="font-mono font-bold text-[#E9D5FF] tabular-nums">
+            <span className="font-mono font-bold text-[#5145A6] dark:text-[#E9D5FF] tabular-nums">
               ({filteredTickets.length} WO ditemukan)
             </span>
           </div>
@@ -1459,15 +1459,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       {/* 0. STITCH WORK ORDER DISPATCH & TRIAGE CONTROL HERO */}
       <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3f186d] to-[#240c45] text-white flex items-center justify-center shrink-0 shadow-[0_3px_0_#120624]">
-            <Sparkles className="w-5 h-5 text-[#DAB9FF]" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#3f186d] dark:to-[#240c45] text-white flex items-center justify-center shrink-0 shadow-[0_3px_0_#3E3588] dark:shadow-[0_3px_0_#120624]">
+            <Sparkles className="w-5 h-5 text-[#DDF4F4] dark:text-[#DAB9FF]" />
           </div>
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#1F1638] dark:text-white tracking-tight">
+              <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
                 Work Order Dispatch &amp; Triage Control
               </h1>
-              <span className="px-2 py-0.5 rounded bg-[#480123] text-white text-[10px] font-extrabold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded bg-[#5145A6] dark:bg-[#480123] text-white text-[10px] font-extrabold uppercase tracking-wider">
                 {currentUser.role === 'super_admin'
                   ? 'SUPERADMIN ROOT'
                   : currentUser.role === 'dispatch'
@@ -1475,15 +1475,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   : currentUser.role.replace('_', ' ').toUpperCase()}
               </span>
             </div>
-            <p className="text-xs text-[#4B4452] dark:text-[#CEC0E8]">
-              Fiber-To-The-Home (FTTH) Provisioning, Dispatch Verification &amp; Contractor Triage · WIB {todayWIB}
+            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+              FTTH Provisioning, Verifikasi Dispatch &amp; Penugasan Mitra · WIB {todayWIB}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F3EAFF] dark:bg-[#2E1459] border border-[#D8CCF3] dark:border-[#4B386B] text-[11px] font-bold text-[#58149C] dark:text-[#DAB9FF]">
-            <span className="w-2 h-2 rounded-full bg-[#7135B5] animate-pulse shrink-0" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DDF4F4]/80 dark:bg-[#2E1459] border border-[#BDE4E8] dark:border-[#4B386B] text-[11px] font-bold text-[#2E7D8B] dark:text-[#DAB9FF]">
+            <span className="w-2 h-2 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5] animate-pulse shrink-0" />
             <span>
               SCOPE:{' '}
               {selectedArea !== 'ALL'
@@ -1500,7 +1500,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               onClick={() => onNavigate('import')}
               className="btn-3d-darkpurple px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
-              <CloudDownload className="w-4 h-4 text-[#DAB9FF]" />
+              <CloudDownload className="w-4 h-4 text-[#DDF4F4] dark:text-[#DAB9FF]" />
               <span>+ Import Data WO</span>
             </button>
           ) : currentUser.role === 'dispatch' ? (
@@ -1518,7 +1518,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               onClick={() => onNavigate('contact_centre')}
               className="btn-3d-darkpurple px-4 py-2 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
-              <MessageCircle className="w-4 h-4 text-[#DAB9FF]" />
+              <MessageCircle className="w-4 h-4 text-[#DDF4F4] dark:text-[#DAB9FF]" />
               <span>Contact Centre</span>
             </button>
           )}
@@ -1539,27 +1539,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setSelectedInstallerStatus('ALL');
             setCurrentPage(1);
           }}
-          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+          className={`bg-white/95 dark:bg-[#1E1238] rounded-xl p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedApprovalStatus === 'ALL' && selectedInstallerStatus === 'ALL'
-              ? 'border-[#A78BFA] ring-1 ring-[#A78BFA]/40'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#A78BFA]/60'
+              ? 'border-[#6657C8] dark:border-[#A78BFA] ring-1 ring-[#6657C8]/30 dark:ring-[#A78BFA]/40'
+              : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#6657C8]/50 dark:hover:border-[#A78BFA]/60'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wide">
               Total Hari Ini
             </span>
-            <TicketIcon className="w-4 h-4 text-[#A78BFA] shrink-0" />
+            <TicketIcon className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA] shrink-0" />
           </div>
           <div className="mt-1.5 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold text-[#211A2E] dark:text-white tracking-tight tabular-nums">
+            <span className="font-display text-2xl font-bold text-[#26364A] dark:text-white tracking-tight tabular-nums">
               {approvalCounts.totalToday}
             </span>
-            <span className="text-xs text-[#16A36A] font-semibold tabular-nums">
+            <span className="text-xs text-[#218A63] dark:text-[#16A36A] font-semibold tabular-nums">
               {filteredTickets.length} tampil
             </span>
           </div>
-          <div className="text-[10px] font-semibold text-[#8B8495] mt-1 truncate">
+          <div className="text-[10px] font-semibold text-[#8492A5] dark:text-[#8B8495] mt-1 truncate">
             todayWIB: {formattedAppointmentChip}
           </div>
         </button>
@@ -1571,35 +1571,35 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
             setCurrentPage(1);
           }}
-          className={`bg-[#F0E3FF] dark:bg-[#2E1459] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between relative overflow-hidden border transition-all cursor-pointer ${
+          className={`bg-gradient-to-br from-[#EAE8FF]/95 to-[#F8FAFD]/95 dark:bg-none dark:bg-[#2E1459] rounded-xl p-3 shadow-xs text-left flex flex-col justify-between relative overflow-hidden border transition-all cursor-pointer ${
             selectedApprovalStatus === 'BUTUH APPROVAL'
-              ? 'border-[#7135B5] ring-2 ring-[#7135B5]/35'
-              : 'border-[#E59A27]/35 hover:border-[#E59A27]'
+              ? 'border-[#6657C8] dark:border-[#7135B5] ring-2 ring-[#6657C8]/30 dark:ring-[#7135B5]/35'
+              : 'border-[#F2CF95] dark:border-[#E59A27]/35 hover:border-[#C88735] dark:hover:border-[#E59A27]'
           }`}
         >
-          <div className="absolute -right-2 -top-2 w-12 h-12 bg-[#E59A27]/15 rounded-full pointer-events-none blur-sm" />
+          <div className="absolute -right-2 -top-2 w-12 h-12 bg-[#C88735]/15 dark:bg-[#E59A27]/15 rounded-full pointer-events-none blur-sm" />
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[#35105E] dark:text-[#E9D5FF] uppercase font-bold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E59A27] animate-ping shrink-0" />
+            <span className="text-[11px] text-[#5145A6] dark:text-[#E9D5FF] uppercase font-bold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C88735] dark:bg-[#E59A27] animate-ping shrink-0" />
               <span className="truncate">Butuh Approval</span>
             </span>
-            <Clock className="w-4 h-4 text-[#E59A27] shrink-0" />
+            <Clock className="w-4 h-4 text-[#C88735] dark:text-[#E59A27] shrink-0" />
           </div>
           <div className="mt-1.5 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-extrabold text-[#35105E] dark:text-white tracking-tight tabular-nums">
+            <span className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight tabular-nums">
               {approvalCounts.butuhApproval}
             </span>
             <span
               className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-2xs whitespace-nowrap ${
                 approvalCounts.butuhApproval > 0
-                  ? 'bg-[#E59A27] text-white animate-pulse'
-                  : 'bg-[#16A36A]/15 text-[#16A36A]'
+                  ? 'bg-[#C88735] dark:bg-[#E59A27] text-white animate-pulse'
+                  : 'bg-[#E4F5EC] dark:bg-[#16A36A]/15 text-[#218A63] dark:text-[#16A36A]'
               }`}
             >
               {approvalCounts.butuhApproval > 0 ? 'Action Required' : 'Clear'}
             </span>
           </div>
-          <div className="text-[10px] text-[#7135B5] dark:text-[#D8B4FE] font-medium mt-1 truncate">
+          <div className="text-[10px] text-[#5145A6] dark:text-[#D8B4FE] font-medium mt-1 truncate">
             SLO Dispatch: &lt; 15 mnt
           </div>
         </button>
@@ -1611,27 +1611,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
             setCurrentPage(1);
           }}
-          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+          className={`bg-white/95 dark:bg-[#1E1238] rounded-xl p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedApprovalStatus === 'APPROVED'
-              ? 'border-[#16A36A] ring-2 ring-[#16A36A]/30'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#16A36A]/50'
+              ? 'border-[#218A63] dark:border-[#16A36A] ring-2 ring-[#218A63]/25 dark:ring-[#16A36A]/30'
+              : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#218A63]/50 dark:hover:border-[#16A36A]/50'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wide">
               Disetujui
             </span>
-            <BadgeCheck className="w-4 h-4 text-[#16A36A] shrink-0" />
+            <BadgeCheck className="w-4 h-4 text-[#218A63] dark:text-[#16A36A] shrink-0" />
           </div>
           <div className="mt-1.5 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold text-[#16A36A] tracking-tight tabular-nums">
+            <span className="font-display text-2xl font-bold text-[#218A63] dark:text-[#16A36A] tracking-tight tabular-nums">
               {approvalCounts.approved}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+            <span className="font-mono text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8] tabular-nums">
               {approvedPct}%
             </span>
           </div>
-          <div className="text-[10px] text-[#8B8495] mt-1 truncate">Siap Berita Acara</div>
+          <div className="text-[10px] text-[#8492A5] dark:text-[#8B8495] mt-1 truncate">Siap Berita Acara</div>
         </button>
 
         {/* KPI 4: Perlu Revisi */}
@@ -1641,27 +1641,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
             setCurrentPage(1);
           }}
-          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+          className={`bg-white/95 dark:bg-[#1E1238] rounded-xl p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedApprovalStatus === 'REJECTED'
-              ? 'border-[#DC4C5A] ring-2 ring-[#DC4C5A]/30'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#DC4C5A]/50'
+              ? 'border-[#D45B66] dark:border-[#DC4C5A] ring-2 ring-[#D45B66]/25 dark:ring-[#DC4C5A]/30'
+              : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#D45B66]/50 dark:hover:border-[#DC4C5A]/50'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wide">
               Perlu Revisi
             </span>
-            <AlertTriangle className="w-4 h-4 text-[#DC4C5A] shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-[#D45B66] dark:text-[#DC4C5A] shrink-0" />
           </div>
           <div className="mt-1.5 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold text-[#DC4C5A] tracking-tight tabular-nums">
+            <span className="font-display text-2xl font-bold text-[#D45B66] dark:text-[#DC4C5A] tracking-tight tabular-nums">
               {approvalCounts.rejected}
             </span>
-            <span className="font-mono text-[11px] text-[#DC4C5A] font-semibold truncate">
+            <span className="font-mono text-[11px] text-[#D45B66] dark:text-[#DC4C5A] font-semibold truncate">
               Dropcore / Foto
             </span>
           </div>
-          <div className="text-[10px] text-[#8B8495] mt-1 truncate">Menunggu Teknisi</div>
+          <div className="text-[10px] text-[#8492A5] dark:text-[#8B8495] mt-1 truncate">Menunggu Teknisi</div>
         </button>
 
         {/* KPI 5: Di Lapangan */}
@@ -1671,36 +1671,36 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             setSelectedInstallerStatus(prev => (prev === 'On Site' ? 'ALL' : 'On Site'));
             setCurrentPage(1);
           }}
-          className={`bg-white dark:bg-[#1E1238] rounded-lg p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
+          className={`bg-white/95 dark:bg-[#1E1238] rounded-xl p-3 shadow-xs text-left flex flex-col justify-between border transition-colors cursor-pointer ${
             selectedInstallerStatus === 'On Site'
-              ? 'border-[#3977C9] ring-2 ring-[#3977C9]/30'
-              : 'border-[#E9E5F0] dark:border-[#35105E] hover:border-[#3977C9]/50'
+              ? 'border-[#3E81C6] dark:border-[#3977C9] ring-2 ring-[#3E81C6]/25 dark:ring-[#3977C9]/30'
+              : 'border-[#DDE6F0] dark:border-[#35105E] hover:border-[#3E81C6]/50 dark:hover:border-[#3977C9]/50'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] uppercase tracking-wide">
+            <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wide">
               Di Lapangan
             </span>
-            <Wrench className="w-4 h-4 text-[#3977C9] shrink-0" />
+            <Wrench className="w-4 h-4 text-[#3E81C6] dark:text-[#3977C9] shrink-0" />
           </div>
           <div className="mt-1.5 flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold text-[#3977C9] tracking-tight tabular-nums">
+            <span className="font-display text-2xl font-bold text-[#3E81C6] dark:text-[#3977C9] tracking-tight tabular-nums">
               {approvalCounts.diLapangan}
             </span>
-            <span className="font-mono text-xs font-semibold text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+            <span className="font-mono text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8] tabular-nums">
               {fieldPct}%
             </span>
           </div>
-          <div className="text-[10px] text-[#8B8495] mt-1 truncate">On-site &amp; En-route</div>
+          <div className="text-[10px] text-[#8492A5] dark:text-[#8B8495] mt-1 truncate">On-site &amp; En-route</div>
         </button>
 
         {/* KPI 6: Fast Lane CTA Card */}
-        <div className="bg-gradient-to-br from-[#5B35B1] via-[#7135B5] to-[#35105E] rounded-lg p-3 shadow-md flex flex-col justify-between text-white border border-[#7135B5]/30">
+        <div className="bg-gradient-to-br from-[#6657C8] via-[#5145A6] to-[#2E7D8B] dark:from-[#5B35B1] dark:via-[#7135B5] dark:to-[#35105E] rounded-xl p-3 shadow-md flex flex-col justify-between text-white border border-[#5145A6]/30 dark:border-[#7135B5]/30">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-[#D8B4FE] font-bold">
+            <span className="text-[11px] uppercase tracking-wider text-[#DDF4F4] dark:text-[#D8B4FE] font-bold">
               Fast Lane
             </span>
-            <Zap className="w-4 h-4 text-[#D8B4FE] shrink-0" />
+            <Zap className="w-4 h-4 text-[#DDF4F4] dark:text-[#D8B4FE] shrink-0" />
           </div>
           <div className="my-1.5">
             {currentUser.role === 'dispatch' ? (
@@ -1709,8 +1709,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 onClick={() => onNavigate('form_sameday')}
                 className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Zap className="w-3.5 h-3.5 text-[#7135B5]" />
-                <span className="text-[#35105E]">+ Form Sameday</span>
+                <Zap className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
+                <span className="text-[#5145A6] dark:text-[#35105E]">+ Form Sameday</span>
               </button>
             ) : currentUser.role === 'super_admin' ? (
               <button
@@ -1718,8 +1718,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 onClick={() => onNavigate('import')}
                 className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#7135B5]" />
-                <span className="text-[#35105E]">+ Import Data WO</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
+                <span className="text-[#5145A6] dark:text-[#35105E]">+ Import Data WO</span>
               </button>
             ) : (
               <button
@@ -1727,12 +1727,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 onClick={() => onNavigate('contact_centre')}
                 className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-[#7135B5]" />
-                <span className="text-[#35105E]">Contact Centre</span>
+                <MessageCircle className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
+                <span className="text-[#5145A6] dark:text-[#35105E]">Contact Centre</span>
               </button>
             )}
           </div>
-          <div className="text-[10px] text-[#D8B4FE] font-medium truncate">
+          <div className="text-[10px] text-[#DDF4F4] dark:text-[#D8B4FE] font-medium truncate">
             {currentUser.role === 'dispatch'
               ? 'Prioritas Khusus MyRepublic'
               : currentUser.role === 'super_admin'
@@ -1743,12 +1743,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       </section>
 
       {/* 2. COMPREHENSIVE FILTER & OPERATIONAL TOOLBAR */}
-      <section className="bg-white dark:bg-[#1E1238] rounded-xl p-3.5 shadow-xs space-y-3 border border-[#E9E5F0] dark:border-[#35105E]">
+      <section className="bg-white/90 dark:bg-[#1E1238] backdrop-blur-md rounded-xl p-3.5 shadow-xs space-y-3 border border-[#DDE6F0] dark:border-[#35105E]">
         {/* Search Row & Appointment Scope + Live SSE */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 justify-between">
           <div className="flex items-center gap-2 flex-1 max-w-2xl">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1762,7 +1762,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[42px] sm:min-h-[36px] pl-9 pr-20 py-2 bg-[#F7F6FA] dark:bg-[#160D29] rounded-xl text-xs text-[#211A2E] dark:text-white placeholder:text-[#8B8495] border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#A78BFA] focus:ring-2 focus:ring-[#A78BFA]/40 transition-all"
+                className="w-full min-h-[42px] sm:min-h-[36px] pl-9 pr-20 py-2 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] dark:placeholder:text-[#8B8495] border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#6657C8] dark:focus:border-[#A78BFA] focus:ring-2 focus:ring-[#6657C8]/25 dark:focus:ring-[#A78BFA]/40 transition-all"
               />
               <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
                 {searchTerm ? (
@@ -1772,13 +1772,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       setSearchTerm('');
                       setCurrentPage(1);
                     }}
-                    className="px-2 py-1 rounded bg-[#F4EAFF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#E9D5FF]"
+                    className="px-2 py-1 rounded bg-[#EAE8FF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] border border-[#DCE3F2] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#DCE3F2] dark:hover:bg-[#E9D5FF]"
                   >
                     Clear
                   </button>
                 ) : (
                   !isCompactUI && (
-                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#35105E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE]">
+                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] border border-[#DCE3F2] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#5145A6] dark:text-[#D8B4FE]">
                       /
                     </kbd>
                   )
@@ -1810,8 +1810,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[#35105E] dark:text-[#E9D5FF]">
-              <Calendar className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+            <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[#26364A] dark:text-[#E9D5FF]">
+              <Calendar className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A78BFA] shrink-0" />
               <span className="text-[11px] font-bold whitespace-nowrap tabular-nums">
                 {isCrossDateActive
                   ? `Lintas Tanggal (${filteredTickets.length} WO)`
@@ -1819,15 +1819,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg bg-[#F4EAFF] dark:bg-[#22123F] border border-[#D8CCF3] dark:border-[#35105E] text-[#766B83] shadow-2xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg bg-[#DDF4F4]/70 dark:bg-[#22123F] border border-[#BDE4E8] dark:border-[#35105E] text-[#2E7D8B] dark:text-[#766B83] shadow-2xs">
               <span
                 className={`w-2 h-2 rounded-full ${
                   databaseStatus === 'connected'
-                    ? 'bg-[#16A36A] animate-ping'
-                    : 'bg-[#E59A27]'
+                    ? 'bg-[#218A63] dark:bg-[#16A36A] animate-ping'
+                    : 'bg-[#C88735] dark:bg-[#E59A27]'
                 }`}
               />
-              <span className="text-[10px] font-bold text-[#16A36A] tracking-wide">
+              <span className="text-[10px] font-bold text-[#218A63] dark:text-[#16A36A] tracking-wide">
                 {databaseStatus === 'connected' ? 'SSE LIVE' : 'LOCAL SYNC'}
               </span>
               <button
@@ -1852,9 +1852,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
         {/* Cross-Date Search Banner */}
         {isCrossDateActive && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#F4EAFF] dark:bg-[#2A174E] border border-[#D8CCF3] dark:border-[#5B35B1] text-[#431599] dark:text-[#E9D5FF] text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#EAE8FF]/80 dark:bg-[#2A174E] border border-[#DCE3F2] dark:border-[#5B35B1] text-[#5145A6] dark:text-[#E9D5FF] text-xs">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
+              <Sparkles className="w-4 h-4 text-[#6657C8] dark:text-[#D8B4FE] shrink-0" />
               <span>
                 <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan{' '}
                 <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{searchTerm}&rdquo;.
@@ -1889,7 +1889,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             }`}
           >
             <div>
-              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                 Area Servis
               </label>
               <select
@@ -1898,7 +1898,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedArea(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">Semua Area ({areaOptions.length})</option>
                 {areaOptions.map(a => (
@@ -1910,7 +1910,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                 Mitra Kontraktor
               </label>
               <select
@@ -1919,7 +1919,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedContractor(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
                 {contractorOptions.map(c => (
@@ -1931,7 +1931,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                 Status WO Agent
               </label>
               <select
@@ -1940,7 +1940,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedAgentStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">statusWOAgent (All)</option>
                 <option value="Pending">Pending</option>
@@ -1956,7 +1956,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                 Status Lapangan (Tech)
               </label>
               <select
@@ -1965,7 +1965,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedInstallerStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">statusWOInstaller (All)</option>
                 <option value="Unassigned">Unassigned</option>
@@ -1981,7 +1981,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                 WhatsApp Handshake
               </label>
               <select
@@ -1990,7 +1990,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedWhatsAppStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">statusWhatsApp (All)</option>
                 <option value="not_prepared">Not Prepared</option>
@@ -2006,7 +2006,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-[#35105E] dark:text-[#D8B4FE] mb-0.5">
+              <label className="block text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] mb-0.5">
                 Approval Dispatch
               </label>
               <select
@@ -2015,7 +2015,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setSelectedApprovalStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#35105E]/50 rounded-lg text-xs text-[#35105E] dark:text-[#F5F1FF] font-semibold border border-[#D8CCF3] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#EAE8FF]/70 dark:bg-[#35105E]/50 rounded-lg text-xs text-[#5145A6] dark:text-[#F5F1FF] font-semibold border border-[#DCE3F2] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
               >
                 <option value="ALL">approvalStatus (All)</option>
                 <option value="BUTUH APPROVAL">BUTUH APPROVAL ({approvalCounts.butuhApproval})</option>
@@ -2027,7 +2027,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
             {isCompactUI && ticketCategories.length > 0 && (
               <div>
-                <label className="block text-[10px] font-semibold text-[#8B8495] mb-0.5">
+                <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
                   Kategori Tiket
                 </label>
                 <select
@@ -2037,7 +2037,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     setCurrentPage(1);
                   }}
                   aria-label="Filter Kategori Tiket Mobile"
-                  className="w-full min-h-[40px] py-1.5 px-2.5 bg-[#F7F6FA] dark:bg-[#160D29] rounded-lg text-xs text-[#211A2E] dark:text-[#F5F1FF] font-medium border border-[#E9E5F0] dark:border-[#35105E]"
+                  className="w-full min-h-[40px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E]"
                 >
                   <option value="ALL">Kategori (All)</option>
                   {ticketCategories.map(cat => (
@@ -2052,18 +2052,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         )}
 
         {/* Action Utilities Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 bg-[#F7F6FA] dark:bg-[#160D29]/80 p-2.5 rounded-lg border border-[#E9E5F0] dark:border-[#35105E]">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 bg-[#F8FAFD] dark:bg-[#160D29]/80 p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
           {/* Left: PILIH SEMUA + Contextual Bulk Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={handleSelectAll}
-              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-bold text-[#766B83] dark:text-[#CEC0E8] hover:text-[#431599] dark:hover:text-white cursor-pointer select-none whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white cursor-pointer select-none whitespace-nowrap"
             >
               {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
+                <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
               ) : (
-                <Square className="w-4 h-4 text-[#8B8495]" />
+                <Square className="w-4 h-4 text-[#8492A5] dark:text-[#8B8495]" />
               )}
               <span className="uppercase tracking-wide">Pilih Semua</span>
             </button>
@@ -2086,8 +2086,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             )}
 
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#E9E5F0] dark:border-[#35105E]">
-                <span className="px-2 py-0.5 rounded-md bg-[#F0E3FF] dark:bg-[#35105E] text-[#431599] dark:text-[#E9D5FF] text-[11px] font-bold tabular-nums">
+              <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#DDE6F0] dark:border-[#35105E]">
+                <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#E9D5FF] text-[11px] font-bold tabular-nums">
                   {selectedIds.size} dipilih
                 </span>
 
@@ -2096,7 +2096,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     <select
                       value={bulkInstaller}
                       onChange={e => setBulkInstaller(e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#5B35B1] rounded-md text-[#211A2E] dark:text-white"
+                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-md text-[#26364A] dark:text-white"
                     >
                       <option value="">Pilih Teknisi...</option>
                       {installersList.map(inst => (
@@ -2115,7 +2115,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     </button>
                   </>
                 ) : currentUser.role !== 'super_admin' ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#9D661F] bg-[#FFF2D9] px-2 py-0.5 rounded-md border border-[#F2CF95]">
                     <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                     <span>Assign/Reassign khusus Leader</span>
                   </span>
@@ -2138,7 +2138,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     setSelectedIds(new Set());
                     setShowBulkApproveConfirm(false);
                   }}
-                  className="px-2 py-1 text-[11px] font-semibold text-[#766B83] hover:text-[#211A2E] dark:text-[#CEC0E8] hover:bg-[#E9E5F0] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
+                  className="px-2 py-1 text-[11px] font-semibold text-[#52647A] hover:text-[#26364A] dark:text-[#CEC0E8] hover:bg-[#EDF3F8] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
                 >
                   Clear
                 </button>
@@ -2154,7 +2154,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   setCurrentPage(1);
                 }}
                 aria-label="Filter Kategori Tiket"
-                className="hidden sm:block py-1 px-2 bg-white dark:bg-[#1E1238] border border-[#D8CCF3] dark:border-[#35105E] rounded-lg text-[11px] font-semibold text-[#494453] dark:text-[#CEC0E8]"
+                className="hidden sm:block py-1 px-2 bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8]"
               >
                 <option value="ALL">Kategori (All)</option>
                 {ticketCategories.map(cat => (
@@ -2169,7 +2169,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#DC4C5A] hover:bg-[#FEF2F2] dark:hover:bg-rose-950/40 cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#D45B66] dark:text-[#DC4C5A] hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 cursor-pointer whitespace-nowrap"
               >
                 <X className="w-3 h-3" />
                 <span>Reset Filter</span>
@@ -2184,7 +2184,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <div
                 role="group"
                 aria-label="Table & Cards Layout Switch"
-                className="inline-flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#1E1238] border border-slate-200/90 dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] shrink-0 gap-0.5"
+                className="inline-flex items-center p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.06)] shrink-0 gap-0.5"
               >
                 <button
                   type="button"
@@ -2193,8 +2193,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   title="Tampilan Table (Terintegrasi dengan Desktop Mode)"
                   className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                     effectiveLayout === 'table'
-                      ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                      ? 'bg-white text-[#5145A6] shadow-[0_1px_3px_rgba(38,54,74,0.10),0_1px_2px_rgba(38,54,74,0.06)] ring-1 ring-[#DCE3F2] dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                      : 'text-[#52647A] hover:text-[#26364A] hover:bg-white/60 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
                   }`}
                 >
                   <Monitor className="w-3.5 h-3.5 shrink-0" />
@@ -2207,8 +2207,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   title="Tampilan Cards (Terintegrasi dengan Mobile Mode)"
                   className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[28px] rounded-lg text-[11.5px] leading-none font-semibold tracking-tight transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                     effectiveLayout === 'cards'
-                      ? 'bg-white text-[#7C3AED] shadow-[0_1px_3px_rgba(15,23,42,0.10),0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
+                      ? 'bg-white text-[#5145A6] shadow-[0_1px_3px_rgba(38,54,74,0.10),0_1px_2px_rgba(38,54,74,0.06)] ring-1 ring-[#DCE3F2] dark:bg-[#7C3AED] dark:text-white dark:ring-[#A78BFA]/40'
+                      : 'text-[#52647A] hover:text-[#26364A] hover:bg-white/60 dark:text-[#CEC0E8] dark:hover:text-white dark:hover:bg-white/5'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5 shrink-0" />
@@ -2226,12 +2226,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               }}
               className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap ${
                 showArchived
-                  ? 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]/50'
+                  ? 'bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95]'
                   : 'btn-3d-ceramic'
               }`}
               title="Tampilkan Work Order Arsip"
             >
-              <Archive className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+              <Archive className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
               <span>{showArchived ? 'Archived' : 'Archive'}</span>
             </button>
 
@@ -2242,14 +2242,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 onClick={() => onNavigate('contact_centre')}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
                   totalUnreadAcrossTickets > 0
-                    ? 'bg-[#FEF2F2] dark:bg-rose-950/40 text-[#DC4C5A] dark:text-rose-300 border border-[#FECACA] dark:border-rose-900'
+                    ? 'bg-[#FCE9EB] dark:bg-rose-950/40 text-[#9B2C37] dark:text-rose-300 border border-[#F3C5CA] dark:border-rose-900'
                     : 'btn-3d-ceramic'
                 }`}
               >
-                <MessageCircle className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                <MessageCircle className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
                 <span>Chat</span>
                 {totalUnreadAcrossTickets > 0 && (
-                  <span className="px-1.5 py-0.2 bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
+                  <span className="px-1.5 py-0.2 bg-[#D45B66] dark:bg-[#DC4C5A] text-white text-[10px] rounded-full font-bold tabular-nums">
                     {totalUnreadAcrossTickets}
                   </span>
                 )}
@@ -2267,12 +2267,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   : 'Atur tampilan & 46 Kolom Kanonik'
               }
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
               <span>
                 46 Kolom Kanonik
                 {tableStyleMode === 'canonical' ? ` (${activeColumns.length})` : ''}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8B8495]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#8B8495]" />
             </button>
 
             <ResponsiveModal
@@ -2298,7 +2298,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             >
               <div className="space-y-4 text-xs">
                 {/* Table Presentation Switcher */}
-                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4EAFF] dark:bg-[#160D29] border border-[#E8DDFF] dark:border-[#35105E]">
+                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
                   <button
                     type="button"
                     onClick={() => {
@@ -2308,7 +2308,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                       tableStyleMode === 'stitch'
                         ? 'btn-3d-primary'
-                        : 'text-[#63597B] dark:text-[#CEC0E8]'
+                        : 'text-[#52647A] dark:text-[#CEC0E8]'
                     }`}
                   >
                     Ringkas (9 Kolom)
@@ -2319,7 +2319,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                       tableStyleMode === 'canonical'
                         ? 'btn-3d-primary'
-                        : 'text-[#63597B] dark:text-[#CEC0E8]'
+                        : 'text-[#52647A] dark:text-[#CEC0E8]'
                     }`}
                   >
                     Kanonik ({activeColumns.length} Kolom)
@@ -2328,7 +2328,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                 {/* Quick Preset Selector */}
                 <div>
-                  <label className="block text-[10.5px] font-bold text-[#766B83] dark:text-[#A78BFA] uppercase mb-1">
+                  <label className="block text-[10.5px] font-bold text-[#52647A] dark:text-[#A78BFA] uppercase mb-1">
                     Preset Kolom
                   </label>
                   <select
@@ -2338,7 +2338,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       applyPreset(val);
                       setTableStyleMode(val === 'preset_default' ? 'stitch' : 'canonical');
                     }}
-                    className="w-full min-h-[40px] sm:min-h-[34px] px-2.5 py-1.5 text-xs bg-[#F7F6FA] dark:bg-[#160D29] border border-[#E9E5F0] dark:border-[#35105E] rounded-lg text-[#211A2E] dark:text-[#F5F1FF] font-semibold cursor-pointer"
+                    className="w-full min-h-[40px] sm:min-h-[34px] px-2.5 py-1.5 text-xs bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg text-[#26364A] dark:text-[#F5F1FF] font-semibold cursor-pointer"
                   >
                     {config.ticketsTable.presets.map(p => (
                       <option key={p.id} value={p.id}>
@@ -2357,7 +2357,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     if (groupCols.length === 0) return null;
                     return (
                       <div key={group.id} className="space-y-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#7135B5] dark:text-[#D8B4FE] px-1">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE] px-1">
                           {group.title}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -2366,15 +2366,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               key={col.key}
                               className={`flex items-center justify-between gap-2 p-2 rounded-lg border border-transparent ${
                                 col.mandatory
-                                  ? 'bg-[#F5F1FF]/70 dark:bg-[#251545]/70 cursor-not-allowed'
-                                  : 'hover:bg-[#F5F1FF] dark:hover:bg-[#35105E]/60 border-[#E8DDFF]/50 dark:border-[#35105E] cursor-pointer'
+                                  ? 'bg-[#EAE8FF]/60 dark:bg-[#251545]/70 cursor-not-allowed'
+                                  : 'hover:bg-[#EDF3F8] dark:hover:bg-[#35105E]/60 border-[#DDE6F0] dark:border-[#35105E] cursor-pointer'
                               }`}
                             >
                               <div className="min-w-0 flex items-center gap-1.5">
                                 {col.mandatory && (
-                                  <Lock className="w-3 h-3 text-[#7135B5] dark:text-[#D8B4FE] shrink-0" />
+                                  <Lock className="w-3 h-3 text-[#6657C8] dark:text-[#D8B4FE] shrink-0" />
                                 )}
-                                <span className="text-[#211A2E] dark:text-[#F5F1FF] truncate">
+                                <span className="text-[#26364A] dark:text-[#F5F1FF] truncate">
                                   {col.label}
                                 </span>
                               </div>
@@ -2388,7 +2388,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     setColumnVisibility(col.key, e.target.checked);
                                   }
                                 }}
-                                className="w-4 h-4 rounded border-[#D8CCF3] text-[#431599] focus:ring-[#7135B5] disabled:opacity-60"
+                                className="w-4 h-4 rounded border-[#DCE3F2] text-[#6657C8] focus:ring-[#6657C8] disabled:opacity-60"
                               />
                             </label>
                           ))}
@@ -2414,8 +2414,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
         {/* Inline Bulk Approval Confirmation Banner */}
         {showBulkApproveConfirm && canApproveInline && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/40 border border-[#86EFAC] dark:border-emerald-800 text-xs">
-            <div className="flex items-center gap-2 text-[#15803D] dark:text-emerald-200 font-semibold">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800 text-xs">
+            <div className="flex items-center gap-2 text-[#218A63] dark:text-emerald-200 font-semibold">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
                 Konfirmasi Bulk Approve: <strong>{selectedButuhApprovalTickets.length}</strong> Work Order
@@ -2453,15 +2453,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           <div className="card-3d-lavender rounded-2xl p-3.5 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="font-display font-bold text-[17px] text-[#1F1638] dark:text-white tracking-tight">
+                <h2 className="font-display font-bold text-[17px] text-[#26364A] dark:text-white tracking-tight">
                   Daftar Work Order
                 </h2>
-                <p className="text-[11px] text-[#4B4452] dark:text-[#CEC0E8]">
+                <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
                   Monitoring real-time &amp; penugasan lapangan
                 </p>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ffdad6]/85 dark:bg-rose-950/60 text-[#93000a] dark:text-rose-200 text-[11px] font-bold shrink-0 tabular-nums">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-200 border border-[#F3C5CA] dark:border-rose-800/40 text-[11px] font-bold shrink-0 tabular-nums">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D45B66] animate-pulse" />
                 <span>
                   {filteredTickets.length} WO • {approvalCounts.butuhApproval + approvalCounts.rejected} Perlu Aksi
                 </span>
@@ -2535,16 +2535,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         ? 'btn-3d-crimson'
                         : 'tactile-chip-active'
                       : chip.tone === 'danger' && chip.count > 0
-                      ? 'bg-[#ffdad6] dark:bg-rose-950/60 text-[#93000a] dark:text-rose-200 border border-rose-200 dark:border-rose-800/60'
+                      ? 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-200 border border-[#F3C5CA] dark:border-rose-800/60'
                       : chip.tone === 'warn' && chip.count > 0
-                      ? 'bg-[#ffddb8] dark:bg-amber-950/60 text-[#633c00] dark:text-amber-200 border border-amber-200 dark:border-amber-800/60'
-                      : 'tactile-chip text-[#1F1638] dark:text-[#E8DDFF]'
+                      ? 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-200 border border-[#F2CF95] dark:border-amber-800/60'
+                      : 'tactile-chip text-[#26364A] dark:text-[#E8DDFF]'
                   }`}
                 >
                   <span>{chip.label}</span>
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums ${
-                      chip.active ? 'bg-white/20 text-white' : 'bg-white/80 dark:bg-black/25 text-[#1F1638] dark:text-[#E8DDFF]'
+                      chip.active ? 'bg-white/20 text-white' : 'bg-white/80 dark:bg-black/25 text-[#26364A] dark:text-[#E8DDFF]'
                     }`}
                   >
                     {chip.count}
@@ -2554,12 +2554,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             </div>
 
             {/* Compact Sort Bar */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E8DDFF] dark:border-[#35105E]">
-              <span className="text-[11px] font-semibold text-[#4B4452] dark:text-[#CEC0E8] truncate">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+              <span className="text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8] truncate">
                 Menampilkan {paginatedTickets.length} dari {sortedTickets.length} WO
               </span>
               <div className="flex items-center gap-1.5 shrink-0">
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#58149C] dark:text-[#DAB9FF]" />
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <select
                   aria-label="Urutkan Work Order"
                   value={`${sortField}:${sortDirection || 'desc'}`}
@@ -2569,7 +2569,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     setSortDirection((dir as SortDirection) || 'desc');
                     setCurrentPage(1);
                   }}
-                  className="tactile-debossed-input bg-[#FAF5FF] dark:bg-[#160D29] text-[#1F1638] dark:text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer"
+                  className="tactile-debossed-input bg-[#F8FAFD] dark:bg-[#160D29] text-[#26364A] dark:text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer"
                 >
                   <option value="updatedAt:desc">Terbaru Diperbarui</option>
                   <option value="slotTime:asc">Slot Waktu Terdekat</option>
@@ -2583,7 +2583,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           {isDataLoading && tickets.length === 0 ? (
             <LoadingSkeleton variant="cards" rows={6} />
           ) : paginatedTickets.length === 0 ? (
-            <div className="card-3d-lavender rounded-2xl py-12 px-4 text-center text-[#4B4452] dark:text-[#CEC0E8] text-xs space-y-2">
+            <div className="card-3d-lavender rounded-2xl py-12 px-4 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs space-y-2">
               <p className="font-semibold">Tidak ada tiket Work Order yang cocok dengan filter pencarian.</p>
               {hasActiveFilters && (
                 <button
@@ -2617,11 +2617,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       ) : isDataLoading && tickets.length === 0 ? (
         <LoadingSkeleton variant="table" rows={8} />
       ) : (
-        <section className="bg-white dark:bg-[#1E1238] rounded-lg shadow-xs overflow-hidden border border-[#E9E5F0] dark:border-[#35105E]">
+        <section className="bg-white/95 dark:bg-[#1E1238] rounded-xl shadow-xs overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
           {isProgressiveHydrating && (
-            <div className="px-4 py-1.5 bg-[#FAF5FF] dark:bg-[#251545] border-b border-[#E8DDFF] dark:border-[#35105E] text-[11px] font-semibold text-[#58149C] dark:text-[#DAB9FF] flex items-center justify-between gap-2">
+            <div className="px-4 py-1.5 bg-[#DDF4F4]/70 dark:bg-[#251545] border-b border-[#BDE4E8] dark:border-[#35105E] text-[11px] font-semibold text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-between gap-2">
               <span>Menampilkan data prioritas · Memuat kolom &amp; detail teknis lanjutan di latar belakang...</span>
-              <span className="inline-block w-2 h-2 rounded-full bg-[#7135B5] animate-pulse" />
+              <span className="inline-block w-2 h-2 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5] animate-pulse" />
             </div>
           )}
           <div
@@ -2637,14 +2637,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           >
             {tableStyleMode === 'stitch' ? (
               /* STITCH AI RICH COMPOSITE 9-COLUMN TABLE */
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse mj-zebra-table">
                 <thead>
-                  <tr className="bg-[#F4EAFF] dark:bg-[#251545] text-[11px] font-bold text-[#766B83] dark:text-[#D8B4FE] uppercase tracking-wide select-none border-b border-[#E9E5F0] dark:border-[#35105E]">
+                  <tr className="bg-[#EDF3F8] dark:bg-[#251545] text-[11px] font-bold text-[#52647A] dark:text-[#D8B4FE] uppercase tracking-wide select-none border-b border-[#DDE6F0] dark:border-[#35105E]">
                     <th className="py-2.5 px-3 w-10 text-center">
                       <button
                         type="button"
                         onClick={handleSelectAll}
-                        className="text-[#7135B5] dark:text-[#D8B4FE] cursor-pointer"
+                        className="text-[#6657C8] dark:text-[#D8B4FE] cursor-pointer"
                         aria-label="Pilih semua baris pada halaman ini"
                       >
                         {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
@@ -2656,14 +2656,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     </th>
                     <th
                       onClick={() => handleSort('woNumber')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         <span>WO Number</span>
                         {sortField === 'woNumber' && sortDirection === 'asc' ? (
-                          <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                         ) : sortField === 'woNumber' && sortDirection === 'desc' ? (
-                          <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-50" />
                         )}
@@ -2671,14 +2671,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     </th>
                     <th
                       onClick={() => handleSort('idCustomer')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         <span>ID Cust</span>
                         {sortField === 'idCustomer' && sortDirection === 'asc' ? (
-                          <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                         ) : sortField === 'idCustomer' && sortDirection === 'desc' ? (
-                          <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                          <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-50" />
                         )}
@@ -2688,15 +2688,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     <th className="py-2.5 px-3 min-w-[160px]">Area / Cluster</th>
                     <th
                       onClick={() => handleSort('slotTime')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#211A2E] dark:hover:text-white whitespace-nowrap"
+                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         <span>Slot Waktu</span>
                         {sortField === 'slotTime' ? (
                           sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                           ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-[#7135B5]" />
+                            <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
                           )
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-40" />
@@ -2705,15 +2705,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     </th>
                     <th className="py-2.5 px-3 min-w-[175px]">Kontraktor &amp; Tim</th>
                     <th className="py-2.5 px-3 min-w-[225px]">4 Dimensi Status</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#F4EAFF] dark:bg-[#251545] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)]">
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#EDF3F8] dark:bg-[#251545] shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.06)]">
                       Aksi Operasional
                     </th>
                   </tr>
                 </thead>
-                <tbody className="text-xs divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                <tbody className="text-xs divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                   {paginatedTickets.length === 0 ? (
                     <tr>
-                      <td colSpan={stitchColSpan} className="py-12 text-center text-[#8B8495] text-xs">
+                      <td colSpan={stitchColSpan} className="py-12 text-center text-[#8492A5] dark:text-[#8B8495] text-xs">
                         Tidak ada tiket Work Order yang cocok dengan filter.
                       </td>
                     </tr>
@@ -2724,7 +2724,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           <td colSpan={stitchColSpan} style={{ height: `${virtualRange.topSpacerPx}px`, padding: 0, border: 0 }} />
                         </tr>
                       )}
-                      {virtualizedTickets.map(ticket => {
+                      {virtualizedTickets.map((ticket, rowIdx) => {
                       const isSelected = selectedIds.has(ticket.id);
                       const isExpanded = expandedDrawerTicketId === ticket.id;
                       const isRejectedRow =
@@ -2749,24 +2749,26 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         (ticket.appointmentType || '').toLowerCase().includes('sameday');
 
                       const stickyBg = isExpanded
-                        ? 'bg-[#F5F1FF] dark:bg-[#251247]'
+                        ? 'bg-[#EAE8FF] dark:bg-[#251247]'
                         : isRejectedRow
-                        ? 'bg-[#FEF2F2] dark:bg-rose-950/25'
+                        ? 'bg-[#FCE9EB] dark:bg-rose-950/25'
                         : isUrgentRow
-                        ? 'bg-[#F9F4FF] dark:bg-[#2A174E]'
-                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
+                        ? 'bg-[#EAE8FF] dark:bg-[#2A174E]'
+                        : rowIdx % 2 === 1
+                        ? 'bg-[#F8FAFD] dark:bg-[#1E1238] group-hover:bg-[#F0EDFF] dark:group-hover:bg-[#251545]'
+                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F0EDFF] dark:group-hover:bg-[#251545]';
 
                       return (
                         <Fragment key={ticket.id}>
                           <tr
                             className={`group transition-colors ${
                               isExpanded
-                                ? 'bg-[#F0E3FF]/50 dark:bg-[#251247]/80'
+                                ? 'bg-[#EAE8FF]/70 dark:bg-[#251247]/80'
                                 : isRejectedRow
-                                ? 'bg-[#ffdad6]/20 dark:bg-rose-950/20 hover:bg-[#ffdad6]/30'
+                                ? 'bg-[#FCE9EB]/55 dark:bg-rose-950/20 hover:bg-[#FCE9EB]/80 dark:hover:bg-[#ffdad6]/30'
                                 : isUrgentRow
-                                ? 'bg-[#F0E3FF]/35 dark:bg-[#2A174E]/60 hover:bg-[#F5F1FF] dark:hover:bg-[#2A174E]'
-                                : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
+                                ? 'bg-[#EAE8FF]/45 dark:bg-[#2A174E]/60 hover:bg-[#EAE8FF]/75 dark:hover:bg-[#2A174E]'
+                                : 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#251545]/60'
                             }`}
                           >
                             {/* 1. Checkbox */}
@@ -2777,10 +2779,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   e.stopPropagation();
                                   handleToggleSelect(ticket.id);
                                 }}
-                                className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                                className="text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
                               >
                                 {isSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-[#7135B5] dark:text-[#A78BFA]" />
+                                  <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
                                 ) : (
                                   <Square className="w-4 h-4" />
                                 )}
@@ -2800,18 +2802,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                       onSelectTicket(ticket);
                                     }
                                   }}
-                                  className="font-mono text-xs font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline cursor-pointer tabular-nums"
+                                  className="font-mono text-xs font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:underline cursor-pointer tabular-nums"
                                 >
                                   {ticket.woNumber}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={e => handleCopyWoNumber(e, ticket)}
-                                  className="btn-3d-icon w-6 h-6 p-0 text-[#8B8495] hover:text-[#7135B5] cursor-pointer"
+                                  className="btn-3d-icon w-6 h-6 p-0 text-[#8492A5] hover:text-[#6657C8] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
                                   title="Copy WO Number"
                                 >
                                   {copiedWoId === ticket.id ? (
-                                    <Check className="w-3 h-3 text-[#16A36A]" />
+                                    <Check className="w-3 h-3 text-[#218A63] dark:text-[#16A36A]" />
                                   ) : (
                                     <Copy className="w-3 h-3" />
                                   )}
@@ -2819,16 +2821,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 {isSameday ? (
-                                  <span className="px-1.5 py-0.5 rounded bg-[#35105E] text-white text-[9.5px] font-bold shadow-2xs">
+                                  <span className="px-1.5 py-0.5 rounded bg-[#5145A6] dark:bg-[#35105E] text-white text-[9.5px] font-bold shadow-2xs">
                                     SAMEDAY
                                   </span>
                                 ) : ticket.ticketCategory ? (
-                                  <span className="px-1.5 py-0.5 rounded bg-[#7135B5]/15 dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] text-[9.5px] font-bold">
+                                  <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] text-[9.5px] font-bold">
                                     {ticket.ticketCategory}
                                   </span>
                                 ) : null}
                                 {packageOrCat && packageOrCat !== ticket.ticketCategory && (
-                                  <span className="text-[10px] text-[#8B8495] truncate max-w-[110px]">
+                                  <span className="text-[10px] text-[#8492A5] dark:text-[#8B8495] truncate max-w-[110px]">
                                     {packageOrCat}
                                   </span>
                                 )}
@@ -2836,17 +2838,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                             </td>
 
                             {/* 3. ID Cust */}
-                            <td className="py-3 px-3 align-top whitespace-nowrap font-mono text-xs font-bold text-[#211A2E] dark:text-white tabular-nums">
+                            <td className="py-3 px-3 align-top whitespace-nowrap font-mono text-xs font-bold text-[#26364A] dark:text-white tabular-nums">
                               {ticket.idCustomer || '-'}
                             </td>
 
                             {/* 4. Pelanggan & Kontak */}
                             <td className="py-3 px-3 align-top">
-                              <div className="font-bold text-[#211A2E] dark:text-white truncate max-w-[210px]">
+                              <div className="font-bold text-[#26364A] dark:text-white truncate max-w-[210px]">
                                 {ticket.customerName || '-'}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="font-mono text-[11.5px] text-[#766B83] dark:text-[#CEC0E8] tabular-nums">
+                                <span className="font-mono text-[11.5px] text-[#52647A] dark:text-[#CEC0E8] tabular-nums">
                                   {phoneStr || '-'}
                                 </span>
                                 {phoneStr && (
@@ -2856,7 +2858,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                       e.stopPropagation();
                                       onOpenWhatsApp(ticket);
                                     }}
-                                    className="w-5 h-5 rounded-full bg-[#16A36A] text-white flex items-center justify-center hover:opacity-90 transition-opacity shadow-2xs cursor-pointer shrink-0"
+                                    className="w-5 h-5 rounded-full bg-[#218A63] dark:bg-[#16A36A] text-white flex items-center justify-center hover:opacity-90 transition-opacity shadow-2xs cursor-pointer shrink-0"
                                     title="Buka WhatsApp Pelanggan"
                                   >
                                     <MessageSquare className="w-3 h-3" />
@@ -2870,10 +2872,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     e.stopPropagation();
                                     openCustomerAddressInGoogleMaps(ticket);
                                   }}
-                                  className="flex items-center gap-1 text-[#8B8495] hover:text-[#431599] dark:hover:text-[#D8B4FE] mt-1 text-[11px] truncate max-w-[215px] cursor-pointer text-left"
+                                  className="flex items-center gap-1 text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] mt-1 text-[11px] truncate max-w-[215px] cursor-pointer text-left"
                                   title={showHoverTooltips ? addressStr : 'Buka lokasi di Google Maps'}
                                 >
-                                  <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0" />
+                                  <MapPin className="w-3.5 h-3.5 text-[#D45B66] dark:text-[#DC4C5A] shrink-0" />
                                   <span className="truncate hover:underline">{addressStr}</span>
                                 </button>
                               )}
@@ -2881,14 +2883,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                             {/* 5. Area / Cluster */}
                             <td className="py-3 px-3 align-top">
-                              <div className="font-semibold text-[#211A2E] dark:text-white">
+                              <div className="font-semibold text-[#26364A] dark:text-white">
                                 {ticket.area || '-'}
                               </div>
-                              <div className="text-[11px] text-[#766B83] dark:text-[#CEC0E8] truncate max-w-[165px]">
+                              <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate max-w-[165px]">
                                 {ticket.clusterName || '-'}
                               </div>
                               {fatLabel && (
-                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-[#F4EAFF] dark:bg-[#22123F] text-[10px] font-mono font-semibold text-[#766B83] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#35105E]">
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#22123F] text-[10px] font-mono font-semibold text-[#5145A6] dark:text-[#D8B4FE] border border-[#DCE3F2] dark:border-[#35105E]">
                                   {fatLabel}
                                 </span>
                               )}
@@ -2896,32 +2898,32 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                             {/* 6. Slot Waktu */}
                             <td className="py-3 px-3 align-top whitespace-nowrap">
-                              <div className="flex items-center gap-1 text-[#211A2E] dark:text-white font-semibold">
-                                <Clock className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#A78BFA] shrink-0" />
+                              <div className="flex items-center gap-1 text-[#26364A] dark:text-white font-semibold">
+                                <Clock className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A78BFA] shrink-0" />
                                 <span className="tabular-nums">{ticket.slotTime || '-'}</span>
                               </div>
-                              <span className="text-[11px] text-[#8B8495] block mt-0.5 tabular-nums">
+                              <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495] block mt-0.5 tabular-nums">
                                 WIB · {formatIndonesianWODate(getTicketAppointmentDate(ticket) || todayWIB)}
                               </span>
                             </td>
 
                             {/* 7. Kontraktor & Tim */}
                             <td className="py-3 px-3 align-top">
-                              <div className="font-medium text-[#211A2E] dark:text-white truncate max-w-[170px]">
+                              <div className="font-medium text-[#26364A] dark:text-white truncate max-w-[170px]">
                                 {contractorStr}
                               </div>
                               {ticket.installerName ? (
-                                <div className="flex items-center gap-1 text-[11px] text-[#35105E] dark:text-[#D8B4FE] font-semibold mt-0.5">
+                                <div className="flex items-center gap-1 text-[11px] text-[#5145A6] dark:text-[#D8B4FE] font-semibold mt-0.5">
                                   <UserCheck className="w-3 h-3 shrink-0" />
                                   <span className="truncate max-w-[145px]">{ticket.installerName}</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-1 text-[11px] text-[#DC4C5A] font-semibold mt-0.5">
+                                <div className="flex items-center gap-1 text-[11px] text-[#D45B66] dark:text-[#DC4C5A] font-semibold mt-0.5">
                                   <UserX className="w-3 h-3 shrink-0" />
                                   <span>Belum Ada Teknisi</span>
                                 </div>
                               )}
-                              <div className="text-[11px] text-[#8B8495] truncate max-w-[165px]">
+                              <div className="text-[11px] text-[#8492A5] dark:text-[#8B8495] truncate max-w-[165px]">
                                 Korlap: {ticket.leaderName || '-'}
                               </div>
                             </td>
@@ -2940,10 +2942,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' ? (
                                     <StatusApprovalBadge status={ticket.approvalStatus} />
                                   ) : (
-                                    <span className="text-[11px] text-[#8B8495]">-</span>
+                                    <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495]">-</span>
                                   )}
                                   {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
-                                    <span className="px-1.5 py-0.5 rounded bg-[#27104A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase tracking-wide">
+                                    <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase tracking-wide">
                                       Closed
                                     </span>
                                   )}
@@ -2953,7 +2955,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                             {/* 9. Sticky-Right Aksi Operasional (3D Dispatch Review + Detail Ticket) */}
                             <td
-                              className={`py-3 px-3 align-top text-right whitespace-nowrap sticky right-0 z-10 ${stickyBg} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.03)] transition-colors`}
+                              className={`py-3 px-3 align-top text-right whitespace-nowrap sticky right-0 z-10 ${stickyBg} shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.05)] transition-colors`}
                             >
                               <div className="flex items-center justify-end gap-1.5">
                                 {canApproveInline && (isUrgentRow || hasInlineEvidence) && (
@@ -2979,7 +2981,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                                   title="Buka Detail Ticket"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-[#7135B5] dark:text-[#D8B4FE]" />
+                                  <Eye className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
                                   <span>Detail</span>
                                 </button>
                               </div>
@@ -3001,22 +3003,22 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               </table>
             ) : (
               /* CANONICAL 46-COLUMN CONFIGURABLE TABLE */
-              <table className="w-full border-collapse text-left">
+              <table className="w-full border-collapse text-left mj-zebra-table">
                 <thead>
-                  <tr className="bg-[#F4EAFF] dark:bg-[#251545] border-b border-[#D8CCF3] dark:border-[#35105E] text-[11px] font-bold text-[#58149c] dark:text-[#dab9ff] uppercase tracking-wider">
+                  <tr className="bg-[#EDF3F8] dark:bg-[#251545] border-b border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-bold text-[#52647A] dark:text-[#dab9ff] uppercase tracking-wider">
                     <th
-                      className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#F4EAFF] dark:bg-[#251545] border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
+                      className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#EDF3F8] dark:bg-[#251545] border-r border-[#DDE6F0] dark:border-[#35105E] ${
                         stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
                       } ${
                         stickyColumnsEnabled && freezeColumnCount === 1
-                          ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]'
+                          ? 'shadow-[2px_0_4px_-2px_rgba(38,54,74,0.08)]'
                           : ''
                       }`}
                     >
                       <button
                         type="button"
                         onClick={handleSelectAll}
-                        className="text-[#431599] dark:text-[#D8B4FE] cursor-pointer"
+                        className="text-[#5145A6] dark:text-[#D8B4FE] cursor-pointer"
                       >
                         {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
                           <CheckSquare className="w-4 h-4" />
@@ -3040,11 +3042,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                             ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
                           }}
                           className={`py-3 px-3.5 whitespace-nowrap ${
-                            col.sortable ? 'cursor-pointer hover:bg-[#E9D5FF]/50 dark:hover:bg-[#35105E]' : ''
+                            col.sortable ? 'cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-[#35105E]' : ''
                           } ${
                             stickyInfo
-                              ? `sticky bg-[#F4EAFF] dark:bg-[#251545] z-20 border-r border-[#D8CCF3]/60 dark:border-[#35105E] ${
-                                  stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.12)]' : ''
+                              ? `sticky bg-[#EDF3F8] dark:bg-[#251545] z-20 border-r border-[#DDE6F0] dark:border-[#35105E] ${
+                                  stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(38,54,74,0.10)]' : ''
                                 }`
                               : ''
                           }`}
@@ -3066,10 +3068,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     })}
 
                     <th
-                      className={`py-3 px-3.5 whitespace-nowrap text-center bg-[#F4EAFF] dark:bg-[#251545] ${
+                      className={`py-3 px-3.5 whitespace-nowrap text-center bg-[#EDF3F8] dark:bg-[#251545] ${
                         stickyColumnsEnabled
-                          ? 'sticky right-0 z-20 border-l border-[#D8CCF3]/60 dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
-                          : 'border-l border-[#D8CCF3]/60 dark:border-[#35105E]'
+                          ? 'sticky right-0 z-20 border-l border-[#DDE6F0] dark:border-[#35105E] shadow-[-2px_0_4px_-2px_rgba(38,54,74,0.06)]'
+                          : 'border-l border-[#DDE6F0] dark:border-[#35105E]'
                       }`}
                     >
                       Aksi Operasional
@@ -3077,10 +3079,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-[#E9E5F0] dark:divide-[#35105E]">
+                <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
                   {paginatedTickets.length === 0 ? (
                     <tr>
-                      <td colSpan={canonicalColSpan} className="py-12 text-center text-[#8B8495] text-xs">
+                      <td colSpan={canonicalColSpan} className="py-12 text-center text-[#8492A5] dark:text-[#8B8495] text-xs">
                         Tidak ada tiket Work Order yang cocok dengan filter.
                       </td>
                     </tr>
@@ -3091,14 +3093,16 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           <td colSpan={canonicalColSpan} style={{ height: `${virtualRange.topSpacerPx}px`, padding: 0, border: 0 }} />
                         </tr>
                       )}
-                      {virtualizedTickets.map(ticket => {
+                      {virtualizedTickets.map((ticket, rowIdx) => {
                       const isSelected = selectedIds.has(ticket.id);
                       const isExpanded = expandedDrawerTicketId === ticket.id;
                       const stickyCellBg = isExpanded
-                        ? 'bg-[#F5F1FF] dark:bg-[#251247]'
+                        ? 'bg-[#EAE8FF] dark:bg-[#251247]'
                         : isSelected
-                        ? 'bg-[#F5F1FF] dark:bg-[#2E1459]'
-                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F7F6FA] dark:group-hover:bg-[#251545]';
+                        ? 'bg-[#EAE8FF] dark:bg-[#2E1459]'
+                        : rowIdx % 2 === 1
+                        ? 'bg-[#F8FAFD] dark:bg-[#1E1238] group-hover:bg-[#F0EDFF] dark:group-hover:bg-[#251545]'
+                        : 'bg-white dark:bg-[#1E1238] group-hover:bg-[#F0EDFF] dark:group-hover:bg-[#251545]';
 
                       const hasInlineEvidence =
                         ticket.approvalStatus === 'BUTUH APPROVAL' ||
@@ -3113,18 +3117,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           <tr
                             className={`group transition-colors ${
                               isExpanded
-                                ? 'bg-[#F5F1FF]/70 dark:bg-[#251247]/70'
+                                ? 'bg-[#EAE8FF]/70 dark:bg-[#251247]/70'
                                 : isSelected
-                                ? 'bg-[#F5F1FF]/50 dark:bg-[#2E1459]/40'
-                                : 'hover:bg-[#F7F6FA] dark:hover:bg-[#251545]/60'
+                                ? 'bg-[#EAE8FF]/50 dark:bg-[#2E1459]/40'
+                                : 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#251545]/60'
                             }`}
                           >
                             <td
-                              className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                              className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#DDE6F0] dark:border-[#35105E] transition-colors ${
                                 stickyColumnsEnabled ? 'sticky left-0 z-10' : ''
                               } ${
                                 stickyColumnsEnabled && freezeColumnCount === 1
-                                  ? 'shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                  ? 'shadow-[2px_0_4px_-2px_rgba(38,54,74,0.06)]'
                                   : ''
                               }`}
                             >
@@ -3134,10 +3138,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   e.stopPropagation();
                                   handleToggleSelect(ticket.id);
                                 }}
-                                className="text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                                className="text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
                               >
                                 {isSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-[#431599] dark:text-[#A78BFA]" />
+                                  <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
                                 ) : (
                                   <Square className="w-4 h-4" />
                                 )}
@@ -3154,8 +3158,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
                               };
                               const stickyClasses = stickyInfo
-                                ? `sticky ${stickyCellBg} z-10 border-r border-[#E9E5F0] dark:border-[#35105E] ${
-                                    stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(67,21,153,0.10)]' : ''
+                                ? `sticky ${stickyCellBg} z-10 border-r border-[#DDE6F0] dark:border-[#35105E] ${
+                                    stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(38,54,74,0.08)]' : ''
                                   } transition-colors`
                                 : '';
 
@@ -3169,7 +3173,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                           e.stopPropagation();
                                           onSelectTicket(ticket);
                                         }}
-                                        className="font-mono font-bold text-[#431599] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
+                                        className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:underline tabular-nums cursor-pointer text-left"
                                         title={showHoverTooltips ? ticket.woNumber : undefined}
                                       >
                                         {ticket.woNumber}
@@ -3177,11 +3181,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                       <button
                                         type="button"
                                         onClick={e => handleCopyWoNumber(e, ticket)}
-                                        className="btn-3d-icon w-6 h-6 p-0 text-[#8B8495] hover:text-[#431599] cursor-pointer"
+                                        className="btn-3d-icon w-6 h-6 p-0 text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
                                         title="Salin Nomor WO"
                                       >
                                         {copiedWoId === ticket.id ? (
-                                          <Check className="w-3 h-3 text-[#16A36A]" />
+                                          <Check className="w-3 h-3 text-[#218A63] dark:text-[#16A36A]" />
                                         ) : (
                                           <Copy className="w-3 h-3" />
                                         )}
@@ -3197,7 +3201,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     key={col.key}
                                     style={stickyStyle}
                                     title={showHoverTooltips ? String(ticket.idCustomer || '') : undefined}
-                                    className={`${densityClass} ${stickyClasses} font-mono font-semibold text-[#211A2E] dark:text-white tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono font-semibold text-[#26364A] dark:text-white tabular-nums`}
                                   >
                                     {ticket.idCustomer || '-'}
                                   </td>
@@ -3210,7 +3214,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     key={col.key}
                                     style={stickyStyle}
                                     title={showHoverTooltips ? ticket.customerName : undefined}
-                                    className={`${densityClass} ${stickyClasses} font-semibold text-[#211A2E] dark:text-white truncate max-w-[220px]`}
+                                    className={`${densityClass} ${stickyClasses} font-semibold text-[#26364A] dark:text-white truncate max-w-[220px]`}
                                   >
                                     {ticket.customerName || '-'}
                                   </td>
@@ -3224,7 +3228,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     key={col.key}
                                     style={stickyStyle}
                                     title={showHoverTooltips && phoneStr ? phoneStr : undefined}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#52647A] dark:text-[#CEC0E8] tabular-nums whitespace-nowrap`}
                                   >
                                     {col.key === 'customerPhone' && phoneStr ? (
                                       <button
@@ -3233,7 +3237,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                           e.stopPropagation();
                                           onOpenWhatsApp(ticket);
                                         }}
-                                        className="inline-flex items-center gap-1.5 text-[#16A36A] hover:underline font-semibold cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 text-[#218A63] dark:text-[#16A36A] hover:underline font-semibold cursor-pointer"
                                         title="Kirim pesan WhatsApp ke pelanggan"
                                       >
                                         <MessageSquare className="w-3 h-3 shrink-0" />
@@ -3252,7 +3256,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     <div className="inline-flex items-center gap-1 flex-wrap">
                                       <StatusAgentBadge status={ticket.statusWOAgent} />
                                       {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
-                                        <span className="px-1.5 py-0.5 rounded bg-[#27104A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase">
+                                        <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase">
                                           Closed
                                         </span>
                                       )}
@@ -3292,7 +3296,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     key={col.key}
                                     style={stickyStyle}
                                     title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#26364A] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
                                   >
                                     {formattedDate || '-'}
                                   </td>
@@ -3312,7 +3316,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     key={col.key}
                                     style={stickyStyle}
                                     title={showHoverTooltips && rawVal ? String(rawVal) : undefined}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
                                   >
                                     {formattedTs || '-'}
                                   </td>
@@ -3324,7 +3328,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   <td
                                     key={col.key}
                                     style={stickyStyle}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#26364A] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
                                   >
                                     {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
                                       ? `${rawVal} mnt`
@@ -3339,7 +3343,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   <td
                                     key={col.key}
                                     style={stickyStyle}
-                                    className={`${densityClass} ${stickyClasses} text-[#494453] dark:text-[#CEC0E8] max-w-xs`}
+                                    className={`${densityClass} ${stickyClasses} text-[#52647A] dark:text-[#CEC0E8] max-w-xs`}
                                   >
                                     <button
                                       type="button"
@@ -3347,14 +3351,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                         e.stopPropagation();
                                         openCustomerAddressInGoogleMaps(ticket);
                                       }}
-                                      className="group/map flex items-start gap-1.5 text-left hover:text-[#431599] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
+                                      className="group/map flex items-start gap-1.5 text-left hover:text-[#5145A6] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer w-full"
                                       title={
                                         showHoverTooltips && addrStr
                                           ? addrStr
                                           : 'Klik untuk membuka lokasi pelanggan di Google Maps'
                                       }
                                     >
-                                      <MapPin className="w-3.5 h-3.5 text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
+                                      <MapPin className="w-3.5 h-3.5 text-[#D45B66] dark:text-[#DC4C5A] shrink-0 mt-0.5 group-hover/map:scale-110 transition-transform" />
                                       <span className="truncate group-hover/map:underline">
                                         {addrStr || '-'}
                                       </span>
@@ -3372,8 +3376,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                       <span
                                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[11px] font-bold tabular-nums ${
                                           col.key === 'rosetRedamanDbm' && isOutOfSpec
-                                            ? 'bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA]'
-                                            : 'bg-[#ECFDF5] text-[#16A36A] border border-[#A7F3D0]'
+                                            ? 'bg-[#FCE9EB] text-[#9B2C37] border border-[#F3C5CA]'
+                                            : 'bg-[#E4F5EC] text-[#218A63] border border-[#B7E4CC]'
                                         }`}
                                       >
                                         {String(rawVal).toLowerCase().includes('dbm')
@@ -3381,7 +3385,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                           : `${rawVal} dBm`}
                                       </span>
                                     ) : (
-                                      <span className="text-[#8B8495] italic font-normal">-</span>
+                                      <span className="text-[#8492A5] dark:text-[#8B8495] italic font-normal">-</span>
                                     )}
                                   </td>
                                 );
@@ -3393,7 +3397,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   <td
                                     key={col.key}
                                     style={stickyStyle}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#211A2E] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#26364A] dark:text-[#F5F1FF] whitespace-nowrap tabular-nums`}
                                   >
                                     {dcStr ? (dcStr.toLowerCase().endsWith('m') ? dcStr : `${dcStr} m`) : '-'}
                                   </td>
@@ -3405,7 +3409,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   <td
                                     key={col.key}
                                     style={stickyStyle}
-                                    className={`${densityClass} ${stickyClasses} font-mono text-[#494453] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
+                                    className={`${densityClass} ${stickyClasses} font-mono text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap tabular-nums`}
                                   >
                                     {rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== ''
                                       ? `${rawVal} km`
@@ -3418,11 +3422,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 return (
                                   <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                     {ticket.installerName ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] border border-[#D8CCF3] dark:border-[#5B35B1] whitespace-nowrap">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#DCE3F2] dark:border-[#5B35B1] whitespace-nowrap">
                                         {ticket.installerName}
                                       </span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF3C7] dark:bg-amber-950/40 text-[#92400E] dark:text-amber-300 border border-[#F59E0B]/40 whitespace-nowrap">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FFF2D9] dark:bg-amber-950/40 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] whitespace-nowrap">
                                         Belum Ditugaskan
                                       </span>
                                     )}
@@ -3437,8 +3441,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tabular-nums ${
                                         count > 0
-                                          ? 'bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/40'
-                                          : 'bg-[#F7F6FA] dark:bg-[#251545] text-[#766B83] dark:text-[#CEC0E8]'
+                                          ? 'bg-[#FFF2D9] text-[#9D661F] border border-[#F2CF95]'
+                                          : 'bg-[#EDF3F8] dark:bg-[#251545] text-[#52647A] dark:text-[#CEC0E8]'
                                       }`}
                                     >
                                       {count}x
@@ -3452,12 +3456,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 return (
                                   <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses} whitespace-nowrap`}>
                                     {count > 0 ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4EAFF] dark:bg-[#35105E] text-[#431599] dark:text-[#D8B4FE] font-mono text-[11px] font-bold tabular-nums">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] font-mono text-[11px] font-bold tabular-nums">
                                         <Camera className="w-3 h-3" />
                                         <span>{count}</span>
                                       </span>
                                     ) : (
-                                      <span className="text-[#8B8495] italic font-normal">0</span>
+                                      <span className="text-[#8492A5] dark:text-[#8B8495] italic font-normal">0</span>
                                     )}
                                   </td>
                                 );
@@ -3476,14 +3480,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                         {flags.map(flag => (
                                           <span
                                             key={flag}
-                                            className="px-1.5 py-0.5 rounded bg-[#FEF2F2] text-[#DC4C5A] border border-[#FECACA] font-mono text-[10px] font-bold"
+                                            className="px-1.5 py-0.5 rounded bg-[#FCE9EB] text-[#9B2C37] border border-[#F3C5CA] font-mono text-[10px] font-bold"
                                           >
                                             {flag}
                                           </span>
                                         ))}
                                       </div>
                                     ) : (
-                                      <span className="text-[#16A36A] text-[11px] font-semibold">Valid</span>
+                                      <span className="text-[#218A63] dark:text-[#16A36A] text-[11px] font-semibold">Valid</span>
                                     )}
                                   </td>
                                 );
@@ -3499,13 +3503,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                           e.stopPropagation();
                                           onSelectTicket(ticket, 'report');
                                         }}
-                                        className="inline-flex items-center gap-1 text-[#431599] dark:text-[#D8B4FE] hover:underline text-[11px] font-semibold cursor-pointer"
+                                        className="inline-flex items-center gap-1 text-[#5145A6] dark:text-[#D8B4FE] hover:underline text-[11px] font-semibold cursor-pointer"
                                       >
                                         <ExternalLink className="w-3 h-3" />
                                         <span>Lihat TTD</span>
                                       </button>
                                     ) : (
-                                      <span className="text-[#8B8495] italic font-normal">-</span>
+                                      <span className="text-[#8492A5] dark:text-[#8B8495] italic font-normal">-</span>
                                     )}
                                   </td>
                                 );
@@ -3521,22 +3525,22 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   key={col.key}
                                   style={stickyStyle}
                                   title={showHoverTooltips && displayValue ? displayValue : undefined}
-                                  className={`${densityClass} ${stickyClasses} text-[#211A2E] dark:text-[#F5F1FF] ${
+                                  className={`${densityClass} ${stickyClasses} text-[#26364A] dark:text-[#F5F1FF] ${
                                     col.format === 'code' ? 'font-mono tabular-nums' : ''
                                   } ${
                                     col.wrapText ? 'break-words max-w-xs' : 'whitespace-nowrap truncate max-w-xs'
                                   }`}
                                 >
-                                  {displayValue || <span className="text-[#8B8495] italic font-normal">-</span>}
+                                  {displayValue || <span className="text-[#8492A5] dark:text-[#8B8495] italic font-normal">-</span>}
                                 </td>
                               );
                             })}
 
                             {/* Sticky-Right Actions Cell */}
                             <td
-                              className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#E9E5F0] dark:border-[#35105E] transition-colors ${
+                              className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#DDE6F0] dark:border-[#35105E] transition-colors ${
                                 stickyColumnsEnabled
-                                  ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                  ? 'sticky right-0 z-10 shadow-[-2px_0_4px_-2px_rgba(38,54,74,0.06)]'
                                   : ''
                               }`}
                             >
@@ -3685,12 +3689,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           />
 
           {/* Live Dispatch Log & Audit Telemetry (Real auditLogs) */}
-          <div className="px-4 py-3.5 bg-[#FAF5FF] dark:bg-[#160D29]/85 border-t border-[#E8DDFF] dark:border-[#35105E] space-y-2.5">
+          <div className="px-4 py-3.5 bg-[#F8FAFD] dark:bg-[#160D29]/85 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-extrabold text-[#1F1638] dark:text-white">
-                <Activity className="w-4 h-4 text-[#58149C] dark:text-[#DAB9FF] shrink-0" />
+              <div className="flex items-center gap-2 text-xs font-extrabold text-[#26364A] dark:text-white">
+                <Activity className="w-4 h-4 text-[#6657C8] dark:text-[#DAB9FF] shrink-0" />
                 <span>Live Dispatch Log &amp; Operational Audit</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 text-[10px] font-bold">
                   WIB · {databaseStatus === 'connected' ? 'SSE ACTIVE' : databaseStatus.toUpperCase()}
                 </span>
               </div>
@@ -3705,7 +3709,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       : 'history_progress'
                   )
                 }
-                className="text-xs font-bold text-[#58149C] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
                 <span>
                   {currentUser.role === 'super_admin'
@@ -3724,23 +3728,23 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   const actLower = String(log.action || '').toLowerCase();
                   const badgeCls =
                     actLower.includes('reject') || actLower.includes('delete')
-                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200'
+                      ? 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/70 dark:text-rose-200'
                       : actLower.includes('approve') || actLower.includes('closed')
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200'
-                      : 'bg-[#F3EAFF] text-[#58149C] dark:bg-[#2E1459] dark:text-[#DAB9FF]';
+                      ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-200'
+                      : 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]';
                   return (
                     <div
                       key={log.id}
-                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-[#1E1238] border border-[#E8DDFF] dark:border-[#35105E] text-[11px]"
+                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[11px]"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono text-[10px] text-[#7D7484] dark:text-[#CEC0E8] shrink-0 tabular-nums">
+                        <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#CEC0E8] shrink-0 tabular-nums">
                           {formatTimeOnlyWIB(log.timestamp)}
                         </span>
-                        <span className="font-bold text-[#58149C] dark:text-[#DAB9FF] shrink-0">
+                        <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
                           {log.performedBy}
                         </span>
-                        <span className="text-[#211A2E] dark:text-white truncate">{log.details}</span>
+                        <span className="text-[#26364A] dark:text-white truncate">{log.details}</span>
                       </div>
                       <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase shrink-0 ${badgeCls}`}>
                         {log.action}
@@ -3750,7 +3754,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-between text-xs text-[#7D7484] dark:text-[#CEC0E8]">
+              <div className="flex items-center justify-between text-xs text-[#52647A] dark:text-[#CEC0E8]">
                 <span>
                   Data ditampilkan sesuai zona waktu <strong>Asia/Jakarta (WIB)</strong> · Sync: {syncStatus}
                 </span>
@@ -3765,7 +3769,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
       {/* Cards Mode Pagination Footer (only when Cards layout active) */}
       {effectiveLayout === 'cards' && sortedTickets.length > 0 && (
-        <div className="bg-white dark:bg-[#1E1238] rounded-xl border border-[#E9E5F0] dark:border-[#35105E] overflow-hidden">
+        <div className="bg-white/95 dark:bg-[#1E1238] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] overflow-hidden">
           <PaginationBar
             currentPage={currentPage}
             totalPages={Math.max(1, totalPages)}

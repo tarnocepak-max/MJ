@@ -28,13 +28,13 @@ export const NotificationEmptyState: React.FC<NotificationEmptyStateProps> = ({
         aria-live="polite"
         className={`flex flex-col items-center justify-center text-center ${compact ? 'p-6' : 'p-10'}`}
       >
-        <div className="w-12 h-12 rounded-[16px] bg-[#EEE5FF] dark:bg-[#2B1354] text-[#5424A8] dark:text-[#DDD0FF] flex items-center justify-center mb-3 border border-[#D8C5FF] dark:border-[#5424A8]/50">
+        <div className="w-12 h-12 rounded-[16px] bg-[#EAE8FF] dark:bg-[#2B1354] text-[#5145A6] dark:text-[#DDD0FF] flex items-center justify-center mb-3 border border-[#DCE3F2] dark:border-[#5424A8]/50">
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
-        <p className="text-xs sm:text-sm font-bold text-[#28203A] dark:text-white">
+        <p className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white">
           Menyelaraskan notifikasi operasional...
         </p>
-        <p className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] mt-1 max-w-xs">
+        <p className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] mt-1 max-w-xs">
           Mengambil status tiket, antrean verifikasi, dan live chat sesuai peran Anda.
         </p>
       </div>
@@ -47,13 +47,13 @@ export const NotificationEmptyState: React.FC<NotificationEmptyStateProps> = ({
         role="alert"
         className={`flex flex-col items-center justify-center text-center ${compact ? 'p-6' : 'p-10'}`}
       >
-        <div className="w-12 h-12 rounded-[16px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 flex items-center justify-center mb-3 border border-rose-200 dark:border-rose-800/70">
+        <div className="w-12 h-12 rounded-[16px] bg-[#FCE9EB] dark:bg-rose-950/50 text-[#D45B66] dark:text-rose-300 flex items-center justify-center mb-3 border border-[#F3C5CA] dark:border-rose-800/70">
           <AlertTriangle className="w-5 h-5" />
         </div>
-        <p className="text-xs sm:text-sm font-bold text-[#28203A] dark:text-white">
+        <p className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white">
           Sinkronisasi notifikasi mengalami kendala
         </p>
-        <p className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] mt-1 max-w-xs leading-relaxed">
+        <p className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] mt-1 max-w-xs leading-relaxed">
           {errorMessage || 'Tidak dapat memuat pembaruan terbaru dari server.'}
         </p>
         {onRetry && (
@@ -87,13 +87,13 @@ export const NotificationEmptyState: React.FC<NotificationEmptyStateProps> = ({
 
   return (
     <div className={`flex flex-col items-center justify-center text-center ${compact ? 'p-6' : 'p-10'}`}>
-      <div className="w-12 h-12 rounded-[16px] bg-[#EEE5FF] dark:bg-[#2B1354] text-[#5424A8] dark:text-[#D8C2FF] flex items-center justify-center mb-3 border border-[#DFCFFF] dark:border-[#5424A8]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-none">
+      <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-[#DDF4F4] to-[#EAE8FF] dark:from-[#2B1354] dark:to-[#2B1354] text-[#5145A6] dark:text-[#D8C2FF] flex items-center justify-center mb-3 border border-[#CFDCE8] dark:border-[#5424A8]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-none">
         <BellOff className="w-5 h-5" />
       </div>
-      <p className="text-xs sm:text-sm font-bold text-[#28203A] dark:text-white">
+      <p className="text-xs sm:text-sm font-bold text-[#26364A] dark:text-white">
         {titleByTab}
       </p>
-      <p className="text-[11px] text-[#756C86] dark:text-[#BFB2DC] mt-1 max-w-xs leading-relaxed">
+      <p className="text-[11px] text-[#52647A] dark:text-[#BFB2DC] mt-1 max-w-xs leading-relaxed">
         {descByTab}
       </p>
       {hasActiveFilter && onResetFilters && (
