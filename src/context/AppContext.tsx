@@ -379,7 +379,21 @@ interface AppContextType {
   bulkImportTickets: (
     imported: Partial<Ticket>[],
     options?: { duplicatePolicy?: 'skip' | 'update_allowed' | 'review' }
-  ) => { importedCount: number; updatedCount?: number; duplicatesIgnored: number; rejectedDuplicates?: string[]; distributedCount?: number; undistributedCount?: number };
+  ) => Promise<{
+    success: boolean;
+    partialSuccess?: boolean;
+    importedCount: number;
+    updatedCount?: number;
+    duplicatesIgnored: number;
+    invalidCount?: number;
+    failedCount?: number;
+    importedWoNumbers?: string[];
+    failedWoNumbers?: string[];
+    rejectedDuplicates?: string[];
+    distributedCount?: number;
+    undistributedCount?: number;
+    error?: string;
+  }>;
   deleteImportedTicketsByDate: (importDate: string, reason: string) => { success: boolean; count: number; error?: string };
 
   // Live Chat
@@ -595,6 +609,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isProgressiveHydrating, setIsProgressiveHydrating] = useState<boolean>(false);
   const lastDeltaWatermarkRef = useRef<string>(new Date().toISOString());
   const syncRetryCountRef = useRef<number>(0);
+  const lastRolePermVersionRef = useRef<number | null>(null);
+  const lastGlobalConfigVersionRef = useRef<string | number | null>(null);
   const protectedEditNotifiedRef = useRef<Set<string>>(new Set());
   const centralBootAbortRef = useRef<AbortController | null>(null);
   const deltaSyncAbortRef = useRef<AbortController | null>(null);
@@ -1497,22 +1513,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Safety Delta Sync fallback ONLY when SSE stream is not healthy/connected (avoids redundant polling when push SSE is active)
+    // Adaptive Delta Sync Coordinator:
+    // - Runs every 15s when Vercel/serverless Delta Polling transport is active (SSE disabled to avoid 30s timeouts).
+    // - Runs every 30s as a safety catch-up when persistent SSE is not yet 'connected'.
+    // - Pauses automatically when offline, tab is hidden, or exponential backoff retry is active.
     const pollInterval = setInterval(() => {
-      if (
-        !isCancelled &&
-        navigator.onLine &&
-        document.visibilityState === 'visible' &&
-        !currentUserRef.current?.mustChangePassword &&
-        supabaseDb.getRealtimeStatus().state !== 'connected'
-      ) {
-        if (ticketsRef.current.length > 0) {
-          runDeltaSync().catch(() => {});
-        } else {
-          loadCentralData().catch(() => {});
-        }
+      if (isCancelled) return;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      if (currentUserRef.current?.mustChangePassword) return;
+      if (deltaSyncRetryTimerRef.current) return; // Let backoff timer drive retry cleanly
+
+      const rtStatus = supabaseDb.getRealtimeStatus();
+      const isDeltaTransport = rtStatus.transport === 'delta_polling';
+      if (!isDeltaTransport && rtStatus.state === 'connected') {
+        return; // Persistent SSE push stream is healthy
       }
-    }, 30000);
+
+      if (ticketsRef.current.length > 0) {
+        runDeltaSync().catch(() => {});
+      } else {
+        loadCentralData().catch(() => {});
+      }
+    }, supabaseDb.getRealtimeTransport() === 'delta_polling' ? 15000 : 20000);
 
     return () => {
       isCancelled = true;
@@ -1685,6 +1708,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lastDeltaWatermarkRef.current = data.serverTime;
     }
 
+    if (data.realtimeTransport || data.sseSupported === false) {
+      supabaseDb.setTransportHintFromServer(data.realtimeTransport, data.sseSupported, 15000);
+    }
+
     setDatabaseStatus('connected');
     setIsDatabaseReady(true);
     setSyncStatus('SAVED');
@@ -1735,6 +1762,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         if (!data?.success) throw new Error(data?.error || 'Delta sync gagal');
 
+        if (data.realtimeTransport || data.sseSupported === false) {
+          supabaseDb.setTransportHintFromServer(data.realtimeTransport, data.sseSupported, 15000);
+        }
+
         const updatedTickets: Ticket[] = Array.isArray(data.tickets) ? data.tickets : [];
         const deletedIds: string[] = Array.isArray(data.deletedIds) ? data.deletedIds : [];
         const deltaMessages: TicketMessage[] = Array.isArray(data.ticketMessages) ? data.ticketMessages : [];
@@ -1758,6 +1789,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           if (updatedTickets.length > 0 || deletedIds.length > 0) {
             scheduleKpiRefreshRef.current?.();
+            updatedTickets.slice(0, 20).forEach(ut => {
+              supabaseDb.dispatchExternalRealtimeEvent({
+                table: 'work_orders',
+                eventType: 'UPDATE',
+                record: ut,
+                timestamp: data.serverTime
+              });
+            });
+            deletedIds.slice(0, 20).forEach(did => {
+              supabaseDb.dispatchExternalRealtimeEvent({
+                table: 'work_orders',
+                eventType: 'DELETE',
+                record: { id: did, isDeleted: true },
+                timestamp: data.serverTime
+              });
+            });
           }
         }
 
@@ -1790,14 +1837,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             );
           });
           triggerDeliveryReceiptsForMessages(deltaMessages);
+          deltaMessages.slice(-10).forEach(dm => {
+            supabaseDb.dispatchExternalRealtimeEvent({
+              table: 'ticket_messages',
+              eventType: 'INSERT',
+              record: dm,
+              timestamp: data.serverTime
+            });
+          });
         }
 
         if (data.rolePermissions && typeof data.rolePermissions === 'object') {
           setDynamicRolePermissions(data.rolePermissions);
           setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...data.rolePermissions });
           if (typeof data.rolePermissionsVersion === 'number') {
+            if (lastRolePermVersionRef.current !== null && lastRolePermVersionRef.current !== data.rolePermissionsVersion) {
+              supabaseDb.dispatchExternalRealtimeEvent({
+                table: 'roles',
+                eventType: 'UPDATE',
+                record: { version: data.rolePermissionsVersion },
+                timestamp: data.serverTime
+              });
+            }
+            lastRolePermVersionRef.current = data.rolePermissionsVersion;
             setRolePermissionsVersion(data.rolePermissionsVersion);
           }
+        }
+        if (
+          data.globalConfigVersion !== undefined &&
+          data.globalConfigVersion !== null &&
+          lastGlobalConfigVersionRef.current !== null &&
+          lastGlobalConfigVersionRef.current !== data.globalConfigVersion
+        ) {
+          supabaseDb.dispatchExternalRealtimeEvent({
+            table: 'app_settings',
+            eventType: 'UPDATE',
+            record: { version: data.globalConfigVersion },
+            timestamp: data.serverTime
+          });
+        }
+        if (data.globalConfigVersion !== undefined && data.globalConfigVersion !== null) {
+          lastGlobalConfigVersionRef.current = data.globalConfigVersion;
         }
         if (data.operationalDateWIB) {
           setTodayWIB(data.operationalDateWIB);
@@ -1806,6 +1886,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data.serverTime) {
           lastDeltaWatermarkRef.current = data.serverTime;
         }
+        supabaseDb.setDeltaPollingSyncOutcome(true, { eventAt: data.serverTime });
         setDatabaseStatus('connected');
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
@@ -1814,17 +1895,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
         syncRetryCountRef.current += 1;
+        const errMsg = err?.message || 'Gagal sinkronisasi delta';
+        supabaseDb.setDeltaPollingSyncOutcome(false, { error: errMsg, attempt: syncRetryCountRef.current });
         setSyncStatus('ERROR');
-        setSyncError(err?.message || 'Gagal sinkronisasi delta');
+        setSyncError(errMsg);
 
         if (
           navigator.onLine &&
           document.visibilityState === 'visible' &&
           getAuthHeaders()['Authorization'] &&
           !currentUserRef.current?.mustChangePassword &&
-          syncRetryCountRef.current <= 3
+          syncRetryCountRef.current <= 5
         ) {
-          const retryDelayMs = 3000 * Math.pow(2, syncRetryCountRef.current - 1);
+          const baseBackoff = Math.min(60_000, 4_000 * Math.pow(2, syncRetryCountRef.current - 1));
+          const jitter = Math.floor(Math.random() * 1500);
+          const retryDelayMs = baseBackoff + jitter;
           cancelPendingDeltaRetry();
           deltaSyncRetryTimerRef.current = setTimeout(() => {
             deltaSyncRetryTimerRef.current = null;
@@ -6487,24 +6572,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  const bulkImportTickets = (
+  const bulkImportTickets = async (
     imported: Partial<Ticket>[],
     options?: { duplicatePolicy?: 'skip' | 'update_allowed' | 'review' }
   ) => {
     // ONLY Super Admin can import WO
     if (currentUser.role !== 'super_admin') {
       addAuditLog('Unauthorized Import Blocked', 'import_batch', 'import-denied', `Akses import ditolak untuk peran ${currentUser.role}`);
-      toast.error('Akses Ditolak: Hanya Super Admin yang berwenang melakukan import Work Order.', 'Akses Ditolak');
-      return { importedCount: 0, updatedCount: 0, duplicatesIgnored: 0, distributedCount: 0, undistributedCount: 0 };
+      const errMsg = 'Akses Ditolak: Hanya Super Admin yang berwenang melakukan import Work Order.';
+      toast.error(errMsg, 'Akses Ditolak');
+      return {
+        success: false,
+        importedCount: 0,
+        updatedCount: 0,
+        duplicatesIgnored: 0,
+        invalidCount: 0,
+        failedCount: 0,
+        importedWoNumbers: [],
+        failedWoNumbers: [],
+        rejectedDuplicates: [],
+        distributedCount: 0,
+        undistributedCount: 0,
+        error: errMsg
+      };
+    }
+
+    if (!Array.isArray(imported) || imported.length === 0) {
+      return {
+        success: false,
+        importedCount: 0,
+        updatedCount: 0,
+        duplicatesIgnored: 0,
+        invalidCount: 0,
+        failedCount: 0,
+        importedWoNumbers: [],
+        failedWoNumbers: [],
+        rejectedDuplicates: [],
+        distributedCount: 0,
+        undistributedCount: 0,
+        error: 'Tidak ada data Work Order untuk diimpor.'
+      };
     }
 
     const policy = options?.duplicatePolicy || 'skip';
-    let importedCount = 0;
-    let updatedCount = 0;
     let duplicatesIgnored = 0;
+    let invalidCount = 0;
     let distributedCount = 0;
     let undistributedCount = 0;
-    const existingWos = new Set(tickets.map(t => t.woNumber.toUpperCase().trim()));
+    const normWoKey = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
+    const existingByWo = new Map<string, Ticket>();
+    tickets.forEach(t => {
+      const k = normWoKey(t.woNumber || t.workOrderNumber);
+      if (k) existingByWo.set(k, t);
+    });
 
     // Automatic Contractor & Coverage Area Registration from Import Results
     const { newContractors, updatedContractors, newCoverageAreas: extractedNewAreas } = extractContractorsFromTickets(
@@ -6514,63 +6634,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     let activeContractors = [...contractors];
-    if (newContractors.length > 0 || updatedContractors.length > 0) {
-      setContractors(prev => {
-        let updated = [...prev];
-        updatedContractors.forEach(up => {
-          const idx = updated.findIndex(c => c.id === up.id);
-          if (idx >= 0) updated[idx] = up;
-        });
-        newContractors.forEach(nc => {
-          if (!updated.some(c => c.id === nc.id || c.name.toLowerCase().trim() === nc.name.toLowerCase().trim())) {
-            updated.push(nc);
-          }
-        });
-        return updated;
-      });
-
-      updatedContractors.forEach(up => {
-        const idx = activeContractors.findIndex(c => c.id === up.id);
-        if (idx >= 0) activeContractors[idx] = up;
-      });
-      newContractors.forEach(nc => {
-        if (!activeContractors.some(c => c.id === nc.id || c.name.toLowerCase().trim() === nc.name.toLowerCase().trim())) {
-          activeContractors.push(nc);
-        }
-      });
-      if (newContractors.length > 0) {
-        addAuditLog(
-          'Contractors Auto-Registered',
-          'ui_config',
-          'import_contractors',
-          `${newContractors.length} Kategori Kontraktor baru terdaftar otomatis dari hasil import/text converter: ${newContractors.map(c => `${c.name} [${c.code}]`).join(', ')}`
-        );
+    updatedContractors.forEach(up => {
+      const idx = activeContractors.findIndex(c => c.id === up.id);
+      if (idx >= 0) activeContractors[idx] = up;
+    });
+    newContractors.forEach(nc => {
+      if (!activeContractors.some(c => c.id === nc.id || c.name.toLowerCase().trim() === nc.name.toLowerCase().trim())) {
+        activeContractors.push(nc);
       }
-    }
+    });
 
     let activeCoverageAreas = [...coverageAreas];
-    if (extractedNewAreas.length > 0) {
-      setCoverageAreas(prev => {
-        const merged = [...prev];
-        extractedNewAreas.forEach(na => {
-          if (!merged.some(a => a.name.toLowerCase().trim() === na.name.toLowerCase().trim())) {
-            merged.push(na);
-          }
-        });
-        return merged;
-      });
-      extractedNewAreas.forEach(na => {
-        if (!activeCoverageAreas.some(a => a.name.toLowerCase().trim() === na.name.toLowerCase().trim())) {
-          activeCoverageAreas.push(na);
-        }
-      });
-      addAuditLog(
-        'Coverage Areas Auto-Registered',
-        'ui_config',
-        'import_areas',
-        `${extractedNewAreas.length} Cakupan Area baru terdaftar dari hasil import: ${extractedNewAreas.map(a => a.name).join(', ')}`
-      );
-    }
+    extractedNewAreas.forEach(na => {
+      if (!activeCoverageAreas.some(a => a.name.toLowerCase().trim() === na.name.toLowerCase().trim())) {
+        activeCoverageAreas.push(na);
+      }
+    });
 
     const newItems: Ticket[] = [];
     const updatedTicketsMap = new Map<string, Partial<Ticket>>();
@@ -6581,12 +6660,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const batchAcceptedWos = new Set<string>();
 
     imported.forEach(item => {
-      const woNum = (item.woNumber || item.workOrderNumber || '').trim();
-      const upperWo = woNum.toUpperCase();
+      if (!item || typeof item !== 'object') {
+        invalidCount++;
+        return;
+      }
+      const woNum = String(item.woNumber ?? item.workOrderNumber ?? '').trim();
+      const upperWo = normWoKey(woNum);
 
       // Check for empty or invalid WO
-      if (!woNum) {
-        duplicatesIgnored++;
+      if (!upperWo || upperWo.length < 3) {
+        invalidCount++;
         return;
       }
 
@@ -6599,10 +6682,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      // Check duplicate against existing database
-      if (existingWos.has(upperWo)) {
+      // Check duplicate against existing loaded tickets (backend also enforces authoritative DB duplicate check)
+      if (existingByWo.has(upperWo)) {
         if (policy === 'update_allowed') {
-          // Update allowed fields on existing ticket without overwriting existing technician or technical reports
           const updates: Partial<Ticket> = {};
           if (item.appointmentDate) updates.appointmentDate = item.appointmentDate;
           if (item.slotTime) updates.slotTime = item.slotTime;
@@ -6613,11 +6695,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           updates.updatedBy = currentUser.name;
 
           updatedTicketsMap.set(upperWo, updates);
-          updatedCount++;
           batchAcceptedWos.add(upperWo);
           return;
         } else {
-          // Skip / Reject policy
           duplicatesIgnored++;
           if (!rejectedDuplicates.includes(woNum)) {
             rejectedDuplicates.push(woNum);
@@ -6643,14 +6723,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Customer ID validation (exact 7 digits)
-      const rawCustId = (distributed.idCustomer || distributed.customerId || '').trim();
+      const rawCustId = String(distributed.idCustomer ?? distributed.customerId ?? '').trim();
       const custDigits = rawCustId.replace(/\D/g, '');
       const validCustId = custDigits.length === 7 ? custDigits : (rawCustId || '');
 
       const ticket: Ticket = {
-        id: getDeterministicTicketId(woNum),
-        woNumber: woNum,
-        workOrderNumber: woNum,
+        id: getDeterministicTicketId(upperWo),
+        woNumber: upperWo,
+        workOrderNumber: upperWo,
         idCustomer: validCustId,
         customerId: validCustId,
         ticketNumber: distributed.ticketNumber,
@@ -6729,88 +6809,240 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const res = executeWorkflowsOnTicket(ticket, 'ticket_imported', workflowRules, templates, currentUser.name, currentUser.role);
       newItems.push(res.ticket);
-      existingWos.add(upperWo);
-      importedCount++;
     });
 
-    // Apply updates and additions to React state (with rollback snapshot on DB failure)
-    const prevUpdatedSnapshots = new Map<string, Ticket>();
-    const newItemIds = new Set(newItems.map(t => t.id));
-    setTickets(prev => {
-      let result = prev;
-      if (updatedTicketsMap.size > 0) {
-        result = result.map(t => {
-          const upper = (t.woNumber || '').toUpperCase().trim();
-          if (updatedTicketsMap.has(upper)) {
-            prevUpdatedSnapshots.set(t.id, t);
-            return { ...t, ...updatedTicketsMap.get(upper)! };
-          }
-          return t;
-        });
-      }
-      return deduplicateTicketsInMemory([...newItems, ...result]);
-    });
-
-    // Persist imported and updated tickets to Supabase PostgreSQL (Confirmed Write)
     const updatedItemsToSave: Ticket[] = [];
     if (updatedTicketsMap.size > 0) {
       updatedTicketsMap.forEach((updates, upperWo) => {
-        const found = tickets.find(t => (t.woNumber || '').toUpperCase().trim() === upperWo);
+        const found = existingByWo.get(upperWo);
         if (found) {
           updatedItemsToSave.push({ ...found, ...updates });
         }
       });
     }
 
-    if (newItems.length > 0 || updatedItemsToSave.length > 0) {
-      setSyncStatus('SYNCING');
-      const ops: Promise<any>[] = [];
-      if (newItems.length > 0) {
-        ops.push(supabaseDb.batchCreateWorkOrders(newItems, batchId));
+    if (newItems.length === 0 && updatedItemsToSave.length === 0) {
+      if (duplicatesIgnored > 0) {
+        addAuditLog(
+          'Duplicate WOs Rejected on Import',
+          'import_batch',
+          batchId,
+          `Ditolak ${duplicatesIgnored} nomor WO karena nomor WO sudah terdaftar di sistem: ${rejectedDuplicates.slice(0, 10).join(', ')}${rejectedDuplicates.length > 10 ? ` (+${rejectedDuplicates.length - 10} lainnya)` : ''}`
+        );
+        toast.warning(`Semua (${duplicatesIgnored}) nomor WO diabaikan karena sudah terdaftar dalam sistem.`, 'Nomor WO Duplikat');
+      } else if (invalidCount > 0) {
+        toast.error(`Semua (${invalidCount}) baris import tidak valid.`, 'Validasi Import Gagal');
       }
-      if (updatedItemsToSave.length > 0) {
-        ops.push(...updatedItemsToSave.map(item => supabaseDb.updateWorkOrder(item.id, item)));
-      }
-
-      Promise.all(ops)
-        .then((results) => {
-          const failed = results.find(r => r && r.success === false);
-          if (failed) {
-            throw new Error(failed?.error?.message || failed?.message || 'Sebagian atau seluruh data gagal disimpan ke Supabase.');
-          }
-          setSyncStatus('SAVED');
-          setLastSyncTime(new Date().toISOString());
-          scheduleKpiRefreshRef.current?.();
-          const savedTotal = newItems.length + updatedItemsToSave.length;
-          addAuditLog('Bulk Import Completed', 'import_batch', batchId, `Imported ${importedCount} tiket baru, diperbarui ${updatedCount} tiket. Ditolak ${duplicatesIgnored} nomor WO duplikat.`);
-          toast.success(
-            `Berhasil menyimpan ${savedTotal} tiket ke Supabase PostgreSQL${updatedCount > 0 ? ` (${newItems.length} baru, ${updatedCount} diperbarui)` : ''}.${duplicatesIgnored > 0 ? ` (${duplicatesIgnored} nomor WO duplikat ditolak)` : ''}`,
-            'Import Selesai'
-          );
-        })
-        .catch(err => {
-          setTickets(prev =>
-            prev
-              .filter(t => !newItemIds.has(t.id))
-              .map(t => prevUpdatedSnapshots.get(t.id) || t)
-          );
-          setSyncStatus('ERROR');
-          toast.error('Gagal menyimpan import tiket ke Supabase PostgreSQL: ' + (err?.message || err), 'Import Gagal');
-        });
-    } else if (duplicatesIgnored > 0) {
-      toast.error(`Semua (${duplicatesIgnored}) nomor WO ditolak karena nomor WO sudah terdaftar dalam sistem.`, 'Nomor WO Duplikat Ditolak');
+      return {
+        success: invalidCount === 0,
+        importedCount: 0,
+        updatedCount: 0,
+        duplicatesIgnored,
+        invalidCount,
+        failedCount: 0,
+        importedWoNumbers: [],
+        failedWoNumbers: [],
+        rejectedDuplicates,
+        distributedCount,
+        undistributedCount,
+        error: invalidCount > 0 ? `${invalidCount} baris tidak valid.` : undefined
+      };
     }
 
-    if (duplicatesIgnored > 0) {
+    // Confirmed Database Persistence (NEVER assume success before DB confirms)
+    setSyncStatus('SYNCING');
+    let confirmedImportedCount = 0;
+    let confirmedUpdatedCount = 0;
+    let backendDuplicates = 0;
+    let backendInvalid = 0;
+    let failedCount = 0;
+    const confirmedImportedWoSet = new Set<string>();
+    const confirmedUpdatedItems: Ticket[] = [];
+    const failedWoNumbers: string[] = [];
+    const failedErrors: string[] = [];
+
+    if (newItems.length > 0) {
+      const batchRes = await supabaseDb.batchCreateWorkOrders(newItems, batchId);
+      const batchData = batchRes.data;
+      if (batchData && typeof batchData === 'object') {
+        confirmedImportedCount = Number(batchData.imported || 0);
+        backendDuplicates = Number(batchData.skippedDuplicates || 0);
+        backendInvalid = Number(batchData.invalidCount || 0);
+        failedCount += Number(batchData.failedCount || 0);
+
+        const serverImpWos: string[] = Array.isArray(batchData.importedWoNumbers) ? batchData.importedWoNumbers : [];
+        serverImpWos.forEach(w => {
+          const k = normWoKey(w);
+          if (k) confirmedImportedWoSet.add(k);
+        });
+        if (Array.isArray(batchData.duplicateExistingWoNumbers)) {
+          batchData.duplicateExistingWoNumbers.forEach((w: string) => {
+            if (!rejectedDuplicates.includes(w)) rejectedDuplicates.push(w);
+          });
+        }
+        if (Array.isArray(batchData.duplicateInFileWoNumbers)) {
+          batchData.duplicateInFileWoNumbers.forEach((w: string) => {
+            if (!rejectedDuplicates.includes(w)) rejectedDuplicates.push(w);
+          });
+        }
+        if (Array.isArray(batchData.failedWoNumbers)) {
+          failedWoNumbers.push(...batchData.failedWoNumbers);
+        }
+        if (Array.isArray(batchData.failedErrors)) {
+          failedErrors.push(...batchData.failedErrors);
+        }
+      }
+      if (!batchRes.success) {
+        const msg = batchRes.error?.message || 'Sebagian atau seluruh data gagal disimpan ke Supabase.';
+        if (!failedErrors.includes(msg)) failedErrors.push(msg);
+        if (!batchData) {
+          failedCount += newItems.length;
+          newItems.forEach(item => failedWoNumbers.push(item.woNumber));
+        }
+      }
+    }
+
+    if (updatedItemsToSave.length > 0) {
+      const updateResults = await Promise.all(
+        updatedItemsToSave.map(async (item) => {
+          const res = await supabaseDb.updateWorkOrder(item.id, item);
+          return { item, res };
+        })
+      );
+      for (const { item, res } of updateResults) {
+        if (res && res.success) {
+          confirmedUpdatedCount++;
+          confirmedUpdatedItems.push(res.data || item);
+        } else {
+          failedCount++;
+          failedWoNumbers.push(item.woNumber);
+          failedErrors.push(res?.error?.message || `Gagal memperbarui WO ${item.woNumber}`);
+        }
+      }
+    }
+
+    const totalDuplicatesIgnored = duplicatesIgnored + backendDuplicates;
+    const totalInvalidCount = invalidCount + backendInvalid;
+    const confirmedNewItems = newItems.filter(item => confirmedImportedWoSet.has(normWoKey(item.woNumber)));
+
+    // Commit ONLY confirmed database writes into React state (never wipe partial successes, never alter old WOs on failure)
+    if (confirmedNewItems.length > 0 || confirmedUpdatedItems.length > 0) {
+      if (newContractors.length > 0 || updatedContractors.length > 0) {
+        setContractors(prev => {
+          let updated = [...prev];
+          updatedContractors.forEach(up => {
+            const idx = updated.findIndex(c => c.id === up.id);
+            if (idx >= 0) updated[idx] = up;
+          });
+          newContractors.forEach(nc => {
+            if (!updated.some(c => c.id === nc.id || c.name.toLowerCase().trim() === nc.name.toLowerCase().trim())) {
+              updated.push(nc);
+            }
+          });
+          return updated;
+        });
+        if (newContractors.length > 0) {
+          addAuditLog(
+            'Contractors Auto-Registered',
+            'ui_config',
+            'import_contractors',
+            `${newContractors.length} Kategori Kontraktor baru terdaftar otomatis dari hasil import/text converter: ${newContractors.map(c => `${c.name} [${c.code}]`).join(', ')}`
+          );
+        }
+      }
+      if (extractedNewAreas.length > 0) {
+        setCoverageAreas(prev => {
+          const merged = [...prev];
+          extractedNewAreas.forEach(na => {
+            if (!merged.some(a => a.name.toLowerCase().trim() === na.name.toLowerCase().trim())) {
+              merged.push(na);
+            }
+          });
+          return merged;
+        });
+        addAuditLog(
+          'Coverage Areas Auto-Registered',
+          'ui_config',
+          'import_areas',
+          `${extractedNewAreas.length} Cakupan Area baru terdaftar dari hasil import: ${extractedNewAreas.map(a => a.name).join(', ')}`
+        );
+      }
+
+      const confirmedUpdateById = new Map(confirmedUpdatedItems.map(u => [u.id, u]));
+      setTickets(prev => {
+        const updatedPrev = confirmedUpdateById.size > 0
+          ? prev.map(t => confirmedUpdateById.get(t.id) || t)
+          : prev;
+        return deduplicateTicketsInMemory([...confirmedNewItems, ...updatedPrev]);
+      });
+
+      // Authoritative DB reconciliation after confirmed persistence
+      await runDeltaSync({ force: true }).catch(() => {});
+      scheduleKpiRefreshRef.current?.();
+    }
+
+    const totalSaved = confirmedImportedCount + confirmedUpdatedCount;
+    const isFullSuccess = failedCount === 0 && failedErrors.length === 0 && totalInvalidCount === 0;
+    const isPartialSuccess = totalSaved > 0 && !isFullSuccess;
+    const primaryError = failedErrors[0] || (totalInvalidCount > 0 ? `${totalInvalidCount} baris gagal validasi di server.` : undefined);
+
+    if (isFullSuccess && totalSaved > 0) {
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      addAuditLog(
+        'Bulk Import Completed',
+        'import_batch',
+        batchId,
+        `Imported ${confirmedImportedCount} tiket baru, diperbarui ${confirmedUpdatedCount} tiket. Ditolak ${totalDuplicatesIgnored} nomor WO duplikat.`
+      );
+      toast.success(
+        `Berhasil menyimpan ${totalSaved} tiket ke Supabase PostgreSQL${confirmedUpdatedCount > 0 ? ` (${confirmedImportedCount} baru, ${confirmedUpdatedCount} diperbarui)` : ''}.${totalDuplicatesIgnored > 0 ? ` (${totalDuplicatesIgnored} nomor WO duplikat ditolak)` : ''}`,
+        'Import Selesai'
+      );
+    } else if (isPartialSuccess) {
+      setSyncStatus('ERROR');
+      addAuditLog(
+        'Bulk Import Partial Success',
+        'import_batch',
+        batchId,
+        `Import parsial: ${confirmedImportedCount} tersimpan, ${confirmedUpdatedCount} diperbarui, ${failedCount} gagal (${primaryError || 'kesalahan sebagian chunk'}).`
+      );
+      toast.warning(
+        `Import parsial: ${totalSaved} WO berhasil tersimpan ke database, ${failedCount} WO gagal disimpan (${primaryError || 'coba ulang baris gagal'}).`,
+        'Import Parsial'
+      );
+    } else if (totalSaved === 0 && totalDuplicatesIgnored > 0 && failedCount === 0 && totalInvalidCount === 0) {
+      setSyncStatus('SAVED');
+      toast.warning(`Semua (${totalDuplicatesIgnored}) nomor WO diabaikan karena sudah terdaftar dalam sistem.`, 'Nomor WO Duplikat');
+    } else {
+      setSyncStatus('ERROR');
+      toast.error('Gagal menyimpan import tiket ke Supabase PostgreSQL: ' + (primaryError || 'Operasi ditolak oleh server.'), 'Import Gagal');
+    }
+
+    if (totalDuplicatesIgnored > 0) {
       addAuditLog(
         'Duplicate WOs Rejected on Import',
         'import_batch',
         batchId,
-        `Ditolak ${duplicatesIgnored} nomor WO karena nomor WO sudah terdaftar di sistem: ${rejectedDuplicates.slice(0, 10).join(', ')}${rejectedDuplicates.length > 10 ? ` (+${rejectedDuplicates.length - 10} lainnya)` : ''}`
+        `Ditolak ${totalDuplicatesIgnored} nomor WO karena nomor WO sudah terdaftar di sistem: ${rejectedDuplicates.slice(0, 10).join(', ')}${rejectedDuplicates.length > 10 ? ` (+${rejectedDuplicates.length - 10} lainnya)` : ''}`
       );
     }
 
-    return { importedCount, updatedCount, duplicatesIgnored, rejectedDuplicates, distributedCount, undistributedCount };
+    return {
+      success: isFullSuccess && (totalSaved > 0 || totalDuplicatesIgnored > 0),
+      partialSuccess: isPartialSuccess,
+      importedCount: confirmedImportedCount,
+      updatedCount: confirmedUpdatedCount,
+      duplicatesIgnored: totalDuplicatesIgnored,
+      invalidCount: totalInvalidCount,
+      failedCount,
+      importedWoNumbers: Array.from(confirmedImportedWoSet),
+      failedWoNumbers,
+      rejectedDuplicates,
+      distributedCount,
+      undistributedCount,
+      error: primaryError
+    };
   };
 
   // Delete imported data filtered by import date within 7-day retention window
@@ -7057,8 +7289,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
 
           if (validRowsToImport.length > 0) {
-            const importRes = bulkImportTickets(validRowsToImport);
+            const importRes = await bulkImportTickets(validRowsToImport);
             pulledCount = importRes.importedCount;
+            if (!importRes.success && (importRes.failedCount || 0) > 0) {
+              throw new Error(
+                importRes.error ||
+                `Gagal menyimpan ${importRes.failedCount} Work Order dari Google Sheets ke database Supabase (${importRes.importedCount} tersimpan).`
+              );
+            }
           }
         }
       }

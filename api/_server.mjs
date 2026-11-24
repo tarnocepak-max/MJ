@@ -7,7 +7,6 @@ const require = __moraCreateRequire(import.meta.url);
 import express from "express";
 import http from "http";
 import cookieParser from "cookie-parser";
-import { createServer as createViteServer } from "vite";
 import path3 from "path";
 import fs3 from "fs";
 import crypto10 from "crypto";
@@ -1332,7 +1331,17 @@ function isValidCalendarDate(year, month, day) {
   return day <= daysInMonth[month];
 }
 function toDateOnlyString(val) {
-  if (!val) return null;
+  if (val === null || val === void 0 || val === "") return null;
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return null;
+    const dtf = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    return dtf.format(val);
+  }
   const str = String(val).trim();
   if (!str || str === "-" || str === "null" || str === "undefined") return null;
   const isoMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
@@ -1401,12 +1410,14 @@ function parseAndValidateDateForUpdate(val, fieldName) {
   return { valid: true, dateStr: parsed, isExplicitClear: false };
 }
 function normalizeWoNumber(rawWo) {
-  if (!rawWo || typeof rawWo !== "string") return "";
-  return rawWo.trim().toUpperCase().replace(/\s+/g, "");
+  if (rawWo === null || rawWo === void 0) return "";
+  if (typeof rawWo !== "string" && typeof rawWo !== "number") return "";
+  return String(rawWo).trim().toUpperCase().replace(/\s+/g, "");
 }
 function canonicalWoKey(rawWo) {
-  if (!rawWo || typeof rawWo !== "string") return "";
-  return rawWo.trim().toLowerCase().replace(/\s+/g, "");
+  if (rawWo === null || rawWo === void 0) return "";
+  if (typeof rawWo !== "string" && typeof rawWo !== "number") return "";
+  return String(rawWo).trim().toLowerCase().replace(/\s+/g, "");
 }
 function escapePostgrestLikeValue(value) {
   return value.replace(/[\\%_]/g, "\\$&");
@@ -1557,112 +1568,120 @@ function ticketToPostgresRow(ticket) {
     fatLocation: ticket.fatLocation || null,
     ...ticket.payload && typeof ticket.payload === "object" ? ticket.payload : {}
   };
-  const contractorVal = ticket.contractorName ?? ticket.contactorName ?? null;
-  const contactorVal = ticket.contactorName ?? ticket.contractorName ?? null;
+  const safeText = (v) => {
+    if (v === null || v === void 0) return null;
+    const s = String(v).trim();
+    return s.length > 0 ? s : null;
+  };
+  const contractorVal = safeText(ticket.contractorName ?? ticket.contactorName);
+  const woNumStr = safeText(ticket.woNumber) || safeText(ticket.workOrderNumber) || "";
+  const workOrderNumStr = safeText(ticket.workOrderNumber) || woNumStr || null;
+  const custIdStr = safeText(ticket.idCustomer) || safeText(ticket.customerId);
+  const chatMsgCount = typeof ticket.chatMessagesCount === "number" && Number.isFinite(ticket.chatMessagesCount) ? Math.max(0, Math.floor(ticket.chatMessagesCount)) : 0;
   return {
-    id: ticket.id || "wo_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8),
-    wo_number: ticket.woNumber || ticket.workOrderNumber,
-    work_order_number: ticket.workOrderNumber || ticket.woNumber || null,
-    id_customer: ticket.idCustomer || ticket.customerId || null,
-    customer_id: ticket.customerId || ticket.idCustomer || null,
-    ticket_number: ticket.ticketNumber || null,
+    id: safeText(ticket.id) || "wo_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8),
+    wo_number: woNumStr,
+    work_order_number: workOrderNumStr,
+    id_customer: custIdStr,
+    customer_id: safeText(ticket.customerId) || custIdStr,
+    ticket_number: safeText(ticket.ticketNumber),
     ticket_date: toDateOnlyString(ticket.ticketDate),
     date: toDateOnlyString(ticket.date),
     appointment_date: toDateOnlyString(ticket.appointmentDate),
-    date_upload: ticket.dateUpload || null,
-    file_name: ticket.fileName || null,
-    agent_id: ticket.agentId || null,
+    date_upload: safeText(ticket.dateUpload),
+    file_name: safeText(ticket.fileName),
+    agent_id: safeText(ticket.agentId),
     // Customer
-    customer_name: ticket.customerName || ticket.endUserName || null,
-    end_user_name: ticket.endUserName || ticket.customerName || null,
-    customer_phone: ticket.customerPhone || null,
-    customer_contact1: ticket.customerContact1 || ticket.customerPhone || null,
-    customer_contact2: ticket.customerContact2 || null,
-    customer_contact3: ticket.customerContact3 || null,
-    customer_phone_normalized: ticket.customerPhoneNormalized || null,
-    street_name: ticket.streetName || null,
-    street_alternatif: ticket.streetAlternatif || null,
-    address: ticket.address || null,
-    city: ticket.city || null,
-    postal_code: ticket.postalCode || null,
-    cluster_name: ticket.clusterName || null,
-    area: ticket.area || null,
+    customer_name: safeText(ticket.customerName) || safeText(ticket.endUserName),
+    end_user_name: safeText(ticket.endUserName) || safeText(ticket.customerName),
+    customer_phone: safeText(ticket.customerPhone),
+    customer_contact1: safeText(ticket.customerContact1) || safeText(ticket.customerPhone),
+    customer_contact2: safeText(ticket.customerContact2),
+    customer_contact3: safeText(ticket.customerContact3),
+    customer_phone_normalized: safeText(ticket.customerPhoneNormalized),
+    street_name: safeText(ticket.streetName),
+    street_alternatif: safeText(ticket.streetAlternatif),
+    address: safeText(ticket.address),
+    city: safeText(ticket.city),
+    postal_code: safeText(ticket.postalCode),
+    cluster_name: safeText(ticket.clusterName),
+    area: safeText(ticket.area),
     // Schedule & Category
-    appointment_type: ticket.appointmentType || null,
-    slot_time: ticket.slotTime || null,
-    ticket_category: ticket.ticketCategory || null,
-    initial_ticket_category: ticket.initialTicketCategory || null,
+    appointment_type: safeText(ticket.appointmentType),
+    slot_time: safeText(ticket.slotTime),
+    ticket_category: safeText(ticket.ticketCategory),
+    initial_ticket_category: safeText(ticket.initialTicketCategory),
     // Telecom FTTH
-    installation_type: ticket.installationType || null,
-    service_type: ticket.serviceType || null,
-    homepass_type: ticket.homepassType || null,
-    homepass_detail_id: ticket.homepassDetailId || null,
-    olt_code: ticket.oltCode || null,
-    fdt_code: ticket.fdtCode || null,
-    fat_code: ticket.fatCode || null,
-    fat_port: ticket.fatPort || null,
-    dropcore_length: ticket.dropcoreLength || null,
-    plan: ticket.plan || null,
-    service_aging_maintenance: ticket.serviceAgingMaintenance || null,
-    vendor_name: ticket.vendorName || null,
-    router: ticket.router || null,
-    ont_brand: ticket.ontBrand || null,
-    ont_model: ticket.ontModel || null,
-    router_brand: ticket.routerBrand || null,
-    router_model: ticket.routerModel || null,
-    router_serial_number: ticket.routerSerialNumber || null,
-    stb1_sn: ticket.stb1Sn || null,
-    stb1_mac: ticket.stb1Mac || null,
-    stb2_sn: ticket.stb2Sn || null,
-    stb2_mac: ticket.stb2Mac || null,
-    stb3_sn: ticket.stb3Sn || null,
-    stb3_mac: ticket.stb3Mac || null,
-    ont_serial_number: ticket.ontSerialNumber || null,
-    ont_mac_address: ticket.ontMacAddress || null,
-    rg_serial_number: ticket.rgSerialNumber || null,
-    rg_mac_address: ticket.rgMacAddress || null,
+    installation_type: safeText(ticket.installationType),
+    service_type: safeText(ticket.serviceType),
+    homepass_type: safeText(ticket.homepassType),
+    homepass_detail_id: safeText(ticket.homepassDetailId),
+    olt_code: safeText(ticket.oltCode),
+    fdt_code: safeText(ticket.fdtCode),
+    fat_code: safeText(ticket.fatCode),
+    fat_port: safeText(ticket.fatPort),
+    dropcore_length: safeText(ticket.dropcoreLength),
+    plan: safeText(ticket.plan),
+    service_aging_maintenance: safeText(ticket.serviceAgingMaintenance),
+    vendor_name: safeText(ticket.vendorName),
+    router: safeText(ticket.router),
+    ont_brand: safeText(ticket.ontBrand),
+    ont_model: safeText(ticket.ontModel),
+    router_brand: safeText(ticket.routerBrand),
+    router_model: safeText(ticket.routerModel),
+    router_serial_number: safeText(ticket.routerSerialNumber),
+    stb1_sn: safeText(ticket.stb1Sn),
+    stb1_mac: safeText(ticket.stb1Mac),
+    stb2_sn: safeText(ticket.stb2Sn),
+    stb2_mac: safeText(ticket.stb2Mac),
+    stb3_sn: safeText(ticket.stb3Sn),
+    stb3_mac: safeText(ticket.stb3Mac),
+    ont_serial_number: safeText(ticket.ontSerialNumber),
+    ont_mac_address: safeText(ticket.ontMacAddress),
+    rg_serial_number: safeText(ticket.rgSerialNumber),
+    rg_mac_address: safeText(ticket.rgMacAddress),
     // Contractors & Technicians
-    contractor_id: ticket.contractorId || null,
+    contractor_id: safeText(ticket.contractorId),
     contractor_name: contractorVal,
-    contactor_name: contactorVal,
-    leader_name: ticket.leaderName || null,
-    corlap_name: ticket.corlapName || null,
-    corlap_contact: ticket.corlapContact || null,
-    installer_id: ticket.installerId || null,
-    installer_uid: ticket.installerUid || ticket.installerId || null,
-    assigned_to: ticket.assignedTo || ticket.installerName || null,
-    assigned_to_uid: ticket.assignedToUid || ticket.installerId || null,
-    installer_name: ticket.installerName || null,
-    installer_contact: ticket.installerContact || null,
-    installer_contact2: ticket.installerContact2 || null,
-    installer_email: ticket.installerEmail || null,
-    date_assign_agent: ticket.dateAssignAgent || null,
-    date_assign_technician: ticket.dateAssignTechnician || null,
-    assigned_at: ticket.assignedAt || null,
-    assigned_by: ticket.assignedBy || null,
-    reassigned_at: ticket.reassignedAt || null,
-    reassigned_by: ticket.reassignedBy || null,
-    reassignment_reason: ticket.reassignmentReason || null,
+    contactor_name: contractorVal,
+    leader_name: safeText(ticket.leaderName),
+    corlap_name: safeText(ticket.corlapName),
+    corlap_contact: safeText(ticket.corlapContact),
+    installer_id: safeText(ticket.installerId),
+    installer_uid: safeText(ticket.installerUid) || safeText(ticket.installerId),
+    assigned_to: safeText(ticket.assignedTo) || safeText(ticket.installerName),
+    assigned_to_uid: safeText(ticket.assignedToUid) || safeText(ticket.installerId),
+    installer_name: safeText(ticket.installerName),
+    installer_contact: safeText(ticket.installerContact),
+    installer_contact2: safeText(ticket.installerContact2),
+    installer_email: safeText(ticket.installerEmail),
+    date_assign_agent: safeText(ticket.dateAssignAgent),
+    date_assign_technician: safeText(ticket.dateAssignTechnician),
+    assigned_at: safeText(ticket.assignedAt),
+    assigned_by: safeText(ticket.assignedBy),
+    reassigned_at: safeText(ticket.reassignedAt),
+    reassigned_by: safeText(ticket.reassignedBy),
+    reassignment_reason: safeText(ticket.reassignmentReason),
     // Operational Statuses
-    distribution_status: ticket.distributionStatus || "pending",
-    distribution_notes: ticket.distributionNotes || null,
-    status_wo_agent: ticket.statusWOAgent || "Pending",
-    status_wo_installer: ticket.statusWOInstaller || "Unassigned",
-    status_whatsapp: ticket.statusWhatsApp || "not_prepared",
-    remarks_wo_installer: ticket.remarksWOInstaller || null,
-    remarks_agent: ticket.remarksAgent || null,
-    remarks: ticket.remarks || null,
+    distribution_status: safeText(ticket.distributionStatus) || "pending",
+    distribution_notes: safeText(ticket.distributionNotes),
+    status_wo_agent: safeText(ticket.statusWOAgent) || "Pending",
+    status_wo_installer: safeText(ticket.statusWOInstaller) || "Unassigned",
+    status_whatsapp: safeText(ticket.statusWhatsApp) || "not_prepared",
+    remarks_wo_installer: safeText(ticket.remarksWOInstaller),
+    remarks_agent: safeText(ticket.remarksAgent),
+    remarks: safeText(ticket.remarks),
     // WhatsApp Tracking
-    wa_message_preview: ticket.waMessagePreview || null,
-    wa_generated_url: ticket.waGeneratedUrl || null,
-    wa_last_opened_at: ticket.waLastOpenedAt || null,
-    wa_confirmed_at: ticket.waConfirmedAt || null,
-    wa_confirmed_by: ticket.waConfirmedBy || null,
-    wa_confirmation_notes: ticket.waConfirmationNotes || null,
+    wa_message_preview: safeText(ticket.waMessagePreview),
+    wa_generated_url: safeText(ticket.waGeneratedUrl),
+    wa_last_opened_at: safeText(ticket.waLastOpenedAt),
+    wa_confirmed_at: safeText(ticket.waConfirmedAt),
+    wa_confirmed_by: safeText(ticket.waConfirmedBy),
+    wa_confirmation_notes: safeText(ticket.waConfirmationNotes),
     // Chat stats & Sessions
-    chat_messages_count: typeof ticket.chatMessagesCount === "number" ? ticket.chatMessagesCount : 0,
-    last_message_at: ticket.lastMessageAt || null,
-    last_message_snippet: ticket.lastMessageSnippet || null,
+    chat_messages_count: chatMsgCount,
+    last_message_at: safeText(ticket.lastMessageAt),
+    last_message_snippet: safeText(ticket.lastMessageSnippet),
     check_in_at: ticket.checkInAt || null,
     work_session_status: ticket.workSessionStatus || null,
     work_sessions: Array.isArray(ticket.workSessions) ? ticket.workSessions : [],
@@ -2450,11 +2469,67 @@ async function getWorkOrdersUpdatedSinceFromSupabase(sinceIso) {
     return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
   }
   try {
-    const { data, error } = await client.from("work_orders").select("*").gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(500);
+    let { data, error } = await client.from("work_orders").select(WORK_ORDER_LIST_COLUMNS).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(500);
+    if (error && isMissingSchemaObjectError(error)) {
+      const fb = await client.from("work_orders").select("*").gte("updated_at", sinceIso).order("updated_at", { ascending: false }).limit(500);
+      data = fb.data;
+      error = fb.error;
+    }
     if (error) {
       return { success: false, error: classifySupabaseError(error) };
     }
     return { success: true, data: (data || []).map(postgresRowToTicket) };
+  } catch (err) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+async function getDeletedWorkOrderIdsSinceFromSupabase(sinceIso) {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
+  }
+  try {
+    const { data, error } = await client.from("work_orders").select("id").eq("is_deleted", true).gte("updated_at", sinceIso).limit(500);
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    return {
+      success: true,
+      data: (data || []).map((r) => String(r.id)).filter(Boolean)
+    };
+  } catch (err) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+async function getScopedActiveWorkOrderHeadsFromSupabase() {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
+  }
+  try {
+    const { data, error } = await client.from("work_orders").select("id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived").eq("is_deleted", false).eq("is_archived", false).limit(2e3);
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    return {
+      success: true,
+      data: (data || []).map((row) => ({
+        id: String(row.id),
+        woNumber: row.wo_number,
+        contractorId: row.contractor_id || void 0,
+        contractorName: row.contractor_name || row.contactor_name || "",
+        contactorName: row.contactor_name || row.contractor_name || "",
+        area: row.area || "",
+        installerId: row.installer_id || void 0,
+        installerUid: row.installer_uid || void 0,
+        assignedToUid: row.assigned_to_uid || void 0,
+        installerName: row.installer_name || void 0,
+        leaderName: row.leader_name || void 0,
+        corlapName: row.corlap_name || void 0,
+        isDeleted: Boolean(row.is_deleted),
+        isArchived: Boolean(row.is_archived)
+      }))
+    };
   } catch (err) {
     return { success: false, error: classifySupabaseError(err) };
   }
@@ -3515,6 +3590,9 @@ async function bulkImportWorkOrdersToSupabase(tickets, batchId, importedBy) {
     skippedDuplicates: 0,
     invalidCount: 0,
     failedCount: 0,
+    partialSuccess: false,
+    importedWoNumbers: [],
+    failedWoNumbers: [],
     duplicateInFileWoNumbers: [],
     duplicateExistingWoNumbers: [],
     invalidRows: [],
@@ -3531,37 +3609,74 @@ async function bulkImportWorkOrdersToSupabase(tickets, batchId, importedBy) {
         result.invalidRows.push({ index: index + 1, reason: "Baris data kosong atau bukan objek." });
         return;
       }
-      const rawWo = t.woNumber || t.workOrderNumber || t.wo_number || "";
-      const normWo = normalizeWoNumber(rawWo);
-      const canonicalKey = canonicalWoKey(rawWo);
+      const rawWoVal = t.woNumber ?? t.workOrderNumber ?? t.wo_number ?? "";
+      const rawTrimmed = typeof rawWoVal === "string" || typeof rawWoVal === "number" ? String(rawWoVal).trim() : "";
+      const normWo = normalizeWoNumber(rawWoVal);
+      const canonicalKey = canonicalWoKey(rawWoVal);
       if (!normWo || normWo.length < 3) {
         result.invalidCount++;
         result.invalidRows.push({
           index: index + 1,
           reason: "Nomor WO kosong atau tidak memenuhi panjang minimum 3 karakter.",
-          rawWo: String(rawWo)
+          rawWo: String(rawWoVal)
         });
         return;
+      }
+      const rawAppDate = t.appointmentDate;
+      let normalizedAppDate = null;
+      if (rawAppDate !== void 0 && rawAppDate !== null && String(rawAppDate).trim() !== "" && String(rawAppDate).trim() !== "-" && String(rawAppDate).trim().toLowerCase() !== "null") {
+        normalizedAppDate = toDateOnlyString(rawAppDate);
+        if (!normalizedAppDate) {
+          result.invalidCount++;
+          result.invalidRows.push({
+            index: index + 1,
+            reason: `Format Appointment Date "${String(rawAppDate)}" tidak valid atau bukan tanggal kalender sah.`,
+            rawWo: normWo
+          });
+          return;
+        }
       }
       if (validBatchMap.has(canonicalKey)) {
         result.skippedDuplicates++;
         result.duplicateInFileWoNumbers.push(normWo);
         return;
       }
-      validBatchMap.set(canonicalKey, { ...t, canonicalKey, normWo });
+      validBatchMap.set(canonicalKey, {
+        ...t,
+        appointmentDate: normalizedAppDate ?? void 0,
+        canonicalKey,
+        normWo,
+        rawTrimmed
+      });
     });
     const uniqueCandidates = Array.from(validBatchMap.values());
     if (uniqueCandidates.length === 0) {
-      return { success: result.failedCount === 0, data: result };
+      const onlyInvalid = result.invalidCount > 0 && result.skippedDuplicates === 0;
+      return {
+        success: !onlyInvalid && result.failedCount === 0,
+        data: result,
+        ...onlyInvalid ? {
+          error: {
+            code: "VALIDATION_ERROR",
+            httpStatus: 400,
+            isValidationError: true,
+            message: result.invalidRows[0]?.reason || "Semua baris import tidak valid."
+          }
+        } : {}
+      };
     }
     const existingInDbCanonicalSet = /* @__PURE__ */ new Set();
-    const checkChunkSize = 200;
+    const checkChunkSize = 150;
     for (let i = 0; i < uniqueCandidates.length; i += checkChunkSize) {
       const slice = uniqueCandidates.slice(i, i + checkChunkSize);
-      const sliceWoList = slice.map((c) => c.normWo);
+      const sliceWoList = Array.from(
+        new Set(
+          slice.flatMap((c) => [c.normWo, c.rawTrimmed, c.rawTrimmed.toUpperCase()]).filter(Boolean)
+        )
+      );
       const { data: existingRows, error: searchError } = await client.from("work_orders").select("wo_number").in("wo_number", sliceWoList);
       if (searchError) {
-        const classified = classifySupabaseError(searchError);
+        const classified = classifySupabaseError(searchError, { table: "work_orders", operation: "duplicate_check" });
         console.error("[Supabase DAL] bulkImport duplicate check query failed:", classified.message);
         return { success: false, error: classified };
       }
@@ -3592,39 +3707,51 @@ async function bulkImportWorkOrdersToSupabase(tickets, batchId, importedBy) {
       const chunk = rowsToInsert.slice(i, i + insertChunkSize);
       const { error: insertError } = await client.from("work_orders").insert(chunk);
       if (insertError) {
-        const classified = classifySupabaseError(insertError);
-        if (classified.isDuplicate || classified.code === "23505") {
+        const classified = classifySupabaseError(insertError, { table: "work_orders", operation: "bulk_insert" });
+        if (!classified.isUnavailable) {
           for (const singleRow of chunk) {
             const { error: singleErr } = await client.from("work_orders").insert([singleRow]);
             if (singleErr) {
-              const singleClassified = classifySupabaseError(singleErr);
+              const singleClassified = classifySupabaseError(singleErr, { table: "work_orders", operation: "single_insert_fallback" });
               if (singleClassified.isDuplicate || singleClassified.code === "23505") {
                 result.skippedDuplicates++;
                 result.duplicateExistingWoNumbers.push(singleRow.wo_number);
               } else {
                 result.failedCount++;
+                result.failedWoNumbers.push(singleRow.wo_number);
                 result.failedErrors.push(`Gagal mengimpor WO ${singleRow.wo_number}: ${singleClassified.message}`);
               }
             } else {
               result.imported++;
+              result.importedWoNumbers.push(singleRow.wo_number);
             }
           }
         } else {
           result.failedCount += chunk.length;
-          result.failedErrors.push(`Gagal mengimpor chunk ${i} - ${i + chunk.length}: ${classified.message}`);
+          chunk.forEach((r) => result.failedWoNumbers.push(r.wo_number));
+          result.failedErrors.push(`Gagal mengimpor chunk ${i + 1}-${i + chunk.length}: ${classified.message}`);
         }
       } else {
         result.imported += chunk.length;
+        chunk.forEach((r) => result.importedWoNumbers.push(r.wo_number));
       }
     }
     const hasFailed = result.failedCount > 0 || result.failedErrors.length > 0;
+    result.partialSuccess = result.imported > 0 && hasFailed;
     return {
       success: !hasFailed,
-      data: result
+      data: result,
+      ...hasFailed ? {
+        error: {
+          code: result.partialSuccess ? "PARTIAL_IMPORT_FAILURE" : "BULK_IMPORT_FAILED",
+          httpStatus: result.partialSuccess ? 207 : 500,
+          message: result.failedErrors[0] || `${result.failedCount} Work Order gagal disimpan ke database.`
+        }
+      } : {}
     };
   } catch (err) {
-    const classified = classifySupabaseError(err);
-    return { success: false, error: classified };
+    const classified = classifySupabaseError(err, { table: "work_orders", operation: "bulk_import" });
+    return { success: false, data: result, error: classified };
   }
 }
 function mapSupabaseContractorToModel(row) {
@@ -16113,6 +16240,11 @@ function isLocalJsonModeAllowed() {
   if (process.env.ALLOW_LOCAL_JSON_MODE === "false") return false;
   return true;
 }
+function isServerlessRuntime() {
+  return Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL_REGION
+  );
+}
 function isSupabaseMode() {
   if (getSupabaseBackendClient() !== null) {
     return true;
@@ -18605,6 +18737,8 @@ async function createExpressApp(options) {
         globalConfig: db.appSettings?.global_config || db.globalConfig,
         rolePermissions: rolePermBundle2?.permissions,
         sheetsConfig: !isCriticalMode && user?.role === "super_admin" ? db.appSettings?.google_sheets_config || db.sheetsConfig : void 0,
+        realtimeTransport: isServerlessRuntime() ? "delta_polling" : "sse",
+        sseSupported: !isServerlessRuntime(),
         operationalDate: todayWIB2,
         operationalDateWIB: todayWIB2,
         timezone: "Asia/Jakarta",
@@ -18746,6 +18880,8 @@ async function createExpressApp(options) {
       globalConfig: gcSupaRes?.success && gcSupaRes.data?.value ? gcSupaRes.data.value : db.globalConfig,
       rolePermissions: rolePermBundle?.permissions,
       sheetsConfig: !isCriticalMode && user?.role === "super_admin" ? scSupaRes?.success && scSupaRes.data?.value ? scSupaRes.data.value : db.sheetsConfig : void 0,
+      realtimeTransport: isServerlessRuntime() ? "delta_polling" : "sse",
+      sseSupported: !isServerlessRuntime(),
       operationalDate: todayWIB,
       operationalDateWIB: todayWIB,
       timezone: "Asia/Jakarta",
@@ -24153,16 +24289,38 @@ async function createExpressApp(options) {
           }
           return "";
         };
-        const existingWoMap = /* @__PURE__ */ new Map();
-        db.tickets.forEach((t) => {
-          const key = (t.woNumber || t.workOrderNumber || "").trim().toUpperCase();
-          if (key) existingWoMap.set(key, t);
-        });
+        let existingWoMap = /* @__PURE__ */ new Map();
+        let authUsers = db.users || [];
+        let authContractors = db.contractors || [];
+        if (isSupabaseMode()) {
+          const [woRes, uRes, cRes] = await Promise.all([
+            getWorkOrdersFromSupabase({ includeDeleted: false, includeArchived: true, lightweight: true }),
+            getUsersFromSupabase(false).catch(() => ({ success: false, data: [] })),
+            getContractorsFromSupabase().catch(() => ({ success: false, data: [] }))
+          ]);
+          if (woRes.success && Array.isArray(woRes.data)) {
+            woRes.data.forEach((t) => {
+              const key = String(t.woNumber || t.workOrderNumber || "").trim().toUpperCase();
+              if (key) existingWoMap.set(key, t);
+            });
+          } else if (!isLocalJsonModeAllowed()) {
+            throw new Error("Database authoritative Supabase tidak dapat diakses saat membaca eksisting WO untuk Google Sheets sync.");
+          }
+          if (uRes.success && Array.isArray(uRes.data)) authUsers = uRes.data;
+          if (cRes.success && Array.isArray(cRes.data)) authContractors = cRes.data;
+        } else {
+          db.tickets.forEach((t) => {
+            const key = (t.woNumber || t.workOrderNumber || "").trim().toUpperCase();
+            if (key) existingWoMap.set(key, t);
+          });
+        }
         let processedCount = 0;
         let newCount = 0;
         let updatedCount = 0;
         let skippedCount = 0;
         const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+        const newSupabaseRows = [];
+        const updatedSupabaseRows = [];
         for (let i = 1; i < rawValues.length; i++) {
           const row = rawValues[i];
           if (!row || row.every((c) => !c || String(c).trim() === "")) continue;
@@ -24172,27 +24330,49 @@ async function createExpressApp(options) {
             skippedCount++;
             continue;
           }
-          const upperWo = woNumber.toUpperCase();
+          const upperWo = woNumber.trim().toUpperCase();
           const rawCustId = getVal(row, "ID Customer", "Customer ID", "Cust ID");
           const custDigits = rawCustId.replace(/\D/g, "");
           const validCustId = custDigits.length === 7 ? custDigits : rawCustId || "";
           const appDate = normalizeAppointmentDate(getVal(row, "Appointment Date", "Date", "Schedule Date"));
           if (existingWoMap.has(upperWo)) {
             const existing = existingWoMap.get(upperWo);
-            if (appDate) existing.appointmentDate = appDate;
+            const patchUpdates = {};
+            if (appDate) {
+              existing.appointmentDate = appDate;
+              patchUpdates.appointmentDate = appDate;
+            }
             const slot = getVal(row, "Slot Time", "Time Slot");
-            if (slot) existing.slotTime = slot;
+            if (slot) {
+              existing.slotTime = slot;
+              patchUpdates.slotTime = slot;
+            }
             const phone = getVal(row, "Customer Phone", "Phone", "Telp");
-            if (phone) existing.customerPhone = phone;
+            if (phone) {
+              existing.customerPhone = phone;
+              patchUpdates.customerPhone = phone;
+            }
             const remarks = getVal(row, "Remarks Agent", "Agent Notes");
-            if (remarks) existing.remarksAgent = remarks;
+            if (remarks) {
+              existing.remarksAgent = remarks;
+              patchUpdates.remarksAgent = remarks;
+            }
             const cat = getVal(row, "Ticket Category", "Category");
-            if (cat) existing.ticketCategory = cat;
+            if (cat) {
+              existing.ticketCategory = cat;
+              patchUpdates.ticketCategory = cat;
+            }
             existing.updatedAt = nowIso;
             existing.updatedBy = `Google Sheets Sync (${req.user.name})`;
-            updatedCount++;
+            patchUpdates.updatedAt = nowIso;
+            patchUpdates.updatedBy = existing.updatedBy;
+            if (isSupabaseMode() && existing.id) {
+              updatedSupabaseRows.push({ id: existing.id, updates: patchUpdates });
+            } else {
+              updatedCount++;
+            }
           } else {
-            const newTicket = {
+            const rawNewTicket = {
               id: "t-gs-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
               woNumber,
               workOrderNumber: woNumber,
@@ -24235,9 +24415,50 @@ async function createExpressApp(options) {
               updatedAt: nowIso,
               updatedBy: `Google Sheets Sync (${req.user.name})`
             };
-            db.tickets.unshift(newTicket);
-            existingWoMap.set(upperWo, newTicket);
-            newCount++;
+            const dist = resolveLeaderForWorkOrder(rawNewTicket, authUsers, authContractors);
+            const enrichedTicket = {
+              ...rawNewTicket,
+              contractorId: dist.contractorId || void 0,
+              contractorName: dist.contractorName || rawNewTicket.contractorName,
+              contactorName: dist.contactorName || rawNewTicket.contactorName,
+              leaderId: dist.matched ? dist.leaderId : void 0,
+              leaderName: dist.matched ? dist.leaderName : rawNewTicket.leaderName,
+              leaderContact: dist.matched ? dist.leaderContact : void 0,
+              corlapName: dist.matched ? dist.corlapName : rawNewTicket.leaderName,
+              distributionStatus: dist.distributionStatus,
+              distributionNotes: dist.distributionNotes
+            };
+            if (isSupabaseMode()) {
+              newSupabaseRows.push(enrichedTicket);
+              existingWoMap.set(upperWo, enrichedTicket);
+            } else {
+              db.tickets.unshift(enrichedTicket);
+              existingWoMap.set(upperWo, enrichedTicket);
+              newCount++;
+            }
+          }
+        }
+        if (isSupabaseMode()) {
+          if (newSupabaseRows.length > 0) {
+            const bulkRes = await bulkImportWorkOrdersToSupabase(newSupabaseRows, jobId, req.user.name);
+            if (!bulkRes.success && (bulkRes.data?.imported || 0) === 0) {
+              throw new Error(bulkRes.error?.message || "Gagal menyimpan WO baru dari Google Sheets ke Supabase.");
+            }
+            newCount = bulkRes.data?.imported || 0;
+            skippedCount += (bulkRes.data?.skippedDuplicates || 0) + (bulkRes.data?.invalidCount || 0);
+            if (bulkRes.data && bulkRes.data.failedCount > 0) {
+              throw new Error(bulkRes.data.failedErrors[0] || `Sebagian (${bulkRes.data.failedCount}) WO dari Google Sheets gagal disimpan ke Supabase.`);
+            }
+          }
+          for (const item of updatedSupabaseRows) {
+            const upRes = await updateWorkOrderInSupabase(item.id, item.updates);
+            if (!upRes.success) {
+              throw new Error(upRes.error?.message || `Gagal memperbarui WO ${item.id} di Supabase.`);
+            }
+            updatedCount++;
+          }
+          if (newCount > 0 || updatedCount > 0) {
+            broadcastSupabaseChange("work_orders", "INSERT", { batchId: jobId, imported: newCount, updated: updatedCount });
           }
         }
         const durationMs = Date.now() - startMs;
@@ -25777,8 +25998,9 @@ async function createExpressApp(options) {
         });
       }
       const safeTickets = tickets.filter((t) => {
-        const id = (t.id || "").trim();
-        const wo = (t.woNumber || "").trim();
+        if (!t || typeof t !== "object") return true;
+        const id = String(t.id ?? "").trim();
+        const wo = String(t.woNumber ?? t.workOrderNumber ?? "").trim();
         return !PROTECTED_PRODUCTION_WO_IDS2.has(id) && !PROTECTED_PRODUCTION_WO_IDS2.has(wo);
       });
       let authUsers = db.users || [];
@@ -25792,6 +26014,7 @@ async function createExpressApp(options) {
         }
       }
       const enrichedTickets = safeTickets.map((t) => {
+        if (!t || typeof t !== "object") return t;
         const appDate = normalizeAppointmentDate(t.appointmentDate);
         const dist = resolveLeaderForWorkOrder(t, authUsers, authContractors);
         return {
@@ -25815,46 +26038,112 @@ async function createExpressApp(options) {
         }
         let imported = 0;
         let skippedDuplicates = 0;
+        let invalidCount = 0;
+        const importedWoNumbers = [];
+        const duplicateExistingWoNumbers = [];
+        const duplicateInFileWoNumbers = [];
+        const invalidRows = [];
         const importedLocalItems = [];
-        const existingSet = new Set(db.tickets.map((t) => String(t.woNumber || "").trim().toUpperCase()));
-        for (const t of enrichedTickets) {
-          const norm2 = String(t.woNumber || "").trim().toUpperCase();
-          if (!norm2 || existingSet.has(norm2)) {
+        const seenInRequest = /* @__PURE__ */ new Set();
+        const existingSet = new Set(db.tickets.map((t) => String(t.woNumber || "").trim().toUpperCase().replace(/\s+/g, "")));
+        enrichedTickets.forEach((t, idx) => {
+          if (!t || typeof t !== "object") {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: "Baris data kosong atau bukan objek." });
+            return;
+          }
+          const rawWo = String(t.woNumber ?? t.workOrderNumber ?? "").trim();
+          const norm2 = rawWo.toUpperCase().replace(/\s+/g, "");
+          if (!norm2 || norm2.length < 3) {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: "Nomor WO kosong atau kurang dari 3 karakter.", rawWo });
+            return;
+          }
+          if (t.appointmentDate && !normalizeAppointmentDate(t.appointmentDate)) {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: `Format Appointment Date "${String(t.appointmentDate)}" tidak valid.`, rawWo: norm2 });
+            return;
+          }
+          if (seenInRequest.has(norm2)) {
             skippedDuplicates++;
-            continue;
+            duplicateInFileWoNumbers.push(norm2);
+            return;
+          }
+          seenInRequest.add(norm2);
+          if (existingSet.has(norm2)) {
+            skippedDuplicates++;
+            duplicateExistingWoNumbers.push(norm2);
+            return;
           }
           existingSet.add(norm2);
-          const itemObj = { ...t, id: t.id || `wo_${norm2}`, importBatchId: batchId, createdAt: t.createdAt || (/* @__PURE__ */ new Date()).toISOString() };
+          const itemObj = {
+            ...t,
+            woNumber: norm2,
+            workOrderNumber: norm2,
+            id: t.id || `wo_${norm2}`,
+            importBatchId: batchId,
+            createdAt: t.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
           db.tickets.unshift(itemObj);
           importedLocalItems.push(itemObj);
+          importedWoNumbers.push(norm2);
           imported++;
-        }
+        });
         saveDatabaseToDisk();
-        broadcastSupabaseChange("work_orders", "INSERT", { batchId, imported });
+        if (imported > 0) {
+          broadcastSupabaseChange("work_orders", "INSERT", { batchId, imported });
+        }
         if (importedLocalItems.length > 0) {
           void triggerNewWoLeaderNotifications({ tickets: importedLocalItems, users: authUsers }).catch(() => {
           });
         }
-        return res.json({ success: true, data: { totalSubmitted: safeTickets.length, imported, skippedDuplicates } });
+        const onlyInvalid = invalidCount > 0 && imported === 0 && skippedDuplicates === 0;
+        return res.status(onlyInvalid ? 400 : 200).json({
+          success: !onlyInvalid,
+          data: {
+            totalSubmitted: safeTickets.length,
+            imported,
+            skippedDuplicates,
+            invalidCount,
+            failedCount: 0,
+            partialSuccess: false,
+            importedWoNumbers,
+            failedWoNumbers: [],
+            duplicateInFileWoNumbers,
+            duplicateExistingWoNumbers,
+            invalidRows,
+            failedErrors: []
+          },
+          ...onlyInvalid ? { error: { code: "VALIDATION_ERROR", message: invalidRows[0]?.reason || "Data import tidak valid." } } : {}
+        });
       }
       const result = await bulkImportWorkOrdersToSupabase(enrichedTickets, batchId, user.name);
-      if (result.success && result.data) {
+      if (result.data && result.data.imported > 0) {
         broadcastSupabaseChange("work_orders", "INSERT", { batchId, imported: result.data.imported });
-        if (result.data.imported > 0) {
-          const dupSet = new Set([
-            ...result.data.duplicateExistingWoNumbers || [],
-            ...result.data.duplicateInFileWoNumbers || []
-          ].map((w) => String(w || "").trim().toUpperCase()));
-          const newlyImported = enrichedTickets.filter((r) => {
-            const wo = String(r.woNumber || r.workOrderNumber || "").trim().toUpperCase();
-            return wo && !dupSet.has(wo);
+        const importedSet = new Set((result.data.importedWoNumbers || []).map((w) => String(w || "").trim().toUpperCase()));
+        const newlyImported = enrichedTickets.filter((r) => {
+          const wo = String(r?.woNumber || r?.workOrderNumber || "").trim().toUpperCase().replace(/\s+/g, "");
+          return wo && importedSet.has(wo);
+        });
+        if (newlyImported.length > 0) {
+          void triggerNewWoLeaderNotifications({ tickets: newlyImported, users: authUsers }).catch(() => {
           });
-          if (newlyImported.length > 0) {
-            void triggerNewWoLeaderNotifications({ tickets: newlyImported, users: authUsers }).catch(() => {
-            });
-          }
         }
-        await logServerAuditAsync("Bulk Import Work Orders (Supabase)", "work_order", batchId || "bulk", `Import ${result.data.imported} WO oleh ${user.name}. Duplikat diabaikan: ${result.data.skippedDuplicates}`, user);
+        await logServerAuditAsync(
+          "Bulk Import Work Orders (Supabase)",
+          "work_order",
+          batchId || "bulk",
+          `Import ${result.data.imported} WO oleh ${user.name}. Duplikat diabaikan: ${result.data.skippedDuplicates}, Gagal: ${result.data.failedCount}`,
+          user
+        );
+      }
+      if (!result.success) {
+        if (result.data?.partialSuccess) {
+          return res.status(207).json(result);
+        }
+        const statusCode = result.error?.isUnavailable ? 503 : result.error?.httpStatus || (result.error?.isValidationError ? 400 : 500);
+        return res.status(statusCode).json(result);
       }
       return res.json(result);
     } catch (err) {
@@ -27101,8 +27390,30 @@ async function createExpressApp(options) {
     let isClosed = false;
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    if (isServerlessRuntime() || req.query.mode === "poll") {
+      res.setHeader("Connection", "close");
+      res.flushHeaders();
+      const directiveId = nextSseEventId();
+      res.write(
+        `id: ${directiveId}
+data: ${JSON.stringify({
+          type: "SERVERLESS_DELTA_MODE",
+          status: "POLLING_MODE",
+          transport: "delta_polling",
+          sseSupported: false,
+          recommendedPollMs: 15e3,
+          userId: user.id,
+          role: user.role,
+          timestamp: connectedAtIso
+        })}
+
+`
+      );
+      res.end();
+      return;
+    }
+    res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
     ACTIVE_SSE_CONNECTION_IDS.add(connectionId);
     const existingPresence = PRESENCE_REGISTRY.get(user.id);
@@ -27256,16 +27567,21 @@ data: ${JSON.stringify(safePayload)}
   });
   app.get("/api/realtime/status", requireAuth, (req, res) => {
     const user = req.user;
+    const serverless = isServerlessRuntime();
     const visibleOnlineCount = Array.from(PRESENCE_REGISTRY.values()).filter(
       (p) => p.status === "online" && canUserObservePresence(user, p)
     ).length;
     return res.json({
       success: true,
-      sseActiveConnections: ACTIVE_SSE_CONNECTION_IDS.size,
+      runtimeMode: serverless ? "serverless" : "persistent",
+      sseSupported: !serverless,
+      recommendedTransport: serverless ? "delta_polling" : "sse",
+      recommendedPollMs: serverless ? 15e3 : 3e4,
+      sseActiveConnections: serverless ? 0 : ACTIVE_SSE_CONNECTION_IDS.size,
       visibleOnlineUsers: visibleOnlineCount,
       lastEventSequence: sseSequenceCounter,
       supabaseDbBridge: {
-        status: supabaseRealtimeBridgeState.status,
+        status: serverless ? "delta_polling" : supabaseRealtimeBridgeState.status,
         lastEventAt: supabaseRealtimeBridgeState.lastEventAt,
         eventsRelayed: supabaseRealtimeBridgeState.eventsRelayed
       },
@@ -29894,12 +30210,15 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       const sinceMs = sinceDate.getTime();
       const user = req.user;
       const todayWIB = getJakartaDateStringServer2(getNow());
+      const serverless = isServerlessRuntime();
       let changedRaw = [];
-      let allRawForDeleted = [];
+      let deletedIds = [];
+      let scopedHeads = [];
       if (isSupabaseMode()) {
-        const [deltaRes, deletedRes] = await Promise.all([
+        const [deltaRes, deletedRes, headsRes] = await Promise.all([
           getWorkOrdersUpdatedSinceFromSupabase(sinceIso),
-          getWorkOrdersFromSupabase({ includeDeleted: true, includeArchived: true })
+          getDeletedWorkOrderIdsSinceFromSupabase(sinceIso),
+          getScopedActiveWorkOrderHeadsFromSupabase()
         ]);
         if (deltaRes.success && Array.isArray(deltaRes.data)) {
           changedRaw = deltaRes.data;
@@ -29911,26 +30230,39 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
           });
         }
         if (deletedRes.success && Array.isArray(deletedRes.data)) {
-          allRawForDeleted = deletedRes.data;
+          deletedIds = deletedRes.data;
+        }
+        if (headsRes.success && Array.isArray(headsRes.data)) {
+          scopedHeads = scopeTicketsForUser(headsRes.data, user);
         }
       } else {
-        allRawForDeleted = db.tickets || [];
-        changedRaw = allRawForDeleted.filter((t) => {
+        const allLocal = db.tickets || [];
+        changedRaw = allLocal.filter((t) => {
           const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
           return !Number.isNaN(ts) && ts >= sinceMs;
         });
+        deletedIds = allLocal.filter((t) => t && t.isDeleted === true).map((t) => String(t.id));
+        scopedHeads = scopeTicketsForUser(
+          allLocal.filter((t) => t && !t.isDeleted && !t.isArchived),
+          user
+        );
       }
-      const deletedIds = allRawForDeleted.filter((t) => t && t.isDeleted === true).map((t) => String(t.id));
-      const scopedAll = scopeTicketsForUser(
-        allRawForDeleted.filter((t) => t && !t.isDeleted),
-        user
-      );
+      for (const t of changedRaw) {
+        if (t?.isDeleted && t?.id && !deletedIds.includes(String(t.id))) {
+          deletedIds.push(String(t.id));
+        }
+      }
       const scopedUpdated = scopeTicketsForUser(
         changedRaw.filter((t) => t && !t.isDeleted),
         user
       ).map((t) => attachClassificationMetadata(t, todayWIB));
       let deltaMessages = [];
-      const activeScopedIds = scopedAll.filter((t) => !t.isArchived).map((t) => String(t.id));
+      const activeScopedIds = Array.from(
+        /* @__PURE__ */ new Set([
+          ...scopedHeads.map((t) => String(t.id)),
+          ...scopedUpdated.filter((t) => !t.isArchived).map((t) => String(t.id))
+        ])
+      ).filter(Boolean);
       if (activeScopedIds.length > 0) {
         if (isSupabaseMode()) {
           const mDeltaRes = await getTicketMessagesDeltaForTicketsFromSupabase(activeScopedIds, sinceIso);
@@ -29951,6 +30283,8 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       return res.json({
         success: true,
         since: sinceIso,
+        realtimeTransport: serverless ? "delta_polling" : "sse",
+        sseSupported: !serverless,
         tickets: scopedUpdated,
         ticketMessages: deltaMessages,
         deletedIds,
@@ -30406,15 +30740,18 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     if (hmrDisabled) {
       process.env.DISABLE_HMR = "true";
     }
-    const viteReadyPromise = createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: hmrDisabled ? false : options?.httpServer ? { server: options.httpServer } : false,
-        ws: hmrDisabled ? false : void 0,
-        watch: hmrDisabled ? null : void 0
-      },
-      appType: "spa"
-    }).then((vite) => {
+    const viteReadyPromise = (async () => {
+      const { createServer: createViteServer } = await import("vite");
+      return createViteServer({
+        server: {
+          middlewareMode: true,
+          hmr: hmrDisabled ? false : options?.httpServer ? { server: options.httpServer } : false,
+          ws: hmrDisabled ? false : void 0,
+          watch: hmrDisabled ? null : void 0
+        },
+        appType: "spa"
+      });
+    })().then((vite) => {
       viteMiddleware = vite.middlewares;
       if (options?.onViteInstance) {
         options.onViteInstance(vite);

@@ -337,10 +337,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
           'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25'
       };
     }
+    const isDeltaPolling = realtimeStatusInfo.transport === 'delta_polling';
     if (realtimeConnectionState === 'connected') {
       return {
-        label: 'SSE: Live Sync',
-        shortLabel: 'LIVE',
+        label: isDeltaPolling ? 'Delta Sync: Live' : 'SSE: Live Sync',
+        shortLabel: isDeltaPolling ? 'DELTA LIVE' : 'LIVE',
         dotClass: 'bg-[#218A63] dark:bg-emerald-400 animate-pulse',
         textClass: 'text-[#218A63] dark:text-emerald-300',
         pillClass:
@@ -350,8 +351,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
     if (realtimeConnectionState === 'reconnecting') {
       const attempt = realtimeStatusInfo.reconnectAttempt || 1;
       return {
-        label: `Reconnect (${attempt})`,
-        shortLabel: `RECONNECT ${attempt}`,
+        label: isDeltaPolling ? `Sync Retry (${attempt})` : `Reconnect (${attempt})`,
+        shortLabel: `RETRY ${attempt}`,
         dotClass: 'bg-[#C88735] dark:bg-amber-400 animate-pulse',
         textClass: 'text-[#9D661F] dark:text-amber-300',
         pillClass:
@@ -369,14 +370,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
       };
     }
     return {
-      label: 'SSE Terputus',
+      label: isDeltaPolling ? 'Sync Terputus' : 'SSE Terputus',
       shortLabel: 'TERPUTUS',
       dotClass: 'bg-[#D45B66] dark:bg-rose-500',
       textClass: 'text-[#9B2C37] dark:text-rose-300',
       pillClass:
         'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300 border border-[#D45B66]/30 dark:border-rose-500/25'
     };
-  }, [isOnline, syncStatus, isSimulatedOffline, realtimeConnectionState, realtimeStatusInfo.reconnectAttempt]);
+  }, [isOnline, syncStatus, isSimulatedOffline, realtimeConnectionState, realtimeStatusInfo.reconnectAttempt, realtimeStatusInfo.transport]);
 
   const renderConnectionMonitorPopover = () => (
     <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white/95 dark:bg-[#1A0E2E]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-white/15 p-3.5 z-50 text-xs space-y-3 pointer-events-auto">

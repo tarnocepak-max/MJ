@@ -51,6 +51,9 @@ export interface BulkImportResult {
   skippedDuplicates: number;
   invalidCount: number;
   failedCount: number;
+  partialSuccess?: boolean;
+  importedWoNumbers: string[];
+  failedWoNumbers: string[];
   duplicateInFileWoNumbers: string[];
   duplicateExistingWoNumbers: string[];
   invalidRows: Array<{ index: number; reason: string; rawWo?: string }>;
@@ -179,7 +182,17 @@ export function isValidCalendarDate(year: number, month: number, day: number): b
  * - Never returns today's date if input is empty or invalid
  */
 export function toDateOnlyString(val: unknown): string | null {
-  if (!val) return null;
+  if (val === null || val === undefined || val === '') return null;
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return null;
+    const dtf = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return dtf.format(val);
+  }
   const str = String(val).trim();
   if (!str || str === '-' || str === 'null' || str === 'undefined') return null;
 
@@ -269,17 +282,19 @@ export function parseAndValidateDateForUpdate(val: unknown, fieldName: string): 
  * Normalizes WO Number for canonical deduplication.
  * Strips outer whitespace, converts to uppercase, removes internal spaces.
  */
-export function normalizeWoNumber(rawWo?: string | null): string {
-  if (!rawWo || typeof rawWo !== 'string') return '';
-  return rawWo.trim().toUpperCase().replace(/\s+/g, '');
+export function normalizeWoNumber(rawWo?: unknown): string {
+  if (rawWo === null || rawWo === undefined) return '';
+  if (typeof rawWo !== 'string' && typeof rawWo !== 'number') return '';
+  return String(rawWo).trim().toUpperCase().replace(/\s+/g, '');
 }
 
 /**
  * Lowercased canonical WO key for case-insensitive and space-free deduplication.
  */
-export function canonicalWoKey(rawWo?: string | null): string {
-  if (!rawWo || typeof rawWo !== 'string') return '';
-  return rawWo.trim().toLowerCase().replace(/\s+/g, '');
+export function canonicalWoKey(rawWo?: unknown): string {
+  if (rawWo === null || rawWo === undefined) return '';
+  if (typeof rawWo !== 'string' && typeof rawWo !== 'number') return '';
+  return String(rawWo).trim().toLowerCase().replace(/\s+/g, '');
 }
 
 /**
@@ -484,120 +499,130 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     ...(ticket.payload && typeof ticket.payload === 'object' ? ticket.payload : {})
   };
 
-  const contractorVal = ticket.contractorName ?? ticket.contactorName ?? null;
-  const contactorVal = ticket.contactorName ?? ticket.contractorName ?? null;
+  const safeText = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s.length > 0 ? s : null;
+  };
+  const contractorVal = safeText(ticket.contractorName ?? ticket.contactorName);
+  const woNumStr = safeText(ticket.woNumber) || safeText(ticket.workOrderNumber) || '';
+  const workOrderNumStr = safeText(ticket.workOrderNumber) || woNumStr || null;
+  const custIdStr = safeText(ticket.idCustomer) || safeText(ticket.customerId);
+  const chatMsgCount = typeof ticket.chatMessagesCount === 'number' && Number.isFinite(ticket.chatMessagesCount)
+    ? Math.max(0, Math.floor(ticket.chatMessagesCount))
+    : 0;
 
   return {
-    id: ticket.id || ('wo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)),
-    wo_number: ticket.woNumber || ticket.workOrderNumber,
-    work_order_number: ticket.workOrderNumber || ticket.woNumber || null,
-    id_customer: ticket.idCustomer || ticket.customerId || null,
-    customer_id: ticket.customerId || ticket.idCustomer || null,
-    ticket_number: ticket.ticketNumber || null,
+    id: safeText(ticket.id) || ('wo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)),
+    wo_number: woNumStr,
+    work_order_number: workOrderNumStr,
+    id_customer: custIdStr,
+    customer_id: safeText(ticket.customerId) || custIdStr,
+    ticket_number: safeText(ticket.ticketNumber),
     ticket_date: toDateOnlyString(ticket.ticketDate),
     date: toDateOnlyString(ticket.date),
     appointment_date: toDateOnlyString(ticket.appointmentDate),
-    date_upload: ticket.dateUpload || null,
-    file_name: ticket.fileName || null,
-    agent_id: ticket.agentId || null,
+    date_upload: safeText(ticket.dateUpload),
+    file_name: safeText(ticket.fileName),
+    agent_id: safeText(ticket.agentId),
 
     // Customer
-    customer_name: ticket.customerName || ticket.endUserName || null,
-    end_user_name: ticket.endUserName || ticket.customerName || null,
-    customer_phone: ticket.customerPhone || null,
-    customer_contact1: ticket.customerContact1 || ticket.customerPhone || null,
-    customer_contact2: ticket.customerContact2 || null,
-    customer_contact3: ticket.customerContact3 || null,
-    customer_phone_normalized: ticket.customerPhoneNormalized || null,
-    street_name: ticket.streetName || null,
-    street_alternatif: ticket.streetAlternatif || null,
-    address: ticket.address || null,
-    city: ticket.city || null,
-    postal_code: ticket.postalCode || null,
-    cluster_name: ticket.clusterName || null,
-    area: ticket.area || null,
+    customer_name: safeText(ticket.customerName) || safeText(ticket.endUserName),
+    end_user_name: safeText(ticket.endUserName) || safeText(ticket.customerName),
+    customer_phone: safeText(ticket.customerPhone),
+    customer_contact1: safeText(ticket.customerContact1) || safeText(ticket.customerPhone),
+    customer_contact2: safeText(ticket.customerContact2),
+    customer_contact3: safeText(ticket.customerContact3),
+    customer_phone_normalized: safeText(ticket.customerPhoneNormalized),
+    street_name: safeText(ticket.streetName),
+    street_alternatif: safeText(ticket.streetAlternatif),
+    address: safeText(ticket.address),
+    city: safeText(ticket.city),
+    postal_code: safeText(ticket.postalCode),
+    cluster_name: safeText(ticket.clusterName),
+    area: safeText(ticket.area),
 
     // Schedule & Category
-    appointment_type: ticket.appointmentType || null,
-    slot_time: ticket.slotTime || null,
-    ticket_category: ticket.ticketCategory || null,
-    initial_ticket_category: ticket.initialTicketCategory || null,
+    appointment_type: safeText(ticket.appointmentType),
+    slot_time: safeText(ticket.slotTime),
+    ticket_category: safeText(ticket.ticketCategory),
+    initial_ticket_category: safeText(ticket.initialTicketCategory),
 
     // Telecom FTTH
-    installation_type: ticket.installationType || null,
-    service_type: ticket.serviceType || null,
-    homepass_type: ticket.homepassType || null,
-    homepass_detail_id: ticket.homepassDetailId || null,
-    olt_code: ticket.oltCode || null,
-    fdt_code: ticket.fdtCode || null,
-    fat_code: ticket.fatCode || null,
-    fat_port: ticket.fatPort || null,
-    dropcore_length: ticket.dropcoreLength || null,
-    plan: ticket.plan || null,
-    service_aging_maintenance: ticket.serviceAgingMaintenance || null,
-    vendor_name: ticket.vendorName || null,
-    router: ticket.router || null,
-    ont_brand: ticket.ontBrand || null,
-    ont_model: ticket.ontModel || null,
-    router_brand: ticket.routerBrand || null,
-    router_model: ticket.routerModel || null,
-    router_serial_number: ticket.routerSerialNumber || null,
-    stb1_sn: ticket.stb1Sn || null,
-    stb1_mac: ticket.stb1Mac || null,
-    stb2_sn: ticket.stb2Sn || null,
-    stb2_mac: ticket.stb2Mac || null,
-    stb3_sn: ticket.stb3Sn || null,
-    stb3_mac: ticket.stb3Mac || null,
-    ont_serial_number: ticket.ontSerialNumber || null,
-    ont_mac_address: ticket.ontMacAddress || null,
-    rg_serial_number: ticket.rgSerialNumber || null,
-    rg_mac_address: ticket.rgMacAddress || null,
+    installation_type: safeText(ticket.installationType),
+    service_type: safeText(ticket.serviceType),
+    homepass_type: safeText(ticket.homepassType),
+    homepass_detail_id: safeText(ticket.homepassDetailId),
+    olt_code: safeText(ticket.oltCode),
+    fdt_code: safeText(ticket.fdtCode),
+    fat_code: safeText(ticket.fatCode),
+    fat_port: safeText(ticket.fatPort),
+    dropcore_length: safeText(ticket.dropcoreLength),
+    plan: safeText(ticket.plan),
+    service_aging_maintenance: safeText(ticket.serviceAgingMaintenance),
+    vendor_name: safeText(ticket.vendorName),
+    router: safeText(ticket.router),
+    ont_brand: safeText(ticket.ontBrand),
+    ont_model: safeText(ticket.ontModel),
+    router_brand: safeText(ticket.routerBrand),
+    router_model: safeText(ticket.routerModel),
+    router_serial_number: safeText(ticket.routerSerialNumber),
+    stb1_sn: safeText(ticket.stb1Sn),
+    stb1_mac: safeText(ticket.stb1Mac),
+    stb2_sn: safeText(ticket.stb2Sn),
+    stb2_mac: safeText(ticket.stb2Mac),
+    stb3_sn: safeText(ticket.stb3Sn),
+    stb3_mac: safeText(ticket.stb3Mac),
+    ont_serial_number: safeText(ticket.ontSerialNumber),
+    ont_mac_address: safeText(ticket.ontMacAddress),
+    rg_serial_number: safeText(ticket.rgSerialNumber),
+    rg_mac_address: safeText(ticket.rgMacAddress),
 
     // Contractors & Technicians
-    contractor_id: ticket.contractorId || null,
+    contractor_id: safeText(ticket.contractorId),
     contractor_name: contractorVal,
-    contactor_name: contactorVal,
-    leader_name: ticket.leaderName || null,
-    corlap_name: ticket.corlapName || null,
-    corlap_contact: ticket.corlapContact || null,
-    installer_id: ticket.installerId || null,
-    installer_uid: ticket.installerUid || ticket.installerId || null,
-    assigned_to: ticket.assignedTo || ticket.installerName || null,
-    assigned_to_uid: ticket.assignedToUid || ticket.installerId || null,
-    installer_name: ticket.installerName || null,
-    installer_contact: ticket.installerContact || null,
-    installer_contact2: ticket.installerContact2 || null,
-    installer_email: ticket.installerEmail || null,
-    date_assign_agent: ticket.dateAssignAgent || null,
-    date_assign_technician: ticket.dateAssignTechnician || null,
-    assigned_at: ticket.assignedAt || null,
-    assigned_by: ticket.assignedBy || null,
-    reassigned_at: ticket.reassignedAt || null,
-    reassigned_by: ticket.reassignedBy || null,
-    reassignment_reason: ticket.reassignmentReason || null,
+    contactor_name: contractorVal,
+    leader_name: safeText(ticket.leaderName),
+    corlap_name: safeText(ticket.corlapName),
+    corlap_contact: safeText(ticket.corlapContact),
+    installer_id: safeText(ticket.installerId),
+    installer_uid: safeText(ticket.installerUid) || safeText(ticket.installerId),
+    assigned_to: safeText(ticket.assignedTo) || safeText(ticket.installerName),
+    assigned_to_uid: safeText(ticket.assignedToUid) || safeText(ticket.installerId),
+    installer_name: safeText(ticket.installerName),
+    installer_contact: safeText(ticket.installerContact),
+    installer_contact2: safeText(ticket.installerContact2),
+    installer_email: safeText(ticket.installerEmail),
+    date_assign_agent: safeText(ticket.dateAssignAgent),
+    date_assign_technician: safeText(ticket.dateAssignTechnician),
+    assigned_at: safeText(ticket.assignedAt),
+    assigned_by: safeText(ticket.assignedBy),
+    reassigned_at: safeText(ticket.reassignedAt),
+    reassigned_by: safeText(ticket.reassignedBy),
+    reassignment_reason: safeText(ticket.reassignmentReason),
 
     // Operational Statuses
-    distribution_status: ticket.distributionStatus || 'pending',
-    distribution_notes: ticket.distributionNotes || null,
-    status_wo_agent: ticket.statusWOAgent || 'Pending',
-    status_wo_installer: ticket.statusWOInstaller || 'Unassigned',
-    status_whatsapp: ticket.statusWhatsApp || 'not_prepared',
-    remarks_wo_installer: ticket.remarksWOInstaller || null,
-    remarks_agent: ticket.remarksAgent || null,
-    remarks: ticket.remarks || null,
+    distribution_status: safeText(ticket.distributionStatus) || 'pending',
+    distribution_notes: safeText(ticket.distributionNotes),
+    status_wo_agent: safeText(ticket.statusWOAgent) || 'Pending',
+    status_wo_installer: safeText(ticket.statusWOInstaller) || 'Unassigned',
+    status_whatsapp: safeText(ticket.statusWhatsApp) || 'not_prepared',
+    remarks_wo_installer: safeText(ticket.remarksWOInstaller),
+    remarks_agent: safeText(ticket.remarksAgent),
+    remarks: safeText(ticket.remarks),
 
     // WhatsApp Tracking
-    wa_message_preview: ticket.waMessagePreview || null,
-    wa_generated_url: ticket.waGeneratedUrl || null,
-    wa_last_opened_at: ticket.waLastOpenedAt || null,
-    wa_confirmed_at: ticket.waConfirmedAt || null,
-    wa_confirmed_by: ticket.waConfirmedBy || null,
-    wa_confirmation_notes: ticket.waConfirmationNotes || null,
+    wa_message_preview: safeText(ticket.waMessagePreview),
+    wa_generated_url: safeText(ticket.waGeneratedUrl),
+    wa_last_opened_at: safeText(ticket.waLastOpenedAt),
+    wa_confirmed_at: safeText(ticket.waConfirmedAt),
+    wa_confirmed_by: safeText(ticket.waConfirmedBy),
+    wa_confirmation_notes: safeText(ticket.waConfirmationNotes),
 
     // Chat stats & Sessions
-    chat_messages_count: typeof ticket.chatMessagesCount === 'number' ? ticket.chatMessagesCount : 0,
-    last_message_at: ticket.lastMessageAt || null,
-    last_message_snippet: ticket.lastMessageSnippet || null,
+    chat_messages_count: chatMsgCount,
+    last_message_at: safeText(ticket.lastMessageAt),
+    last_message_snippet: safeText(ticket.lastMessageSnippet),
     check_in_at: ticket.checkInAt || null,
     work_session_status: ticket.workSessionStatus || null,
     work_sessions: Array.isArray(ticket.workSessions) ? ticket.workSessions : [],
@@ -1667,17 +1692,102 @@ export async function getWorkOrdersUpdatedSinceFromSupabase(
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
-    const { data, error } = await client
+    let { data, error } = await client
       .from('work_orders')
-      .select('*')
+      .select(WORK_ORDER_LIST_COLUMNS)
       .gte('updated_at', sinceIso)
       .order('updated_at', { ascending: false })
       .limit(500);
+
+    if (error && isMissingSchemaObjectError(error)) {
+      const fb = await client
+        .from('work_orders')
+        .select('*')
+        .gte('updated_at', sinceIso)
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      data = fb.data as any;
+      error = fb.error;
+    }
 
     if (error) {
       return { success: false, error: classifySupabaseError(error) };
     }
     return { success: true, data: (data || []).map(postgresRowToTicket) };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
+/**
+ * Lightweight query for Work Order IDs soft-deleted since a delta timestamp.
+ * Avoids downloading all active/archived rows with SELECT * on every polling tick.
+ */
+export async function getDeletedWorkOrderIdsSinceFromSupabase(
+  sinceIso: string
+): Promise<SupabaseOpResult<string[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  try {
+    const { data, error } = await client
+      .from('work_orders')
+      .select('id')
+      .eq('is_deleted', true)
+      .gte('updated_at', sinceIso)
+      .limit(500);
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    return {
+      success: true,
+      data: (data || []).map((r: any) => String(r.id)).filter(Boolean)
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
+/**
+ * Lightweight query for active work order scope metadata used in delta message sync.
+ */
+export async function getScopedActiveWorkOrderHeadsFromSupabase(): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  try {
+    const { data, error } = await client
+      .from('work_orders')
+      .select('id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived')
+      .eq('is_deleted', false)
+      .eq('is_archived', false)
+      .limit(2000);
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    return {
+      success: true,
+      data: (data || []).map((row: any) => ({
+        id: String(row.id),
+        woNumber: row.wo_number,
+        contractorId: row.contractor_id || undefined,
+        contractorName: row.contractor_name || row.contactor_name || '',
+        contactorName: row.contactor_name || row.contractor_name || '',
+        area: row.area || '',
+        installerId: row.installer_id || undefined,
+        installerUid: row.installer_uid || undefined,
+        assignedToUid: row.assigned_to_uid || undefined,
+        installerName: row.installer_name || undefined,
+        leaderName: row.leader_name || undefined,
+        corlapName: row.corlap_name || undefined,
+        isDeleted: Boolean(row.is_deleted),
+        isArchived: Boolean(row.is_archived)
+      }))
+    };
   } catch (err: any) {
     return { success: false, error: classifySupabaseError(err) };
   }
@@ -3116,6 +3226,9 @@ export async function bulkImportWorkOrdersToSupabase(
     skippedDuplicates: 0,
     invalidCount: 0,
     failedCount: 0,
+    partialSuccess: false,
+    importedWoNumbers: [],
+    failedWoNumbers: [],
     duplicateInFileWoNumbers: [],
     duplicateExistingWoNumbers: [],
     invalidRows: [],
@@ -3127,7 +3240,7 @@ export async function bulkImportWorkOrdersToSupabase(
   }
 
   try {
-    // 1. Validate each ticket and detect duplicates within incoming file
+    // 1. Validate each ticket (non-empty WO, valid types, valid date if provided) & detect intra-file duplicates
     const validBatchMap = new Map<string, any>();
 
     tickets.forEach((t, index) => {
@@ -3137,18 +3250,37 @@ export async function bulkImportWorkOrdersToSupabase(
         return;
       }
 
-      const rawWo = t.woNumber || t.workOrderNumber || t.wo_number || '';
-      const normWo = normalizeWoNumber(rawWo);
-      const canonicalKey = canonicalWoKey(rawWo);
+      const rawWoVal = t.woNumber ?? t.workOrderNumber ?? t.wo_number ?? '';
+      const rawTrimmed = (typeof rawWoVal === 'string' || typeof rawWoVal === 'number')
+        ? String(rawWoVal).trim()
+        : '';
+      const normWo = normalizeWoNumber(rawWoVal);
+      const canonicalKey = canonicalWoKey(rawWoVal);
 
       if (!normWo || normWo.length < 3) {
         result.invalidCount++;
         result.invalidRows.push({
           index: index + 1,
           reason: 'Nomor WO kosong atau tidak memenuhi panjang minimum 3 karakter.',
-          rawWo: String(rawWo)
+          rawWo: String(rawWoVal)
         });
         return;
+      }
+
+      // Reject explicitly malformed appointmentDate rather than silently erasing it
+      const rawAppDate = t.appointmentDate;
+      let normalizedAppDate: string | null = null;
+      if (rawAppDate !== undefined && rawAppDate !== null && String(rawAppDate).trim() !== '' && String(rawAppDate).trim() !== '-' && String(rawAppDate).trim().toLowerCase() !== 'null') {
+        normalizedAppDate = toDateOnlyString(rawAppDate);
+        if (!normalizedAppDate) {
+          result.invalidCount++;
+          result.invalidRows.push({
+            index: index + 1,
+            reason: `Format Appointment Date "${String(rawAppDate)}" tidak valid atau bukan tanggal kalender sah.`,
+            rawWo: normWo
+          });
+          return;
+        }
       }
 
       if (validBatchMap.has(canonicalKey)) {
@@ -3157,22 +3289,45 @@ export async function bulkImportWorkOrdersToSupabase(
         return;
       }
 
-      validBatchMap.set(canonicalKey, { ...t, canonicalKey, normWo });
+      validBatchMap.set(canonicalKey, {
+        ...t,
+        appointmentDate: normalizedAppDate ?? undefined,
+        canonicalKey,
+        normWo,
+        rawTrimmed
+      });
     });
 
     const uniqueCandidates = Array.from(validBatchMap.values());
     if (uniqueCandidates.length === 0) {
-      return { success: result.failedCount === 0, data: result };
+      const onlyInvalid = result.invalidCount > 0 && result.skippedDuplicates === 0;
+      return {
+        success: !onlyInvalid && result.failedCount === 0,
+        data: result,
+        ...(onlyInvalid
+          ? {
+              error: {
+                code: 'VALIDATION_ERROR',
+                httpStatus: 400,
+                isValidationError: true,
+                message: result.invalidRows[0]?.reason || 'Semua baris import tidak valid.'
+              }
+            }
+          : {})
+      };
     }
 
-    // 2. Query Supabase for existing WO numbers in chunks of 200
-    // Gather both exact strings and normalized candidates
+    // 2. Query Supabase for existing WO numbers in chunks of 150
     const existingInDbCanonicalSet = new Set<string>();
-    const checkChunkSize = 200;
+    const checkChunkSize = 150;
 
     for (let i = 0; i < uniqueCandidates.length; i += checkChunkSize) {
       const slice = uniqueCandidates.slice(i, i + checkChunkSize);
-      const sliceWoList = slice.map(c => c.normWo);
+      const sliceWoList = Array.from(
+        new Set(
+          slice.flatMap(c => [c.normWo, c.rawTrimmed, c.rawTrimmed.toUpperCase()]).filter(Boolean)
+        )
+      );
 
       const { data: existingRows, error: searchError } = await client
         .from('work_orders')
@@ -3180,7 +3335,7 @@ export async function bulkImportWorkOrdersToSupabase(
         .in('wo_number', sliceWoList);
 
       if (searchError) {
-        const classified = classifySupabaseError(searchError);
+        const classified = classifySupabaseError(searchError, { table: 'work_orders', operation: 'duplicate_check' });
         console.error('[Supabase DAL] bulkImport duplicate check query failed:', classified.message);
         return { success: false, error: classified };
       }
@@ -3211,9 +3366,7 @@ export async function bulkImportWorkOrdersToSupabase(
       }
     }
 
-    // 4. Primary Defense: Insert fresh rows in chunks of 50
-    // If PostgreSQL 23505 (unique constraint violation) occurs:
-    // Isolate the duplicate rows, mark them as duplicate conflicts, and do not fail the entire batch.
+    // 4. Primary Defense: Insert fresh rows in chunks of 50 with row-level isolation on failure
     const insertChunkSize = 50;
 
     for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
@@ -3221,43 +3374,56 @@ export async function bulkImportWorkOrdersToSupabase(
       const { error: insertError } = await client.from('work_orders').insert(chunk);
 
       if (insertError) {
-        const classified = classifySupabaseError(insertError);
+        const classified = classifySupabaseError(insertError, { table: 'work_orders', operation: 'bulk_insert' });
 
-        if (classified.isDuplicate || classified.code === '23505') {
-          // Race-condition duplicate or unindexed legacy spacing duplicate:
-          // Fall back to row-by-row insertion to salvage non-duplicate records in this chunk
+        if (!classified.isUnavailable) {
+          // Isolate duplicate (23505) or single-row validation failures without losing valid rows in this chunk
           for (const singleRow of chunk) {
             const { error: singleErr } = await client.from('work_orders').insert([singleRow]);
             if (singleErr) {
-              const singleClassified = classifySupabaseError(singleErr);
+              const singleClassified = classifySupabaseError(singleErr, { table: 'work_orders', operation: 'single_insert_fallback' });
               if (singleClassified.isDuplicate || singleClassified.code === '23505') {
                 result.skippedDuplicates++;
                 result.duplicateExistingWoNumbers.push(singleRow.wo_number);
               } else {
                 result.failedCount++;
+                result.failedWoNumbers.push(singleRow.wo_number);
                 result.failedErrors.push(`Gagal mengimpor WO ${singleRow.wo_number}: ${singleClassified.message}`);
               }
             } else {
               result.imported++;
+              result.importedWoNumbers.push(singleRow.wo_number);
             }
           }
         } else {
           result.failedCount += chunk.length;
-          result.failedErrors.push(`Gagal mengimpor chunk ${i} - ${i + chunk.length}: ${classified.message}`);
+          chunk.forEach(r => result.failedWoNumbers.push(r.wo_number));
+          result.failedErrors.push(`Gagal mengimpor chunk ${i + 1}-${i + chunk.length}: ${classified.message}`);
         }
       } else {
         result.imported += chunk.length;
+        chunk.forEach(r => result.importedWoNumbers.push(r.wo_number));
       }
     }
 
     const hasFailed = result.failedCount > 0 || result.failedErrors.length > 0;
+    result.partialSuccess = result.imported > 0 && hasFailed;
     return {
       success: !hasFailed,
-      data: result
+      data: result,
+      ...(hasFailed
+        ? {
+            error: {
+              code: result.partialSuccess ? 'PARTIAL_IMPORT_FAILURE' : 'BULK_IMPORT_FAILED',
+              httpStatus: result.partialSuccess ? 207 : 500,
+              message: result.failedErrors[0] || `${result.failedCount} Work Order gagal disimpan ke database.`
+            }
+          }
+        : {})
     };
   } catch (err: any) {
-    const classified = classifySupabaseError(err);
-    return { success: false, error: classified };
+    const classified = classifySupabaseError(err, { table: 'work_orders', operation: 'bulk_import' });
+    return { success: false, data: result, error: classified };
   }
 }
 

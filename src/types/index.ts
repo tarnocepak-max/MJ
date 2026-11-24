@@ -1522,6 +1522,8 @@ export interface RealtimeDiagnosticLog {
 
 export interface RealtimeStatusInfo {
   state: RealtimeConnectionState;
+  transport?: 'sse' | 'delta_polling';
+  recommendedPollMs?: number;
   reconnectAttempt: number;
   lastEventId: string | null;
   lastConnectedAt: string | null;

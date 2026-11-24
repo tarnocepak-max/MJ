@@ -2,7 +2,6 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -63,6 +62,8 @@ import {
   getWorkOrdersFromSupabasePaginated,
   getClassifiedWorkOrdersFromSupabase,
   getWorkOrdersUpdatedSinceFromSupabase,
+  getDeletedWorkOrderIdsSinceFromSupabase,
+  getScopedActiveWorkOrderHeadsFromSupabase,
   stripHeavyFieldsForCriticalPhase,
   getWorkOrderByIdFromSupabase,
   getWorkOrderByWoNumberFromSupabase,
@@ -450,6 +451,15 @@ export function isLocalJsonModeAllowed(): boolean {
   if (isSupabaseMode()) return false;
   if (process.env.ALLOW_LOCAL_JSON_MODE === 'false') return false;
   return true;
+}
+
+export function isServerlessRuntime(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.VERCEL_REGION
+  );
 }
 
 export function isSupabaseMode(): boolean {
@@ -3618,6 +3628,8 @@ export async function createExpressApp(options?: {
         globalConfig: db.appSettings?.global_config || db.globalConfig,
         rolePermissions: rolePermBundle?.permissions,
         sheetsConfig: (!isCriticalMode && user?.role === 'super_admin') ? (db.appSettings?.google_sheets_config || db.sheetsConfig) : undefined,
+        realtimeTransport: isServerlessRuntime() ? 'delta_polling' : 'sse',
+        sseSupported: !isServerlessRuntime(),
         operationalDate: todayWIB,
         operationalDateWIB: todayWIB,
         timezone: 'Asia/Jakarta',
@@ -3792,6 +3804,8 @@ export async function createExpressApp(options?: {
       globalConfig: (gcSupaRes?.success && gcSupaRes.data?.value) ? gcSupaRes.data.value : db.globalConfig,
       rolePermissions: rolePermBundle?.permissions,
       sheetsConfig: (!isCriticalMode && user?.role === 'super_admin') ? ((scSupaRes?.success && scSupaRes.data?.value) ? scSupaRes.data.value : db.sheetsConfig) : undefined,
+      realtimeTransport: isServerlessRuntime() ? 'delta_polling' : 'sse',
+      sseSupported: !isServerlessRuntime(),
       operationalDate: todayWIB,
       operationalDateWIB: todayWIB,
       timezone: 'Asia/Jakarta',
@@ -10047,17 +10061,40 @@ export async function createExpressApp(options?: {
           return '';
         };
 
-        const existingWoMap = new Map<string, any>();
-        db.tickets.forEach(t => {
-          const key = (t.woNumber || t.workOrderNumber || '').trim().toUpperCase();
-          if (key) existingWoMap.set(key, t);
-        });
+        let existingWoMap = new Map<string, any>();
+        let authUsers: any[] = db.users || [];
+        let authContractors: any[] = db.contractors || [];
+
+        if (isSupabaseMode()) {
+          const [woRes, uRes, cRes] = await Promise.all([
+            getWorkOrdersFromSupabase({ includeDeleted: false, includeArchived: true, lightweight: true }),
+            getUsersFromSupabase(false).catch(() => ({ success: false, data: [] as any[] })),
+            getContractorsFromSupabase().catch(() => ({ success: false, data: [] as any[] }))
+          ]);
+          if (woRes.success && Array.isArray(woRes.data)) {
+            woRes.data.forEach((t: any) => {
+              const key = String(t.woNumber || t.workOrderNumber || '').trim().toUpperCase();
+              if (key) existingWoMap.set(key, t);
+            });
+          } else if (!isLocalJsonModeAllowed()) {
+            throw new Error('Database authoritative Supabase tidak dapat diakses saat membaca eksisting WO untuk Google Sheets sync.');
+          }
+          if (uRes.success && Array.isArray(uRes.data)) authUsers = uRes.data;
+          if (cRes.success && Array.isArray(cRes.data)) authContractors = cRes.data;
+        } else {
+          db.tickets.forEach(t => {
+            const key = (t.woNumber || t.workOrderNumber || '').trim().toUpperCase();
+            if (key) existingWoMap.set(key, t);
+          });
+        }
 
         let processedCount = 0;
         let newCount = 0;
         let updatedCount = 0;
         let skippedCount = 0;
         const nowIso = new Date().toISOString();
+        const newSupabaseRows: any[] = [];
+        const updatedSupabaseRows: Array<{ id: string; updates: Record<string, any> }> = [];
 
         for (let i = 1; i < rawValues.length; i++) {
           const row = rawValues[i];
@@ -10070,7 +10107,7 @@ export async function createExpressApp(options?: {
             continue;
           }
 
-          const upperWo = woNumber.toUpperCase();
+          const upperWo = woNumber.trim().toUpperCase();
           const rawCustId = getVal(row, 'ID Customer', 'Customer ID', 'Cust ID');
           const custDigits = rawCustId.replace(/\D/g, '');
           const validCustId = custDigits.length === 7 ? custDigits : (rawCustId || '');
@@ -10078,23 +10115,44 @@ export async function createExpressApp(options?: {
 
           if (existingWoMap.has(upperWo)) {
             const existing = existingWoMap.get(upperWo);
+            const patchUpdates: Record<string, any> = {};
             // PRESERVE OPERATIONAL FIELDS: Do NOT wipe leader assignment, installerName, status, or report!
-            if (appDate) existing.appointmentDate = appDate;
+            if (appDate) {
+              existing.appointmentDate = appDate;
+              patchUpdates.appointmentDate = appDate;
+            }
             const slot = getVal(row, 'Slot Time', 'Time Slot');
-            if (slot) existing.slotTime = slot;
+            if (slot) {
+              existing.slotTime = slot;
+              patchUpdates.slotTime = slot;
+            }
             const phone = getVal(row, 'Customer Phone', 'Phone', 'Telp');
-            if (phone) existing.customerPhone = phone;
+            if (phone) {
+              existing.customerPhone = phone;
+              patchUpdates.customerPhone = phone;
+            }
             const remarks = getVal(row, 'Remarks Agent', 'Agent Notes');
-            if (remarks) existing.remarksAgent = remarks;
+            if (remarks) {
+              existing.remarksAgent = remarks;
+              patchUpdates.remarksAgent = remarks;
+            }
             const cat = getVal(row, 'Ticket Category', 'Category');
-            if (cat) existing.ticketCategory = cat;
+            if (cat) {
+              existing.ticketCategory = cat;
+              patchUpdates.ticketCategory = cat;
+            }
 
             existing.updatedAt = nowIso;
             existing.updatedBy = `Google Sheets Sync (${req.user!.name})`;
-            updatedCount++;
+            patchUpdates.updatedAt = nowIso;
+            patchUpdates.updatedBy = existing.updatedBy;
+            if (isSupabaseMode() && existing.id) {
+              updatedSupabaseRows.push({ id: existing.id, updates: patchUpdates });
+            } else {
+              updatedCount++;
+            }
           } else {
-            // New WO
-            const newTicket = {
+            const rawNewTicket = {
               id: 't-gs-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
               woNumber,
               workOrderNumber: woNumber,
@@ -10137,10 +10195,52 @@ export async function createExpressApp(options?: {
               updatedAt: nowIso,
               updatedBy: `Google Sheets Sync (${req.user!.name})`
             };
+            const dist = resolveLeaderForWorkOrder(rawNewTicket, authUsers, authContractors);
+            const enrichedTicket = {
+              ...rawNewTicket,
+              contractorId: dist.contractorId || undefined,
+              contractorName: dist.contractorName || rawNewTicket.contractorName,
+              contactorName: dist.contactorName || rawNewTicket.contactorName,
+              leaderId: dist.matched ? dist.leaderId : undefined,
+              leaderName: dist.matched ? dist.leaderName : rawNewTicket.leaderName,
+              leaderContact: dist.matched ? dist.leaderContact : undefined,
+              corlapName: dist.matched ? dist.corlapName : rawNewTicket.leaderName,
+              distributionStatus: dist.distributionStatus,
+              distributionNotes: dist.distributionNotes
+            };
 
-            db.tickets.unshift(newTicket);
-            existingWoMap.set(upperWo, newTicket);
-            newCount++;
+            if (isSupabaseMode()) {
+              newSupabaseRows.push(enrichedTicket);
+              existingWoMap.set(upperWo, enrichedTicket);
+            } else {
+              db.tickets.unshift(enrichedTicket);
+              existingWoMap.set(upperWo, enrichedTicket);
+              newCount++;
+            }
+          }
+        }
+
+        if (isSupabaseMode()) {
+          if (newSupabaseRows.length > 0) {
+            const bulkRes = await bulkImportWorkOrdersToSupabase(newSupabaseRows, jobId, req.user!.name);
+            if (!bulkRes.success && (bulkRes.data?.imported || 0) === 0) {
+              throw new Error(bulkRes.error?.message || 'Gagal menyimpan WO baru dari Google Sheets ke Supabase.');
+            }
+            newCount = bulkRes.data?.imported || 0;
+            skippedCount += (bulkRes.data?.skippedDuplicates || 0) + (bulkRes.data?.invalidCount || 0);
+            if (bulkRes.data && bulkRes.data.failedCount > 0) {
+              throw new Error(bulkRes.data.failedErrors[0] || `Sebagian (${bulkRes.data.failedCount}) WO dari Google Sheets gagal disimpan ke Supabase.`);
+            }
+          }
+          for (const item of updatedSupabaseRows) {
+            const upRes = await updateWorkOrderInSupabase(item.id, item.updates);
+            if (!upRes.success) {
+              throw new Error(upRes.error?.message || `Gagal memperbarui WO ${item.id} di Supabase.`);
+            }
+            updatedCount++;
+          }
+          if (newCount > 0 || updatedCount > 0) {
+            broadcastSupabaseChange('work_orders', 'INSERT', { batchId: jobId, imported: newCount, updated: updatedCount });
           }
         }
 
@@ -11957,10 +12057,11 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Filter out any protected records
-      const safeTickets = tickets.filter(t => {
-        const id = (t.id || '').trim();
-        const wo = (t.woNumber || '').trim();
+      // Filter out any protected records & coerce non-object/numeric WO fields safely
+      const safeTickets = tickets.filter((t: any) => {
+        if (!t || typeof t !== 'object') return true; // Keep non-objects for explicit invalidRows accounting
+        const id = String(t.id ?? '').trim();
+        const wo = String(t.woNumber ?? t.workOrderNumber ?? '').trim();
         return !PROTECTED_PRODUCTION_WO_IDS.has(id) && !PROTECTED_PRODUCTION_WO_IDS.has(wo);
       });
 
@@ -11975,7 +12076,8 @@ export async function createExpressApp(options?: {
         } catch {}
       }
 
-      const enrichedTickets = safeTickets.map(t => {
+      const enrichedTickets = safeTickets.map((t: any) => {
+        if (!t || typeof t !== 'object') return t;
         const appDate = normalizeAppointmentDate(t.appointmentDate);
         const dist = resolveLeaderForWorkOrder(t, authUsers, authContractors);
         return {
@@ -12000,46 +12102,117 @@ export async function createExpressApp(options?: {
         }
         let imported = 0;
         let skippedDuplicates = 0;
+        let invalidCount = 0;
+        const importedWoNumbers: string[] = [];
+        const duplicateExistingWoNumbers: string[] = [];
+        const duplicateInFileWoNumbers: string[] = [];
+        const invalidRows: Array<{ index: number; reason: string; rawWo?: string }> = [];
         const importedLocalItems: any[] = [];
-        const existingSet = new Set(db.tickets.map(t => String(t.woNumber || '').trim().toUpperCase()));
-        for (const t of enrichedTickets) {
-          const norm = String(t.woNumber || '').trim().toUpperCase();
-          if (!norm || existingSet.has(norm)) {
+        const seenInRequest = new Set<string>();
+        const existingSet = new Set(db.tickets.map(t => String(t.woNumber || '').trim().toUpperCase().replace(/\s+/g, '')));
+
+        enrichedTickets.forEach((t: any, idx: number) => {
+          if (!t || typeof t !== 'object') {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: 'Baris data kosong atau bukan objek.' });
+            return;
+          }
+          const rawWo = String(t.woNumber ?? t.workOrderNumber ?? '').trim();
+          const norm = rawWo.toUpperCase().replace(/\s+/g, '');
+          if (!norm || norm.length < 3) {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: 'Nomor WO kosong atau kurang dari 3 karakter.', rawWo });
+            return;
+          }
+          if (t.appointmentDate && !normalizeAppointmentDate(t.appointmentDate)) {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: `Format Appointment Date "${String(t.appointmentDate)}" tidak valid.`, rawWo: norm });
+            return;
+          }
+          if (seenInRequest.has(norm)) {
             skippedDuplicates++;
-            continue;
+            duplicateInFileWoNumbers.push(norm);
+            return;
+          }
+          seenInRequest.add(norm);
+          if (existingSet.has(norm)) {
+            skippedDuplicates++;
+            duplicateExistingWoNumbers.push(norm);
+            return;
           }
           existingSet.add(norm);
-          const itemObj = { ...t, id: t.id || `wo_${norm}`, importBatchId: batchId, createdAt: t.createdAt || new Date().toISOString() };
+          const itemObj = {
+            ...t,
+            woNumber: norm,
+            workOrderNumber: norm,
+            id: t.id || `wo_${norm}`,
+            importBatchId: batchId,
+            createdAt: t.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
           db.tickets.unshift(itemObj);
           importedLocalItems.push(itemObj);
+          importedWoNumbers.push(norm);
           imported++;
-        }
+        });
+
         saveDatabaseToDisk();
-        broadcastSupabaseChange('work_orders', 'INSERT', { batchId, imported });
+        if (imported > 0) {
+          broadcastSupabaseChange('work_orders', 'INSERT', { batchId, imported });
+        }
         if (importedLocalItems.length > 0) {
           void triggerNewWoLeaderNotifications({ tickets: importedLocalItems, users: authUsers }).catch(() => {});
         }
-        return res.json({ success: true, data: { totalSubmitted: safeTickets.length, imported, skippedDuplicates } });
+        const onlyInvalid = invalidCount > 0 && imported === 0 && skippedDuplicates === 0;
+        return res.status(onlyInvalid ? 400 : 200).json({
+          success: !onlyInvalid,
+          data: {
+            totalSubmitted: safeTickets.length,
+            imported,
+            skippedDuplicates,
+            invalidCount,
+            failedCount: 0,
+            partialSuccess: false,
+            importedWoNumbers,
+            failedWoNumbers: [],
+            duplicateInFileWoNumbers,
+            duplicateExistingWoNumbers,
+            invalidRows,
+            failedErrors: []
+          },
+          ...(onlyInvalid ? { error: { code: 'VALIDATION_ERROR', message: invalidRows[0]?.reason || 'Data import tidak valid.' } } : {})
+        });
       }
 
       const result = await bulkImportWorkOrdersToSupabase(enrichedTickets, batchId, user.name);
 
-      if (result.success && result.data) {
+      if (result.data && result.data.imported > 0) {
         broadcastSupabaseChange('work_orders', 'INSERT', { batchId, imported: result.data.imported });
-        if (result.data.imported > 0) {
-          const dupSet = new Set([
-            ...(result.data.duplicateExistingWoNumbers || []),
-            ...(result.data.duplicateInFileWoNumbers || [])
-          ].map(w => String(w || '').trim().toUpperCase()));
-          const newlyImported = enrichedTickets.filter((r: any) => {
-            const wo = String(r.woNumber || r.workOrderNumber || '').trim().toUpperCase();
-            return wo && !dupSet.has(wo);
-          });
-          if (newlyImported.length > 0) {
-            void triggerNewWoLeaderNotifications({ tickets: newlyImported, users: authUsers }).catch(() => {});
-          }
+        const importedSet = new Set((result.data.importedWoNumbers || []).map(w => String(w || '').trim().toUpperCase()));
+        const newlyImported = enrichedTickets.filter((r: any) => {
+          const wo = String(r?.woNumber || r?.workOrderNumber || '').trim().toUpperCase().replace(/\s+/g, '');
+          return wo && importedSet.has(wo);
+        });
+        if (newlyImported.length > 0) {
+          void triggerNewWoLeaderNotifications({ tickets: newlyImported, users: authUsers }).catch(() => {});
         }
-        await logServerAuditAsync('Bulk Import Work Orders (Supabase)', 'work_order', batchId || 'bulk', `Import ${result.data.imported} WO oleh ${user.name}. Duplikat diabaikan: ${result.data.skippedDuplicates}`, user);
+        await logServerAuditAsync(
+          'Bulk Import Work Orders (Supabase)',
+          'work_order',
+          batchId || 'bulk',
+          `Import ${result.data.imported} WO oleh ${user.name}. Duplikat diabaikan: ${result.data.skippedDuplicates}, Gagal: ${result.data.failedCount}`,
+          user
+        );
+      }
+
+      if (!result.success) {
+        if (result.data?.partialSuccess) {
+          return res.status(207).json(result);
+        }
+        const statusCode = result.error?.isUnavailable
+          ? 503
+          : (result.error?.httpStatus || (result.error?.isValidationError ? 400 : 500));
+        return res.status(statusCode).json(result);
       }
 
       return res.json(result);
@@ -13460,7 +13633,7 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 23. GET /api/supabase/realtime/stream (SSE Stream for live Supabase changes + Presence + Ephemeral Typing)
+  // 23. GET /api/supabase/realtime/stream (SSE Stream for persistent servers; immediate delta-polling directive on Vercel serverless)
   app.get('/api/supabase/realtime/stream', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
     const connectionId = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -13469,8 +13642,31 @@ export async function createExpressApp(options?: {
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+
+    // On Vercel/serverless runtimes, holding SSE connections open causes 30s function timeouts and
+    // cross-instance event loss. Immediately direct the client to Delta Polling & close cleanly.
+    if (isServerlessRuntime() || req.query.mode === 'poll') {
+      res.setHeader('Connection', 'close');
+      res.flushHeaders();
+      const directiveId = nextSseEventId();
+      res.write(
+        `id: ${directiveId}\ndata: ${JSON.stringify({
+          type: 'SERVERLESS_DELTA_MODE',
+          status: 'POLLING_MODE',
+          transport: 'delta_polling',
+          sseSupported: false,
+          recommendedPollMs: 15000,
+          userId: user.id,
+          role: user.role,
+          timestamp: connectedAtIso
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
     ACTIVE_SSE_CONNECTION_IDS.add(connectionId);
@@ -13644,19 +13840,24 @@ export async function createExpressApp(options?: {
     });
   });
 
-  // 23b. GET /api/realtime/status (Authenticated Diagnostics for Connection Monitor UI)
+  // 23b. GET /api/realtime/status (Authenticated Diagnostics & Transport Capability Negotiation)
   app.get('/api/realtime/status', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     const user = req.user!;
+    const serverless = isServerlessRuntime();
     const visibleOnlineCount = Array.from(PRESENCE_REGISTRY.values()).filter(
       p => p.status === 'online' && canUserObservePresence(user, p)
     ).length;
     return res.json({
       success: true,
-      sseActiveConnections: ACTIVE_SSE_CONNECTION_IDS.size,
+      runtimeMode: serverless ? 'serverless' : 'persistent',
+      sseSupported: !serverless,
+      recommendedTransport: serverless ? 'delta_polling' : 'sse',
+      recommendedPollMs: serverless ? 15000 : 30000,
+      sseActiveConnections: serverless ? 0 : ACTIVE_SSE_CONNECTION_IDS.size,
       visibleOnlineUsers: visibleOnlineCount,
       lastEventSequence: sseSequenceCounter,
       supabaseDbBridge: {
-        status: supabaseRealtimeBridgeState.status,
+        status: serverless ? 'delta_polling' : supabaseRealtimeBridgeState.status,
         lastEventAt: supabaseRealtimeBridgeState.lastEventAt,
         eventsRelayed: supabaseRealtimeBridgeState.eventsRelayed
       },
@@ -16664,13 +16865,17 @@ export async function createExpressApp(options?: {
       const sinceMs = sinceDate.getTime();
       const user = req.user!;
       const todayWIB = getJakartaDateStringServer(getNow());
+      const serverless = isServerlessRuntime();
 
       let changedRaw: any[] = [];
-      let allRawForDeleted: any[] = [];
+      let deletedIds: string[] = [];
+      let scopedHeads: any[] = [];
+
       if (isSupabaseMode()) {
-        const [deltaRes, deletedRes] = await Promise.all([
+        const [deltaRes, deletedRes, headsRes] = await Promise.all([
           getWorkOrdersUpdatedSinceFromSupabase(sinceIso),
-          getWorkOrdersFromSupabase({ includeDeleted: true, includeArchived: true })
+          getDeletedWorkOrderIdsSinceFromSupabase(sinceIso),
+          getScopedActiveWorkOrderHeadsFromSupabase()
         ]);
         if (deltaRes.success && Array.isArray(deltaRes.data)) {
           changedRaw = deltaRes.data;
@@ -16682,24 +16887,32 @@ export async function createExpressApp(options?: {
           });
         }
         if (deletedRes.success && Array.isArray(deletedRes.data)) {
-          allRawForDeleted = deletedRes.data;
+          deletedIds = deletedRes.data;
+        }
+        if (headsRes.success && Array.isArray(headsRes.data)) {
+          scopedHeads = scopeTicketsForUser(headsRes.data, user);
         }
       } else {
-        allRawForDeleted = db.tickets || [];
-        changedRaw = allRawForDeleted.filter((t: any) => {
+        const allLocal = db.tickets || [];
+        changedRaw = allLocal.filter((t: any) => {
           const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
           return !Number.isNaN(ts) && ts >= sinceMs;
         });
+        deletedIds = allLocal
+          .filter((t: any) => t && t.isDeleted === true)
+          .map((t: any) => String(t.id));
+        scopedHeads = scopeTicketsForUser(
+          allLocal.filter((t: any) => t && !t.isDeleted && !t.isArchived),
+          user
+        );
       }
 
-      const deletedIds = allRawForDeleted
-        .filter((t: any) => t && t.isDeleted === true)
-        .map((t: any) => String(t.id));
-
-      const scopedAll = scopeTicketsForUser(
-        allRawForDeleted.filter((t: any) => t && !t.isDeleted),
-        user
-      );
+      // Include any soft-deleted items appearing in changedRaw too
+      for (const t of changedRaw) {
+        if (t?.isDeleted && t?.id && !deletedIds.includes(String(t.id))) {
+          deletedIds.push(String(t.id));
+        }
+      }
 
       const scopedUpdated = scopeTicketsForUser(
         changedRaw.filter((t: any) => t && !t.isDeleted),
@@ -16708,7 +16921,13 @@ export async function createExpressApp(options?: {
 
       // Catch up missed LiveChat messages & receipt changes for user's scoped active tickets
       let deltaMessages: any[] = [];
-      const activeScopedIds = scopedAll.filter((t: any) => !t.isArchived).map((t: any) => String(t.id));
+      const activeScopedIds = Array.from(
+        new Set([
+          ...scopedHeads.map((t: any) => String(t.id)),
+          ...scopedUpdated.filter((t: any) => !t.isArchived).map((t: any) => String(t.id))
+        ])
+      ).filter(Boolean);
+
       if (activeScopedIds.length > 0) {
         if (isSupabaseMode()) {
           const mDeltaRes = await getTicketMessagesDeltaForTicketsFromSupabase(activeScopedIds, sinceIso);
@@ -16733,6 +16952,8 @@ export async function createExpressApp(options?: {
       return res.json({
         success: true,
         since: sinceIso,
+        realtimeTransport: serverless ? 'delta_polling' : 'sse',
+        sseSupported: !serverless,
         tickets: scopedUpdated,
         ticketMessages: deltaMessages,
         deletedIds,
@@ -17232,15 +17453,18 @@ export async function createExpressApp(options?: {
       process.env.DISABLE_HMR = 'true';
     }
 
-    const viteReadyPromise = createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
-        ws: hmrDisabled ? false : undefined,
-        watch: hmrDisabled ? null : undefined
-      },
-      appType: 'spa'
-    })
+    const viteReadyPromise = (async () => {
+      const { createServer: createViteServer } = await import('vite');
+      return createViteServer({
+        server: {
+          middlewareMode: true,
+          hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
+          ws: hmrDisabled ? false : undefined,
+          watch: hmrDisabled ? null : undefined
+        },
+        appType: 'spa'
+      });
+    })()
       .then((vite) => {
         viteMiddleware = vite.middlewares;
         if (options?.onViteInstance) {

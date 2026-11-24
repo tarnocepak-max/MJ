@@ -25,10 +25,41 @@ export interface SupabaseErrorPayload {
 
 export interface SupabaseResponse<T = any> {
   success: boolean;
+  partialSuccess?: boolean;
   data?: T;
   updatedAt?: string | null;
   setting?: any;
   error?: SupabaseErrorPayload;
+}
+
+async function fetchJsonSafe(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = 25_000
+): Promise<{ ok: boolean; status: number; json: any; networkError?: string; timedOut?: boolean }> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(url, {
+      ...init,
+      signal: init.signal || controller?.signal
+    });
+    const json = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, json };
+  } catch (err: any) {
+    const isAbort = err?.name === 'AbortError';
+    return {
+      ok: false,
+      status: 0,
+      json: null,
+      timedOut: isAbort,
+      networkError: isAbort
+        ? 'Koneksi ke server melebihi batas waktu (timeout).'
+        : (err?.message || 'Gagal menghubungi backend Supabase proxy')
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function normalizeProxyError(
@@ -168,20 +199,24 @@ export class SupabaseRepository {
       return { success: true, data: newTicket };
     }
 
-    try {
-      const res = await fetch('/api/supabase/work-orders', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(ticket)
-      });
-      const json = await res.json();
-      return json;
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe('/api/supabase/work-orders', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(ticket)
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal menghubungi backend Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'INSERT', 'work_orders', 'Gagal membuat Work Order di Supabase')
+      };
+    }
+    return json;
   }
 
   /**
@@ -199,18 +234,22 @@ export class SupabaseRepository {
       return { success: true, data: t };
     }
 
-    try {
-      const res = await fetch(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
-        headers: getAuthHeaders()
-      });
-      const json = await res.json();
-      return json;
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
+      headers: getAuthHeaders()
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal mengambil data dari Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'SELECT', 'work_orders', 'Gagal mengambil detail Work Order')
+      };
+    }
+    return json;
   }
 
   /**
@@ -227,24 +266,28 @@ export class SupabaseRepository {
       return { success: true, data: list };
     }
 
-    try {
-      const qs = new URLSearchParams();
-      Object.entries(options).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          qs.set(k, String(v));
-        }
-      });
-      const res = await fetch(`/api/supabase/work-orders?${qs.toString()}`, {
-        headers: getAuthHeaders()
-      });
-      const json = await res.json();
-      return json;
-    } catch (err: any) {
+    const qs = new URLSearchParams();
+    Object.entries(options).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') {
+        qs.set(k, String(v));
+      }
+    });
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders?${qs.toString()}`, {
+      headers: getAuthHeaders()
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal mengambil list tiket dari Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'SELECT', 'work_orders', 'Gagal mengambil daftar Work Order')
+      };
+    }
+    return json;
   }
 
   /**
@@ -414,19 +457,24 @@ export class SupabaseRepository {
       return { success: true, data: updated };
     }
 
-    try {
-      const res = await fetch(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updates)
-      });
-      return await res.json();
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(updates)
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memperbarui data di Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'UPDATE', 'work_orders', 'Gagal memperbarui Work Order di Supabase')
+      };
+    }
+    return json;
   }
 
   /**
@@ -452,19 +500,24 @@ export class SupabaseRepository {
       return { success: true, data: deleted };
     }
 
-    try {
-      const res = await fetch(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ reason, deletedBy })
-      });
-      return await res.json();
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason, deletedBy })
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal soft delete di Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'DELETE', 'work_orders', 'Gagal menghapus Work Order di Supabase')
+      };
+    }
+    return json;
   }
 
   /**
@@ -489,19 +542,24 @@ export class SupabaseRepository {
       return { success: true, data: archived };
     }
 
-    try {
-      const res = await fetch(`/api/supabase/work-orders/${encodeURIComponent(id)}/archive`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ archivedBy })
-      });
-      return await res.json();
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders/${encodeURIComponent(id)}/archive`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ archivedBy })
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal mengarsipkan data di Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'ARCHIVE', 'work_orders', 'Gagal mengarsipkan Work Order')
+      };
+    }
+    return json;
   }
 
   /**
@@ -528,76 +586,206 @@ export class SupabaseRepository {
       return { success: true, data: restored };
     }
 
-    try {
-      const res = await fetch(`/api/supabase/work-orders/${encodeURIComponent(id)}/restore`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ restoredBy })
-      });
-      return await res.json();
-    } catch (err: any) {
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/work-orders/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ restoredBy })
+    });
+    if (networkError) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memulihkan data di Supabase proxy' }
+        error: { code: 'NETWORK_ERROR', message: networkError }
       };
     }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'RESTORE', 'work_orders', 'Gagal memulihkan Work Order')
+      };
+    }
+    return json;
   }
 
   /**
-   * BATCH WRITE / BULK IMPORT: Insert multiple work orders with file and database deduplication
+   * BATCH WRITE / BULK IMPORT: Chunked persistence with accurate partial-failure reporting & HTTP verification
    */
-  async batchCreateWorkOrders(tickets: Ticket[], batchId?: string, isSandbox = false): Promise<SupabaseResponse<any>> {
+  async batchCreateWorkOrders(
+    tickets: Ticket[],
+    batchId?: string,
+    isSandbox = false,
+    options?: { chunkSize?: number }
+  ): Promise<SupabaseResponse<any>> {
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+      return {
+        success: true,
+        data: {
+          totalSubmitted: 0,
+          imported: 0,
+          skippedDuplicates: 0,
+          invalidCount: 0,
+          failedCount: 0,
+          partialSuccess: false,
+          importedWoNumbers: [],
+          failedWoNumbers: [],
+          duplicateInFileWoNumbers: [],
+          duplicateExistingWoNumbers: [],
+          invalidRows: [],
+          failedErrors: []
+        }
+      };
+    }
+
     if (isSandbox) {
       const summary = {
         totalSubmitted: tickets.length,
         imported: 0,
         skippedDuplicates: 0,
+        invalidCount: 0,
+        failedCount: 0,
+        partialSuccess: false,
+        importedWoNumbers: [] as string[],
+        failedWoNumbers: [] as string[],
         duplicateInFile: [] as string[],
-        duplicateExisting: [] as string[]
+        duplicateExisting: [] as string[],
+        duplicateInFileWoNumbers: [] as string[],
+        duplicateExistingWoNumbers: [] as string[],
+        invalidRows: [] as Array<{ index: number; reason: string; rawWo?: string }>,
+        failedErrors: [] as string[]
       };
 
       const seenInBatch = new Set<string>();
 
       for (const t of tickets) {
-        const norm = (t.woNumber || '').trim().toUpperCase().replace(/\s+/g, '');
+        const norm = String(t.woNumber || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!norm || norm.length < 3) {
+          summary.invalidCount++;
+          continue;
+        }
         if (seenInBatch.has(norm)) {
           summary.skippedDuplicates++;
           summary.duplicateInFile.push(norm);
+          summary.duplicateInFileWoNumbers.push(norm);
           continue;
         }
         seenInBatch.add(norm);
 
         const existsInStore = Array.from(SANDBOX_STORE.workOrders.values()).some(
-          x => (x.woNumber || '').trim().toUpperCase().replace(/\s+/g, '') === norm
+          x => String(x.woNumber || '').trim().toUpperCase().replace(/\s+/g, '') === norm
         );
 
         if (existsInStore) {
           summary.skippedDuplicates++;
           summary.duplicateExisting.push(norm);
+          summary.duplicateExistingWoNumbers.push(norm);
           continue;
         }
 
         const id = t.id || `migration_sandbox_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         SANDBOX_STORE.workOrders.set(id, { ...t, id, importBatchId: batchId || `sandbox_batch_${Date.now()}` });
+        summary.importedWoNumbers.push(norm);
         summary.imported++;
       }
 
       return { success: true, data: summary };
     }
 
-    try {
-      const res = await fetch('/api/supabase/work-orders/bulk-import', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ tickets, batchId })
-      });
-      return await res.json();
-    } catch (err: any) {
-      return {
-        success: false,
-        error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal batch import di Supabase proxy' }
-      };
+    const chunkSize = Math.max(10, Math.min(100, options?.chunkSize || 60));
+    const aggregated = {
+      totalSubmitted: tickets.length,
+      imported: 0,
+      skippedDuplicates: 0,
+      invalidCount: 0,
+      failedCount: 0,
+      partialSuccess: false,
+      importedWoNumbers: [] as string[],
+      failedWoNumbers: [] as string[],
+      duplicateInFileWoNumbers: [] as string[],
+      duplicateExistingWoNumbers: [] as string[],
+      invalidRows: [] as Array<{ index: number; reason: string; rawWo?: string }>,
+      failedErrors: [] as string[]
+    };
+    let lastErrorPayload: SupabaseErrorPayload | undefined;
+
+    for (let offset = 0; offset < tickets.length; offset += chunkSize) {
+      const chunk = tickets.slice(offset, offset + chunkSize);
+      const chunkLabel = `Chunk ${Math.floor(offset / chunkSize) + 1}`;
+      const chunkWoList = chunk.map(c => String(c?.woNumber || c?.workOrderNumber || '').trim().toUpperCase()).filter(Boolean);
+
+      const { ok, status, json, networkError } = await fetchJsonSafe(
+        '/api/supabase/work-orders/bulk-import',
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ tickets: chunk, batchId })
+        },
+        28_000
+      );
+
+      if (networkError) {
+        aggregated.failedCount += chunk.length;
+        aggregated.failedWoNumbers.push(...chunkWoList);
+        aggregated.failedErrors.push(`${chunkLabel}: ${networkError}`);
+        lastErrorPayload = { code: 'NETWORK_ERROR', message: networkError };
+        continue;
+      }
+
+      const d = json?.data;
+      if (d && typeof d === 'object') {
+        aggregated.imported += Number(d.imported || 0);
+        aggregated.skippedDuplicates += Number(d.skippedDuplicates || 0);
+        aggregated.invalidCount += Number(d.invalidCount || 0);
+        aggregated.failedCount += Number(d.failedCount || 0);
+        if (Array.isArray(d.importedWoNumbers)) {
+          aggregated.importedWoNumbers.push(...d.importedWoNumbers);
+        }
+        if (Array.isArray(d.failedWoNumbers)) {
+          aggregated.failedWoNumbers.push(...d.failedWoNumbers);
+        }
+        if (Array.isArray(d.duplicateInFileWoNumbers)) {
+          aggregated.duplicateInFileWoNumbers.push(...d.duplicateInFileWoNumbers);
+        }
+        if (Array.isArray(d.duplicateExistingWoNumbers)) {
+          aggregated.duplicateExistingWoNumbers.push(...d.duplicateExistingWoNumbers);
+        }
+        if (Array.isArray(d.invalidRows)) {
+          aggregated.invalidRows.push(
+            ...d.invalidRows.map((ir: any) => ({ ...ir, index: offset + Number(ir.index || 0) }))
+          );
+        }
+        if (Array.isArray(d.failedErrors)) {
+          aggregated.failedErrors.push(...d.failedErrors);
+        }
+      }
+
+      if (!ok || !json || json.success !== true) {
+        const errPayload = normalizeProxyError(status, json, 'BULK_IMPORT', 'work_orders', `${chunkLabel} gagal disimpan ke database`);
+        lastErrorPayload = errPayload;
+        // If backend failed without structured per-row breakdown (e.g., 502/503/504/401/403), count whole chunk as failed
+        if (!d || (Number(d.failedCount || 0) === 0 && Number(d.imported || 0) === 0 && Number(d.invalidCount || 0) === 0 && Number(d.skippedDuplicates || 0) === 0)) {
+          aggregated.failedCount += chunk.length;
+          aggregated.failedWoNumbers.push(...chunkWoList);
+          aggregated.failedErrors.push(`${chunkLabel}: ${errPayload.message}`);
+        }
+      }
     }
+
+    const totalInvalidOrFailed = aggregated.failedCount + (aggregated.invalidCount > 0 && aggregated.imported === 0 && aggregated.skippedDuplicates === 0 ? aggregated.invalidCount : 0);
+    const hasErrors = aggregated.failedCount > 0 || aggregated.failedErrors.length > 0 || (aggregated.invalidCount > 0 && aggregated.imported === 0 && aggregated.skippedDuplicates === 0);
+    aggregated.partialSuccess = aggregated.imported > 0 && (aggregated.failedCount > 0 || aggregated.failedErrors.length > 0);
+
+    return {
+      success: !hasErrors && totalInvalidOrFailed === 0,
+      partialSuccess: aggregated.partialSuccess,
+      data: aggregated,
+      ...(hasErrors
+        ? {
+            error: lastErrorPayload || {
+              code: aggregated.partialSuccess ? 'PARTIAL_IMPORT_FAILURE' : 'BULK_IMPORT_FAILED',
+              message: aggregated.failedErrors[0] || aggregated.invalidRows[0]?.reason || `${aggregated.failedCount} Work Order gagal disimpan.`
+            }
+          }
+        : {})
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -605,14 +793,16 @@ export class SupabaseRepository {
   // ---------------------------------------------------------------------------
 
   async getUsers(includeDeleted = false): Promise<SupabaseResponse<User[]>> {
-    try {
-      const res = await fetch(`/api/supabase/users?includeDeleted=${includeDeleted}`, {
-        headers: getAuthHeaders()
-      });
-      return await res.json();
-    } catch (err: any) {
-      return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat pengguna' } };
+    const { ok, status, json, networkError } = await fetchJsonSafe(`/api/supabase/users?includeDeleted=${includeDeleted}`, {
+      headers: getAuthHeaders()
+    });
+    if (networkError) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: networkError } };
     }
+    if (!ok || !json || json.success !== true) {
+      return { success: false, error: normalizeProxyError(status, json, 'SELECT', 'users', 'Gagal memuat pengguna') };
+    }
+    return json;
   }
 
   async getUserById(id: string): Promise<SupabaseResponse<User | null>> {
@@ -1198,6 +1388,10 @@ export class SupabaseRepository {
   private sseStatusSubscribers = new Set<(status: RealtimeStatusInfo) => void>();
   private sseReconnectSubscribers = new Set<() => void>();
   private sseBrowserListenersAttached = false;
+  private realtimeTransport: 'sse' | 'delta_polling' = 'sse';
+  private recommendedPollMs = 15000;
+  private capabilityCheckedToken: string | null = null;
+  private capabilityCheckPromise: Promise<'sse' | 'delta_polling'> | null = null;
 
   private sanitizeDiagnosticText(input: string): string {
     return String(input || '')
@@ -1218,9 +1412,87 @@ export class SupabaseRepository {
     this.emitRealtimeStatus();
   }
 
+  public getRealtimeTransport(): 'sse' | 'delta_polling' {
+    return this.realtimeTransport;
+  }
+
+  public setTransportHintFromServer(transport?: 'sse' | 'delta_polling', sseSupported?: boolean, pollMs?: number) {
+    if (typeof pollMs === 'number' && pollMs >= 5000) {
+      this.recommendedPollMs = pollMs;
+    }
+    const wantsPolling = transport === 'delta_polling' || sseSupported === false;
+    if (wantsPolling) {
+      const currentToken = getAuthHeaders().Authorization || null;
+      if (currentToken) this.capabilityCheckedToken = currentToken;
+      const changed = this.realtimeTransport !== 'delta_polling';
+      this.realtimeTransport = 'delta_polling';
+      this.sseBridgeStatus = 'delta_polling';
+      if (changed || this.sseConnectionState === 'connecting' || this.sseConnectionState === 'disconnected') {
+        this.teardownMultiplexedSse(false);
+        this.sseReconnectAttempt = 0;
+        this.sseHasConnectedBefore = true;
+        this.sseLastConnectedAt = this.sseLastConnectedAt || new Date().toISOString();
+        this.setRealtimeConnectionState('connected');
+        if (changed || this.sseDiagnosticLogs.every(l => l.code !== 'DELTA_POLLING_MODE')) {
+          this.addRealtimeLog(
+            'info',
+            'DELTA_POLLING_MODE',
+            `Runtime serverless terdeteksi — sinkronisasi dialihkan ke Delta Polling (${Math.round(this.recommendedPollMs / 1000)}s).`
+          );
+        }
+      }
+    }
+  }
+
+  public setDeltaPollingSyncOutcome(ok: boolean, details?: { eventAt?: string; error?: string; attempt?: number }) {
+    if (this.realtimeTransport !== 'delta_polling') return;
+    if (ok) {
+      const nowIso = details?.eventAt || new Date().toISOString();
+      this.sseReconnectAttempt = 0;
+      this.sseLastHeartbeatAt = nowIso;
+      if (!this.sseLastConnectedAt) this.sseLastConnectedAt = nowIso;
+      this.sseLastEventAt = nowIso;
+      this.sseBridgeStatus = 'delta_polling';
+      this.setRealtimeConnectionState('connected');
+    } else {
+      this.sseReconnectAttempt = details?.attempt ?? (this.sseReconnectAttempt + 1);
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        this.setRealtimeConnectionState('disconnected');
+      } else {
+        this.setRealtimeConnectionState('reconnecting');
+      }
+      if (details?.error) {
+        this.addRealtimeLog('warn', 'DELTA_POLL_RETRY', details.error);
+      }
+    }
+  }
+
+  public dispatchExternalRealtimeEvent(eventPayload: {
+    table: string;
+    eventType: string;
+    record: any;
+    timestamp?: string;
+  }) {
+    if (!eventPayload) return;
+    this.sseLastEventAt = eventPayload.timestamp || new Date().toISOString();
+    for (const sub of Array.from(this.sseListeners)) {
+      if (
+        (!sub.table || eventPayload.table === sub.table || (eventPayload as any).entity === sub.table) &&
+        (!sub.event || sub.event === '*' || eventPayload.eventType === sub.event)
+      ) {
+        try {
+          sub.onPayload(eventPayload);
+        } catch {}
+      }
+    }
+    this.emitRealtimeStatus();
+  }
+
   public getRealtimeStatus(): RealtimeStatusInfo {
     return {
       state: this.sseConnectionState,
+      transport: this.realtimeTransport,
+      recommendedPollMs: this.recommendedPollMs,
       reconnectAttempt: this.sseReconnectAttempt,
       lastEventId: this.sseLastEventId,
       lastConnectedAt: this.sseLastConnectedAt,
@@ -1280,19 +1552,30 @@ export class SupabaseRepository {
 
     window.addEventListener('online', () => {
       if (this.sseListeners.size === 0) return;
-      this.addRealtimeLog('info', 'BROWSER_ONLINE', 'Jaringan perangkat kembali aktif. Menyambungkan ulang SSE...');
+      this.addRealtimeLog('info', 'BROWSER_ONLINE', 'Jaringan perangkat kembali aktif. Menyambungkan ulang sinkronisasi...');
       this.sseReconnectAttempt = 0;
+      if (this.realtimeTransport === 'delta_polling') {
+        this.setRealtimeConnectionState('connected');
+        for (const cb of Array.from(this.sseReconnectSubscribers)) {
+          try { cb(); } catch {}
+        }
+        return;
+      }
       this.ensureMultiplexedSse(true);
     });
 
     window.addEventListener('morajaws:auth-changed', () => {
       const nextToken = getAuthHeaders().Authorization || '';
       if (!nextToken) {
+        this.capabilityCheckedToken = null;
+        this.capabilityCheckPromise = null;
         this.teardownMultiplexedSse(true);
         return;
       }
       if (this.sseListeners.size > 0 && nextToken !== this.sseActiveToken) {
-        this.addRealtimeLog('info', 'AUTH_TOKEN_ROTATED', 'Token sesi diperbarui. Menyambungkan ulang stream SSE...');
+        this.capabilityCheckedToken = null;
+        this.capabilityCheckPromise = null;
+        this.addRealtimeLog('info', 'AUTH_TOKEN_ROTATED', 'Token sesi diperbarui. Menyambungkan ulang sinkronisasi...');
         this.sseReconnectAttempt = 0;
         this.teardownMultiplexedSse(true);
         this.ensureMultiplexedSse(true);
@@ -1302,8 +1585,16 @@ export class SupabaseRepository {
 
   public reconnectRealtimeNow() {
     if (this.sseListeners.size === 0) return;
-    this.addRealtimeLog('info', 'MANUAL_RECONNECT', 'Permintaan sambung ulang manual dari pengguna.');
+    this.addRealtimeLog('info', 'MANUAL_RECONNECT', 'Permintaan sinkronisasi ulang manual dari pengguna.');
     this.sseReconnectAttempt = 0;
+    if (this.realtimeTransport === 'delta_polling') {
+      this.setRealtimeConnectionState('connecting');
+      for (const cb of Array.from(this.sseReconnectSubscribers)) {
+        try { cb(); } catch {}
+      }
+      this.setRealtimeConnectionState('connected');
+      return;
+    }
     this.teardownMultiplexedSse(false);
     this.ensureMultiplexedSse(true);
   }
@@ -1318,6 +1609,39 @@ export class SupabaseRepository {
         abortController.abort();
       }
     }, 45000);
+  }
+
+  private async resolveRealtimeTransportCapability(authHeaders: Record<string, string>, currentToken: string): Promise<'sse' | 'delta_polling'> {
+    if (this.capabilityCheckedToken === currentToken) {
+      return this.realtimeTransport;
+    }
+    if (this.capabilityCheckPromise) {
+      return this.capabilityCheckPromise;
+    }
+
+    this.capabilityCheckPromise = (async () => {
+      try {
+        const { ok, json } = await fetchJsonSafe('/api/realtime/status', { headers: authHeaders }, 6000);
+        if (ok && json?.success) {
+          this.capabilityCheckedToken = currentToken;
+          if (typeof json.recommendedPollMs === 'number' && json.recommendedPollMs >= 5000) {
+            this.recommendedPollMs = json.recommendedPollMs;
+          }
+          if (json.sseSupported === false || json.recommendedTransport === 'delta_polling') {
+            this.realtimeTransport = 'delta_polling';
+            this.sseBridgeStatus = 'delta_polling';
+            return 'delta_polling';
+          }
+          this.realtimeTransport = 'sse';
+          return 'sse';
+        }
+      } catch {}
+      return this.realtimeTransport;
+    })().finally(() => {
+      this.capabilityCheckPromise = null;
+    });
+
+    return this.capabilityCheckPromise;
   }
 
   private ensureMultiplexedSse(isImmediateReconnect: boolean = false) {
@@ -1341,6 +1665,15 @@ export class SupabaseRepository {
       this.teardownMultiplexedSse(true);
     }
 
+    if (this.realtimeTransport === 'delta_polling') {
+      this.sseActiveToken = currentToken;
+      this.sseBridgeStatus = 'delta_polling';
+      this.sseHasConnectedBefore = true;
+      if (!this.sseLastConnectedAt) this.sseLastConnectedAt = new Date().toISOString();
+      this.setRealtimeConnectionState('connected');
+      return;
+    }
+
     if (this.sseConnecting || this.sseAbortController) return;
 
     if (this.sseReconnectTimer) {
@@ -1359,7 +1692,19 @@ export class SupabaseRepository {
 
     const runStream = async () => {
       let abortedByWatchdogOrError = false;
+      let switchedToDeltaPolling = false;
       try {
+        // Negotiate transport capability before opening an SSE connection
+        const chosenTransport = await this.resolveRealtimeTransportCapability(authHeaders, currentToken);
+        if (abortController.signal.aborted || this.sseListeners.size === 0) {
+          return;
+        }
+        if (chosenTransport === 'delta_polling') {
+          switchedToDeltaPolling = true;
+          this.setTransportHintFromServer('delta_polling', false, this.recommendedPollMs);
+          return;
+        }
+
         const headers: Record<string, string> = {
           ...authHeaders,
           Accept: 'text/event-stream'
@@ -1374,6 +1719,9 @@ export class SupabaseRepository {
         });
 
         if (!response.ok || !response.body) {
+          if (response.status === 504 || response.status === 502) {
+            throw new Error(`SSE gateway timeout (HTTP ${response.status})`);
+          }
           throw new Error(`Koneksi SSE ditolak oleh server (Status: ${response.status})`);
         }
 
@@ -1413,6 +1761,16 @@ export class SupabaseRepository {
             try {
               const eventPayload = JSON.parse(rawJson);
               this.sseLastEventAt = eventPayload?.timestamp || nowChunkIso;
+
+              if (eventPayload?.type === 'SERVERLESS_DELTA_MODE' || eventPayload?.transport === 'delta_polling') {
+                switchedToDeltaPolling = true;
+                this.setTransportHintFromServer(
+                  'delta_polling',
+                  false,
+                  Number(eventPayload.recommendedPollMs) || 15000
+                );
+                return;
+              }
 
               if (eventPayload?.type === 'CONNECTED') {
                 const wasReconnect = this.sseWasDisconnected || this.sseReconnectAttempt > 0;
@@ -1475,17 +1833,31 @@ export class SupabaseRepository {
         }
 
         const shouldRetry =
+          !switchedToDeltaPolling &&
+          this.realtimeTransport !== 'delta_polling' &&
           this.sseListeners.size > 0 &&
           (typeof navigator === 'undefined' || navigator.onLine !== false) &&
           (!abortController.signal.aborted || abortedByWatchdogOrError) &&
           Boolean(getAuthHeaders().Authorization);
 
         if (shouldRetry) {
-          this.setRealtimeConnectionState('reconnecting');
           const attempt = this.sseReconnectAttempt;
           this.sseReconnectAttempt = attempt + 1;
-          const baseDelay = Math.min(30000, 1000 * Math.pow(2, attempt));
-          const jitter = Math.floor(Math.random() * 500);
+
+          // After 3 failed SSE attempts (common behind serverless/edge proxies), fall back cleanly to Delta Polling
+          if (this.sseReconnectAttempt >= 3) {
+            this.setTransportHintFromServer('delta_polling', false, 15000);
+            this.addRealtimeLog(
+              'info',
+              'SSE_FALLBACK_DELTA_POLLING',
+              'SSE gagal berulang kali — beralih otomatis ke mode Delta Polling adaptif.'
+            );
+            return;
+          }
+
+          this.setRealtimeConnectionState('reconnecting');
+          const baseDelay = Math.min(30000, 1500 * Math.pow(2, attempt));
+          const jitter = Math.floor(Math.random() * 750);
           const delayMs = baseDelay + jitter;
           if (this.sseReconnectTimer) clearTimeout(this.sseReconnectTimer);
           this.addRealtimeLog('info', 'SSE_RETRY_SCHEDULED', `Percobaan ulang #${attempt + 1} dalam ${(delayMs / 1000).toFixed(1)}s`);
@@ -1493,7 +1865,11 @@ export class SupabaseRepository {
             this.sseReconnectTimer = null;
             this.ensureMultiplexedSse(true);
           }, delayMs);
-        } else if (this.sseListeners.size === 0 || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+        } else if (
+          !switchedToDeltaPolling &&
+          this.realtimeTransport !== 'delta_polling' &&
+          (this.sseListeners.size === 0 || (typeof navigator !== 'undefined' && navigator.onLine === false))
+        ) {
           this.setRealtimeConnectionState('disconnected');
         }
       }
@@ -1566,7 +1942,7 @@ export class SupabaseRepository {
   }
 
   /**
-   * Subscribes to real-time events via shared multiplexed backend SSE stream.
+   * Subscribes to real-time events via shared multiplexed backend SSE stream or serverless delta-polling coordinator.
    * Completely avoids browser direct connection to Supabase database.
    * Backend enforces all authentication, role permissions, and scoped event filtering.
    */

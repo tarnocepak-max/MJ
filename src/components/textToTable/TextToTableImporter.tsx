@@ -82,6 +82,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [importReport, setImportReport] = useState<{
     imported: number;
     duplicates: number;
+    failed?: number;
+    error?: string;
     enrolledContractors?: number;
     newContractors?: number;
     distributedCount?: number;
@@ -761,7 +763,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setEditingRowIndex(null);
   };
 
-  const handleExecuteImport = () => {
+  const handleExecuteImport = async () => {
     if (!parseResult || parseResult.parsedRows.length === 0) return;
 
     if (parseResult.headerCheckPassed === false) {
@@ -822,22 +824,82 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       }
     }
 
-    const report = bulkImportTickets(validMapped, { duplicatePolicy });
+    const report = await bulkImportTickets(validMapped, { duplicatePolicy });
+    const failedCount = Number(report.failedCount || 0);
+    const savedTotal = report.importedCount + (report.updatedCount || 0);
+
     setImportReport({
       imported: report.importedCount,
       duplicates: report.duplicatesIgnored,
+      failed: failedCount,
+      error: report.error,
       enrolledContractors: enrolledNewCount,
       newContractors: enrolledNewCount,
       distributedCount: report.distributedCount,
       undistributedCount: report.undistributedCount
     });
-    showToast(`${report.importedCount} Work Order valid berhasil disimpan ke database.`, 'success', 'Batch Import Selesai');
+
+    // Total failure: keep all staging rows & rawText intact so user can retry immediately
+    if (!report.success && savedTotal === 0) {
+      setShowConfirmModal(false);
+      showToast(
+        report.error || 'Gagal menyimpan data Work Order ke database Supabase. Input Anda tetap dipertahankan agar dapat dicoba ulang.',
+        'error',
+        'Import Gagal Disimpan'
+      );
+      return;
+    }
+
+    // Partial failure: keep ONLY unconfirmed/failed rows in staging so succeeded WOs aren't duplicated on retry
+    if (report.partialSuccess || failedCount > 0) {
+      const confirmedWoSet = new Set(
+        (report.importedWoNumbers || []).map(w => String(w || '').trim().toUpperCase().replace(/\s+/g, ''))
+      );
+      const remainingRows = parseResult.parsedRows.filter(r => {
+        const key = String(r.mapped?.woNumber || r.mapped?.workOrderNumber || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '');
+        return !key || !confirmedWoSet.has(key);
+      });
+      setParseResult({
+        ...parseResult,
+        parsedRows: remainingRows,
+        validCount: remainingRows.filter(r => r.isValid && !r.isDuplicate).length,
+        problematicCount: remainingRows.filter(r => !r.isValid).length,
+        duplicateCount: remainingRows.filter(r => r.isDuplicate).length
+      });
+      setShowConfirmModal(false);
+      showToast(
+        `${report.importedCount} WO berhasil disimpan ke database, tetapi ${failedCount} WO gagal disimpan (${report.error || 'kesalahan sebagian chunk'}). Baris yang gagal tetap dipertahankan untuk dicoba ulang.`,
+        'warning',
+        'Import Parsial'
+      );
+      return;
+    }
+
+    // Confirmed clean completion
+    if (savedTotal === 0 && report.duplicatesIgnored > 0) {
+      setShowConfirmModal(false);
+      showToast(
+        `Semua (${report.duplicatesIgnored}) nomor WO diabaikan karena sudah terdaftar di database.`,
+        'warning',
+        'Semua Duplikat'
+      );
+      return;
+    }
+
+    showToast(
+      `${report.importedCount} Work Order valid terkonfirmasi tersimpan permanen di database.${report.duplicatesIgnored > 0 ? ` (${report.duplicatesIgnored} duplikat diabaikan)` : ''}`,
+      'success',
+      'Batch Import Selesai'
+    );
     setParseResult(null);
     setRawText('');
     setShowConfirmModal(false);
     setTimeout(() => {
       onImportSuccess();
-    }, 1500);
+    }, 1200);
   };
 
   return (
@@ -1294,15 +1356,51 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
           )}
 
-          {/* Import Success Banner */}
+          {/* Import Status Banner */}
           {importReport && (
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+            <div
+              className={`p-4 rounded-2xl text-xs flex items-center gap-3 border ${
+                importReport.imported === 0 && ((importReport.failed ?? 0) > 0 || Boolean(importReport.error))
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                  : (importReport.failed ?? 0) > 0
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              }`}
+            >
+              {(importReport.failed ?? 0) > 0 || (importReport.imported === 0 && Boolean(importReport.error)) ? (
+                <AlertCircle
+                  className={`w-5 h-5 shrink-0 ${
+                    importReport.imported === 0 ? 'text-rose-600' : 'text-amber-600'
+                  }`}
+                />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+              )}
               <div>
-                <p className="font-display font-bold text-sm">Proses Import Berhasil!</p>
+                <p className="font-display font-bold text-sm">
+                  {importReport.imported === 0 && ((importReport.failed ?? 0) > 0 || Boolean(importReport.error))
+                    ? 'Import Gagal Disimpan ke Database'
+                    : (importReport.failed ?? 0) > 0
+                    ? 'Import Parsial — Sebagian WO Gagal Disimpan'
+                    : 'Proses Import Berhasil!'}
+                </p>
                 <p className="mt-0.5">
-                  {importReport.imported} tiket baru berhasil ditambahkan ({importReport.distributedCount ?? 0} terdistribusi ke Leader
-                  {(importReport.undistributedCount ?? 0) > 0 ? `, ${importReport.undistributedCount} Belum Terdistribusi` : ''}).
+                  {importReport.imported > 0 && (
+                    <>
+                      {importReport.imported} tiket baru terkonfirmasi tersimpan di database ({importReport.distributedCount ?? 0} terdistribusi ke Leader
+                      {(importReport.undistributedCount ?? 0) > 0 ? `, ${importReport.undistributedCount} Belum Terdistribusi` : ''}).
+                    </>
+                  )}
+                  {(importReport.failed ?? 0) > 0 && (
+                    <span className="block mt-1 font-semibold">
+                      {importReport.failed} WO gagal disimpan dan tetap dipertahankan pada tabel preview agar dapat dicoba ulang.
+                    </span>
+                  )}
+                  {importReport.error && (
+                    <span className="block mt-1 font-medium">
+                      Detail: {importReport.error}
+                    </span>
+                  )}
                   {importReport.enrolledContractors !== undefined && importReport.enrolledContractors > 0 && (
                     <span className="font-medium text-emerald-900 dark:text-emerald-200">
                       {' '}{importReport.enrolledContractors} kategori kontraktor ({importReport.newContractors || 0} baru) telah terdaftar di Master Data.
