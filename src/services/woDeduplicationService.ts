@@ -168,7 +168,7 @@ export function validateAndDeduplicateImportBatch(
       streetName: (row.streetName || '').trim(),
       streetAlternatif: (row.streetAlternatif || '').trim(),
       clusterName: (row.clusterName || '').trim(),
-      area: (row.area || 'Jakarta Selatan').trim(),
+      area: (row.area || '').trim(),
 
       appointmentDate: (row.appointmentDate || '').trim(),
       appointmentType: row.appointmentType || 'Regular Installation',
@@ -179,9 +179,9 @@ export function validateAndDeduplicateImportBatch(
       statusWOInstaller: row.statusWOInstaller || 'Unassigned',
       statusWhatsApp: row.statusWhatsApp || 'not_prepared',
 
-      contactorName: row.contactorName || (row as any).contractorName || 'PT Mitra Jaringan Solusi',
-      contractorName: row.contractorName || row.contactorName || 'PT Mitra Jaringan Solusi',
-      contractorId: row.contractorId || 'c-mjs',
+      contactorName: row.contactorName || (row as any).contractorName || '',
+      contractorName: row.contractorName || row.contactorName || '',
+      contractorId: row.contractorId || '',
       leaderName: row.leaderName || '',
       installerName: row.installerName || '',
       installerContact: row.installerContact || '',

@@ -1099,7 +1099,7 @@ export interface SyncHistoryEntry {
 }
 
 export interface SyncMonitoringStatus {
-  appDbStatus: 'Connected' | 'Disconnected' | 'Degraded';
+  appDbStatus: 'Connected' | 'Disconnected' | 'Degraded' | 'Pending';
   sheetsStatus: 'Connected' | 'Disconnected' | 'Unconfigured' | 'Invalid Credentials';
   lastSyncStatus: SyncProcessStatus;
   lastSyncAt: string | null;

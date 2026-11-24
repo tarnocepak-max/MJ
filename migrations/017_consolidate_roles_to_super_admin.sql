@@ -125,12 +125,11 @@ BEGIN
   IF to_regclass('public.auth_sessions') IS NOT NULL THEN
     UPDATE public.auth_sessions s
     SET
-      status = 'revoked',
       revoked_at = COALESCE(revoked_at, NOW())
     FROM public.users u
     WHERE s.user_id = u.id
       AND u.role = 'super_admin'
-      AND s.status = 'active'
+      AND s.revoked_at IS NULL
       AND u.updated_at >= NOW() - INTERVAL '1 minute';
   END IF;
 
@@ -141,20 +140,20 @@ BEGIN
     -- 4a. role_permissions
     UPDATE public.app_settings
     SET
-      value = jsonb_set(
-        (value - 'management_data' - 'it_support'),
+      setting_value = jsonb_set(
+        (setting_value - 'management_data' - 'it_support'),
         '{super_admin}',
         (
           SELECT COALESCE(jsonb_agg(DISTINCT perm ORDER BY perm), v_merged_perms)
           FROM (
-            SELECT jsonb_array_elements_text(value->'super_admin') AS perm
-            WHERE jsonb_typeof(value->'super_admin') = 'array'
+            SELECT jsonb_array_elements_text(setting_value->'super_admin') AS perm
+            WHERE jsonb_typeof(setting_value->'super_admin') = 'array'
             UNION
-            SELECT jsonb_array_elements_text(value->'management_data') AS perm
-            WHERE jsonb_typeof(value->'management_data') = 'array'
+            SELECT jsonb_array_elements_text(setting_value->'management_data') AS perm
+            WHERE jsonb_typeof(setting_value->'management_data') = 'array'
             UNION
-            SELECT jsonb_array_elements_text(value->'it_support') AS perm
-            WHERE jsonb_typeof(value->'it_support') = 'array'
+            SELECT jsonb_array_elements_text(setting_value->'it_support') AS perm
+            WHERE jsonb_typeof(setting_value->'it_support') = 'array'
             UNION
             SELECT jsonb_array_elements_text(v_merged_perms) AS perm
           ) perms_union
@@ -162,8 +161,8 @@ BEGIN
         true
       ),
       updated_at = NOW()
-    WHERE key = 'role_permissions'
-      AND jsonb_typeof(value) = 'object';
+    WHERE setting_key = 'role_permissions'
+      AND jsonb_typeof(setting_value) = 'object';
   END IF;
 
   -- ----------------------------------------------------------------------------
@@ -264,7 +263,7 @@ CREATE POLICY wo_distribution_logs_authenticated_select
           u.role IN ('super_admin', 'dispatch')
           OR (
             u.role = 'leader'
-            AND (u.leader_id IS NULL OR wo_distribution_logs.leader_id = u.id OR lower(coalesce(wo_distribution_logs.leader_name, '')) = lower(u.name))
+            AND (wo_distribution_logs.leader_id IS NULL OR wo_distribution_logs.leader_id = u.id OR lower(coalesce(wo_distribution_logs.leader_name, '')) = lower(u.name))
           )
         )
     )

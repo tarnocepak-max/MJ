@@ -6,14 +6,11 @@ import {
   getUsersFromSupabase,
   insertUserToSupabase,
   updateUserInSupabase,
-  insertUserSessionToSupabase,
-  revokeUserSessionInSupabase,
   postgresRowToUser,
   userToPostgresRow,
   classifySupabaseError
 } from './supabaseAdapter.ts';
 import type { ServerUser, ServerSession } from '../server.ts';
-import { sessionStore } from './sessionStore.ts';
 import { db, saveDatabaseToDisk, isLocalJsonModeAllowed, logServerAuditAsync, hashPasswordLegacy } from '../server.ts';
 
 // ==============================================================================
@@ -257,66 +254,45 @@ export async function verifyUserPasswordEx(
     return { valid: false };
   }
 
-  const trimmedHash = storedHash.trim();
-
-  // 1. Check bcrypt ($2a$, $2b$, $2y$)
-  if (trimmedHash.startsWith('$2a$') || trimmedHash.startsWith('$2b$') || trimmedHash.startsWith('$2y$')) {
+  // 1. Check bcrypt
+  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
     try {
-      const match = await bcrypt.compare(password, trimmedHash);
+      const match = await bcrypt.compare(password, storedHash);
       return { valid: match, needsRehash: false };
     } catch {
       return { valid: false };
     }
   }
 
-  // 2. Check PBKDF2-SHA256 format: pbkdf2:sha256:<iterations>:<salt>:<hex>
-  // Keep strong PBKDF2 (>= 100k iterations) untouched so existing database hashes are never mutated unexpectedly.
-  if (trimmedHash.startsWith('pbkdf2:sha256:')) {
-    const parts = trimmedHash.split(':');
+  // 2. Check PBKDF2 legacy format
+  if (storedHash.startsWith('pbkdf2:sha256:')) {
+    const parts = storedHash.split(':');
     if (parts.length === 5) {
       const iterations = parseInt(parts[2], 10);
       const salt = parts[3];
-      const originalHash = parts[4].toLowerCase();
-      if (!isNaN(iterations) && iterations > 0 && salt && /^[0-9a-f]+$/i.test(originalHash) && originalHash.length % 2 === 0) {
+      const originalHash = parts[4];
+      if (!isNaN(iterations) && salt && originalHash) {
         try {
-          const keyLen = Math.max(16, Math.floor(originalHash.length / 2));
-          const derivedKeyHex = crypto.pbkdf2Sync(password, salt, iterations, keyLen, 'sha256').toString('hex').toLowerCase();
-          if (derivedKeyHex.length === originalHash.length) {
-            const isValid = crypto.timingSafeEqual(
-              Buffer.from(derivedKeyHex, 'utf8'),
-              Buffer.from(originalHash, 'utf8')
-            );
-            return { valid: isValid, needsRehash: isValid && iterations < 100000 };
-          }
+          const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+          const isValid = crypto.timingSafeEqual(
+            Buffer.from(derivedKey.toString('hex')),
+            Buffer.from(originalHash)
+          );
+          return { valid: isValid, needsRehash: isValid };
         } catch {}
       }
     }
   }
 
-  // 3. Check salted SHA-256 legacy format (64 hex chars matching client hashPassword helper)
-  if (/^[0-9a-f]{64}$/i.test(trimmedHash)) {
-    try {
-      const sha256Attempt = crypto
-        .createHash('sha256')
-        .update(`morajaws_secure_salt_2026:${password}`)
-        .digest('hex')
-        .toLowerCase();
-      const targetHex = trimmedHash.toLowerCase();
-      if (crypto.timingSafeEqual(Buffer.from(sha256Attempt, 'utf8'), Buffer.from(targetHex, 'utf8'))) {
-        return { valid: true, needsRehash: true };
-      }
-    } catch {}
-  }
-
-  // 4. Check legacy FNV hash (e.g., initial seed hash '28232849')
+  // 3. Check legacy FNV hash (e.g., initial seed hash '28232849' or salted)
   const legacyAttempt = hashPasswordLegacy(password);
-  if (legacyAttempt.length === trimmedHash.length) {
+  if (legacyAttempt.length === storedHash.length) {
     try {
-      const match = crypto.timingSafeEqual(Buffer.from(legacyAttempt), Buffer.from(trimmedHash));
+      const match = crypto.timingSafeEqual(Buffer.from(legacyAttempt), Buffer.from(storedHash));
       if (match) return { valid: true, needsRehash: true };
     } catch {}
   }
-  if (legacyAttempt === trimmedHash) {
+  if (legacyAttempt === storedHash) {
     return { valid: true, needsRehash: true };
   }
 
@@ -500,28 +476,13 @@ export async function recordLoginAttempt(params: {
  */
 export async function persistNewAuthSession(params: {
   userId: string;
-  username?: string;
-  name?: string;
-  role?: ServerUser['role'];
-  contractor?: string;
   accessToken: string;
   refreshToken: string;
   ipAddress?: string;
   userAgent?: string;
   sessionVersion?: number;
 }): Promise<{ sessionId: string; expiresAt: string }> {
-  const {
-    userId,
-    username = '',
-    name = '',
-    role = 'installer',
-    contractor,
-    accessToken,
-    refreshToken,
-    ipAddress,
-    userAgent,
-    sessionVersion = 1
-  } = params;
+  const { userId, accessToken, refreshToken, ipAddress, userAgent, sessionVersion = 1 } = params;
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const expiresAt = new Date(now + ACCESS_TOKEN_TTL_MS).toISOString();
@@ -532,7 +493,6 @@ export async function persistNewAuthSession(params: {
 
   const sessionHash = hashToken(accessToken);
   const rtHash = hashToken(refreshToken);
-  const deviceType: 'mobile' | 'desktop' = userAgent && /mobile|android|iphone/i.test(userAgent) ? 'mobile' : 'desktop';
 
   const sessionRecord: StoredAuthSession = {
     id: sessionId,
@@ -545,7 +505,7 @@ export async function persistNewAuthSession(params: {
     revokedAt: null,
     ipAddress,
     userAgent,
-    deviceType,
+    deviceType: userAgent && /mobile|android|iphone/i.test(userAgent) ? 'mobile' : 'desktop',
     createdAt: nowIso
   };
 
@@ -560,113 +520,70 @@ export async function persistNewAuthSession(params: {
     createdAt: nowIso
   };
 
-  const isMissingColumnError = (err: any): boolean => {
-    const code = String(err?.code || '').toUpperCase();
-    const msg = String(err?.message || '').toLowerCase();
-    return code === '42703' || code === 'PGRST204' || msg.includes('session_version');
-  };
-
   const client = getSupabaseBackendClient();
   if (client) {
-    const baseSessRow = {
-      id: sessionId,
-      user_id: userId,
-      session_id_hash: sessionHash,
-      token_hash: sessionHash,
-      expires_at: expiresAt,
-      last_activity_at: nowIso,
-      ip_address: ipAddress || null,
-      user_agent: userAgent || null,
-      device_type: deviceType,
-      created_at: nowIso
-    };
+    try {
+      const { error: sessErr } = await client.from('auth_sessions').insert([
+        {
+          id: sessionId,
+          user_id: userId,
+          session_id_hash: sessionHash,
+          token_hash: sessionHash,
+          expires_at: expiresAt,
+          last_activity_at: nowIso,
+          ip_address: ipAddress || null,
+          user_agent: userAgent || null,
+          device_type: sessionRecord.deviceType,
+          created_at: nowIso
+        }
+      ]);
+      if (sessErr) {
+        console.warn('[CustomAuth] Failed to insert into auth_sessions:', sessErr.message);
+      }
 
-    let { error: sessErr } = await client.from('auth_sessions').insert([
-      { ...baseSessRow, session_version: sessionVersion }
-    ]);
-    if (sessErr && isMissingColumnError(sessErr)) {
-      ({ error: sessErr } = await client.from('auth_sessions').insert([baseSessRow]));
+      const { error: rtErr } = await client.from('refresh_tokens').insert([
+        {
+          id: rtId,
+          user_id: userId,
+          session_id: sessionId,
+          token_hash: rtHash,
+          expires_at: refreshExpiresAt,
+          created_at: nowIso
+        }
+      ]);
+      if (rtErr) {
+        console.warn('[CustomAuth] Failed to insert into refresh_tokens:', rtErr.message);
+      }
+    } catch (err: any) {
+      console.warn('[CustomAuth] Session insert exception:', err?.message || err);
     }
-    if (sessErr) {
-      console.error('[CustomAuth] Failed to persist auth_sessions row:', sessErr.message);
-      throw new Error(`DATABASE_UNAVAILABLE: Gagal menyimpan auth_sessions ke Supabase (${sessErr.message}).`);
-    }
-
-    const baseRtRow = {
-      id: rtId,
-      user_id: userId,
-      session_id: sessionId,
-      token_hash: rtHash,
-      expires_at: refreshExpiresAt,
-      created_at: nowIso
-    };
-    let { error: rtErr } = await client.from('refresh_tokens').insert([
-      { ...baseRtRow, session_version: sessionVersion }
-    ]);
-    if (rtErr && isMissingColumnError(rtErr)) {
-      ({ error: rtErr } = await client.from('refresh_tokens').insert([baseRtRow]));
-    }
-    if (rtErr) {
-      console.error('[CustomAuth] Failed to persist refresh_tokens row:', rtErr.message);
-      // Roll back orphaned auth_session best-effort
-      try {
-        await client.from('auth_sessions').delete().eq('id', sessionId);
-      } catch {}
-      throw new Error(`DATABASE_UNAVAILABLE: Gagal menyimpan refresh_tokens ke Supabase (${rtErr.message}).`);
-    }
-
-    // Best-effort sync to public.user_sessions for Superadmin Session Management visibility
-    await insertUserSessionToSupabase({
-      sessionId,
-      userId,
-      username,
-      name,
-      role,
-      contractor,
-      loginAt: nowIso,
-      lastActivityAt: nowIso,
-      expiresAt,
-      status: 'active',
-      ipAddress,
-      userAgent,
-      deviceType,
-      tokenFingerprint: sessionHash
-    });
-  } else if (!isLocalJsonModeAllowed()) {
-    throw new Error('DATABASE_UNAVAILABLE: Database authoritative Supabase tidak tersedia untuk menyimpan sesi.');
   }
 
-  // Always store in memory / sessionStore for immediate local inspection and dev mode
+  // Always store in memory / local store for immediate access and fallback
   LOCAL_AUTH_SESSIONS.push(sessionRecord);
   LOCAL_REFRESH_TOKENS.push(rtRecord);
 
+  // Sync to server.ts SERVER_SESSIONS array so existing server checks seamlessly recognize it
+  const existingSessIdx = db.sessions ? db.sessions.findIndex((s: any) => s.sessionId === sessionId) : -1;
   const serverSess: ServerSession = {
     sessionId,
     token: accessToken,
     userId,
-    username,
-    name,
-    role,
-    contractor,
+    username: '', // Populated by caller
+    name: '',     // Populated by caller
+    role: 'super_admin',
     sessionVersion,
     loginAt: nowIso,
     lastActivityAt: nowIso,
     expiresAt,
     status: 'active',
     ipAddress,
-    userAgent,
-    deviceType
+    userAgent
   };
-  try {
-    await sessionStore.addSession(serverSess);
-  } catch {}
-  if (db.sessions) {
-    const existingSessIdx = db.sessions.findIndex((s: any) => s.sessionId === sessionId);
-    if (existingSessIdx >= 0) {
-      db.sessions[existingSessIdx] = serverSess;
-    } else {
-      db.sessions.push(serverSess);
-    }
+  if (existingSessIdx >= 0 && db.sessions) {
+    db.sessions[existingSessIdx] = serverSess;
+  } else if (db.sessions) {
+    db.sessions.push(serverSess);
   }
 
   return { sessionId, expiresAt };
@@ -695,24 +612,14 @@ export async function verifyAccessToken(
   // 1. Check Supabase PostgreSQL auth_sessions
   if (client) {
     try {
-      const { data: sessRows, error } = await client
+      const { data, error } = await client
         .from('auth_sessions')
         .select('*')
         .or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`)
-        .limit(5);
+        .limit(1)
+        .maybeSingle();
 
-      if (error) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: 'DATABASE_UNAVAILABLE',
-              message: `Database Supabase gagal memverifikasi sesi: ${error.message}`
-            }
-          };
-        }
-      } else if (Array.isArray(sessRows) && sessRows.length > 0) {
-        const data = sessRows.find(r => !r.revoked_at) || sessRows[0];
+      if (!error && data) {
         matchedSession = {
           id: data.id,
           userId: data.user_id,
@@ -720,7 +627,6 @@ export async function verifyAccessToken(
           tokenHash: data.token_hash || data.session_id_hash,
           expiresAt: data.expires_at,
           lastActivityAt: data.last_activity_at,
-          sessionVersion: typeof data.session_version === 'number' ? data.session_version : undefined,
           revokedAt: data.revoked_at,
           ipAddress: data.ip_address,
           userAgent: data.user_agent,
@@ -728,16 +634,7 @@ export async function verifyAccessToken(
           createdAt: data.created_at
         };
       }
-    } catch (err: any) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: 'DATABASE_UNAVAILABLE',
-            message: `Koneksi ke database Supabase gagal saat memverifikasi sesi: ${err?.message || 'Unknown error'}`
-          }
-        };
-      }
+    } catch (err) {
       console.warn('[CustomAuth] DB verify session warning:', err);
     }
   }
@@ -752,17 +649,17 @@ export async function verifyAccessToken(
     };
   }
 
-  // Fallback to local session store ONLY in local JSON dev mode
+  // Fallback to local session store
   if (!matchedSession && isLocalJsonModeAllowed()) {
     const found = LOCAL_AUTH_SESSIONS.find(
-      s => s.sessionIdHash === tokenHash || s.tokenHash === tokenHash
+      s => (s.sessionIdHash === tokenHash || s.tokenHash === tokenHash || cleanToken.includes(s.id))
     );
     if (found) {
       matchedSession = found;
     }
   }
 
-  // Also check SERVER_SESSIONS / sessionStore in local dev mode if token matches
+  // Also check SERVER_SESSIONS in server.ts if token matches
   if (!matchedSession && isLocalJsonModeAllowed()) {
     const sSess = db.sessions?.find((s: any) => s.token === cleanToken);
     if (sSess) {
@@ -773,7 +670,6 @@ export async function verifyAccessToken(
         tokenHash,
         expiresAt: sSess.expiresAt,
         lastActivityAt: sSess.lastActivityAt,
-        sessionVersion: sSess.sessionVersion,
         revokedAt: sSess.status === 'revoked' ? new Date().toISOString() : null,
         ipAddress: sSess.ipAddress,
         userAgent: sSess.userAgent,
@@ -923,24 +819,14 @@ export async function rotateRefreshToken(
   // 1. Look up in Supabase PostgreSQL refresh_tokens table
   if (client) {
     try {
-      const { data: rtRows, error } = await client
+      const { data, error } = await client
         .from('refresh_tokens')
         .select('*')
         .eq('token_hash', rtHash)
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (error) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: 'DATABASE_UNAVAILABLE',
-              message: `Database Supabase gagal membaca refresh token: ${error.message}`
-            }
-          };
-        }
-      } else if (Array.isArray(rtRows) && rtRows[0]) {
-        const data = rtRows[0];
+      if (!error && data) {
         matchedRt = {
           id: data.id,
           userId: data.user_id,
@@ -952,16 +838,7 @@ export async function rotateRefreshToken(
           createdAt: data.created_at
         };
       }
-    } catch (err: any) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: 'DATABASE_UNAVAILABLE',
-            message: `Koneksi ke database Supabase gagal saat refresh token: ${err?.message || 'Unknown error'}`
-          }
-        };
-      }
+    } catch (err) {
       console.warn('[CustomAuth] DB query refresh token warning:', err);
     }
   }
@@ -976,7 +853,7 @@ export async function rotateRefreshToken(
     };
   }
 
-  // Fallback to local store ONLY in local dev mode
+  // Fallback to local store
   if (!matchedRt && isLocalJsonModeAllowed()) {
     matchedRt = LOCAL_REFRESH_TOKENS.find(r => r.tokenHash === rtHash) || null;
   }
@@ -1004,7 +881,6 @@ export async function rotateRefreshToken(
           .update({ revoked_at: revokeTs })
           .eq('id', matchedRt.sessionId)
           .is('revoked_at', null);
-        await revokeUserSessionInSupabase(matchedRt.sessionId);
       } catch {}
     }
     LOCAL_REFRESH_TOKENS.forEach(r => {
@@ -1026,55 +902,6 @@ export async function rotateRefreshToken(
     };
   }
 
-  // Check parent auth_sessions row is still active and not revoked
-  if (client && matchedRt.sessionId) {
-    try {
-      const { data: parentRows, error: parentErr } = await client
-        .from('auth_sessions')
-        .select('id, revoked_at, expires_at, session_version')
-        .eq('id', matchedRt.sessionId)
-        .limit(1);
-
-      if (parentErr) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: 'DATABASE_UNAVAILABLE',
-              message: `Database gagal memvalidasi sesi induk: ${parentErr.message}`
-            }
-          };
-        }
-      } else {
-        const parentSess = Array.isArray(parentRows) ? parentRows[0] : null;
-        if (!parentSess || parentSess.revoked_at) {
-          const revokeTs = new Date(now).toISOString();
-          try {
-            await client.from('refresh_tokens').update({ revoked_at: revokeTs }).eq('id', matchedRt.id);
-          } catch {}
-          return {
-            success: false,
-            error: {
-              code: 'REFRESH_TOKEN_REVOKED',
-              message: 'Sesi login terkait telah dicabut atau logout. Silakan login kembali.'
-            }
-          };
-        }
-      }
-    } catch {}
-  } else if (isLocalJsonModeAllowed() && matchedRt.sessionId) {
-    const localParent = LOCAL_AUTH_SESSIONS.find(s => s.id === matchedRt!.sessionId);
-    if (localParent?.revokedAt) {
-      return {
-        success: false,
-        error: {
-          code: 'REFRESH_TOKEN_REVOKED',
-          message: 'Sesi login terkait telah dicabut atau logout. Silakan login kembali.'
-        }
-      };
-    }
-  }
-
   // Check expiration
   if (new Date(matchedRt.expiresAt).getTime() < now) {
     return {
@@ -1087,23 +914,15 @@ export async function rotateRefreshToken(
   let user: ServerUser | null = null;
   if (client) {
     const userRes = await findUserInSupabaseDetailed(matchedRt.userId);
-    if (!userRes.success) {
-      return {
-        success: false,
-        error: {
-          code: 'DATABASE_UNAVAILABLE',
-          message: 'Database Supabase gagal memuat akun saat memperbarui sesi.'
-        }
-      };
+    if (userRes.success && userRes.data) {
+      user = userRes.data;
     }
-    user = userRes.data;
   }
   if (!user && isLocalJsonModeAllowed()) {
     user = db.users.find((u: any) => u.id === matchedRt!.userId) || null;
   }
 
-  const effectiveStatus = (user as any)?.accountStatus || (user as any)?.account_status || 'active';
-  if (!user || user.isDeleted || !user.active || effectiveStatus === 'inactive' || effectiveStatus === 'locked') {
+  if (!user || user.isDeleted || !user.active) {
     return {
       success: false,
       error: { code: 'ACCOUNT_DISABLED', message: 'Akun Anda telah dinonaktifkan atau dihapus.' }
@@ -1154,40 +973,24 @@ export async function rotateRefreshToken(
 
   // Update Supabase PostgreSQL
   if (client) {
-    const isMissingColumnError = (err: any): boolean => {
-      const code = String(err?.code || '').toUpperCase();
-      const msg = String(err?.message || '').toLowerCase();
-      return code === '42703' || code === 'PGRST204' || msg.includes('session_version');
-    };
-
     try {
-      const { error: revOldErr } = await client
+      await client
         .from('refresh_tokens')
         .update({ revoked_at: nowIso, replaced_by_token_hash: newRtHash })
         .eq('id', matchedRt.id);
-      if (revOldErr) {
-        throw new Error(revOldErr.message);
-      }
 
-      const baseNewRt = {
-        id: newRtRecord.id,
-        user_id: user.id,
-        session_id: matchedRt.sessionId,
-        token_hash: newRtHash,
-        expires_at: newRtExpiresAt,
-        created_at: nowIso
-      };
-      let { error: insRtErr } = await client
-        .from('refresh_tokens')
-        .insert([{ ...baseNewRt, session_version: authoritativeVersion }]);
-      if (insRtErr && isMissingColumnError(insRtErr)) {
-        ({ error: insRtErr } = await client.from('refresh_tokens').insert([baseNewRt]));
-      }
-      if (insRtErr) {
-        throw new Error(insRtErr.message);
-      }
+      await client.from('refresh_tokens').insert([
+        {
+          id: newRtRecord.id,
+          user_id: user.id,
+          session_id: matchedRt.sessionId,
+          token_hash: newRtHash,
+          expires_at: newRtExpiresAt,
+          created_at: nowIso
+        }
+      ]);
 
-      const { error: updSessErr } = await client
+      await client
         .from('auth_sessions')
         .update({
           session_id_hash: newSessionHash,
@@ -1196,28 +999,7 @@ export async function rotateRefreshToken(
           last_activity_at: nowIso
         })
         .eq('id', matchedRt.sessionId);
-      if (updSessErr) {
-        throw new Error(updSessErr.message);
-      }
-
-      await client
-        .from('user_sessions')
-        .update({
-          last_activity_at: nowIso,
-          expires_at: newExpiresAt,
-          token_fingerprint: newSessionHash
-        })
-        .eq('session_id', matchedRt.sessionId);
     } catch (err: any) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: 'DATABASE_UNAVAILABLE',
-            message: `Database Supabase gagal memperbarui rotasi token: ${err?.message || 'Unknown error'}`
-          }
-        };
-      }
       console.warn('[CustomAuth] DB token rotation warning:', err?.message || err);
     }
   }
@@ -1230,13 +1012,6 @@ export async function rotateRefreshToken(
     localSess.expiresAt = newExpiresAt;
     localSess.lastActivityAt = nowIso;
   }
-  try {
-    await sessionStore.updateSession(matchedRt.sessionId, {
-      token: newAccessToken,
-      expiresAt: newExpiresAt,
-      lastActivityAt: nowIso
-    });
-  } catch {}
 
   const { passwordHash: _, ...safeUser } = user;
 
@@ -1286,12 +1061,6 @@ export async function revokeAllUserSessions(
         .eq('user_id', userId)
         .is('revoked_at', null);
 
-      await client
-        .from('user_sessions')
-        .update({ status: 'revoked', last_activity_at: nowIso })
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
       if (!options?.skipVersionIncrement) {
         const { data: userData } = await client.from('users').select('session_version').eq('id', userId).single();
         const currentVer = typeof userData?.session_version === 'number' ? userData.session_version : 1;
@@ -1312,9 +1081,6 @@ export async function revokeAllUserSessions(
   LOCAL_REFRESH_TOKENS.forEach(r => {
     if (r.userId === userId) r.revokedAt = nowIso;
   });
-  try {
-    await sessionStore.revokeUserSessions(userId);
-  } catch {}
 
   if (db.sessions) {
     db.sessions.forEach((s: any) => {
@@ -1351,16 +1117,22 @@ export async function createSessionForUserAfterPasswordChange(params: {
 
   const { sessionId, expiresAt } = await persistNewAuthSession({
     userId: user.id,
-    username: user.username,
-    name: user.name,
-    role: user.role,
-    contractor: user.contractor,
     accessToken,
     refreshToken,
     ipAddress,
     userAgent,
     sessionVersion
   });
+
+  if (db.sessions) {
+    const sess = db.sessions.find((s: any) => s.sessionId === sessionId);
+    if (sess) {
+      sess.username = user.username;
+      sess.name = user.name;
+      sess.role = user.role;
+      sess.contractor = user.contractor;
+    }
+  }
 
   return {
     sessionId,
@@ -1375,8 +1147,7 @@ export async function createSessionForUserAfterPasswordChange(params: {
 }
 
 /**
- * Revokes a single session by access token, refresh token, or session ID,
- * ensuring linked refresh_tokens and public.user_sessions rows are revoked atomically.
+ * Revokes a single session by access token or session ID.
  */
 export async function revokeSingleSession(tokenOrSessionId: string): Promise<boolean> {
   if (!tokenOrSessionId || typeof tokenOrSessionId !== 'string') return false;
@@ -1387,56 +1158,19 @@ export async function revokeSingleSession(tokenOrSessionId: string): Promise<boo
   const nowIso = new Date().toISOString();
   const client = getSupabaseBackendClient();
   const isSafeSessionId = /^[a-zA-Z0-9_-]{4,128}$/.test(cleanInput);
-  const affectedSessionIds = new Set<string>();
-  if (isSafeSessionId) {
-    affectedSessionIds.add(cleanInput);
-  }
-
-  LOCAL_AUTH_SESSIONS.forEach(s => {
-    if (s.id === cleanInput || s.sessionIdHash === tokenHash || s.tokenHash === tokenHash) {
-      affectedSessionIds.add(s.id);
-      s.revokedAt = nowIso;
-    }
-  });
-  LOCAL_REFRESH_TOKENS.forEach(r => {
-    if (r.tokenHash === tokenHash && r.sessionId) {
-      affectedSessionIds.add(r.sessionId);
-    }
-    if (r.tokenHash === tokenHash || affectedSessionIds.has(r.sessionId)) {
-      r.revokedAt = nowIso;
-    }
-  });
 
   if (client) {
     try {
-      const { data: matchedSessRows } = await client
+      await client
         .from('auth_sessions')
-        .select('id')
-        .or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`)
-        .limit(10);
-
-      if (Array.isArray(matchedSessRows)) {
-        matchedSessRows.forEach((r: any) => {
-          if (r?.id) affectedSessionIds.add(r.id);
-        });
-      }
-
-      const { data: matchedRtRows } = await client
-        .from('refresh_tokens')
-        .select('session_id')
-        .eq('token_hash', tokenHash)
-        .limit(10);
-
-      if (Array.isArray(matchedRtRows)) {
-        matchedRtRows.forEach((r: any) => {
-          if (r?.session_id) affectedSessionIds.add(r.session_id);
-        });
-      }
+        .update({ revoked_at: nowIso })
+        .eq('session_id_hash', tokenHash)
+        .is('revoked_at', null);
 
       await client
         .from('auth_sessions')
         .update({ revoked_at: nowIso })
-        .or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`)
+        .eq('token_hash', tokenHash)
         .is('revoked_at', null);
 
       await client
@@ -1445,38 +1179,32 @@ export async function revokeSingleSession(tokenOrSessionId: string): Promise<boo
         .eq('token_hash', tokenHash)
         .is('revoked_at', null);
 
-      for (const sid of affectedSessionIds) {
+      if (isSafeSessionId) {
         await client
           .from('auth_sessions')
           .update({ revoked_at: nowIso })
-          .eq('id', sid)
+          .eq('id', cleanInput)
           .is('revoked_at', null);
 
         await client
           .from('refresh_tokens')
           .update({ revoked_at: nowIso })
-          .eq('session_id', sid)
+          .eq('session_id', cleanInput)
           .is('revoked_at', null);
-
-        await revokeUserSessionInSupabase(sid);
       }
     } catch {}
   }
 
-  for (const sid of affectedSessionIds) {
-    try {
-      await sessionStore.revokeSession(sid);
-    } catch {}
-    LOCAL_AUTH_SESSIONS.forEach(s => {
-      if (s.id === sid) s.revokedAt = nowIso;
-    });
-    LOCAL_REFRESH_TOKENS.forEach(r => {
-      if (r.sessionId === sid) r.revokedAt = nowIso;
-    });
-  }
-  try {
-    await sessionStore.revokeSession(cleanInput);
-  } catch {}
+  LOCAL_AUTH_SESSIONS.forEach(s => {
+    if (s.id === cleanInput || s.sessionIdHash === tokenHash || s.tokenHash === tokenHash) {
+      s.revokedAt = nowIso;
+    }
+  });
+  LOCAL_REFRESH_TOKENS.forEach(r => {
+    if (r.sessionId === cleanInput || r.tokenHash === tokenHash) {
+      r.revokedAt = nowIso;
+    }
+  });
 
   return true;
 }
@@ -1574,8 +1302,8 @@ export async function loginWithCustomAuth(params: {
     return {
       success: false,
       error: {
-        code: 'ACCOUNT_NOT_FOUND',
-        message: 'Nama pengguna atau email tidak ditemukan. Hubungi Superadmin untuk mendapatkan akses MoraJaws.'
+        code: 'INVALID_CREDENTIALS',
+        message: 'Nama pengguna atau kata sandi tidak cocok. Hubungi Superadmin untuk mendapatkan akses MoraJaws.'
       }
     };
   }
@@ -1695,33 +1423,15 @@ export async function loginWithCustomAuth(params: {
   const accessToken = generateSecureAccessToken(currentVersion);
   const refreshToken = generateSecureRefreshToken(currentVersion);
 
-  // 6. Persist Session into Supabase PostgreSQL (fail closed if Supabase persistence fails)
-  let sessionId = '';
-  let expiresAt = '';
-  try {
-    const persisted = await persistNewAuthSession({
-      userId: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role,
-      contractor: user.contractor,
-      accessToken,
-      refreshToken,
-      ipAddress,
-      userAgent,
-      sessionVersion: currentVersion
-    });
-    sessionId = persisted.sessionId;
-    expiresAt = persisted.expiresAt;
-  } catch (persistErr: any) {
-    return {
-      success: false,
-      error: {
-        code: 'DATABASE_UNAVAILABLE',
-        message: persistErr?.message || 'Gagal menyimpan sesi autentikasi ke database PostgreSQL.'
-      }
-    };
-  }
+  // 6. Persist Session into Supabase PostgreSQL
+  const { sessionId, expiresAt } = await persistNewAuthSession({
+    userId: user.id,
+    accessToken,
+    refreshToken,
+    ipAddress,
+    userAgent,
+    sessionVersion: currentVersion
+  });
 
   // 7. Update User login stats & reset failed login count in Supabase PostgreSQL
   const nowIso = new Date().toISOString();

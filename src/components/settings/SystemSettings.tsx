@@ -213,7 +213,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       const res = await addContractor({
         name: newCName.trim(),
         code: newCCode.trim().toUpperCase(),
-        coverageAreas: areas.length > 0 ? areas : ['Jabodetabek'],
+        coverageAreas: areas,
         phone: newCPhone.trim(),
         email: newCEmail.trim(),
         active: true

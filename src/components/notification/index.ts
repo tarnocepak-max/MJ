@@ -12,5 +12,4 @@ export * from './NotificationToast';
 export * from './NotificationSnackbar';
 export * from './NotificationBanner';
 export * from './NotificationInline';
-export * from './NotificationModal';
 export * from './NotificationSettings';

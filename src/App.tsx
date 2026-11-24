@@ -98,6 +98,39 @@ const MonitoringMapsView = lazy(() =>
   import('./components/maps/MonitoringMapsView').then(m => ({ default: m.MonitoringMapsView }))
 );
 
+interface AccessDeniedRedirectViewProps {
+  title: string;
+  description: React.ReactNode;
+  redirectTarget: string;
+  onRedirect: (target: string) => void;
+  delayMs?: number;
+}
+
+const AccessDeniedRedirectView: React.FC<AccessDeniedRedirectViewProps> = ({
+  title,
+  description,
+  redirectTarget,
+  onRedirect,
+  delayMs = 1200
+}) => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      onRedirect(redirectTarget);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [redirectTarget, onRedirect, delayMs]);
+
+  return (
+    <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
+      <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+        ✕
+      </div>
+      <h3 className="font-bold text-slate-900 dark:text-white text-base">{title}</h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+    </div>
+  );
+};
+
 const WO_NAVIGATION_ROUTES = new Set([
   'tickets',
   'dashboard',
@@ -669,21 +702,13 @@ const MainLayout: React.FC = () => {
           currentUser.role === 'dispatch';
         if (!canAccessVerification) {
           const redirectTarget = currentUser.role === 'leader' ? 'leader_portal' : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1200);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Dispatch Verification &amp; QC Desk
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Verifikasi QC hanya tersedia untuk Super Admin dan Dispatch. Role Anda ({currentUser.role}) tidak memiliki izin.
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Dispatch Verification & QC Desk"
+              description={`Modul Verifikasi QC hanya tersedia untuk Super Admin dan Dispatch. Role Anda (${currentUser.role}) tidak memiliki izin.`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+            />
           );
         }
         return (
@@ -701,21 +726,13 @@ const MainLayout: React.FC = () => {
           currentUser.role === 'leader';
         if (!canAccessMonitoringMaps) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1200);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Monitoring Maps GIS
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Monitoring Maps hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Monitoring Maps GIS"
+              description={`Modul Monitoring Maps hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda (${currentUser.role}) tidak memiliki izin.`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+            />
           );
         }
         return (
@@ -741,21 +758,13 @@ const MainLayout: React.FC = () => {
           currentUser.role === 'leader';
         if (!canAccessOverdue) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1200);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Overdue WO
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Menu Overdue WO hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Overdue WO"
+              description={`Menu Overdue WO hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda (${currentUser.role}) tidak memiliki izin.`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+            />
           );
         }
         return (
@@ -800,21 +809,14 @@ const MainLayout: React.FC = () => {
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1500);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Khusus Super Admin
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Log aktivitas login dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Khusus Super Admin"
+              description={`Log aktivitas login dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda (${currentUser.role}) tidak memiliki izin. Mengalihkan...`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+              delayMs={1500}
+            />
           );
         }
         return <LoginLogView />;
@@ -905,21 +907,13 @@ const MainLayout: React.FC = () => {
           currentUser.role === 'leader';
         if (!canAccessSla) {
           const redirectTarget = isInstaller ? 'installer_dashboard' : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1200);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Monitoring SLA Kontraktor &amp; Vendor
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Modul Monitoring SLA Kontraktor &amp; Vendor hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda ({currentUser.role}) tidak memiliki izin.
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Monitoring SLA Kontraktor & Vendor"
+              description={`Modul Monitoring SLA Kontraktor & Vendor hanya tersedia untuk Super Admin, Dispatch, dan Leader/Korlap. Role Anda (${currentUser.role}) tidak memiliki izin.`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+            />
           );
         }
         return (
@@ -936,23 +930,19 @@ const MainLayout: React.FC = () => {
       case 'installer_progress':
       case 'installer_history': {
         if (currentUser.role === 'dispatch' || currentUser.role === 'leader') {
-          // Direct URL / Routing rejection and auto-redirect to respective dashboard
           const targetTab = currentUser.role === 'dispatch' ? 'tickets' : 'leader_portal';
-          setTimeout(() => {
-            setActiveTab(targetTab);
-          }, 0);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-900 shadow-sm max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Modul Khusus Installer
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sesuai Konstitusi Keamanan MoraJaws (Bagian 3), role <strong>{currentUser.role}</strong> tidak memiliki izin mengakses modul Installer. Anda dialihkan kembali ke Dashboard.
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Modul Khusus Installer"
+              description={
+                <>
+                  Sesuai Konstitusi Keamanan MoraJaws (Bagian 3), role <strong>{currentUser.role}</strong> tidak memiliki izin mengakses modul Installer. Anda dialihkan kembali ke Dashboard.
+                </>
+              }
+              redirectTarget={targetTab}
+              onRedirect={setActiveTab}
+              delayMs={0}
+            />
           );
         }
 
@@ -991,21 +981,14 @@ const MainLayout: React.FC = () => {
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1500);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Khusus Super Admin
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Portal Pengelolaan Data dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Khusus Super Admin"
+              description={`Portal Pengelolaan Data dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda (${currentUser.role}) tidak memiliki izin. Mengalihkan...`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+              delayMs={1500}
+            />
           );
         }
         return (
@@ -1034,21 +1017,18 @@ const MainLayout: React.FC = () => {
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1500);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Otoritas Import Work Order Dibatasi
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Sesuai App Flow MoraJaws, modul Import Work Order hanya diizinkan untuk <strong>Super Admin</strong>. Role Anda ({currentUser.role}) tidak memiliki akses. Mengalihkan...
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Otoritas Import Work Order Dibatasi"
+              description={
+                <>
+                  Sesuai App Flow MoraJaws, modul Import Work Order hanya diizinkan untuk <strong>Super Admin</strong>. Role Anda ({currentUser.role}) tidak memiliki akses. Mengalihkan...
+                </>
+              }
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+              delayMs={1500}
+            />
           );
         }
         return <TextToTableImporter onImportSuccess={() => setActiveTab('tickets')} />;
@@ -1079,21 +1059,14 @@ const MainLayout: React.FC = () => {
             : currentUser.role === 'dispatch'
             ? 'tickets'
             : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1500);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Otoritas Audit Log Dibatasi
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Audit Log dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan...
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Otoritas Audit Log Dibatasi"
+              description={`Audit Log dilindungi dan hanya dapat diakses oleh Super Admin. Role Anda (${currentUser.role}) tidak memiliki izin. Mengalihkan...`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+              delayMs={1500}
+            />
           );
         }
         return <AuditLogViewer />;
@@ -1108,21 +1081,14 @@ const MainLayout: React.FC = () => {
             : currentUser.role === 'leader'
             ? 'leader_portal'
             : 'dashboard';
-          setTimeout(() => {
-            setActiveTab(redirectTarget);
-          }, 1500);
           return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-md max-w-lg mx-auto my-12 space-y-3">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
-                ✕
-              </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Akses Ditolak: Khusus Superadmin & Dispatch
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Menu Template WhatsApp dilindungi dan hanya dapat diakses oleh Superadmin dan Dispatch. Role Anda ({currentUser.role}) tidak memiliki izin. Mengalihkan ke dashboard...
-              </p>
-            </div>
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Khusus Superadmin & Dispatch"
+              description={`Menu Template WhatsApp dilindungi dan hanya dapat diakses oleh Superadmin dan Dispatch. Role Anda (${currentUser.role}) tidak memiliki izin. Mengalihkan ke dashboard...`}
+              redirectTarget={redirectTarget}
+              onRedirect={setActiveTab}
+              delayMs={1500}
+            />
           );
         }
         return <TemplateBuilder />;

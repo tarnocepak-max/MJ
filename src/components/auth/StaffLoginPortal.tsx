@@ -124,19 +124,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
         const errorMsg = res.error || 'Kredensial login tidak valid. Pastikan nama pengguna dan kata sandi benar.';
         setError(errorMsg);
 
-        if (res.errorCode === 'API_ROUTE_NOT_FOUND') {
-          showGlobalError({
-            errorCode: 'MJ-SYS-001',
-            backendErrorCode: 'API_ROUTE_NOT_FOUND',
-            module: 'Authentication',
-            operation: 'Backend API Routing',
-            description: 'Endpoint autentikasi backend tidak terjangkau atau mengembalikan non-JSON.',
-            message: 'Layanan API autentikasi belum aktif atau salah rute pada deployment.',
-            technicalDetails: errorMsg,
-            severity: 'HIGH',
-            status: 'OPEN'
-          });
-        } else if (res.errorCode === 'ACCOUNT_NOT_FOUND' || res.errorCode === 'auth/user-not-found') {
+        if (res.errorCode === 'ACCOUNT_NOT_FOUND' || res.errorCode === 'auth/user-not-found') {
           showGlobalError({
             errorCode: 'MJ-AUTH-002',
             module: 'Authentication',
@@ -305,7 +293,7 @@ export const StaffLoginPortal: React.FC<StaffLoginPortalProps> = ({ onLoginSucce
           </div>
 
           <p className="text-xs sm:text-sm text-[#52647A] dark:text-white/70 mt-2.5 max-w-sm mx-auto leading-relaxed">
-            Masukkan identitas akun resmi MoraJaws. Hak akses dan peran staf diverifikasi secara terpusat oleh sistem MoraJaws.
+            Masukkan identitas akun resmi MoraJaws. Hak akses dan peran staf diverifikasi melalui Supabase Auth.
           </p>
         </div>
 

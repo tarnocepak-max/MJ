@@ -61,7 +61,8 @@ import {
   DEFAULT_CONTRACTORS,
   DEFAULT_COVERAGE_AREAS,
   DEFAULT_ROOT_CAUSE_CATEGORIES,
-  DEFAULT_WORK_RESULTS
+  DEFAULT_WORK_RESULTS,
+  DEFAULT_USERS
 } from '../constants/defaultConfig';
 import { executeWorkflowsOnTicket } from '../services/workflowEngine';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl } from '../services/whatsappService';
@@ -606,6 +607,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (sessionStr) {
         const sess = JSON.parse(sessionStr);
         if (sess.token) headers['Authorization'] = `Bearer ${sess.token}`;
+        if (sess.userId) headers['x-user-id'] = sess.userId;
+        if (sess.username) headers['x-username'] = sess.username;
       }
     } catch (e) {}
     return headers;
@@ -635,15 +638,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map(u => {
-            const { passwordHash: _ignored, ...safe } = u as any;
-            return safe as User;
-          });
-        }
+        DEFAULT_USERS.forEach(defU => {
+          if (!parsed.some(u => u.id === defU.id || u.username.toLowerCase() === defU.username.toLowerCase())) {
+            parsed.push(defU);
+          }
+        });
+        return parsed;
       }
     } catch (e) {}
-    return [];
+    return DEFAULT_USERS;
   });
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -1738,11 +1741,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (data.currentUser && data.isAuthenticated) {
       setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
-      setIsLoggedIn(true);
       resolvedRole = data.currentUser.role || resolvedRole;
       resolvedUserId = data.currentUser.id || resolvedUserId;
       resolvedActive = data.currentUser.active !== false;
-    } else if (data.isAuthenticated === false && (options.headers['Authorization'] || isLoggedInRef.current)) {
+    } else if (data.isAuthenticated === false && options.headers['Authorization']) {
       setIsLoggedIn(false);
       setCurrentUser(UNAUTHENTICATED_USER);
       try {
@@ -2064,46 +2066,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSyncStage('phase1_critical');
 
       try {
-        let headers = getAuthHeaders();
+        const headers = getAuthHeaders();
         let resolvedRole: UserRole = currentUser.role;
         let resolvedUserId: string = currentUser.id;
         let resolvedActive: boolean = currentUser.active;
         let passwordChangeRequired = false;
 
         // PHASE 1 — Critical Shell, RBAC, First-Paint Work Orders (light payload)
-        let critRes = await fetch('/api/bootstrap?mode=critical', {
+        const critRes = await fetch('/api/bootstrap?mode=critical', {
           headers,
-          credentials: 'include',
           signal: bootController.signal
         });
         if (bootController.signal.aborted) return;
-
-        // On page refresh (F5), if access token expired (401), automatically rotate refresh token and retry once
-        if (critRes.status === 401) {
-          const refreshed = await refreshAuthSession();
-          if (bootController.signal.aborted) return;
-          if (refreshed) {
-            headers = getAuthHeaders();
-            critRes = await fetch('/api/bootstrap?mode=critical', {
-              headers,
-              credentials: 'include',
-              signal: bootController.signal
-            });
-            if (bootController.signal.aborted) return;
-          } else {
-            setIsLoggedIn(false);
-            setCurrentUser(UNAUTHENTICATED_USER);
-            try {
-              localStorage.setItem('morajaws_logged_in', 'false');
-              localStorage.removeItem('morajaws_auth_session');
-              window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
-            } catch {}
-            setIsDataLoading(false);
-            setDatabaseLoading(false);
-            return;
-          }
-        }
-
         if (!critRes.ok) {
           if (critRes.status === 503) {
             const errData = await critRes.json().catch(() => ({}));
@@ -2116,26 +2090,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
         }
 
-        let critData = await critRes.json();
+        const critData = await critRes.json();
         if (bootController.signal.aborted) return;
-
-        // If browser still holds a valid refresh token/cookie while access token was absent on F5, try refreshing once
-        if (critData && critData.isAuthenticated === false && (isLoggedInRef.current || localStorage.getItem('morajaws_logged_in') === 'true')) {
-          const refreshed = await refreshAuthSession();
-          if (bootController.signal.aborted) return;
-          if (refreshed) {
-            headers = getAuthHeaders();
-            const retryRes = await fetch('/api/bootstrap?mode=critical', {
-              headers,
-              credentials: 'include',
-              signal: bootController.signal
-            });
-            if (retryRes.ok) {
-              critData = await retryRes.json();
-            }
-          }
-        }
-
         if (critData && critData.success) {
           const phase1Meta = applyBootstrapHydration(critData, { isPhase2Full: false, headers });
           resolvedRole = phase1Meta.resolvedRole;
@@ -2148,7 +2104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDataLoading(false);
         setDatabaseLoading(false);
 
-        if (!headers['Authorization'] && !critData?.isAuthenticated) {
+        if (!headers['Authorization']) {
           setAuditLogs([]);
           setIsDropdownCategoriesLoading(false);
           setSyncStage('complete');
@@ -2178,14 +2134,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
           fetch('/api/work-orders/progressive?phase=full&limit=ALL', {
             headers,
-            credentials: 'include',
             signal: bootController.signal
           })
             .then(r => (r.ok ? r.json() : null))
             .catch(() => null),
           fetch('/api/bootstrap?mode=secondary', {
             headers,
-            credentials: 'include',
             signal: bootController.signal
           })
             .then(r => (r.ok ? r.json() : null))
@@ -2310,7 +2264,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 tasks.push(
                   fetch('/api/supabase/audit-logs?limit=100', {
                     headers: getAuthHeaders(),
-                    credentials: 'include',
                     signal: bootController.signal
                   })
                     .then(r => (r.ok ? r.json() : null))
@@ -2904,37 +2857,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const serverRes = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           identifier: cleanUser,
           password
         })
       });
 
-      const contentType = String(serverRes.headers.get('content-type') || '').toLowerCase();
-      const isJsonResponse = contentType.includes('application/json');
-      const data = isJsonResponse ? await serverRes.json().catch(() => ({})) : {};
-
-      if (!isJsonResponse) {
-        const routeMsg =
-          serverRes.status === 404
-            ? 'Endpoint autentikasi backend (/api/auth/login) tidak ditemukan pada deployment ini. Pastikan Vercel Serverless API (/api/index.js & vercel.json) sudah terdeploy.'
-            : `Server backend mengembalikan respons non-JSON (HTTP ${serverRes.status}). Periksa koneksi backend API.`;
-        addAuditLog('Login Gateway Unavailable', 'auth', cleanUser, routeMsg);
-        return {
-          success: false,
-          error: routeMsg,
-          errorCode: 'API_ROUTE_NOT_FOUND'
-        };
-      }
+      const data = await serverRes.json().catch(() => ({}));
 
       if (!serverRes.ok || !data.success) {
         const errCode = data.code || 'MJ-AUTH-001';
         let errorMsg = data.error || 'Autentikasi gagal. Kredensial tidak cocok.';
 
         if (errCode === 'DATABASE_UNAVAILABLE' || serverRes.status === 503) {
-          errorMsg = data.error || 'Database authoritative Supabase PostgreSQL tidak dapat diakses saat login.';
-        } else if (errCode === 'auth/user-not-found' || errCode === 'ACCOUNT_NOT_FOUND' || (serverRes.status === 404 && !errCode)) {
+          errorMsg = 'Database authoritative Supabase PostgreSQL tidak dapat diakses saat login.';
+        } else if (serverRes.status === 404 || errCode === 'auth/user-not-found' || errCode === 'ACCOUNT_NOT_FOUND') {
           errorMsg = `Nama pengguna atau email "${cleanUser}" tidak ditemukan. Hubungi Superadmin untuk mendapatkan akses MoraJaws.`;
         } else if (serverRes.status === 403 || errCode === 'auth/user-disabled' || errCode === 'ACCOUNT_DISABLED' || errCode === 'ACCOUNT_DELETED') {
           errorMsg = data.error || 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi Super Admin.';
@@ -3029,38 +2966,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshAuthSession = async (): Promise<boolean> => {
     try {
       const sessionStr = localStorage.getItem('morajaws_auth_session');
-      const sess = sessionStr ? JSON.parse(sessionStr) : {};
+      if (!sessionStr) return false;
+      const sess = JSON.parse(sessionStr);
+      if (!sess?.refreshToken) return false;
+
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(sess?.refreshToken ? { refreshToken: sess.refreshToken } : {})
+        body: JSON.stringify({ refreshToken: sess.refreshToken })
       });
       if (!res.ok) return false;
       const data = await res.json();
-      if (data.success && (data.tokens || data.user)) {
-        const nextAccessToken = data.tokens?.accessToken || data.token || sess?.token;
-        const nextRefreshToken = data.tokens?.refreshToken || sess?.refreshToken;
-        const nextExpiresAt = data.tokens?.expiresAt || sess?.expiresAt;
-        const nextUser = data.user || {};
+      if (data.success && data.tokens) {
         const updatedSess = {
           ...sess,
-          userId: nextUser.id || sess?.userId,
-          username: nextUser.username || sess?.username,
-          role: nextUser.role || sess?.role,
-          name: nextUser.name || sess?.name,
-          token: nextAccessToken,
-          accessToken: nextAccessToken,
-          refreshToken: nextRefreshToken,
-          expiresAt: nextExpiresAt
+          token: data.tokens.accessToken,
+          accessToken: data.tokens.accessToken,
+          refreshToken: data.tokens.refreshToken || sess.refreshToken,
+          expiresAt: data.tokens.expiresAt
         };
-        localStorage.setItem('morajaws_logged_in', 'true');
         localStorage.setItem('morajaws_auth_session', JSON.stringify(updatedSess));
-        if (nextUser.id) {
-          setCurrentUser(prev => ({ ...prev, ...nextUser }));
-          setIsLoggedIn(true);
-        }
-        window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
         return true;
       }
       return false;
@@ -3107,7 +3032,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Invoke MoraJaws Custom Auth logout on Express backend
     fetch('/api/auth/logout', {
       method: 'POST',
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...authHeaders
@@ -3759,12 +3683,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Contractor and Area strictly locked to Leader's authorized scope
     const contractorName = currentUser.role === 'leader'
-      ? (currentUser.contractor || 'PT Mitra Jaringan Solusi')
-      : (contractors[0]?.name || 'PT Mitra Jaringan Solusi');
+      ? (currentUser.contractor || '')
+      : (contractors[0]?.name || '');
     const contractorObj = contractors.find(c => c.name === contractorName);
     const assignedArea = currentUser.role === 'leader'
-      ? (currentUser.area || contractorObj?.coverageAreas[0] || 'Jakarta Selatan')
-      : (contractorObj?.coverageAreas[0] || 'Jakarta Selatan');
+      ? (currentUser.area || contractorObj?.coverageAreas[0] || '')
+      : (contractorObj?.coverageAreas[0] || '');
 
     const newUser: User = {
       id: 'u-' + Date.now(),

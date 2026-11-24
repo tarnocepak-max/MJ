@@ -20,7 +20,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 
 export const SystemHealthView: React.FC = () => {
-  const { tickets, auditLogs, googleSheetsConfig, users } = useApp();
+  const { tickets, auditLogs, googleSheetsConfig, users, databaseStatus } = useApp();
   const { toast } = useToast();
 
   const [healthData, setHealthData] = useState<{
@@ -32,17 +32,21 @@ export const SystemHealthView: React.FC = () => {
   } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   const fetchHealth = async () => {
     setIsLoading(true);
+    setHealthError(null);
     try {
       const res = await fetch('/api/health');
       if (res.ok) {
         const d = await res.json();
         setHealthData(d);
+      } else {
+        setHealthError(`HTTP ${res.status}`);
       }
-    } catch {
-      // quiet fallback
+    } catch (err: any) {
+      setHealthError(err?.message || 'Koneksi /api/health gagal');
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +69,11 @@ export const SystemHealthView: React.FC = () => {
     .filter(l => l.entity === 'auth' && (String(l.action || '').toLowerCase().includes('failed') || String(l.action || '').toLowerCase().includes('blocked')))
     .slice(0, 5);
 
+  const isBackendHealthy = !healthError && healthData?.status === 'ok';
+  const dbEngineLabel =
+    healthData?.database?.engine ||
+    (databaseStatus === 'connected' ? 'Supabase PostgreSQL' : databaseStatus === 'error' ? 'Koneksi Bermasalah' : 'Memeriksa Koneksi');
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -78,15 +87,29 @@ export const SystemHealthView: React.FC = () => {
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-gradient-to-b dark:from-[#6b103b] dark:to-[#480123] dark:text-white shadow-xs">
                 DIAGNOSTIK SISTEM
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-                All Systems Operational
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                  healthError
+                    ? 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                    : isBackendHealthy
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                }`}
+              >
+                {healthError
+                  ? `Health Check Gagal (${healthError})`
+                  : isBackendHealthy
+                  ? 'Backend & API Operasional'
+                  : isLoading
+                  ? 'Memeriksa Status...'
+                  : 'Menunggu Respons Server'}
               </span>
             </div>
             <h2 className="text-base font-display font-extrabold text-[#26364A] dark:text-white tracking-tight">
               System Health &amp; Integrations Diagnostic
             </h2>
             <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
-              Pemantauan kesehatan backend, latensi database, sinkronisasi Google Sheets, background jobs, dan deteksi anomali.
+              Pemantauan kesehatan backend, status database, sinkronisasi Google Sheets, dan deteksi anomali.
             </p>
           </div>
         </div>
@@ -106,14 +129,20 @@ export const SystemHealthView: React.FC = () => {
         <div className="card-3d-lavender p-4 rounded-2xl space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase">Backend Node.js</span>
-            <Server className="w-4 h-4 text-emerald-600" />
+            <Server className={`w-4 h-4 ${healthError ? 'text-rose-600' : isBackendHealthy ? 'text-emerald-600' : 'text-amber-500'}`} />
           </div>
-          <div className="text-lg font-black text-emerald-600 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Aktif &amp; Terhubung</span>
+          <div className={`text-lg font-black flex items-center gap-1.5 ${healthError ? 'text-rose-600' : isBackendHealthy ? 'text-emerald-600' : 'text-amber-600'}`}>
+            {healthError ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+            <span>
+              {healthError
+                ? 'Tidak Terjangkau'
+                : isBackendHealthy
+                ? 'Aktif & Terhubung'
+                : 'Memeriksa...'}
+            </span>
           </div>
           <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono">
-            Environment: {healthData?.environment || 'Production'} (Express + Vite)
+            Environment: {healthData?.environment || (healthError ? 'Offline' : 'Memuat...')} (Express + Vite)
           </div>
         </div>
 
@@ -127,7 +156,7 @@ export const SystemHealthView: React.FC = () => {
             <span>{tickets.length} Work Orders</span>
           </div>
           <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono">
-            Tersimpan di Disk Persisten (Atomic Sync)
+            Engine: {dbEngineLabel}
           </div>
         </div>
 
@@ -138,10 +167,10 @@ export const SystemHealthView: React.FC = () => {
             <FileSpreadsheet className="w-4 h-4 text-[#2E7D8B] dark:text-[#D8B4FE]" />
           </div>
           <div className="text-lg font-black text-[#2E7D8B] dark:text-[#D8B4FE]">
-            {googleSheetsConfig.spreadsheetId ? 'Terhubung (Connected)' : 'Siap Dikonfigurasi'}
+            {googleSheetsConfig.spreadsheetId ? 'Terhubung (Connected)' : 'Belum Dikonfigurasi'}
           </div>
           <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
-            {googleSheetsConfig.spreadsheetTitle || 'Tab: Work_Orders'}
+            {googleSheetsConfig.spreadsheetTitle || googleSheetsConfig.sheetName || 'Spreadsheet belum dipilih'}
           </div>
         </div>
 
@@ -155,7 +184,7 @@ export const SystemHealthView: React.FC = () => {
             MoraJaws v5.0.0
           </div>
           <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
-            Role-Based Access: 6 Peran Aktif ({users.length} Akun)
+            Role-Based Access: 4 Peran Resmi ({users.length} Akun)
           </div>
         </div>
       </div>

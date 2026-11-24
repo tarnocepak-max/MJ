@@ -27,7 +27,8 @@ import {
   MessageSquare,
   GitBranch,
   Volume2,
-  Activity
+  Activity,
+  Mail
 } from 'lucide-react';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 
@@ -155,8 +156,18 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     allowedRoles: ['super_admin', 'dispatch']
   },
   {
-    id: 'health_logs',
+    id: 'email_notifications',
     num: '11',
+    label: 'Email Notification',
+    category: '05 · Preferences & Monitoring',
+    icon: Mail,
+    superadminScope: { text: 'FULL', tone: 'full' },
+    dispatchScope: { text: 'DENIED', tone: 'denied' },
+    allowedRoles: ['super_admin']
+  },
+  {
+    id: 'health_logs',
+    num: '12',
     label: 'Kesehatan & Log',
     category: '05 · Preferences & Monitoring',
     icon: Activity,
@@ -452,7 +463,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 RBAC ENFORCEMENT ENGINE
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EAE8FF] text-[#5145A6] border border-[#C5BEEF] dark:border-transparent dark:bg-purple-900/60 dark:text-purple-200">
-                4 Peran Resmi · 11 Tab Setup
+                4 Peran Resmi · 12 Tab Setup
               </span>
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
                 v{rolePermissionsVersion} · PostgreSQL DB-First
@@ -467,7 +478,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
               Manajemen Role &amp; Matriks Hak Akses (RBAC)
             </h2>
             <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5 max-w-2xl">
-              Pratinjau isolasi 11 tab Setup Terpusat per persona role, pengawasan guardrails, dan pengaturan 21 izin granular yang tersinkron real-time ke PostgreSQL.
+              Pratinjau isolasi 12 tab Setup Terpusat per persona role, pengawasan guardrails, dan pengaturan {permissionsList.length} izin granular yang tersinkron real-time ke PostgreSQL.
             </p>
           </div>
         </div>
@@ -542,7 +553,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
           {/* Role Persona Segmented Ribbon */}
           <div className="mj-tactile-tab-bar p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {([
-              { id: 'super_admin', label: 'SUPERADMIN', count: '11 Tab' },
+              { id: 'super_admin', label: 'SUPERADMIN', count: '12 Tab' },
               { id: 'dispatch', label: 'DISPATCH', count: '4 Tab' },
               { id: 'leader', label: 'LEADER', count: '0 Tab' },
               { id: 'installer', label: 'INSTALLER', count: '0 Tab' }
@@ -589,7 +600,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-extrabold bg-white dark:bg-[#251245] text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1] shrink-0 tabular-nums">
-                {personaStats.allowedSetupTabs.length}/11 Aktif
+                {personaStats.allowedSetupTabs.length}/12 Aktif
               </span>
             </div>
 
@@ -671,7 +682,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="text-[10px] text-[#5145A6] dark:text-[#A78BFA] uppercase font-bold">Akses Tab Setup</div>
                   <div className="font-mono text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums mt-0.5">
-                    {personaStats.allowedSetupTabs.length} / 11
+                    {personaStats.allowedSetupTabs.length} / 12
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
@@ -696,7 +707,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950/60 dark:text-purple-200">
-                      SUPERADMIN · 11 TAB FULL
+                      SUPERADMIN · 12 TAB FULL
                     </span>
                     <Database className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
                   </div>
@@ -752,16 +763,16 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       </div>
 
       {/* ================================================================ */}
-      {/* 3. MATRIKS PEMETAAN 11 TAB SETUP TERPUSAT (COMPARATIVE TABLE)    */}
+      {/* 3. MATRIKS PEMETAAN 12 TAB SETUP TERPUSAT (COMPARATIVE TABLE)    */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl overflow-hidden">
         <div className="px-4 sm:px-5 py-3.5 border-b border-[#DDE6F0] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
-              Matriks Pemetaan 11 Tab Setup Terpusat MoraJaws
+              Matriks Pemetaan 12 Tab Setup Terpusat MoraJaws
             </h3>
             <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
-              Perbandingan otoritas modul Setup Hub antara Superadmin (11), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
+              Perbandingan otoritas modul Setup Hub antara Superadmin (12), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
             </p>
           </div>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]">
@@ -813,7 +824,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
                 <tr>
                   <th className="py-2.5 px-4">No &amp; Modul Setup</th>
                   <th className="py-2.5 px-3">Kategori</th>
-                  <th className="py-2.5 px-3 text-center">Superadmin (11)</th>
+                  <th className="py-2.5 px-3 text-center">Superadmin (12)</th>
                   <th className="py-2.5 px-3 text-center">Dispatch (4)</th>
                   <th className="py-2.5 px-3 text-center">Leader / Installer</th>
                 </tr>

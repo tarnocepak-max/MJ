@@ -218,8 +218,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const isLeaderRole = currentUser.role === 'leader';
   const leaderContractor = currentUser.contractor || '';
   const leaderArea = currentUser.area || '';
-  const displayContractor = leaderContractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
-  const displayArea = leaderArea || (areasList?.[0] || 'Jakarta Selatan');
+  const displayContractor = leaderContractor || contractorsList?.[0] || 'Belum Terpetakan';
+  const displayArea = leaderArea || areasList?.[0] || 'Belum Terpetakan';
 
   const isScopeTextMatch = (a?: string | null, b?: string | null): boolean => {
     const na = String(a || '').trim().toLowerCase().replace(/\s+/g, ' ');

@@ -17,51 +17,6 @@ import {
 // ==============================================================================
 
 /**
- * Resolves effective Supabase credentials for the active environment, supporting
- * environment-specific prefixes (PRODUCTION_SUPABASE_*, STAGING_SUPABASE_*, DEV_SUPABASE_*)
- * as well as standard SUPABASE_* variables while preserving cross-environment isolation.
- */
-export function resolveEffectiveSupabaseCredentials(): {
-  activeEnv: ReturnType<typeof getAppEnvironment>;
-  supabaseUrl: string;
-  serviceRoleKey: string;
-  anonKey: string;
-} {
-  const activeEnv = getAppEnvironment();
-  const envCfg = getEnvironmentConfig(activeEnv);
-
-  const rawUrl = (
-    envCfg.supabaseUrl ||
-    (activeEnv === 'staging' ? '' : process.env.SUPABASE_URL) ||
-    ''
-  ).trim();
-
-  let supabaseUrl = rawUrl;
-  if (rawUrl) {
-    try {
-      const parsed = new URL(rawUrl);
-      if (parsed.protocol === 'https:' || (process.env.NODE_ENV !== 'production' && parsed.protocol === 'http:')) {
-        supabaseUrl = parsed.origin;
-      }
-    } catch {}
-  }
-
-  const serviceRoleKey = (
-    envCfg.supabaseServiceRoleKey ||
-    (activeEnv === 'staging' ? '' : (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)) ||
-    ''
-  ).trim();
-
-  const anonKey = (
-    envCfg.supabaseAnonKey ||
-    (activeEnv === 'staging' ? '' : process.env.SUPABASE_ANON_KEY) ||
-    ''
-  ).trim();
-
-  return { activeEnv, supabaseUrl, serviceRoleKey, anonKey };
-}
-
-/**
  * Resolves Supabase credentials strictly from server environment variables.
  * Disallows /proc filesystem reading.
  */
@@ -254,7 +209,10 @@ export function getSupabaseBackendClient(): SupabaseClient | null {
     return supabaseInstance;
   }
 
-  const { activeEnv, supabaseUrl, serviceRoleKey } = resolveEffectiveSupabaseCredentials();
+  const activeEnv = getAppEnvironment();
+  const envCfg = getEnvironmentConfig(activeEnv);
+  const supabaseUrl = (envCfg.supabaseUrl || process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (envCfg.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim();
 
   // Strict check: Secret key is mandatory. Never substitute with anon key.
   if (!supabaseUrl || !serviceRoleKey) {
@@ -326,7 +284,9 @@ export function resetSupabaseBackendClientForTesting(): void {
  * - 'disconnected': network unreachable / failure to fetch.
  */
 export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
-  const { supabaseUrl, serviceRoleKey, anonKey } = resolveEffectiveSupabaseCredentials();
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
 
   const urlConfigured = isValidSupabaseUrl(supabaseUrl);
   const serviceRoleConfigured = isValidSupabaseSecretKey(serviceRoleKey);
@@ -505,6 +465,7 @@ export function getLastSupabaseHealthStatus(): SupabaseHealthResult {
  * Returns true if both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are configured with valid formats.
  */
 export function isSupabaseConfigured(): boolean {
-  const { supabaseUrl, serviceRoleKey } = resolveEffectiveSupabaseCredentials();
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)?.trim();
   return Boolean(supabaseUrl && serviceRoleKey && isValidSupabaseUrl(supabaseUrl) && isValidSupabaseSecretKey(serviceRoleKey));
 }

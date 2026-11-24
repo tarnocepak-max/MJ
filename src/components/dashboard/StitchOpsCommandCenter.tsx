@@ -617,6 +617,98 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* WO Distribution Mix (Moved to Top Order) */}
+      <div className="card-3d-lavender rounded-xl p-5 space-y-4 flex flex-col justify-between">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
+              WO Distribution Mix
+            </h2>
+            <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
+              Proporsi live dari {c.totalToday} Work Order
+            </p>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] text-[10px] font-bold border border-[#BDE4E8] dark:border-transparent">
+            Today
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center justify-center relative py-1">
+          <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 120 120" aria-label="WO Distribution Donut Chart">
+            <circle cx="60" cy="60" fill="transparent" r="46" className="stroke-[#EDF3F8] dark:stroke-[#2e1459]" strokeWidth="14" />
+            {c.totalToday > 0 &&
+              donutSegments.map(seg =>
+                seg.count > 0 ? (
+                  <circle
+                    key={seg.key}
+                    cx="60"
+                    cy="60"
+                    fill="transparent"
+                    r="46"
+                    stroke={seg.color}
+                    strokeDasharray={seg.dashArray}
+                    strokeDashoffset={seg.dashOffset}
+                    strokeWidth="14"
+                  />
+                ) : null
+              )}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+            <span className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white leading-none tabular-nums">
+              {c.totalToday}
+            </span>
+            <span className="text-[9.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase tracking-wider mt-1">
+              TOTAL WO
+            </span>
+            <span className="text-[10px] font-bold text-[#218A63] dark:text-emerald-300 mt-0.5 tabular-nums">
+              {telemetry.completionPct}% Done
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          {[
+            {
+              label: 'Checked-In',
+              count: c.checkedInProgress,
+              dot: 'bg-[#65B8C4] dark:bg-sky-500',
+              filter: 'checked_in_progress' as WOKpiFilterKey
+            },
+            {
+              label: 'Approved Done',
+              count: c.approvedDone,
+              dot: 'bg-[#218A63] dark:bg-emerald-500',
+              filter: 'approved_done' as WOKpiFilterKey
+            },
+            {
+              label: 'Butuh Approval',
+              count: c.butuhApproval,
+              dot: 'bg-[#6657C8] dark:bg-[#58149c]',
+              filter: 'butuh_approval' as WOKpiFilterKey
+            },
+            {
+              label: 'Revisi / Unassigned',
+              count: c.revisionRejected + c.unassigned,
+              dot: 'bg-[#C88735] dark:bg-amber-500',
+              filter: 'unassigned' as WOKpiFilterKey
+            }
+          ].map(item => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onDrillDown(item.filter)}
+              className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0]/70 dark:border-transparent hover:bg-[#EAE8FF] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5 truncate text-[#52647A] dark:text-[#cabde8] font-semibold">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${item.dot}`} />
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="font-bold text-[#26364A] dark:text-white tabular-nums">{item.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* 1. Superadmin Maroon Master Console OR Standard Command Header */}
       {currentUser.role === 'super_admin' ? (
         <div className="space-y-3">
@@ -1359,13 +1451,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('total_today')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div
+                  className={`w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                    c.totalToday > 0
+                      ? 'bg-[#218A63] dark:bg-emerald-500 text-white shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)]'
+                      : 'bg-[#EDF3F8] dark:bg-[#2a174a] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-[#3b1d78]'
+                  }`}
+                >
                   <CloudDownload className="w-6 h-6" />
                 </div>
                 <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   1. Import WO
                 </span>
-                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
+                <span
+                  className={`text-xs font-bold tabular-nums ${
+                    c.totalToday > 0 ? 'text-[#218A63] dark:text-emerald-300' : 'text-[#8492A5] dark:text-[#cabde8]'
+                  }`}
+                >
                   {c.totalToday} Ingested
                 </span>
                 <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">{todayWIB}</span>
@@ -1377,13 +1479,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('unmapped_distribution')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div
+                  className={`w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                    telemetry.mappedCount > 0
+                      ? 'bg-[#218A63] dark:bg-emerald-500 text-white shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)]'
+                      : 'bg-[#EDF3F8] dark:bg-[#2a174a] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-[#3b1d78]'
+                  }`}
+                >
                   <Users className="w-6 h-6" />
                 </div>
                 <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   2. Auto Leader
                 </span>
-                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
+                <span
+                  className={`text-xs font-bold tabular-nums ${
+                    telemetry.mappedCount > 0 ? 'text-[#218A63] dark:text-emerald-300' : 'text-[#8492A5] dark:text-[#cabde8]'
+                  }`}
+                >
                   {telemetry.mappedCount} Mapped
                 </span>
                 <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">
@@ -1397,13 +1509,23 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 onClick={() => onDrillDown('assigned')}
                 className="flex flex-col items-center text-center group cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl bg-[#218A63] dark:bg-emerald-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-transform group-hover:scale-105">
+                <div
+                  className={`w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                    c.assigned > 0
+                      ? 'bg-[#218A63] dark:bg-emerald-500 text-white shadow-[0_4px_12px_rgba(33,138,99,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(255,255,255,0.4)]'
+                      : 'bg-[#EDF3F8] dark:bg-[#2a174a] text-[#52647A] dark:text-[#cabde8] border border-[#DDE6F0] dark:border-[#3b1d78]'
+                  }`}
+                >
                   <UserCheck className="w-6 h-6" />
                 </div>
                 <span className="mt-3 text-[11px] font-bold text-[#26364A] dark:text-white uppercase tracking-wider">
                   3. Assignment
                 </span>
-                <span className="text-xs text-[#218A63] dark:text-emerald-300 font-bold tabular-nums">
+                <span
+                  className={`text-xs font-bold tabular-nums ${
+                    c.assigned > 0 ? 'text-[#218A63] dark:text-emerald-300' : 'text-[#8492A5] dark:text-[#cabde8]'
+                  }`}
+                >
                   {c.assigned} Assigned
                 </span>
                 <span className="text-[10.5px] text-[#8492A5] dark:text-[#cabde8]/80 mt-0.5">
@@ -1512,101 +1634,9 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* 5. 3-Column Bento Analytics Row (WO Distribution Mix + FTTH Node & Vendor Load + Telemetry Engine) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-        {/* Col 1: WO Distribution Mix */}
-        <div className="card-3d-lavender rounded-xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="font-display text-base font-extrabold text-[#26364A] dark:text-white">
-                WO Distribution Mix
-              </h2>
-              <p className="text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
-                Proporsi live dari {c.totalToday} Work Order
-              </p>
-            </div>
-            <span className="px-2 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] text-[10px] font-bold border border-[#BDE4E8] dark:border-transparent">
-              Today
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center justify-center relative py-1">
-            <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 120 120" aria-label="WO Distribution Donut Chart">
-              <circle cx="60" cy="60" fill="transparent" r="46" className="stroke-[#EDF3F8] dark:stroke-[#2e1459]" strokeWidth="14" />
-              {c.totalToday > 0 &&
-                donutSegments.map(seg =>
-                  seg.count > 0 ? (
-                    <circle
-                      key={seg.key}
-                      cx="60"
-                      cy="60"
-                      fill="transparent"
-                      r="46"
-                      stroke={seg.color}
-                      strokeDasharray={seg.dashArray}
-                      strokeDashoffset={seg.dashOffset}
-                      strokeWidth="14"
-                    />
-                  ) : null
-                )}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-              <span className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white leading-none tabular-nums">
-                {c.totalToday}
-              </span>
-              <span className="text-[9.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase tracking-wider mt-1">
-                TOTAL WO
-              </span>
-              <span className="text-[10px] font-bold text-[#218A63] dark:text-emerald-300 mt-0.5 tabular-nums">
-                {telemetry.completionPct}% Done
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            {[
-              {
-                label: 'Checked-In',
-                count: c.checkedInProgress,
-                dot: 'bg-[#65B8C4] dark:bg-sky-500',
-                filter: 'checked_in_progress' as WOKpiFilterKey
-              },
-              {
-                label: 'Approved Done',
-                count: c.approvedDone,
-                dot: 'bg-[#218A63] dark:bg-emerald-500',
-                filter: 'approved_done' as WOKpiFilterKey
-              },
-              {
-                label: 'Butuh Approval',
-                count: c.butuhApproval,
-                dot: 'bg-[#6657C8] dark:bg-[#58149c]',
-                filter: 'butuh_approval' as WOKpiFilterKey
-              },
-              {
-                label: 'Revisi / Unassigned',
-                count: c.revisionRejected + c.unassigned,
-                dot: 'bg-[#C88735] dark:bg-amber-500',
-                filter: 'unassigned' as WOKpiFilterKey
-              }
-            ].map(item => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => onDrillDown(item.filter)}
-                className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0]/70 dark:border-transparent hover:bg-[#EAE8FF] dark:hover:bg-[#2a194b] transition-colors text-left cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5 truncate text-[#52647A] dark:text-[#cabde8] font-semibold">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${item.dot}`} />
-                  <span className="truncate">{item.label}</span>
-                </span>
-                <span className="font-bold text-[#26364A] dark:text-white tabular-nums">{item.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Col 2: FTTH Node & Vendor Load */}
+      {/* 5. 2-Column Bento Analytics Row (FTTH Node & Vendor Load + Telemetry Engine) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+        {/* Col 1: FTTH Node & Vendor Load */}
         <div className="card-3d-lavender rounded-xl p-5 flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>

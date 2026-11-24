@@ -180,7 +180,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
         label: 'Menu Navigasi',
         shortLabel: 'Navigasi',
         icon: FolderTree,
-        badge: String(totalNavMenusCount > 0 ? totalNavMenusCount : 10)
+        badge: totalNavMenusCount > 0 ? String(totalNavMenusCount) : undefined
       });
       tabs.push({
         key: 'ui_builder',
@@ -355,7 +355,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                 databaseStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'
               }`}
             />
-            Cloud Live · JKT-01
+            {databaseStatus === 'connected' ? 'PostgreSQL Connected' : 'Mode Lokal'}
           </span>
           <span className="text-[#CBD5E1] dark:text-[#4B386B]">·</span>
           <span className="font-mono font-semibold text-[#5145A6] dark:text-[#DAB9FF] truncate">
@@ -426,7 +426,9 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               <span className="inline-flex items-center gap-1.5">
                 <Database className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <span>Supabase PostgreSQL (</span>
-                <strong className="font-mono text-[#26364A] dark:text-white">Cluster: JKT-01</strong>
+                <strong className="font-mono text-[#26364A] dark:text-white">
+                  {databaseStatus === 'connected' ? 'Terhubung' : 'Mode Lokal'}
+                </strong>
                 <span>)</span>
               </span>
               <span className="text-[#CBD5E1] dark:text-[#4B386B]">·</span>
@@ -679,7 +681,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-[#5145A6] dark:text-[#A78BFA]">
-                    Edge Node · JKT-01
+                    Database Status
                   </div>
                   <div className="text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                     {databaseStatus === 'connected' ? 'PostgreSQL Realtime' : 'Mode Offline / Lokal'}

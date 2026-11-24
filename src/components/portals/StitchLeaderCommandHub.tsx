@@ -246,7 +246,9 @@ const SectorGeofenceMiniRadar: React.FC<{
           </div>
           <div className="flex items-center justify-between text-[10.5px] text-slate-100 font-medium px-0.5">
             <span>{pins.length} Titik Koordinat Terpetakan</span>
-            <span className="text-emerald-300 font-mono font-bold">STATUS: LIVE</span>
+            <span className={`font-mono font-bold ${pins.length > 0 && !tileOffline ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {pins.length > 0 && !tileOffline ? 'STATUS: LIVE' : pins.length > 0 ? 'MODE KOORDINAT' : 'STANDBY'}
+            </span>
           </div>
         </div>
       </div>
@@ -285,8 +287,8 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
   const leaderContractor = currentUser?.contractor || '';
   const leaderArea = currentUser?.area || '';
-  const displayContractor = leaderContractor || (contractorsList?.[0] || 'Mitra Kontraktor');
-  const displayArea = leaderArea || (areasList?.[0] || 'Semua Sektor');
+  const displayContractor = leaderContractor || contractorsList?.[0] || 'Belum Terpetakan';
+  const displayArea = leaderArea || areasList?.[0] || 'Semua Area';
 
   const [quotaConfig, setQuotaConfig] = useState<LeaderQuotaConfig>(() => ({
     ...DEFAULT_LEADER_QUOTA_CONFIG,
@@ -1051,7 +1053,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
   }, [metrics.slaPct, metrics.total]);
 
   const lastSyncDisplay = useMemo(() => {
-    if (!lastSyncTime) return 'LIVE CLOUD';
+    if (!lastSyncTime) return 'BELUM SINKRON';
     return `SYNC: ${formatJakartaTimeOnly(lastSyncTime)}`;
   }, [lastSyncTime]);
 
@@ -2155,8 +2157,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   Radar Geofence {displayArea}
                 </h3>
               </div>
-              <span className="text-[10.5px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold shrink-0">
-                GPS Live Stream
+              <span
+                className={`text-[10.5px] px-2 py-0.5 rounded font-bold shrink-0 ${
+                  radarPins.length > 0
+                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                }`}
+              >
+                {radarPins.length > 0 ? `${radarPins.length} Pin GIS Aktif` : 'Menunggu Pin GPS'}
               </span>
             </div>
             <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-3">

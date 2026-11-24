@@ -2,6 +2,7 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
+import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -9,13 +10,8 @@ import { fileURLToPath } from 'url';
 import type { Ticket } from './src/types/index.ts';
 export type { Ticket };
 
-import {
-  checkSupabaseConnection,
-  getLastSupabaseHealthStatus,
-  getSupabaseBackendClient,
-  isSupabaseConfigured
-} from './server/supabaseClient.ts';
-import { sessionStore } from './server/sessionStore.ts';
+import { checkSupabaseConnection, getLastSupabaseHealthStatus, getSupabaseBackendClient } from './server/supabaseClient.ts';
+import { runPendingSupabaseMigrations, getMigrationStatus, isDatabaseUrlConfigured } from './server/migrationRunner.ts';
 import {
   signInWithSupabaseAuth,
   verifySupabaseAuthToken,
@@ -118,8 +114,6 @@ import {
   appendDistributionLogToSupabase,
   insertKendalaReportToSupabase,
   getKendalaReportsByTicketFromSupabase,
-  getUserSessionsFromSupabase,
-  revokeUserSessionInSupabase,
   postgresRowToTicket
 } from './server/supabaseAdapter.ts';
 import {
@@ -448,7 +442,7 @@ export const PROTECTED_PRODUCTION_WO_IDS = new Set<string>([
 ]);
 
 export function isLocalJsonModeAllowed(): boolean {
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') return false;
+  if (process.env.NODE_ENV === 'production') return false;
   if (isSupabaseMode()) return false;
   if (process.env.ALLOW_LOCAL_JSON_MODE === 'false') return false;
   return true;
@@ -458,7 +452,12 @@ export function isSupabaseMode(): boolean {
   if (getSupabaseBackendClient() !== null) {
     return true;
   }
-  return isSupabaseConfigured();
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim());
+  const hasServiceKey = Boolean(
+    (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim()) ||
+    (process.env.SUPABASE_SECRET_KEY && process.env.SUPABASE_SECRET_KEY.trim())
+  );
+  return hasSupabaseUrl && hasServiceKey;
 }
 
 // -------------------------------------------------------------
@@ -1727,9 +1726,7 @@ function getAuthCookieOptions(req: Request, maxAgeMs: number, cookiePath: string
   const isLocalHttpTest =
     !isHttps &&
     (req.hostname === 'localhost' || req.hostname === '127.0.0.1' || req.hostname === '::1');
-  const secureFlag = (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1')
-    ? (isHttps || !isLocalHttpTest)
-    : false;
+  const secureFlag = process.env.NODE_ENV === 'production' ? (isHttps || !isLocalHttpTest) : false;
   return {
     httpOnly: true,
     secure: secureFlag,
@@ -1747,25 +1744,12 @@ function getAllowedCorsAndCsrfOrigins(): Set<string> {
   const origins = new Set<string>([
     'https://morajawskow.ai.studio',
     'https://morajaws.ai.studio',
-    'https://mora-jawskies.vercel.app',
     ...configured
   ]);
   for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
     if (rawBase && rawBase.trim()) {
       try {
         origins.add(new URL(rawBase.trim()).origin);
-      } catch {}
-    }
-  }
-  for (const vercelHost of [
-    process.env.VERCEL_PROJECT_PRODUCTION_URL,
-    process.env.VERCEL_URL,
-    process.env.VERCEL_BRANCH_URL
-  ]) {
-    if (vercelHost && vercelHost.trim()) {
-      const normalized = vercelHost.trim().startsWith('http') ? vercelHost.trim() : `https://${vercelHost.trim()}`;
-      try {
-        origins.add(new URL(normalized).origin);
       } catch {}
     }
   }
@@ -1876,98 +1860,84 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
     rawToken = (req as any).cookies.mora_access_token;
   }
 
-  const reqPath = String(req.path || req.originalUrl || '').split('?')[0];
-  const isAuthLifecycleBypassPath =
-    reqPath === '/api/auth/login' ||
-    reqPath === '/api/auth/supabase-login' ||
-    reqPath === '/api/auth/refresh' ||
-    reqPath === '/api/auth/supabase-refresh' ||
-    reqPath === '/api/auth/logout' ||
-    reqPath === '/api/auth/supabase-logout' ||
-    reqPath === '/api/auth/resolve-identity' ||
-    reqPath === '/api/auth/reset-password-token';
-
-  if (rawToken && reqPath !== '/api/auth/login' && reqPath !== '/api/auth/supabase-login' && reqPath !== '/api/auth/refresh' && reqPath !== '/api/auth/supabase-refresh') {
+  if (rawToken) {
     const token = rawToken;
 
     // Fast-fail if this token was explicitly revoked in server sessions
     const knownSession = SERVER_SESSIONS.find(s => s.token === token);
     if (knownSession && knownSession.status === 'revoked') {
-      if (!isAuthLifecycleBypassPath) {
+      return res.status(401).json({
+        error: 'Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.',
+        code: 'SESSION_REVOKED'
+      });
+    }
+
+    // 1. Primary: Custom Authentication Token Verification (backed by Supabase PostgreSQL auth_sessions)
+    try {
+      const customRes = await verifyAccessToken(token);
+      if (customRes.success && customRes.data) {
+        authSource = 'server_session';
+        found = customRes.data.user;
+        activeSession = {
+          sessionId: customRes.data.session.id,
+          token,
+          userId: found.id,
+          username: found.username,
+          name: found.name,
+          role: found.role,
+          contractor: found.contractor,
+          sessionVersion: found.sessionVersion || 1,
+          loginAt: customRes.data.session.createdAt,
+          lastActivityAt: customRes.data.session.lastActivityAt,
+          expiresAt: customRes.data.session.expiresAt,
+          status: 'active'
+        };
+      } else if (customRes.error?.code === 'DATABASE_UNAVAILABLE') {
+        return res.status(503).json({
+          success: false,
+          error: customRes.error.message || 'Database authoritative Supabase tidak tersedia.',
+          code: 'DATABASE_UNAVAILABLE'
+        });
+      } else if (customRes.error?.code === 'SESSION_REVOKED') {
         return res.status(401).json({
-          error: 'Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.',
+          error: 'Sesi login telah dicabut karena perubahan akun atau logout.',
           code: 'SESSION_REVOKED'
         });
+      } else if (customRes.error?.code === 'TOKEN_EXPIRED') {
+        return res.status(401).json({
+          error: customRes.error.message || 'Token sesi login telah kedaluwarsa.',
+          code: 'TOKEN_EXPIRED'
+        });
       }
-    } else {
-      // 1. Primary: Custom Authentication Token Verification (backed by Supabase PostgreSQL auth_sessions)
+    } catch (customErr) {
+      // Fallback
+    }
+
+    // 2. Fallback: JWT Token Verification if token format starts with eyJ
+    if (!found && token.startsWith('eyJ')) {
       try {
-        const customRes = await verifyAccessToken(token);
-        if (customRes.success && customRes.data) {
+        const saRes = await verifySupabaseAuthToken(token, knownSession?.sessionVersion);
+        if (saRes.success && saRes.data) {
           authSource = 'server_session';
-          found = customRes.data.user;
-          activeSession = {
-            sessionId: customRes.data.session.id,
-            token,
-            userId: found.id,
-            username: found.username,
-            name: found.name,
-            role: found.role,
-            contractor: found.contractor,
-            sessionVersion: found.sessionVersion || 1,
-            loginAt: customRes.data.session.createdAt,
-            lastActivityAt: customRes.data.session.lastActivityAt,
-            expiresAt: customRes.data.session.expiresAt,
-            status: 'active'
-          };
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === 'DATABASE_UNAVAILABLE') {
-          return res.status(503).json({
-            success: false,
-            error: customRes.error.message || 'Database authoritative Supabase tidak tersedia.',
-            code: 'DATABASE_UNAVAILABLE'
-          });
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === 'SESSION_REVOKED') {
+          found = saRes.data as ServerUser;
+        } else if (saRes.error?.code === 'SESSION_REVOKED') {
           return res.status(401).json({
             error: 'Sesi login telah dicabut karena perubahan akun atau logout.',
             code: 'SESSION_REVOKED'
           });
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === 'TOKEN_EXPIRED') {
+        } else if (saRes.error?.code === 'TOKEN_EXPIRED') {
           return res.status(401).json({
-            error: customRes.error.message || 'Token sesi login telah kedaluwarsa.',
+            error: saRes.error.message || 'Token telah kedaluwarsa.',
             code: 'TOKEN_EXPIRED'
           });
         }
-      } catch (customErr) {
-        // Fallback
-      }
-
-      // 2. Fallback: JWT Token Verification if token format starts with eyJ
-      if (!found && token.startsWith('eyJ')) {
-        try {
-          const saRes = await verifySupabaseAuthToken(token, knownSession?.sessionVersion);
-          if (saRes.success && saRes.data) {
-            authSource = 'server_session';
-            found = saRes.data as ServerUser;
-          } else if (!isAuthLifecycleBypassPath && saRes.error?.code === 'SESSION_REVOKED') {
-            return res.status(401).json({
-              error: 'Sesi login telah dicabut karena perubahan akun atau logout.',
-              code: 'SESSION_REVOKED'
-            });
-          } else if (!isAuthLifecycleBypassPath && saRes.error?.code === 'TOKEN_EXPIRED') {
-            return res.status(401).json({
-              error: saRes.error.message || 'Token telah kedaluwarsa.',
-              code: 'TOKEN_EXPIRED'
-            });
-          }
-        } catch (saErr) {
-          // Fallback to server session check
-        }
+      } catch (saErr) {
+        // Fallback to server session check
       }
     }
 
     // 3. Server Session Verification with strict sessionVersion checking
-    if (!found && !isAuthLifecycleBypassPath) {
-      const token = rawToken;
+    if (!found) {
       activeSession = SERVER_SESSIONS.find(s => s.token === token && s.status === 'active');
       if (activeSession) {
         if (new Date(activeSession.expiresAt).getTime() < now) {
@@ -3103,7 +3073,6 @@ function resolveServerHost(): string {
 export async function createExpressApp(options?: {
   skipVite?: boolean;
   deferVite?: boolean;
-  apiOnly?: boolean;
   httpServer?: http.Server;
   nowProvider?: () => Date;
   onViteInstance?: (vite: { close: () => Promise<void> }) => void;
@@ -3308,8 +3277,8 @@ export async function createExpressApp(options?: {
   // Health check endpoint with infrastructure, Supabase PostgreSQL connectivity, Custom Auth, and Supabase Storage
   app.get('/api/health', async (_req, res) => {
     const supabaseHealth = await checkSupabaseConnection();
-    const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
-    const isSupaConfigured = isSupabaseConfigured();
+    const isProd = process.env.NODE_ENV === 'production';
+    const isSupaConfigured = Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY));
     const localAllowed = isLocalJsonModeAllowed();
     const storageConfig = getStorageProvider();
 
@@ -3389,9 +3358,11 @@ export async function createExpressApp(options?: {
         urlConfigured: supabaseHealth.urlConfigured,
         serviceRoleConfigured: supabaseHealth.serviceRoleConfigured,
         anonKeyConfigured: supabaseHealth.anonKeyConfigured,
+        databaseUrlConfigured: isDatabaseUrlConfigured(),
         latencyMs: supabaseHealth.latencyMs,
         message: supabaseHealth.message
       },
+      migrations: getMigrationStatus(),
       authentication: {
         primarySystem: 'MoraJaws Custom Authentication',
         backendVerification: 'active',
@@ -3911,7 +3882,6 @@ export async function createExpressApp(options?: {
     if (!loginRes.success || !loginRes.data) {
       const errCode = loginRes.error?.code || 'AUTH_FAILED';
       const status = errCode === 'ACCOUNT_LOCKED' ? 429 :
-                     errCode === 'ACCOUNT_NOT_FOUND' ? 404 :
                      (errCode === 'ACCOUNT_DISABLED' || errCode === 'ACCOUNT_DELETED') ? 403 :
                      errCode === 'DATABASE_UNAVAILABLE' ? 503 : 401;
       return res.status(status).json({
@@ -4008,13 +3978,9 @@ export async function createExpressApp(options?: {
     const rawToken = (authHeader && authHeader.startsWith('Bearer '))
       ? authHeader.substring(7).trim()
       : (req as any).cookies?.mora_access_token;
-    const rawRefreshToken = (req as any).cookies?.mora_refresh_token || req.body?.refreshToken;
 
     if (rawToken) {
       await revokeSingleSession(rawToken);
-    }
-    if (rawRefreshToken && typeof rawRefreshToken === 'string') {
-      await revokeSingleSession(rawRefreshToken);
     }
 
     if (req.user?.role === 'installer' || req.session?.sessionId) {
@@ -9378,91 +9344,30 @@ export async function createExpressApp(options?: {
   });
 
   // --- Session Management Endpoints ---
-  app.get('/api/sessions', requireSuperAdmin, async (_req, res) => {
+  app.get('/api/sessions', requireSuperAdmin, (_req, res) => {
     const now = Date.now();
-    if (isSupabaseMode()) {
-      const sbRes = await getUserSessionsFromSupabase();
-      if (!sbRes.success) {
-        return res.status(503).json({
-          success: false,
-          error: sbRes.error?.message || 'Gagal membaca data sesi dari Supabase.',
-          code: 'DATABASE_UNAVAILABLE'
-        });
+    SERVER_SESSIONS.forEach(s => {
+      if (s.status === 'active' && new Date(s.expiresAt).getTime() < now) {
+        s.status = 'expired';
       }
-      const mapped = (sbRes.data || []).map((row: any) => {
-        const expMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-        const rawStatus = row.status || 'active';
-        const effectiveStatus = rawStatus === 'active' && expMs > 0 && expMs < now ? 'expired' : rawStatus;
-        return {
-          sessionId: row.session_id,
-          userId: row.user_id,
-          username: row.username || '',
-          name: row.name || '',
-          role: row.role || 'installer',
-          contractor: row.contractor || undefined,
-          loginAt: row.login_at,
-          lastActivityAt: row.last_activity_at,
-          expiresAt: row.expires_at,
-          status: effectiveStatus,
-          ipAddress: row.ip_address || undefined,
-          userAgent: row.user_agent || undefined,
-          deviceType: row.device_type || 'unknown'
-        };
-      });
-      return res.json({ sessions: mapped });
-    }
-
-    await sessionStore.cleanupExpired().catch(() => {});
-    const safeSessions = sessionStore.getAllSessions().map(s => {
-      const { token: _, refreshToken: __, ...safe } = s;
+    });
+    const safeSessions = SERVER_SESSIONS.map(s => {
+      const { token: _, ...safe } = s;
       return safe;
     });
     res.json({ sessions: safeSessions });
   });
 
-  app.post('/api/sessions/revoke', requireAuth, async (req: AuthenticatedRequest, res) => {
-    const { sessionId, reason } = req.body || {};
-    if (!sessionId || typeof sessionId !== 'string') {
-      return res.status(400).json({ error: 'sessionId wajib diisi.' });
-    }
+  app.post('/api/sessions/revoke', requireAuth, (req: AuthenticatedRequest, res) => {
+    const { sessionId, reason } = req.body;
+    const session = SERVER_SESSIONS.find(s => s.sessionId === sessionId);
+    if (!session) return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
 
-    let ownerUserId: string | null = null;
-    if (isSupabaseMode()) {
-      const sbRes = await getUserSessionsFromSupabase();
-      if (sbRes.success && Array.isArray(sbRes.data)) {
-        const matched = sbRes.data.find((r: any) => r.session_id === sessionId);
-        if (matched) ownerUserId = matched.user_id;
-      }
-      if (!ownerUserId) {
-        const client = getSupabaseBackendClient();
-        if (client) {
-          const { data: authSessRows } = await client
-            .from('auth_sessions')
-            .select('id, user_id')
-            .eq('id', sessionId)
-            .limit(1);
-          if (Array.isArray(authSessRows) && authSessRows[0]) {
-            ownerUserId = authSessRows[0].user_id;
-          }
-        }
-      }
-    } else {
-      const memSess = await sessionStore.findSession(sessionId, { allowInactive: true }).catch(() => undefined);
-      if (memSess) ownerUserId = memSess.userId;
-    }
-
-    if (!ownerUserId) {
-      return res.status(404).json({ error: 'Sesi tidak ditemukan.' });
-    }
-
-    if (ownerUserId !== req.user!.id && req.user!.role !== 'super_admin') {
+    if (session.userId !== req.user!.id && req.user!.role !== 'super_admin') {
       return res.status(403).json({ error: 'Akses Ditolak: Anda hanya dapat mencabut sesi Anda sendiri.' });
     }
 
-    await revokeSingleSession(sessionId);
-    if (isSupabaseMode()) {
-      await revokeUserSessionInSupabase(sessionId);
-    }
+    session.status = 'revoked';
     logServerAudit('Session Revoked', 'session', sessionId, `Sesi dicabut oleh ${req.user!.name}. Alasan: ${reason || 'Pencabutan manual'}`, req.user);
     res.json({ success: true, message: 'Sesi berhasil dicabut.' });
   });
@@ -16842,8 +16747,8 @@ export async function createExpressApp(options?: {
   });
 
   // Mount Vite middleware in development or serve static / API-only in production
-  if (process.env.NODE_ENV === 'production' || options?.apiOnly) {
-    if (process.env.API_ONLY_MODE === 'true' || options?.apiOnly) {
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.API_ONLY_MODE === 'true') {
       app.get('/', (_req, res) => {
         res.json({
           status: 'ok',
@@ -16857,7 +16762,7 @@ export async function createExpressApp(options?: {
           return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
         }
         return res.status(404).json({
-          error: 'Endpoint frontend tidak di-host pada backend API-only.',
+          error: 'Endpoint frontend tidak di-host pada backend API-only. Gunakan domain Cloudflare Pages.',
           code: 'API_ONLY_MODE'
         });
       });
@@ -16901,19 +16806,15 @@ export async function createExpressApp(options?: {
       process.env.DISABLE_HMR = 'true';
     }
 
-    const vitePkg = 'vite';
-    const viteReadyPromise = import(vitePkg)
-      .then(({ createServer: createViteServer }) =>
-        createViteServer({
-          server: {
-            middlewareMode: true,
-            hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
-            ws: hmrDisabled ? false : undefined,
-            watch: hmrDisabled ? null : undefined
-          },
-          appType: 'spa'
-        })
-      )
+    const viteReadyPromise = createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
+        ws: hmrDisabled ? false : undefined,
+        watch: hmrDisabled ? null : undefined
+      },
+      appType: 'spa'
+    })
       .then((vite) => {
         viteMiddleware = vite.middlewares;
         if (options?.onViteInstance) {
@@ -17056,8 +16957,9 @@ export async function startServer() {
   httpServer.listen(PORT, HOST, () => {
     console.log(`MoraJaws Dispatch Management Server running on http://${HOST}:${PORT}`);
 
-    // Non-blocking background health check log, idempotent RBAC consolidation & Supabase Realtime DB Bridge on startup
-    checkSupabaseConnection()
+    // Run pending Supabase PostgreSQL migrations (if DATABASE_URL configured), then check health & start realtime bridge
+    runPendingSupabaseMigrations()
+      .then(() => checkSupabaseConnection())
       .then(async res => {
         console.log(`[Startup Check] Supabase: ${res.status.toUpperCase()} - ${res.message}`);
         if (res.status === 'connected') {
@@ -17069,12 +16971,10 @@ export async function startServer() {
   });
 }
 
-const isDirectRun = process.env.VERCEL !== '1' && Boolean(
-  process.argv[1] && (
-    process.argv[1].endsWith('server.ts') ||
-    process.argv[1].endsWith('server.js') ||
-    path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
-  )
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith('server.ts') ||
+  process.argv[1].endsWith('server.js') ||
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
 );
 if (isDirectRun) {
   startServer().catch(err => {

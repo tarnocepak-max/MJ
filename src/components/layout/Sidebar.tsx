@@ -542,7 +542,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [searchQuery, canCrossDateSearch, isOnline, tickets, scopedTickets]);
 
   // Helper for dynamic badge calculation
-  const getItemBadge = (itemId: string, defaultBadge?: string | number) => {
+  const getItemBadge = (
+    itemId: string,
+    defaultBadge?: string | number
+  ): { text: string | number; color: 'rose' | 'amber' | 'emerald' | 'purple' } | null => {
     if (itemId === 'verification_desk' && butuhApprovalCount > 0) {
       return {
         text: butuhApprovalCount > 99 ? '99+' : butuhApprovalCount,
@@ -566,15 +569,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     if (itemId === 'tickets' && totalActiveTickets > 0) {
       return { text: totalActiveTickets, color: 'purple' as const };
-    }
-    if (itemId === 'progress_dashboard') {
-      return { text: 'Live', color: 'purple' as const };
-    }
-    if (itemId === 'system_health') {
-      return { text: 'OK', color: 'emerald' as const };
-    }
-    if (itemId === 'setup') {
-      return { text: 'Hub', color: 'purple' as const };
     }
     if (defaultBadge !== undefined) {
       return { text: defaultBadge, color: 'purple' as const };

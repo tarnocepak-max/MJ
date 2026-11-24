@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Trash2,
   Edit,
-  Sparkles,
   Info,
   ShieldAlert,
   Sliders,
@@ -45,18 +44,6 @@ import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataT
 interface TextToTableImporterProps {
   onImportSuccess: () => void;
 }
-
-// Reference 1: BASE_DATA_WO (46 columns baseline, with exact 7-digit Customer ID)
-const SAMPLE_BASE_DATA_WO = `|WO Number|Ticket Number|Date|Appointment Date|ID Customer|Customer Name|Customer Phone|Customer Phone2|Area|Cluster Name|Street Name|Street Alternatif|Contactor Name|Installer Name|Slot Time|FDT Code|FAT Code|Ticket Category|Status WO Agent|Status WO Installer|Remarks WO Installer|Remarks Agent|Date Upload|File Name|Agent ID|
-|WO20267399330|TCK-9901|2026-10-18|2026-10-19|7399330|Haji Sulaiman|081299883344|081399881122|Jakarta Selatan|Grand Melati Residence|Jl. Kenanga No. 12|Dekat Masjid Al-Ikhlas|PT Mitra Jaringan Solusi|Andi Saputra|09:00 - 11:00 WIB|FDT-JS-015|FAT-JS-015-02|New Installation FTTH|Assigned|Assigned|Material kabel siap|Prioritas pagi|2026-10-18 08:00|BASE_DATA_WO.xlsx|AGT-101|
-|WO20267399331|TCK-9902|2026-10-18|2026-10-19|7399331|dr. Anita Wijaya|085711224455||Jakarta Barat|Permata Hijau 2|Blok C No. 5|Pintu gerbang putih seberang pos|PT Kencana Solusindo|Dedi Kurniawan|13:00 - 15:00 WIB|FDT-JB-008|FAT-JB-008-02|Relocation ONT|Assigned|Assigned|Menunggu kedatangan dokter|Hubungi sebelum tiba|2026-10-18 08:00|BASE_DATA_WO.xlsx|AGT-102|
-|WO20267399332|TCK-9903|2026-10-18|2026-10-19|7399332|Kurnia Sandi|081822334455||Tangerang Selatan|Victoria Riverside|Jl. Melati IV No. 22||PT Cipta Fiber Nusantara||15:00 - 17:00 WIB|FDT-TS-005|FAT-TS-005-01|Maintenance LOS Red Light|Pending|Unassigned||Perlu pengecekan redaman FAT|2026-10-18 08:00|BASE_DATA_WO.xlsx|AGT-103|`;
-
-// Reference 2: data_wo_20261018 (45 columns, with empty/unnamed header column preserved)
-const SAMPLE_DATA_WO_OPERATIONAL = `|Date|File Name|Date Upload|Agent ID|ID Customer|WO Number|Customer Name|Customer Phone||Contactor Name|Area|Installer Name|Slot Time|Cluster Name|FDT Code|FAT Code|Ticket Category|Status WO Installer|Remarks WO Installer|
-|2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-108|7399335|WO20267399335|Agung Prasetyo|081288776655|Catatan Khusus Jalur Pipa Tanam|PT Mitra Jaringan Solusi|Jakarta Selatan|Andi Saputra|10:00 - 12:00 WIB|Grand Melati Residence|FDT-JS-020|FAT-JS-020-04|New Installation FTTH|Assigned|Pipa tanam siap ditarik|
-|2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-108|7399336|WO20267399336|Mega Utami|087812345678|Keluarga Ada di Rumah Siang|PT Kencana Solusindo|Jakarta Barat||14:00 - 16:00 WIB|Permata Hijau 2|FDT-JB-014|FAT-JB-014-06|Upgrade Speed 200M|Unassigned||
-|2026-10-18|data_wo_20261018.xlsx|2026-10-18 09:30|AGT-109|7399337|WO20267399337|Syamsul Bahri|081377889900|Titip Kunci di Pos Satpam|PT Mitra Jaringan Solusi|Jakarta Selatan|Andi Saputra|16:00 - 18:00 WIB|Grand Melati Residence|FDT-JS-022|FAT-JS-022-01|Maintenance LOS Red Light|Assigned|Bawa kabel dropcore cadangan|`;
 
 const REQUIRED_FIELD_PILLS = [
   'WO Number',
@@ -629,18 +616,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     }
   };
 
-  const handleLoadBaseDataSample = () => {
-    setSourceFileName('BASE_DATA_WO.xlsx');
-    setRawText(SAMPLE_BASE_DATA_WO);
-    handleParse(SAMPLE_BASE_DATA_WO);
-  };
-
-  const handleLoadOperationalSample = () => {
-    setSourceFileName('data_wo_20261018.xlsx');
-    setRawText(SAMPLE_DATA_WO_OPERATIONAL);
-    handleParse(SAMPLE_DATA_WO_OPERATIONAL);
-  };
-
   const handleResetWorkspace = () => {
     setParseResult(null);
     setRawText('');
@@ -824,8 +799,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               name: c.name,
               code,
               coverageAreas: c.area ? [c.area] : [],
-              phone: '0812' + Math.floor(10000000 + Math.random() * 90000000),
-              email: `ops@${code.toLowerCase()}.morajaws.net`,
+              phone: '',
+              email: '',
               active: true,
               createdAt: new Date().toISOString()
             };
@@ -835,8 +810,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             name: c.name,
             code: c.code || 'MTR',
             coverageAreas: c.coverageAreas || [],
-            phone: c.phone || '081299880000',
-            email: c.email || `ops@${c.code.toLowerCase()}.morajaws.net`,
+            phone: c.phone || '',
+            email: c.email || '',
             active: true,
             createdAt: new Date().toISOString()
           }));
@@ -995,25 +970,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               </div>
             </div>
 
-            {/* MoraJaws Quick Sample & Catalog Utility Strip */}
+            {/* MoraJaws Catalog Utility Strip */}
             <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleLoadBaseDataSample}
-                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>1. BASE_DATA_WO (46 Kolom)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLoadOperationalSample}
-                  className="tactile-chip px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  <span>2. data_wo_20261018 (45 Kolom)</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => setShowMappingCatalog(!showMappingCatalog)}

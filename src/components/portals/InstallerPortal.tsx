@@ -292,7 +292,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   const myInstallers = users.filter(u => u.role === 'installer');
   const [selectedInstallerName, setSelectedInstallerName] = useState<string>(
-    currentUser.role === 'installer' ? currentUser.name : (myInstallers[0]?.name || 'Andi Saputra')
+    currentUser.role === 'installer' ? currentUser.name : (myInstallers[0]?.name || '')
   );
 
   const effectiveInstallerName = currentUser.role === 'installer' ? currentUser.name : selectedInstallerName;

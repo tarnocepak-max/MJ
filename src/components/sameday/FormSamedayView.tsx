@@ -25,16 +25,16 @@ export const FormSamedayView: React.FC = () => {
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [area, setArea] = useState(currentUser.area || coverageAreas[0]?.name || 'Jakarta Selatan');
+  const [area, setArea] = useState(currentUser.area || coverageAreas[0]?.name || '');
   const [clusterName, setClusterName] = useState('');
   const [streetName, setStreetName] = useState('');
   const [streetAlternatif, setStreetAlternatif] = useState('');
-  const [contractorName, setContractorName] = useState(currentUser.contractor || contractors[0]?.name || 'PT Mitra Jaringan Solusi');
+  const [contractorName, setContractorName] = useState(currentUser.contractor || contractors[0]?.name || '');
   const [slotTime, setSlotTime] = useState('13:00 - 15:00 WIB');
   const [ticketCategory, setTicketCategory] = useState('New Installation FTTH (Sameday)');
-  const [fdtCode, setFdtCode] = useState('FDT-JS-015');
-  const [fatCode, setFatCode] = useState('FAT-JS-015-02');
-  const [remarks, setRemarks] = useState('Sameday Urgent Dispatch');
+  const [fdtCode, setFdtCode] = useState('');
+  const [fatCode, setFatCode] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {

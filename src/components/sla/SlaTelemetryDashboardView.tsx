@@ -520,7 +520,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
                 <Database className="w-3.5 h-3.5" />
-                <span>{telemetry.databaseSource === 'supabase' ? 'SUPABASE POSTGRESQL (CLUSTER: JKT-01)' : 'LOCAL DEV STORE'}</span>
+                <span>{telemetry.databaseSource === 'supabase' ? 'SUPABASE POSTGRESQL' : 'LOCAL DEV STORE'}</span>
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">

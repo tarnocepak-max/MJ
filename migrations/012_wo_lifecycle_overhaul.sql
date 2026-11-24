@@ -230,7 +230,7 @@ CREATE POLICY wo_distribution_logs_authenticated_select
           u.role IN ('super_admin', 'dispatch', 'management_data', 'it_support')
           OR (
             u.role = 'leader'
-            AND (u.leader_id IS NULL OR wo_distribution_logs.leader_id = u.id OR lower(coalesce(wo_distribution_logs.leader_name, '')) = lower(u.name))
+            AND (wo_distribution_logs.leader_id IS NULL OR wo_distribution_logs.leader_id = u.id OR lower(coalesce(wo_distribution_logs.leader_name, '')) = lower(u.name))
           )
         )
     )

@@ -1072,8 +1072,7 @@ export const DEFAULT_WORKFLOW_RULES: WorkflowRule[] = [
       { type: 'log_event' }
     ],
     enabled: true,
-    executionCount: 14,
-    lastExecutedAt: new Date().toISOString()
+    executionCount: 0
   },
   {
     id: 'wf_slot_time_changed',
@@ -1087,8 +1086,7 @@ export const DEFAULT_WORKFLOW_RULES: WorkflowRule[] = [
       { type: 'log_event' }
     ],
     enabled: true,
-    executionCount: 3,
-    lastExecutedAt: new Date(Date.now() - 3600000).toISOString()
+    executionCount: 0
   },
   {
     id: 'wf_new_import_validation',
@@ -1100,8 +1098,7 @@ export const DEFAULT_WORKFLOW_RULES: WorkflowRule[] = [
       { type: 'log_event' }
     ],
     enabled: true,
-    executionCount: 42,
-    lastExecutedAt: new Date().toISOString()
+    executionCount: 0
   }
 ];
 

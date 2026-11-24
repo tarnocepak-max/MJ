@@ -114,7 +114,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   const [broadcastCopied, setBroadcastCopied] = useState(false);
 
   const todayJakarta = todayWIB || getJakartaDateString(0);
-  const leaderContractor = currentUser?.contractor || (contractorsList?.[0] || 'PT Mitra Jaringan Solusi');
+  const leaderContractor = currentUser?.contractor || contractorsList?.[0] || '';
   const leaderArea = currentUser?.area || '';
 
   const handleManualSync = async () => {

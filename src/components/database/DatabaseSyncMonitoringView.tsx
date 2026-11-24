@@ -31,7 +31,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
   const { toast } = useToast();
 
   const [monitoringStatus, setMonitoringStatus] = useState<SyncMonitoringStatus>({
-    appDbStatus: 'Connected',
+    appDbStatus: 'Pending',
     sheetsStatus: googleSheetsConfig.spreadsheetId ? 'Connected' : 'Unconfigured',
     lastSyncStatus: 'Pending',
     lastSyncAt: null,
@@ -45,6 +45,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
 
   const [syncHistory, setSyncHistory] = useState<SyncHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [syncFetchError, setSyncFetchError] = useState<string | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<SyncHistoryEntry | null>(null);
@@ -54,16 +55,23 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
   // Fetch live sync status and history
   const fetchStatusAndHistory = async () => {
     setIsLoading(true);
+    setSyncFetchError(null);
     try {
       const authHdrs = getAuthHeaders();
       const [statusRes, historyRes] = await Promise.all([
         fetch('/api/sync/status', {
-          headers: authHdrs,
-          credentials: 'include'
+          headers: {
+            ...authHdrs,
+            'x-user-role': currentUser.role,
+            'x-user-id': currentUser.id
+          }
         }),
         fetch('/api/sync/history', {
-          headers: authHdrs,
-          credentials: 'include'
+          headers: {
+            ...authHdrs,
+            'x-user-role': currentUser.role,
+            'x-user-id': currentUser.id
+          }
         })
       ]);
 
@@ -74,6 +82,9 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
           ...sData,
           sheetsStatus: googleSheetsConfig.spreadsheetId ? 'Connected' : sData.sheetsStatus
         }));
+      } else {
+        setSyncFetchError(`Gagal memuat status sync (HTTP ${statusRes.status})`);
+        setMonitoringStatus(prev => ({ ...prev, appDbStatus: 'Disconnected' }));
       }
 
       if (historyRes.ok) {
@@ -81,7 +92,8 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
         setSyncHistory(hData.history || []);
       }
     } catch (err: any) {
-      console.warn('Could not fetch sync status from backend:', err);
+      setSyncFetchError(err?.message || 'Gagal menghubungi backend sync monitoring');
+      setMonitoringStatus(prev => ({ ...prev, appDbStatus: 'Disconnected' }));
     } finally {
       setIsLoading(false);
     }
@@ -99,10 +111,11 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     try {
       const res = await fetch('/api/sync/check-connection', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          ...getAuthHeaders(),
+          'x-user-role': currentUser.role,
+          'x-user-id': currentUser.id
         }
       });
       const data = await res.json();
@@ -133,10 +146,11 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     try {
       const res = await fetch('/api/sync/run', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          ...getAuthHeaders(),
+          'x-user-role': currentUser.role,
+          'x-user-id': currentUser.id
         },
         body: JSON.stringify({
           syncType: 'full_sync',
@@ -256,6 +270,22 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
         </div>
       </div>
 
+      {syncFetchError && (
+        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{syncFetchError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchStatusAndHistory}
+            className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] cursor-pointer"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      )}
+
       {/* 4 Health Cards Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: App Database Connection */}
@@ -264,7 +294,15 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <span className="text-xs font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wider">
               Database Aplikasi
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center">
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                monitoringStatus.appDbStatus === 'Connected'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600'
+                  : monitoringStatus.appDbStatus === 'Disconnected'
+                  ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-600'
+                  : 'bg-amber-100 dark:bg-amber-950/80 text-amber-600'
+              }`}
+            >
               <Database className="w-4 h-4" />
             </div>
           </div>
@@ -272,10 +310,22 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getStatusBadge(monitoringStatus.appDbStatus)}`}>
               {monitoringStatus.appDbStatus}
             </span>
-            <span className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]">Indexed Storage</span>
+            <span className="text-[11px] text-[#8492A5] dark:text-[#CEC0E8]">PostgreSQL</span>
           </div>
           <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] pt-1">
-            Status: <strong className="text-emerald-600 dark:text-emerald-400">{monitoringStatus.appDbStatus}</strong> · Penyimpanan master &amp; persistensi sinkron
+            Status:{' '}
+            <strong
+              className={
+                monitoringStatus.appDbStatus === 'Connected'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : monitoringStatus.appDbStatus === 'Disconnected'
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-amber-600 dark:text-amber-400'
+              }
+            >
+              {monitoringStatus.appDbStatus}
+            </strong>{' '}
+            · {monitoringStatus.appDbStatus === 'Connected' ? 'Penyimpanan master tersinkron' : 'Memantau koneksi backend'}
           </p>
         </div>
 
