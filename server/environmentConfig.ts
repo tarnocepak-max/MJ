@@ -66,7 +66,7 @@ export function getAppEnvironment(): AppEnvironment {
   }
 
   // Strict check: empty APP_ENV is NEVER automatically assumed to be staging
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' || (process.env.VERCEL === '1' && process.env.VERCEL_ENV !== 'development')) {
     return 'production';
   }
 
@@ -231,7 +231,25 @@ export function getEnvironmentConfig(envOverride?: AppEnvironment): EnvironmentC
     const appBaseUrl = (process.env.PRODUCTION_APP_BASE_URL || process.env.APP_BASE_URL || PRODUCTION_DEFAULT_APP_BASE_URL).trim();
     const recoveryCallbackUrl = (process.env.PRODUCTION_AUTH_RECOVERY_CALLBACK_URL || process.env.AUTH_RECOVERY_CALLBACK_URL || PRODUCTION_DEFAULT_CALLBACK_URL).trim();
 
-    const allowedRedirectOrigins = ['https://morajaws.ai.studio'];
+    const allowedRedirectOrigins = [
+      'https://morajaws.ai.studio',
+      'https://mora-jawskies.vercel.app'
+    ];
+    for (const vercelHost of [
+      process.env.VERCEL_PROJECT_PRODUCTION_URL,
+      process.env.VERCEL_URL,
+      process.env.VERCEL_BRANCH_URL
+    ]) {
+      if (vercelHost && vercelHost.trim()) {
+        const normalized = vercelHost.trim().startsWith('http') ? vercelHost.trim() : `https://${vercelHost.trim()}`;
+        try {
+          const parsed = new URL(normalized);
+          if (parsed.protocol === 'https:' && !allowedRedirectOrigins.includes(parsed.origin)) {
+            allowedRedirectOrigins.push(parsed.origin);
+          }
+        } catch {}
+      }
+    }
     if (process.env.AUTH_ALLOWED_REDIRECT_ORIGINS || process.env.PRODUCTION_ALLOWED_REDIRECT_ORIGINS) {
       const origins = (process.env.AUTH_ALLOWED_REDIRECT_ORIGINS || process.env.PRODUCTION_ALLOWED_REDIRECT_ORIGINS || '')
         .split(',')

@@ -54,18 +54,12 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
       const authHdrs = getAuthHeaders();
       const [sessRes, cfgRes] = await Promise.all([
         fetch('/api/sessions', {
-          headers: {
-            ...authHdrs,
-            'x-user-role': currentUser.role,
-            'x-user-id': currentUser.id
-          }
+          headers: authHdrs,
+          credentials: 'include'
         }),
         fetch('/api/sessions/config', {
-          headers: {
-            ...authHdrs,
-            'x-user-role': currentUser.role,
-            'x-user-id': currentUser.id
-          }
+          headers: authHdrs,
+          credentials: 'include'
         })
       ]);
 
@@ -94,11 +88,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
     try {
       const res = await fetch('/api/sessions/revoke', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          'x-user-role': currentUser.role,
-          'x-user-id': currentUser.id
+          ...getAuthHeaders()
         },
         body: JSON.stringify({ sessionId, reason: `Dicabut oleh Administrator ${currentUser.name}` })
       });
@@ -124,11 +117,10 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
     try {
       const res = await fetch('/api/sessions/config', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          'x-user-role': currentUser.role,
-          'x-user-id': currentUser.id
+          ...getAuthHeaders()
         },
         body: JSON.stringify(sessionConfig)
       });

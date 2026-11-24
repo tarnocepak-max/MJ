@@ -212,10 +212,12 @@ export async function loginWithMoraJaws(identifier: string, password: string) {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ identifier: identifier.trim(), password })
   });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data };
+  const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+  const data = contentType.includes('application/json') ? await res.json().catch(() => ({})) : {};
+  return { ok: res.ok && contentType.includes('application/json'), status: res.status, data };
 }
 
 // Backwards-compatible alias
@@ -225,7 +227,8 @@ export async function refreshMoraJawsSession(refreshToken?: string) {
   const res = await fetch('/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
+    credentials: 'include',
+    body: JSON.stringify(refreshToken ? { refreshToken } : {})
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
@@ -238,6 +241,7 @@ export async function logoutMoraJaws() {
   const headers = getAuthHeaders();
   const res = await fetch('/api/auth/logout', {
     method: 'POST',
+    credentials: 'include',
     headers
   });
   const data = await res.json().catch(() => ({}));

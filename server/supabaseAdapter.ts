@@ -380,7 +380,7 @@ export function userToPostgresRow(user: ServerUser): Record<string, any> {
  */
 export function postgresRowToUser(row: any): ServerUser {
   const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-  const passwordHash = row.password_hash || payload.passwordHash || '';
+  const passwordHash = String(row.password_hash || payload.passwordHash || '').trim();
   const sessionVersion = typeof row.session_version === 'number'
     ? row.session_version
     : (typeof payload.sessionVersion === 'number' ? payload.sessionVersion : 1);
@@ -393,9 +393,9 @@ export function postgresRowToUser(row: any): ServerUser {
   return {
     id: row.id,
     authUserId,
-    name: row.name,
-    username: row.username,
-    email: row.email || '',
+    name: String(row.name || '').trim(),
+    username: String(row.username || '').trim(),
+    email: String(row.email || '').trim(),
     altEmail: row.alt_email || payload.altEmail || payload.alt_email || undefined,
     phone: row.phone || undefined,
     role: row.role,
@@ -418,6 +418,7 @@ export function postgresRowToUser(row: any): ServerUser {
     failedLoginCount,
     lockedUntil,
     passwordChangedAt,
+    isArchived: Boolean(row.is_archived),
     resetTokenHash: row.reset_token_hash ?? payload.resetTokenHash ?? undefined,
     resetTokenExpiresAt: row.reset_token_expires_at ?? payload.resetTokenExpiresAt ?? undefined,
     resetTokenIssuedAt: row.reset_token_issued_at ?? payload.resetTokenIssuedAt ?? undefined,
@@ -855,6 +856,20 @@ export async function findUserInSupabase(identifier: string): Promise<ServerUser
  *   3. username (case-insensitive exact)
  * - Returns immediately if database error occurs at any step.
  */
+function pickBestMatchedUserRow(rows: any[]): any | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const score = (r: any): number => {
+    const deleted = Boolean(r?.is_deleted);
+    const archived = Boolean(r?.is_archived);
+    const inactive = r?.active === false || r?.account_status === 'inactive';
+    if (!deleted && !archived && !inactive) return 0;
+    if (!deleted && !archived) return 1;
+    if (!deleted) return 2;
+    return 3;
+  };
+  return [...rows].sort((a, b) => score(a) - score(b))[0] || null;
+}
+
 export async function findUserInSupabaseDetailed(identifier: string): Promise<SupabaseOpResult<ServerUser | null>> {
   const client = getSupabaseBackendClient();
   if (!client) {
@@ -874,6 +889,7 @@ export async function findUserInSupabaseDetailed(identifier: string): Promise<Su
   }
 
   const raw = identifier.trim();
+  const cleanLower = raw.toLowerCase();
   if (!raw) {
     return {
       success: false,
@@ -884,32 +900,31 @@ export async function findUserInSupabaseDetailed(identifier: string): Promise<Su
 
   try {
     // 1. Check exact match on primary key id
-    const { data: byId, error: errId } = await client
+    const { data: byIdRows, error: errId } = await client
       .from('users')
       .select('*')
       .eq('id', raw)
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
 
     if (errId) {
       const classified = classifySupabaseError(errId);
       console.error('[Supabase DAL] findUser query error (id):', classified.message);
       return { success: false, data: null, error: classified };
     }
-    if (byId) {
-      return { success: true, data: postgresRowToUser(byId) };
+    const bestById = pickBestMatchedUserRow(byIdRows || []);
+    if (bestById) {
+      return { success: true, data: postgresRowToUser(bestById) };
     }
 
-    // 2.B. Check exact match on auth_user_id (Supabase Auth UID) if format is UUID
+    // 2. Check exact match on auth_user_id (legacy UUID reference) if format is UUID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(raw)) {
       try {
-        const { data: byAuthUid, error: errAuthUid } = await client
+        const { data: byAuthUidRows, error: errAuthUid } = await client
           .from('users')
           .select('*')
           .eq('auth_user_id', raw)
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
 
         if (errAuthUid) {
           const errCode = String(errAuthUid.code || '');
@@ -918,36 +933,40 @@ export async function findUserInSupabaseDetailed(identifier: string): Promise<Su
             return { success: false, data: null, error: classified };
           }
         }
-        if (byAuthUid) {
-          return { success: true, data: postgresRowToUser(byAuthUid) };
+        const bestByAuthUid = pickBestMatchedUserRow(byAuthUidRows || []);
+        if (bestByAuthUid) {
+          return { success: true, data: postgresRowToUser(bestByAuthUid) };
         }
       } catch {}
     }
 
     // 3. If identifier has '@', search by email and alt_email
     if (raw.includes('@')) {
-      const { data: byEmail, error: errEmail } = await client
+      const { data: byEmailRows, error: errEmail } = await client
         .from('users')
         .select('*')
         .ilike('email', escapePostgrestLikeValue(raw))
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
 
       if (errEmail) {
         const classified = classifySupabaseError(errEmail);
         console.error('[Supabase DAL] findUser query error (email):', classified.message);
         return { success: false, data: null, error: classified };
       }
-      if (byEmail) {
-        return { success: true, data: postgresRowToUser(byEmail) };
+      const exactEmails = (byEmailRows || []).filter(
+        r => String(r?.email || '').trim().toLowerCase() === cleanLower
+      );
+      const bestByEmail = pickBestMatchedUserRow(exactEmails);
+      if (bestByEmail) {
+        return { success: true, data: postgresRowToUser(bestByEmail) };
       }
 
-      // Check alt_email with wildcard and exact membership validation
+      // Check alt_email with wildcard and strict membership validation
       const { data: byAltList, error: errAlt } = await client
         .from('users')
         .select('*')
         .ilike('alt_email', `%${escapePostgrestLikeValue(raw)}%`)
-        .limit(5);
+        .limit(20);
 
       if (errAlt) {
         const classified = classifySupabaseError(errAlt);
@@ -955,30 +974,55 @@ export async function findUserInSupabaseDetailed(identifier: string): Promise<Su
         return { success: false, data: null, error: classified };
       }
       if (Array.isArray(byAltList) && byAltList.length > 0) {
-        const cleanTarget = raw.toLowerCase().trim();
-        const matchedRow = byAltList.find(r => {
-          const alts = String(r.alt_email || '').split(/[,;\s]+/).map(s => s.toLowerCase().trim());
-          return alts.includes(cleanTarget);
-        }) || byAltList[0];
-        return { success: true, data: postgresRowToUser(matchedRow) };
+        const exactAlts = byAltList.filter(r => {
+          const alts = String(r.alt_email || '').split(/[,;\s]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+          return alts.includes(cleanLower);
+        });
+        const bestAlt = pickBestMatchedUserRow(exactAlts);
+        if (bestAlt) {
+          return { success: true, data: postgresRowToUser(bestAlt) };
+        }
       }
     }
 
-    // 4. Check case-insensitive exact match on username
-    const { data: byUsername, error: errUser } = await client
+    // 4. Check case-insensitive exact match on username (prioritizing active, non-deleted rows)
+    const { data: byUsernameRows, error: errUser } = await client
       .from('users')
       .select('*')
       .ilike('username', escapePostgrestLikeValue(raw))
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
 
     if (errUser) {
       const classified = classifySupabaseError(errUser);
       console.error('[Supabase DAL] findUser query error (username):', classified.message);
       return { success: false, data: null, error: classified };
     }
-    if (byUsername) {
-      return { success: true, data: postgresRowToUser(byUsername) };
+    const exactUsernames = (byUsernameRows || []).filter(
+      r => String(r?.username || '').trim().toLowerCase() === cleanLower
+    );
+    const bestUsername = pickBestMatchedUserRow(exactUsernames);
+    if (bestUsername) {
+      return { success: true, data: postgresRowToUser(bestUsername) };
+    }
+
+    // 4b. Bounded whitespace-trimmed fallback if stored username has accidental padding in DB
+    const { data: paddedCandidates, error: errPad } = await client
+      .from('users')
+      .select('*')
+      .ilike('username', `%${escapePostgrestLikeValue(raw)}%`)
+      .limit(20);
+
+    if (errPad) {
+      const classified = classifySupabaseError(errPad);
+      console.error('[Supabase DAL] findUser query error (username trimmed):', classified.message);
+      return { success: false, data: null, error: classified };
+    }
+    const trimmedMatches = (paddedCandidates || []).filter(
+      r => String(r?.username || '').trim().toLowerCase() === cleanLower
+    );
+    const bestTrimmed = pickBestMatchedUserRow(trimmedMatches);
+    if (bestTrimmed) {
+      return { success: true, data: postgresRowToUser(bestTrimmed) };
     }
 
     // User legitimately not found across all search criteria
