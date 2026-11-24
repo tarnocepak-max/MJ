@@ -2918,7 +2918,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isJsonResponse) {
         const routeMsg =
           serverRes.status === 404
-            ? 'Endpoint autentikasi backend (/api/auth/login) tidak ditemukan pada deployment ini. Pastikan Vercel Serverless API (/api/index.ts & vercel.json) sudah terdeploy.'
+            ? 'Endpoint autentikasi backend (/api/auth/login) tidak ditemukan pada deployment ini. Pastikan Vercel Serverless API (/api/index.js & vercel.json) sudah terdeploy.'
             : `Server backend mengembalikan respons non-JSON (HTTP ${serverRes.status}). Periksa koneksi backend API.`;
         addAuditLog('Login Gateway Unavailable', 'auth', cleanUser, routeMsg);
         return {

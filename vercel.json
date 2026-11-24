@@ -4,9 +4,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "maxDuration": 30,
-      "includeFiles": "server/**,src/types/**,src/constants/**,src/services/woClassificationService.ts,src/services/appointmentDateParser.ts,src/utils/**"
+      "includeFiles": "api/_server.mjs"
     }
   },
   "rewrites": [

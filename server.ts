@@ -2,7 +2,6 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -16902,15 +16901,19 @@ export async function createExpressApp(options?: {
       process.env.DISABLE_HMR = 'true';
     }
 
-    const viteReadyPromise = createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
-        ws: hmrDisabled ? false : undefined,
-        watch: hmrDisabled ? null : undefined
-      },
-      appType: 'spa'
-    })
+    const vitePkg = 'vite';
+    const viteReadyPromise = import(vitePkg)
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: {
+            middlewareMode: true,
+            hmr: hmrDisabled ? false : (options?.httpServer ? { server: options.httpServer } : false),
+            ws: hmrDisabled ? false : undefined,
+            watch: hmrDisabled ? null : undefined
+          },
+          appType: 'spa'
+        })
+      )
       .then((vite) => {
         viteMiddleware = vite.middlewares;
         if (options?.onViteInstance) {

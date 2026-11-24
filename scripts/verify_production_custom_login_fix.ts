@@ -2,7 +2,7 @@ import assert from 'assert';
 import crypto from 'crypto';
 import http from 'http';
 import { setSupabaseBackendClientForTesting, resetSupabaseBackendClientForTesting } from '../server/supabaseClient.ts';
-import handler from '../api/index.ts';
+import handler from '../server/vercelHandler.ts';
 
 function buildPbkdf2Hash(password: string, iterations = 310000): string {
   const salt = crypto.randomBytes(16).toString('hex');
