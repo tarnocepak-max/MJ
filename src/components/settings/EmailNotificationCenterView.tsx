@@ -61,6 +61,7 @@ interface EmailProviderHealth {
   envReplyToConfigured: boolean;
   resolvedFromPreview: string;
   resolvedReplyToPreview: string;
+  resolvedSenderEmail?: string;
   ready: boolean;
   dedicatedTablesReady: boolean;
   statusMessage: string;
@@ -100,6 +101,7 @@ interface EmailDeliveryLogItem {
   deliveryStatus: string;
   providerMessageId?: string | null;
   errorMessage?: string | null;
+  metadata?: Record<string, any>;
   createdAt: string;
 }
 
@@ -182,7 +184,12 @@ export const EmailNotificationCenterView: React.FC = () => {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isTestingConn, setIsTestingConn] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
-  const [testConnectionMsg, setTestConnectionMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testConnectionMsg, setTestConnectionMsg] = useState<{
+    ok: boolean;
+    text: string;
+    recipientEmail?: string;
+    providerMessageId?: string;
+  } | null>(null);
 
   const [testEmailResultMsg, setTestEmailResultMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -393,13 +400,16 @@ export const EmailNotificationCenterView: React.FC = () => {
       if (json.providerHealth) setProviderHealth(json.providerHealth);
       setTestConnectionMsg({
         ok: Boolean(json.success),
-        text: json.message || 'Gagal menguji koneksi Gmail SMTP.'
+        text: json.message || 'Gagal menguji koneksi Gmail SMTP.',
+        recipientEmail: json.recipientEmail || undefined,
+        providerMessageId: json.providerMessageId || undefined
       });
       if (json.success) {
         toast.success(json.message);
       } else {
         toast.warning(json.message || 'Koneksi Gmail SMTP belum siap.');
       }
+      if (subTab === 'logs') void loadLogs();
     } finally {
       setIsTestingConn(false);
     }
@@ -749,17 +759,27 @@ export const EmailNotificationCenterView: React.FC = () => {
               <div className="xl:col-span-5 space-y-4">
                 <div className="card-3d-lavender rounded-2xl p-5 space-y-3.5">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
-                      Provider Status (Gmail SMTP · STARTTLS)
-                    </h3>
+                    <div>
+                      <h3 className="font-display font-extrabold text-sm text-[#26364A] dark:text-white">
+                        Provider Status (Gmail SMTP · STARTTLS)
+                      </h3>
+                      <p className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
+                        Test Connection memverifikasi SMTP &amp; mengirim email percobaan ke alamat pengirim sendiri.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       disabled={isTestingConn}
                       onClick={handleTestConnection}
-                      className="btn-3d-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title={
+                        providerHealth?.resolvedSenderEmail
+                          ? `Verifikasi SMTP & kirim email percobaan ke ${providerHealth.resolvedSenderEmail}`
+                          : 'Verifikasi koneksi Gmail SMTP & kirim email percobaan ke pengirim sendiri'
+                      }
+                      className="btn-3d-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
                     >
                       {isTestingConn ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                      <span>Test Connection</span>
+                      <span>{isTestingConn ? 'Testing...' : 'Test Connection'}</span>
                     </button>
                   </div>
 
@@ -822,6 +842,12 @@ export const EmailNotificationCenterView: React.FC = () => {
                           <span className="font-bold">Reply-To:</span>{' '}
                           <span className="font-mono text-[#26364A] dark:text-white">{providerHealth.resolvedReplyToPreview || '-'}</span>
                         </div>
+                        <div>
+                          <span className="font-bold">Target Self-Test:</span>{' '}
+                          <span className="font-mono text-[#26364A] dark:text-white">
+                            {providerHealth.resolvedSenderEmail || 'Belum dikonfigurasi'}
+                          </span>
+                        </div>
                         <div>{providerHealth.statusMessage}</div>
                       </div>
                     </div>
@@ -836,7 +862,16 @@ export const EmailNotificationCenterView: React.FC = () => {
                       }`}
                     >
                       {testConnectionMsg.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
-                      <span>{testConnectionMsg.text}</span>
+                      <div className="space-y-1 min-w-0">
+                        <div>{testConnectionMsg.text}</div>
+                        {(testConnectionMsg.recipientEmail || testConnectionMsg.providerMessageId) && (
+                          <div className="font-mono text-[10px] opacity-90 break-all">
+                            {testConnectionMsg.recipientEmail ? `Tujuan: ${testConnectionMsg.recipientEmail}` : ''}
+                            {testConnectionMsg.recipientEmail && testConnectionMsg.providerMessageId ? ' · ' : ''}
+                            {testConnectionMsg.providerMessageId ? `ID: ${testConnectionMsg.providerMessageId}` : ''}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1536,16 +1571,32 @@ export const EmailNotificationCenterView: React.FC = () => {
                                     {log.relatedWoNumber}
                                   </div>
                                 )}
+                                {(log.metadata?.previousInstaller || log.metadata?.newInstaller) && (
+                                  <div className="text-[10px] text-[#52647A] dark:text-[#CEC0E8]">
+                                    {log.metadata?.previousInstaller ? `${log.metadata.previousInstaller} → ` : ''}
+                                    {log.metadata?.newInstaller || '-'}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3 px-4 max-w-[260px]">
                                 <div className="truncate font-semibold text-[#26364A] dark:text-white" title={log.subject}>
                                   {log.subject}
                                 </div>
+                                {log.metadata?.eventId && (
+                                  <div className="text-[10px] font-mono text-[#8492A5] truncate" title={String(log.metadata.eventId)}>
+                                    Evt: {String(log.metadata.eventId)}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3 px-4 whitespace-nowrap">
                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${badge.cls}`}>
                                   {badge.label}
                                 </span>
+                                {log.metadata?.processedAt && (
+                                  <div className="text-[9.5px] font-mono text-[#8492A5] mt-0.5">
+                                    {new Date(log.metadata.processedAt).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3 px-4 max-w-[240px]">
                                 {log.providerMessageId && (

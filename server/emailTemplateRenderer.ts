@@ -561,7 +561,7 @@ export function renderEmailTemplate(
 
   const ctaLabel =
     template.templateKey === 'wo_assigned_installer' || template.templateKey === 'wo_reassigned_new_installer'
-      ? 'Open WO Detail'
+      ? 'Open WO di MoraJaws'
       : 'Open MoraJaws';
 
   let eventTag = 'OPERATIONAL ALERT';

@@ -218,6 +218,7 @@ import {
   triggerNewWoLeaderNotifications,
   triggerWoAssignedInstallerNotification,
   triggerWoReassignedNotifications,
+  dispatchWoAssignmentChangeNotification,
   triggerDailySummaryNotifications
 } from './server/emailNotificationService.ts';
 import {
@@ -5450,25 +5451,31 @@ export async function createExpressApp(options?: {
           if (r?.workOrder) {
             const prevRecord = prevTicketsById.get(String(r.workOrder.id)) || prevTicketsById.get(String(r.workOrder.woNumber));
             broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder, prevRecord ? { previousRecord: prevRecord } : undefined);
-            void triggerWoAssignedInstallerNotification({
+            void dispatchWoAssignmentChangeNotification({
               ticket: r.workOrder,
-              installerName: r.workOrder.installerName || installerName.trim(),
+              previousTicket: prevRecord,
+              newInstallerId: r.workOrder.installerId || r.workOrder.installerUid || installerId || null,
+              newInstallerName: r.workOrder.installerName || effInstallerInput,
               leaderName: req.user!.name,
-              assignmentEventId: String(r.history?.id || r.workOrder.assignedAt || now)
+              reason: reason || 'Penugasan oleh Leader',
+              changedAt: now,
+              eventId: String(r.history?.id || r.workOrder.assignedAt || now)
             }).catch(() => {});
           }
         }
+        const resolvedLabel = results[0]?.workOrder?.installerName || effInstallerInput;
         const successWoNumbers = results.map(r => r.workOrder?.woNumber || r.workOrder?.id).join(',');
         await logServerAuditAsync(
           'WO Assigned by Leader',
           'assignment',
           successWoNumbers,
-          `Leader ${req.user?.name} menugaskan ${results.length} WO ke teknisi ${installerName}`,
+          `Leader ${req.user?.name} menugaskan ${results.length} WO ke teknisi ${resolvedLabel}`,
           req.user
         );
       }
 
       if (!isLocalJsonModeAllowed()) {
+        const resolvedInstallerLabel = results[0]?.workOrder?.installerName || effInstallerInput;
         if (errors.length > 0) {
           const hasUnavailable = errors.some(e => e.isUnavailable);
           const hasPartialFailure = errors.some(e => e.code === 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT');
@@ -5478,7 +5485,7 @@ export async function createExpressApp(options?: {
             message: `Menugaskan ${results.length} WO berhasil, ${errors.length} gagal diproses`,
             assignedIds: results.map(r => r.workOrder?.id || r.workOrder?.woNumber),
             failed: errors,
-            installerName: installerName.trim(),
+            installerName: resolvedInstallerLabel,
             slotTime,
             assignedAt: now
           });
@@ -5486,9 +5493,9 @@ export async function createExpressApp(options?: {
 
         return res.json({
           success: true,
-          message: `Berhasil menugaskan ${results.length} Work Order ke teknisi ${installerName}`,
+          message: `Berhasil menugaskan ${results.length} Work Order ke teknisi ${resolvedInstallerLabel}`,
           assignedIds: results.map(r => r.workOrder?.id || r.workOrder?.woNumber),
-          installerName: installerName.trim(),
+          installerName: resolvedInstallerLabel,
           slotTime,
           assignedAt: now
         });
@@ -5535,6 +5542,9 @@ export async function createExpressApp(options?: {
         }
       }
 
+      const prevSnapshotMap = new Map<string, any>();
+      targets.forEach(t => prevSnapshotMap.set(String(t.id), { ...t }));
+
       db.tickets = db.tickets.map(t => {
         if (!idSet.has(t.id) && t.woNumber !== woNumber && !idSet.has(t.woNumber)) return t;
         const nextStatus = t.checkInAt ? t.statusWOInstaller : 'Assigned';
@@ -5543,45 +5553,58 @@ export async function createExpressApp(options?: {
           installerName: targetInstaller.name,
           installerId: targetInstaller.id,
           installerUid: targetInstaller.id,
+          installerEmail: targetInstaller.email || targetInstaller.altEmail || t.installerEmail,
           assignedTo: targetInstaller.name,
           assignedToUid: targetInstaller.id,
           slotTime: slotTime || t.slotTime,
           statusWOInstaller: nextStatus || 'Assigned',
           remarksWOInstaller: remarks ? (t.remarksWOInstaller ? `${t.remarksWOInstaller}; ${remarks}` : remarks) : t.remarksWOInstaller,
+          assignedAt: now,
+          assignedBy: req.user!.name,
           updatedAt: now,
           updatedBy: req.user!.name
         };
       });
 
+      const createdHistoryByTicketId = new Map<string, any>();
       targets.forEach(t => {
-        db.assignmentHistory.unshift({
+        const hadPrev = Boolean(t.installerId || t.installerUid || (t.installerName && t.installerName.trim() && t.installerName.trim().toLowerCase() !== 'unassigned'));
+        const histEntry = {
           id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
           woNumber: t.woNumber || woNumber || t.id,
           ticketId: t.id,
+          previousInstallerName: t.installerName || null,
           newInstallerName: targetInstaller.name,
           newInstallerId: targetInstaller.id,
           leaderName: req.user!.name,
           leaderId: req.user!.id,
           contractorName: req.user!.contractor || t.contactorName || t.contractorName || 'MoraJaws Partner',
           timestamp: now,
-          reason: reason || 'Penugasan awal oleh Leader',
+          reason: reason || (hadPrev ? 'Pengalihan teknisi oleh Leader' : 'Penugasan awal oleh Leader'),
           previousStatus: t.statusWOInstaller || 'Unassigned',
           newStatus: 'Assigned',
-          sourceAction: 'initial_assignment'
-        });
+          sourceAction: hadPrev ? 'reassign' : 'initial_assignment'
+        };
+        db.assignmentHistory.unshift(histEntry);
+        createdHistoryByTicketId.set(String(t.id), histEntry);
       });
 
       saveDatabaseToDisk();
 
       targets.forEach(t => {
         const updated = db.tickets.find(item => item.id === t.id);
+        const prevSnap = prevSnapshotMap.get(String(t.id)) || t;
+        const histEntry = createdHistoryByTicketId.get(String(t.id));
         if (updated) {
-          broadcastSupabaseChange('work_orders', 'UPDATE', updated, { previousRecord: t });
-          void triggerWoAssignedInstallerNotification({
+          broadcastSupabaseChange('work_orders', 'UPDATE', updated, { previousRecord: prevSnap });
+          void dispatchWoAssignmentChangeNotification({
             ticket: updated,
-            installerUser: targetInstaller,
+            previousTicket: prevSnap,
+            newInstallerUser: targetInstaller,
             leaderName: req.user!.name,
-            assignmentEventId: String(updated.updatedAt || now),
+            reason: histEntry?.reason,
+            changedAt: now,
+            eventId: String(histEntry?.id || updated.updatedAt || now),
             users: db.users
           }).catch(() => {});
         }
@@ -5673,19 +5696,22 @@ export async function createExpressApp(options?: {
           });
         }
       } else {
+        const resolvedNewLabel = reassignRes.data?.workOrder?.installerName || effNewInstName || effNewInstId || 'Teknisi Baru';
         if (reassignRes.data?.workOrder) {
           broadcastSupabaseChange('work_orders', 'UPDATE', reassignRes.data.workOrder, {
             previousRecord: prevWorkOrderSnapshot
           });
-          void triggerWoReassignedNotifications({
+          void dispatchWoAssignmentChangeNotification({
             ticket: reassignRes.data.workOrder,
+            previousTicket: prevWorkOrderSnapshot,
             previousInstallerId: prevWorkOrderSnapshot?.installerId || prevWorkOrderSnapshot?.installerUid || null,
             previousInstallerName: prevWorkOrderSnapshot?.installerName || previousInstallerName || null,
-            newInstallerName: reassignRes.data.workOrder.installerName || newInstallerName.trim(),
+            newInstallerId: reassignRes.data.workOrder.installerId || effNewInstId || null,
+            newInstallerName: resolvedNewLabel,
             leaderName: req.user!.name,
             reason: reason.trim(),
             changedAt: now,
-            reassignEventId: String(reassignRes.data.history?.id || now)
+            eventId: String(reassignRes.data.history?.id || now)
           }).catch(() => {});
         }
         const assignedWoNumber = reassignRes.data?.workOrder?.woNumber || woNumber || ticketId;
@@ -5693,14 +5719,14 @@ export async function createExpressApp(options?: {
           'WO Reassigned by Leader',
           'assignment',
           assignedWoNumber,
-          `Leader ${req.user!.name} mereassign WO ${assignedWoNumber} dari "${previousInstallerName || '-'}" ke "${newInstallerName.trim()}". Alasan: ${reason.trim()}`,
+          `Leader ${req.user!.name} mereassign WO ${assignedWoNumber} dari "${previousInstallerName || prevWorkOrderSnapshot?.installerName || '-'}" ke "${resolvedNewLabel}". Alasan: ${reason.trim()}`,
           req.user
         );
 
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
-            message: `Work Order ${assignedWoNumber} berhasil dialihkan ke teknisi ${newInstallerName.trim()}.`,
+            message: `Work Order ${assignedWoNumber} berhasil dialihkan ke teknisi ${resolvedNewLabel}.`,
             historyEntry: reassignRes.data?.history,
             workOrder: reassignRes.data?.workOrder,
             reassignedAt: now,
@@ -5756,9 +5782,13 @@ export async function createExpressApp(options?: {
       targetTicket.installerName = targetInstaller.name;
       targetTicket.installerId = targetInstaller.id;
       targetTicket.installerUid = targetInstaller.id;
+      targetTicket.installerEmail = targetInstaller.email || targetInstaller.altEmail || targetTicket.installerEmail;
       targetTicket.assignedTo = targetInstaller.name;
       targetTicket.assignedToUid = targetInstaller.id;
       targetTicket.statusWOInstaller = preservedStatus;
+      targetTicket.reassignedAt = now;
+      targetTicket.reassignedBy = req.user!.name;
+      targetTicket.reassignmentReason = reason.trim();
       targetTicket.updatedAt = now;
       targetTicket.updatedBy = req.user!.name;
 
@@ -5766,7 +5796,7 @@ export async function createExpressApp(options?: {
         id: 'hist_reassign_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         woNumber: targetTicket.woNumber || woNumber || ticketId,
         ticketId: targetTicket.id || ticketId || woNumber,
-        previousInstallerName: prevInstallerSnapshot,
+        previousInstallerName: prevTicketSnapshot.installerName || previousInstallerName?.trim() || null,
         newInstallerName: targetInstaller.name,
         newInstallerId: targetInstaller.id,
         leaderName: req.user!.name,
@@ -5776,22 +5806,23 @@ export async function createExpressApp(options?: {
         reason: reason.trim(),
         previousStatus: prevStatusSnapshot,
         newStatus: preservedStatus,
-        sourceAction: 'reassign'
+        sourceAction: (prevTicketSnapshot.installerId || prevTicketSnapshot.installerName) ? 'reassign' : 'initial_assignment'
       };
       db.assignmentHistory.unshift(localHist);
       saveDatabaseToDisk();
 
       broadcastSupabaseChange('work_orders', 'UPDATE', targetTicket, { previousRecord: prevTicketSnapshot });
 
-      void triggerWoReassignedNotifications({
+      void dispatchWoAssignmentChangeNotification({
         ticket: targetTicket,
+        previousTicket: prevTicketSnapshot,
         previousInstallerId: prevTicketSnapshot.installerId || prevTicketSnapshot.installerUid || null,
         previousInstallerName: prevTicketSnapshot.installerName || previousInstallerName || null,
         newInstallerUser: targetInstaller,
         leaderName: req.user!.name,
         reason: reason.trim(),
         changedAt: now,
-        reassignEventId: localHist.id,
+        eventId: localHist.id,
         users: db.users
       }).catch(() => {});
 
@@ -13983,20 +14014,25 @@ export async function createExpressApp(options?: {
       } else {
         const assignedWo = assignRes.data?.workOrder;
         const woNumber = assignedWo?.woNumber || id;
+        const resolvedLabel = assignedWo?.installerName || effInstallerInput;
         if (assignedWo) {
           broadcastSupabaseChange('work_orders', 'UPDATE', assignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
-          void triggerWoAssignedInstallerNotification({
+          void dispatchWoAssignmentChangeNotification({
             ticket: assignedWo,
-            installerName: assignedWo.installerName || installerName.trim(),
+            previousTicket: prevWoSnapshot,
+            newInstallerId: assignedWo.installerId || installerId || null,
+            newInstallerName: resolvedLabel,
             leaderName: req.user!.name,
-            assignmentEventId: String(assignRes.data?.history?.id || assignedWo.assignedAt || now)
+            reason: reason || 'Penugasan oleh Leader',
+            changedAt: now,
+            eventId: String(assignRes.data?.history?.id || assignedWo.assignedAt || now)
           }).catch(() => {});
         }
-        await logServerAuditAsync('Work Order Assigned', 'work_order', woNumber, `WO ${woNumber} ditugaskan ke teknisi ${installerName.trim()}`, req.user);
+        await logServerAuditAsync('Work Order Assigned', 'work_order', woNumber, `WO ${woNumber} ditugaskan ke teknisi ${resolvedLabel}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
-            message: `Work Order berhasil ditugaskan ke teknisi ${installerName.trim()}`,
+            message: `Work Order berhasil ditugaskan ke teknisi ${resolvedLabel}`,
             workOrder: assignedWo,
             history: assignRes.data?.history
           });
@@ -14024,43 +14060,57 @@ export async function createExpressApp(options?: {
       }
 
       const prevSnapshot = { ...target };
+      const hadPrev = Boolean(prevSnapshot.installerId || prevSnapshot.installerUid || (prevSnapshot.installerName && prevSnapshot.installerName.trim().toLowerCase() !== 'unassigned'));
       const updates: Partial<Ticket> = {
         installerName: targetInstaller.name,
         installerId: targetInstaller.id,
         installerUid: targetInstaller.id,
+        installerEmail: targetInstaller.email || targetInstaller.altEmail || target.installerEmail,
         assignedTo: targetInstaller.name,
         assignedToUid: targetInstaller.id,
         slotTime: slotTime || target.slotTime,
         statusWOInstaller: target.checkInAt ? target.statusWOInstaller : 'Assigned',
         remarksWOInstaller: remarks ? (target.remarksWOInstaller ? `${target.remarksWOInstaller}; ${remarks}` : remarks) : target.remarksWOInstaller,
+        assignedAt: now,
+        assignedBy: req.user!.name,
         updatedAt: now,
         updatedBy: req.user!.name
       };
 
       Object.assign(target, updates);
-      db.assignmentHistory.push({
-        id: 'h-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      const localHist = {
+        id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         ticketId: target.id,
         woNumber: target.woNumber,
-        action: 'assign',
+        previousInstallerName: prevSnapshot.installerName || null,
+        newInstallerName: targetInstaller.name,
+        newInstallerId: targetInstaller.id,
+        leaderName: req.user!.name,
+        leaderId: req.user!.id,
+        contractorName: req.user!.contractor || target.contactorName || target.contractorName || 'MoraJaws Partner',
         timestamp: now,
-        performedBy: req.user!.name,
-        role: req.user!.role,
-        assignedTo: targetInstaller.name,
+        reason: reason || (hadPrev ? 'Pengalihan teknisi oleh Leader' : 'Penugasan awal oleh Leader'),
+        previousStatus: prevSnapshot.statusWOInstaller || 'Unassigned',
+        newStatus: updates.statusWOInstaller || 'Assigned',
+        sourceAction: hadPrev ? 'reassign' : 'initial_assignment',
         slotTime: updates.slotTime || '',
         notes: remarks || ''
-      });
+      };
+      db.assignmentHistory.unshift(localHist);
       saveDatabaseToDisk();
       broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
-      void triggerWoAssignedInstallerNotification({
+      void dispatchWoAssignmentChangeNotification({
         ticket: target,
-        installerUser: targetInstaller,
+        previousTicket: prevSnapshot,
+        newInstallerUser: targetInstaller,
         leaderName: req.user!.name,
-        assignmentEventId: now,
+        reason: localHist.reason,
+        changedAt: now,
+        eventId: localHist.id,
         users: db.users
       }).catch(() => {});
       await logServerAuditAsync('Work Order Assigned', 'work_order', target.woNumber, `WO ${target.woNumber} ditugaskan ke teknisi ${targetInstaller.name}`, req.user);
-      return res.json({ success: true, message: `Work Order berhasil ditugaskan ke teknisi ${targetInstaller.name}`, workOrder: target });
+      return res.json({ success: true, message: `Work Order berhasil ditugaskan ke teknisi ${targetInstaller.name}`, workOrder: target, history: localHist });
     }
 
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
@@ -14118,24 +14168,27 @@ export async function createExpressApp(options?: {
       } else {
         const reassignedWo = reassignRes.data?.workOrder;
         const woNumber = reassignedWo?.woNumber || id;
+        const resolvedLabel = reassignedWo?.installerName || effNewInstName || effNewInstId || 'Teknisi Baru';
         if (reassignedWo) {
           broadcastSupabaseChange('work_orders', 'UPDATE', reassignedWo, prevWoSnapshot ? { previousRecord: prevWoSnapshot } : undefined);
-          void triggerWoReassignedNotifications({
+          void dispatchWoAssignmentChangeNotification({
             ticket: reassignedWo,
+            previousTicket: prevWoSnapshot,
             previousInstallerId: prevWoSnapshot?.installerId || prevWoSnapshot?.installerUid || null,
             previousInstallerName: prevWoSnapshot?.installerName || null,
-            newInstallerName: reassignedWo.installerName || newInstallerName.trim(),
+            newInstallerId: reassignedWo.installerId || effNewInstId || null,
+            newInstallerName: resolvedLabel,
             leaderName: req.user!.name,
             reason: reason.trim(),
             changedAt: now,
-            reassignEventId: String(reassignRes.data?.history?.id || now)
+            eventId: String(reassignRes.data?.history?.id || now)
           }).catch(() => {});
         }
-        await logServerAuditAsync('Work Order Reassigned', 'work_order', woNumber, `WO ${woNumber} dialihkan ke ${newInstallerName.trim()}. Alasan: ${reason.trim()}`, req.user);
+        await logServerAuditAsync('Work Order Reassigned', 'work_order', woNumber, `WO ${woNumber} dialihkan ke ${resolvedLabel}. Alasan: ${reason.trim()}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
-            message: `Work Order berhasil dialihkan ke ${newInstallerName.trim()}`,
+            message: `Work Order berhasil dialihkan ke ${resolvedLabel}`,
             workOrder: reassignedWo,
             history: reassignRes.data?.history
           });
@@ -14168,41 +14221,51 @@ export async function createExpressApp(options?: {
         installerName: targetInstaller.name,
         installerId: targetInstaller.id,
         installerUid: targetInstaller.id,
+        installerEmail: targetInstaller.email || targetInstaller.altEmail || target.installerEmail,
         assignedTo: targetInstaller.name,
         assignedToUid: targetInstaller.id,
         statusWOInstaller: target.checkInAt ? target.statusWOInstaller : 'Assigned',
+        reassignedAt: now,
+        reassignedBy: req.user!.name,
+        reassignmentReason: reason.trim(),
         updatedAt: now,
         updatedBy: req.user!.name
       };
 
       Object.assign(target, updates);
-      db.assignmentHistory.push({
-        id: 'h-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      const localHist = {
+        id: 'hist_reassign_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         ticketId: target.id,
         woNumber: target.woNumber,
-        action: 'reassign',
+        previousInstallerName: prevSnapshot.installerName || null,
+        newInstallerName: targetInstaller.name,
+        newInstallerId: targetInstaller.id,
+        leaderName: req.user!.name,
+        leaderId: req.user!.id,
+        contractorName: req.user!.contractor || target.contactorName || target.contractorName || 'Mitra Lapangan',
         timestamp: now,
-        performedBy: req.user!.name,
-        role: req.user!.role,
-        assignedTo: targetInstaller.name,
-        slotTime: target.slotTime || '',
-        notes: reason.trim()
-      });
+        reason: reason.trim(),
+        previousStatus: prevSnapshot.statusWOInstaller || 'Assigned',
+        newStatus: updates.statusWOInstaller || 'Assigned',
+        sourceAction: (prevSnapshot.installerId || prevSnapshot.installerName) ? 'reassign' : 'initial_assignment'
+      };
+      db.assignmentHistory.unshift(localHist);
       saveDatabaseToDisk();
       broadcastSupabaseChange('work_orders', 'UPDATE', target, { previousRecord: prevSnapshot });
-      void triggerWoReassignedNotifications({
+      void dispatchWoAssignmentChangeNotification({
         ticket: target,
+        previousTicket: prevSnapshot,
         previousInstallerId: prevSnapshot.installerId || prevSnapshot.installerUid || null,
         previousInstallerName: prevSnapshot.installerName || null,
         newInstallerUser: targetInstaller,
         leaderName: req.user!.name,
         reason: reason.trim(),
         changedAt: now,
-        reassignEventId: now,
+        eventId: localHist.id,
         users: db.users
       }).catch(() => {});
       await logServerAuditAsync('Work Order Reassigned', 'work_order', target.woNumber, `WO ${target.woNumber} dialihkan dari ${prevName} ke ${targetInstaller.name}. Alasan: ${reason}`, req.user);
-      return res.json({ success: true, message: `Work Order berhasil dialihkan dari ${prevName} ke ${targetInstaller.name}`, workOrder: target });
+      return res.json({ success: true, message: `Work Order berhasil dialihkan dari ${prevName} ke ${targetInstaller.name}`, workOrder: target, history: localHist });
     }
 
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
@@ -15096,7 +15159,9 @@ export async function createExpressApp(options?: {
     if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
       return res.status(400).json({ success: false, error: 'Daftar ID Work Order wajib dipilih minimal 1 tiket.', code: 'INVALID_ID' });
     }
-    if (!newInstallerName || !String(newInstallerName).trim()) {
+    const cleanTargetName = String(newInstallerName || '').trim();
+    const cleanTargetId = String(newInstallerId || '').trim();
+    if (!cleanTargetName && !cleanTargetId) {
       return res.status(400).json({ success: false, error: 'Teknisi tujuan baru wajib dipilih.', code: 'INVALID_INPUT' });
     }
     if (!reason || String(reason).trim().length < 5) {
@@ -15111,7 +15176,6 @@ export async function createExpressApp(options?: {
     }
 
     const cleanReason = String(reason).trim();
-    const cleanTargetName = String(newInstallerName).trim();
     const now = new Date().toISOString();
     const reassigned: any[] = [];
     const failed: Array<{ id: string; error: string; code?: string }> = [];
@@ -15127,8 +15191,8 @@ export async function createExpressApp(options?: {
         }
         const r = await reassignTicketInSupabase({
           workOrderIdOrWoNumber: key,
-          newInstallerName: cleanTargetName,
-          newInstallerId: newInstallerId ? String(newInstallerId).trim() : undefined,
+          newInstallerName: cleanTargetName || undefined,
+          newInstallerId: cleanTargetId || undefined,
           reason: cleanReason,
           contractorName: user.contractor,
           performedBy: user.name,
@@ -15153,12 +15217,18 @@ export async function createExpressApp(options?: {
       }
     } else if (isLocalJsonModeAllowed()) {
       const targetInstaller = db.users.find(
-        u => u.role === 'installer' && !u.isDeleted && u.active !== false && u.name.trim().toLowerCase() === cleanTargetName.toLowerCase()
+        u =>
+          u.role === 'installer' &&
+          !u.isDeleted &&
+          u.active !== false &&
+          ((cleanTargetId && u.id === cleanTargetId) ||
+            (cleanTargetName && u.name.trim().toLowerCase() === cleanTargetName.toLowerCase()) ||
+            (cleanTargetName && u.username.trim().toLowerCase() === cleanTargetName.toLowerCase()))
       );
       if (!targetInstaller || !isLeaderAllowedToManageInstaller(user, targetInstaller)) {
         return res.status(403).json({
           success: false,
-          error: `Teknisi "${cleanTargetName}" tidak aktif atau di luar cakupan Contractor Anda.`,
+          error: `Teknisi "${cleanTargetName || cleanTargetId}" tidak aktif atau di luar cakupan Contractor Anda.`,
           code: 'SCOPE_MISMATCH'
         });
       }
@@ -15174,16 +15244,20 @@ export async function createExpressApp(options?: {
           continue;
         }
         prevSnapshotMap.set(String(ticket.id), { ...ticket });
-        const prevInstallerSnapshot = ticket.installerName || 'Unassigned';
+        const prevInstallerSnapshot = ticket.installerName || null;
         const prevStatusSnapshot = ticket.statusWOInstaller || 'Assigned';
         const preservedStatus = ticket.checkInAt ? ticket.statusWOInstaller : 'Assigned';
 
         ticket.installerName = targetInstaller.name;
         ticket.installerId = targetInstaller.id;
         ticket.installerUid = targetInstaller.id;
+        ticket.installerEmail = targetInstaller.email || targetInstaller.altEmail || ticket.installerEmail;
         ticket.assignedTo = targetInstaller.name;
         ticket.assignedToUid = targetInstaller.id;
         ticket.statusWOInstaller = preservedStatus;
+        ticket.reassignedAt = now;
+        ticket.reassignedBy = user.name;
+        ticket.reassignmentReason = cleanReason;
         ticket.updatedAt = now;
         ticket.updatedBy = user.name;
 
@@ -15201,7 +15275,7 @@ export async function createExpressApp(options?: {
           reason: cleanReason,
           previousStatus: prevStatusSnapshot,
           newStatus: preservedStatus,
-          sourceAction: 'reassign'
+          sourceAction: prevInstallerSnapshot ? 'reassign' : 'initial_assignment'
         };
         db.assignmentHistory.unshift(histEntry);
         reassigned.push({ workOrder: ticket, historyEntry: histEntry });
@@ -15209,28 +15283,31 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
+    const resolvedBulkLabel = reassigned[0]?.workOrder?.installerName || cleanTargetName || cleanTargetId;
     if (reassigned.length > 0) {
       const woLabels = reassigned.map(item => item.workOrder?.woNumber || item.workOrder?.id).join(', ');
       await logServerAuditAsync(
         'Bulk WO Reassigned by Leader',
         'assignment',
         woLabels.slice(0, 120),
-        `Leader ${user.name} melakukan Bulk Reassign ${reassigned.length} WO ke teknisi ${cleanTargetName}. Alasan: ${cleanReason}`,
+        `Leader ${user.name} melakukan Bulk Reassign ${reassigned.length} WO ke teknisi ${resolvedBulkLabel}. Alasan: ${cleanReason}`,
         user
       );
       for (const item of reassigned) {
         if (item.workOrder) {
           const prevSnap = prevSnapshotMap.get(String(item.workOrder.id));
           broadcastSupabaseChange('work_orders', 'UPDATE', item.workOrder, prevSnap ? { previousRecord: prevSnap } : undefined);
-          void triggerWoReassignedNotifications({
+          void dispatchWoAssignmentChangeNotification({
             ticket: item.workOrder,
+            previousTicket: prevSnap,
             previousInstallerId: prevSnap?.installerId || prevSnap?.installerUid || null,
             previousInstallerName: prevSnap?.installerName || item.historyEntry?.previousInstallerName || null,
-            newInstallerName: item.workOrder.installerName || cleanTargetName,
+            newInstallerId: item.workOrder.installerId || cleanTargetId || null,
+            newInstallerName: item.workOrder.installerName || resolvedBulkLabel,
             leaderName: user.name,
             reason: cleanReason,
             changedAt: now,
-            reassignEventId: String(item.historyEntry?.id || now)
+            eventId: String(item.historyEntry?.id || now)
           }).catch(() => {});
         }
       }
@@ -15252,7 +15329,7 @@ export async function createExpressApp(options?: {
       count: reassigned.length,
       reassigned,
       failed,
-      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${cleanTargetName}${failed.length > 0 ? ` (${failed.length} gagal)` : ''}.`
+      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${resolvedBulkLabel}${failed.length > 0 ? ` (${failed.length} gagal)` : ''}.`
     });
   });
 
@@ -16511,9 +16588,11 @@ export async function createExpressApp(options?: {
     }
   });
 
-  app.post('/api/email-notifications/test-connection', requireSuperAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+  app.post('/api/email-notifications/test-connection', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const result = await testSmtpProviderConnection();
+      const result = await testSmtpProviderConnection(
+        req.user ? { id: req.user.id, name: req.user.name, role: req.user.role } : undefined
+      );
       const providerHealth = await getEmailProviderHealth();
       return res.status(result.success ? 200 : 400).json({ ...result, providerHealth });
     } catch (err: any) {

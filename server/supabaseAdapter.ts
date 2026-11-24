@@ -560,6 +560,10 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     leader_name: ticket.leaderName || null,
     corlap_name: ticket.corlapName || null,
     corlap_contact: ticket.corlapContact || null,
+    installer_id: ticket.installerId || null,
+    installer_uid: ticket.installerUid || ticket.installerId || null,
+    assigned_to: ticket.assignedTo || ticket.installerName || null,
+    assigned_to_uid: ticket.assignedToUid || ticket.installerId || null,
     installer_name: ticket.installerName || null,
     installer_contact: ticket.installerContact || null,
     installer_contact2: ticket.installerContact2 || null,
@@ -1885,6 +1889,18 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
     }
     if (updates.corlapContact !== undefined || updates.corlap_contact !== undefined) {
       updateRow.corlap_contact = updates.corlapContact ?? updates.corlap_contact;
+    }
+    if (updates.installerId !== undefined || updates.installer_id !== undefined) {
+      updateRow.installer_id = updates.installerId ?? updates.installer_id;
+    }
+    if (updates.installerUid !== undefined || updates.installer_uid !== undefined) {
+      updateRow.installer_uid = updates.installerUid ?? updates.installer_uid;
+    }
+    if (updates.assignedTo !== undefined || updates.assigned_to !== undefined) {
+      updateRow.assigned_to = updates.assignedTo ?? updates.assigned_to;
+    }
+    if (updates.assignedToUid !== undefined || updates.assigned_to_uid !== undefined) {
+      updateRow.assigned_to_uid = updates.assignedToUid ?? updates.assigned_to_uid;
     }
     if (updates.installerName !== undefined || updates.installer_name !== undefined) {
       updateRow.installer_name = updates.installerName ?? updates.installer_name;
@@ -4625,6 +4641,8 @@ export async function assignTicketInSupabase(
 
   const woUpdates: Record<string, any> = {
     installerName: resolvedInstallerName,
+    installerEmail: matchedInstaller.email || matchedInstaller.altEmail || null,
+    installerContact: matchedInstaller.phone || targetWO.installerContact || null,
     ...(resolvedInstallerId ? {
       installerId: resolvedInstallerId,
       installerUid: resolvedInstallerId,
@@ -4937,6 +4955,8 @@ export async function reassignTicketInSupabase(
 
   const woUpdates: Record<string, any> = {
     installerName: resolvedNewInstallerName,
+    installerEmail: matchedInstaller.email || matchedInstaller.altEmail || null,
+    installerContact: matchedInstaller.phone || targetTicket.installerContact || null,
     ...(resolvedNewInstallerId ? {
       installerId: resolvedNewInstallerId,
       installerUid: resolvedNewInstallerId,

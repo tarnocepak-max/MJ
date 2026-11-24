@@ -16,6 +16,8 @@ import {
   type EmailTemplateConfig,
   type EmailTemplateKey,
   type EmailTemplateRenderContext,
+  escapeHtml,
+  formatIndonesianTimestampWIB,
   getDefaultEmailTemplates,
   getDemoContextForTemplate,
   renderEmailTemplate,
@@ -108,6 +110,7 @@ export interface EmailProviderHealth {
   envReplyToConfigured: boolean;
   resolvedFromPreview: string;
   resolvedReplyToPreview: string;
+  resolvedSenderEmail: string;
   ready: boolean;
   dedicatedTablesReady: boolean;
   statusMessage: string;
@@ -154,6 +157,7 @@ let cachedConfig: EmailNotificationConfig | null = null;
 let cachedTemplates: Record<EmailTemplateKey, EmailTemplateConfig> | null = null;
 let dedicatedTablesMissing = false;
 let isWorkerProcessing = false;
+let workerDrainRequested = false;
 let lastDailySummaryRunDateWIB: string | null = null;
 let lastDailyResetTriggerDateWIB: string | null = null;
 let cachedSmtpTransporter: Transporter | null = null;
@@ -285,6 +289,24 @@ function formatFromHeader(cfg: EmailNotificationConfig): string {
   return `${displayName} <${email}>`;
 }
 
+function resolveSenderSelfEmail(cfg: EmailNotificationConfig): string {
+  const smtp = resolveSmtpRuntimeConfig();
+  const envFromEmail = smtp.envFrom.includes('<')
+    ? (smtp.envFrom.match(/<([^>]+)>/)?.[1] || '').trim()
+    : smtp.envFrom;
+  if (isValidEmailAddress(envFromEmail) && !envFromEmail.toLowerCase().endsWith('.local')) {
+    return envFromEmail;
+  }
+  const cfgSender = String(cfg.senderEmail || '').trim();
+  if (isValidEmailAddress(cfgSender) && !cfgSender.toLowerCase().endsWith('.local')) {
+    return cfgSender;
+  }
+  if (isValidEmailAddress(smtp.user)) {
+    return smtp.user;
+  }
+  return '';
+}
+
 function resolveReplyToAddress(cfg: EmailNotificationConfig): string | undefined {
   const smtp = resolveSmtpRuntimeConfig();
   if (isValidEmailAddress(smtp.envReplyTo)) return smtp.envReplyTo;
@@ -303,6 +325,7 @@ export async function getEmailProviderHealth(): Promise<EmailProviderHealth> {
   const replyToResolved = resolveReplyToAddress(cfg) || '';
   const envReplyToConfigured = Boolean(smtp.envReplyTo || cfg.replyToEmail || replyToResolved);
   const resolvedFrom = formatFromHeader(cfg);
+  const resolvedSenderEmail = resolveSenderSelfEmail(cfg);
 
   let dedicatedTablesReady = false;
   if (isSupabaseConfigured()) {
@@ -334,6 +357,7 @@ export async function getEmailProviderHealth(): Promise<EmailProviderHealth> {
     envReplyToConfigured,
     resolvedFromPreview: resolvedFrom,
     resolvedReplyToPreview: replyToResolved || '-',
+    resolvedSenderEmail,
     ready: smtpUserConfigured && smtpPassConfigured,
     dedicatedTablesReady,
     statusMessage
@@ -393,7 +417,12 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
     return cachedConfig;
   }
 
-  cachedConfig = normalizeEmailConfig(DEFAULT_CONFIG);
+  const smtp = resolveSmtpRuntimeConfig();
+  const smtpReady = (isValidEmailAddress(smtp.user) || smtp.user.length > 0) && smtp.pass.length >= 4;
+  cachedConfig = normalizeEmailConfig({
+    ...DEFAULT_CONFIG,
+    enabled: smtpReady ? true : DEFAULT_CONFIG.enabled
+  });
   return cachedConfig;
 }
 
@@ -761,6 +790,7 @@ async function sendViaGmailSmtp(params: {
 }): Promise<{
   ok: boolean;
   messageId?: string;
+  providerResponse?: string;
   httpStatus: number;
   retryable: boolean;
   errorCode?: string;
@@ -792,9 +822,11 @@ async function sendViaGmailSmtp(params: {
     });
 
     const msgId = String(info?.messageId || '').trim() || `smtp_${Date.now()}`;
+    const providerResponse = redactSmtpSecret(String(info?.response || '250 OK'), smtp.pass).slice(0, 300);
     return {
       ok: true,
       messageId: msgId,
+      providerResponse,
       httpStatus: 250,
       retryable: false
     };
@@ -810,36 +842,184 @@ async function sendViaGmailSmtp(params: {
   }
 }
 
-export async function testSmtpProviderConnection(): Promise<{
+export async function testSmtpProviderConnection(actor?: {
+  id?: string;
+  name?: string;
+  role?: string;
+}): Promise<{
   success: boolean;
   statusCode: number;
   message: string;
+  recipientEmail?: string;
+  providerMessageId?: string;
+  errorCode?: string;
 }> {
   const smtp = resolveSmtpRuntimeConfig();
   if (!smtp.user || !smtp.pass) {
     return {
       success: false,
       statusCode: 0,
+      errorCode: 'SMTP_CREDENTIALS_MISSING',
       message: 'SMTP_USER dan SMTP_PASS belum terpasang di secrets environment server.'
+    };
+  }
+
+  const cfg = await getEmailNotificationConfig();
+  const senderSelfEmail = resolveSenderSelfEmail(cfg);
+  if (!isValidEmailAddress(senderSelfEmail)) {
+    return {
+      success: false,
+      statusCode: 0,
+      errorCode: 'INVALID_SENDER_EMAIL',
+      message: 'Alamat email pengirim (EMAIL_FROM / Sender Email / SMTP_USER) belum valid untuk menerima email uji koneksi.'
     };
   }
 
   try {
     const transporter = getOrCreateSmtpTransporter();
     await transporter.verify();
-    return {
-      success: true,
-      statusCode: 250,
-      message: `Koneksi Gmail SMTP (${smtp.host}:${smtp.port}, ${smtp.secure ? 'SSL/TLS' : 'STARTTLS'}) terverifikasi untuk ${smtp.user}.`
-    };
   } catch (err: any) {
     const classified = classifySmtpError(err, smtp.pass);
     return {
       success: false,
       statusCode: Number(err?.responseCode || 0),
+      recipientEmail: senderSelfEmail,
+      errorCode: classified.errorCode,
       message: `Gagal verifikasi Gmail SMTP (${smtp.host}:${smtp.port}): ${classified.errorMessage}`
     };
   }
+
+  const fromHeader = formatFromHeader(cfg);
+  const replyToHeader = resolveReplyToAddress(cfg);
+  const encryptionMode = smtp.secure ? 'SSL/TLS' : 'STARTTLS';
+  const nowIso = new Date().toISOString();
+  const timestampWib = formatIndonesianTimestampWIB(nowIso);
+  const actorLabel = sanitizeTemplateText(actor?.name || cfg.senderName || 'Superadmin') || 'Superadmin';
+  const appBaseUrl = resolveSafeHttpsBaseUrl();
+  const subject = `[MoraJaws] Test Connection Gmail SMTP Berhasil — ${timestampWib}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0e071c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#f3e8ff;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0e071c;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#190e30;border:1px solid #3c1f6e;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="padding:20px 24px;background:linear-gradient(135deg,#35105e 0%,#58149c 100%);border-bottom:1px solid #4c2387;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#d8b4fe;">MoraJaws Email Notification Center</div>
+              <div style="font-size:18px;font-weight:800;color:#ffffff;margin-top:4px;">Verifikasi Koneksi Gmail SMTP Berhasil</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:22px 24px;font-size:13px;line-height:1.6;color:#e9d5ff;">
+              <p style="margin:0 0 12px 0;">Halo <strong>${escapeHtml(actorLabel)}</strong>,</p>
+              <p style="margin:0 0 16px 0;">Email ini dikirim otomatis oleh fitur <strong>Test Connection</strong> ke alamat email pengirim sendiri untuk memastikan konfigurasi Gmail SMTP MoraJaws terhubung, terautentikasi, dan siap mengirim notifikasi operasional.</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#120924;border:1px solid #35105e;border-radius:12px;">
+                <tr>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#c4b5fd;font-size:12px;width:40%;">SMTP Host &amp; Port</td>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#ffffff;font-size:12px;font-weight:700;">${escapeHtml(`${smtp.host}:${smtp.port}`)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#c4b5fd;font-size:12px;">Enkripsi</td>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#6ee7b7;font-size:12px;font-weight:700;">${escapeHtml(encryptionMode)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#c4b5fd;font-size:12px;">Pengirim &amp; Tujuan Tes</td>
+                  <td style="padding:10px 14px;border-bottom:1px solid #2b134d;color:#ffffff;font-size:12px;font-weight:700;">${escapeHtml(senderSelfEmail)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 14px;color:#c4b5fd;font-size:12px;">Waktu Pengujian (WIB)</td>
+                  <td style="padding:10px 14px;color:#ffffff;font-size:12px;font-weight:700;">${escapeHtml(timestampWib)}</td>
+                </tr>
+              </table>
+              <div style="margin-top:20px;text-align:center;">
+                <a href="${escapeHtml(appBaseUrl)}" style="display:inline-block;padding:10px 20px;background-color:#7c3aed;color:#ffffff;text-decoration:none;font-weight:700;font-size:12px;border-radius:10px;">Buka MoraJaws</a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 24px;background-color:#120924;border-top:1px solid #2b134d;font-size:11px;color:#a78bfa;text-align:center;">
+              MoraJaws Operations &amp; Dispatch System · Automated SMTP Verification
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    'MoraJaws — Verifikasi Koneksi Gmail SMTP (Test Connection)',
+    '',
+    `Halo ${actorLabel},`,
+    'Email percobaan ini dikirim ke alamat email pengirim sendiri untuk memverifikasi konfigurasi Gmail SMTP MoraJaws.',
+    '',
+    `SMTP Host & Port : ${smtp.host}:${smtp.port}`,
+    `Enkripsi         : ${encryptionMode}`,
+    `Alamat Tujuan    : ${senderSelfEmail}`,
+    `Waktu (WIB)      : ${timestampWib}`,
+    `Portal MoraJaws  : ${appBaseUrl}`
+  ].join('\n');
+
+  const eventKey = `test_connection:${Date.now()}`;
+  const sendRes = await sendViaGmailSmtp({
+    from: fromHeader,
+    to: senderSelfEmail,
+    replyTo: replyToHeader,
+    subject,
+    html,
+    text,
+    idempotencyKey: eventKey
+  });
+
+  await appendDeliveryLog({
+    eventKey,
+    notificationType: 'test_email',
+    recipientUserId: actor?.id || null,
+    recipientEmail: senderSelfEmail,
+    recipientName: actorLabel,
+    recipientRole: actor?.role || 'super_admin',
+    subject,
+    deliveryStatus: sendRes.ok ? 'sent' : 'failed',
+    providerMessageId: sendRes.messageId,
+    errorMessage: sendRes.errorMessage,
+    metadata: {
+      kind: 'test_connection_self_email',
+      smtpHost: smtp.host,
+      smtpPort: smtp.port,
+      encryption: encryptionMode
+    }
+  });
+
+  await persistenceHooks?.writeAuditLog?.(
+    'SMTP Test Connection Executed',
+    'email_notification_settings',
+    sendRes.ok
+      ? `Test Connection Gmail SMTP berhasil & email verifikasi terkirim ke ${senderSelfEmail} (Message ID: ${sendRes.messageId})`
+      : `Test Connection Gmail SMTP ke ${senderSelfEmail} gagal: ${sendRes.errorMessage || 'Unknown error'}`,
+    actor
+  );
+
+  if (!sendRes.ok) {
+    return {
+      success: false,
+      statusCode: sendRes.httpStatus,
+      recipientEmail: senderSelfEmail,
+      errorCode: sendRes.errorCode || 'SMTP_TEST_SEND_FAILED',
+      message: `Handshake SMTP (${smtp.host}:${smtp.port}) berhasil, namun pengiriman email percobaan ke ${senderSelfEmail} gagal: ${sendRes.errorMessage || 'Error tidak diketahui.'}`
+    };
+  }
+
+  return {
+    success: true,
+    statusCode: 250,
+    recipientEmail: senderSelfEmail,
+    providerMessageId: sendRes.messageId,
+    message: `Koneksi Gmail SMTP (${smtp.host}:${smtp.port}, ${encryptionMode}) terverifikasi & email percobaan berhasil dikirim ke ${senderSelfEmail} (Message ID: ${sendRes.messageId}).`
+  };
 }
 
 export const testResendProviderConnection = testSmtpProviderConnection;
@@ -907,6 +1087,7 @@ async function enqueueEmailItem(params: {
   relatedTicketId?: string | null;
   relatedWoNumber?: string | null;
   context: EmailTemplateRenderContext;
+  metadata?: Record<string, any>;
 }): Promise<{ enqueued: boolean; deduped?: boolean; skipped?: boolean; queueId?: string }> {
   const cfg = await getEmailNotificationConfig();
   if (!cfg.enabled) {
@@ -923,6 +1104,13 @@ async function enqueueEmailItem(params: {
   const cleanEmail = (params.recipientEmail || '').trim();
   const validEmail = isValidEmailAddress(cleanEmail);
   const nowIso = new Date().toISOString();
+  const baseMetadata: Record<string, any> = {
+    area: params.context.area || null,
+    contractorName: params.context.contractorName || null,
+    operationalDate: params.context.operationalDate || null,
+    woNumber: params.relatedWoNumber || null,
+    ...(params.metadata || {})
+  };
 
   const item: EmailQueueItem = {
     id: `eq_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -938,17 +1126,20 @@ async function enqueueEmailItem(params: {
     subject: rendered.subject,
     htmlBody: rendered.htmlBody,
     textBody: rendered.textBody,
-    payload: {
-      area: params.context.area,
-      contractorName: params.context.contractorName,
-      operationalDate: params.context.operationalDate
-    },
+    payload: baseMetadata,
     status: validEmail ? 'queued' : 'skipped',
     retryCount: 0,
     maxRetries: 3,
     nextRetryAt: validEmail ? nowIso : null,
     errorMessage: validEmail ? null : 'Email penerima kosong atau format email tidak valid.',
     createdAt: nowIso
+  };
+
+  const logMetadata = {
+    ...baseMetadata,
+    createdAt: item.createdAt,
+    processedAt: validEmail ? null : nowIso,
+    errorDetails: item.errorMessage || null
   };
 
   if (isSupabaseConfigured() && !dedicatedTablesMissing) {
@@ -998,7 +1189,8 @@ async function enqueueEmailItem(params: {
           subject: item.subject,
           relatedWoNumber: item.relatedWoNumber,
           deliveryStatus: item.status,
-          errorMessage: item.errorMessage || undefined
+          errorMessage: item.errorMessage || undefined,
+          metadata: logMetadata
         });
         return { enqueued: validEmail, skipped: !validEmail, queueId: item.id };
       }
@@ -1032,7 +1224,8 @@ async function enqueueEmailItem(params: {
     subject: item.subject,
     relatedWoNumber: item.relatedWoNumber,
     deliveryStatus: item.status,
-    errorMessage: item.errorMessage || undefined
+    errorMessage: item.errorMessage || undefined,
+    metadata: logMetadata
   });
 
   return { enqueued: validEmail, skipped: !validEmail, queueId: item.id };
@@ -1080,187 +1273,136 @@ export async function processEmailQueueBatch(limit: number = 15): Promise<{
   skipped: number;
 }> {
   if (isWorkerProcessing) {
+    // Signal active worker to drain newly enqueued items before releasing the lock
+    workerDrainRequested = true;
     return { processed: 0, sent: 0, retryScheduled: 0, failed: 0, skipped: 0 };
   }
   isWorkerProcessing = true;
   const summary = { processed: 0, sent: 0, retryScheduled: 0, failed: 0, skipped: 0 };
 
   try {
-    const cfg = await getEmailNotificationConfig();
-    if (!cfg.enabled) return summary;
+    let drainLoop = 0;
+    do {
+      workerDrainRequested = false;
+      drainLoop++;
+      const cfg = await getEmailNotificationConfig();
+      if (!cfg.enabled) break;
 
-    const nowIso = new Date().toISOString();
-    let dueItems: EmailQueueItem[] = [];
+      const nowIso = new Date().toISOString();
+      let dueItems: EmailQueueItem[] = [];
 
-    if (isSupabaseConfigured() && !dedicatedTablesMissing) {
-      const client = getSupabaseBackendClient();
-      if (client) {
-        const { data, error } = await client
-          .from('email_notification_queue')
-          .select('*')
-          .in('status', ['queued', 'retry_pending'])
-          .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
-          .order('created_at', { ascending: true })
-          .limit(limit);
+      if (isSupabaseConfigured() && !dedicatedTablesMissing) {
+        const client = getSupabaseBackendClient();
+        if (client) {
+          const { data, error } = await client
+            .from('email_notification_queue')
+            .select('*')
+            .in('status', ['queued', 'retry_pending'])
+            .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
+            .order('created_at', { ascending: true })
+            .limit(limit);
 
-        if (error) {
-          if (isTableMissingError(error)) dedicatedTablesMissing = true;
-        } else if (Array.isArray(data)) {
-          dueItems = data.map((row: any) => ({
-            id: row.id,
-            eventKey: row.event_key,
-            eventType: row.event_type,
-            templateKey: row.template_key,
-            recipientUserId: row.recipient_user_id,
-            recipientEmail: row.recipient_email,
-            recipientName: row.recipient_name,
-            recipientRole: row.recipient_role,
-            relatedTicketId: row.related_ticket_id,
-            relatedWoNumber: row.related_wo_number,
-            subject: row.subject,
-            htmlBody: row.html_body,
-            textBody: row.text_body,
-            payload: row.payload || {},
-            status: row.status,
-            retryCount: row.retry_count || 0,
-            maxRetries: row.max_retries || 3,
-            nextRetryAt: row.next_retry_at,
-            providerMessageId: row.provider_message_id,
-            errorMessage: row.error_message,
-            createdAt: row.created_at,
-            processedAt: row.processed_at,
-            sentAt: row.sent_at
-          }));
+          if (error) {
+            if (isTableMissingError(error)) dedicatedTablesMissing = true;
+          } else if (Array.isArray(data)) {
+            dueItems = data.map((row: any) => ({
+              id: row.id,
+              eventKey: row.event_key,
+              eventType: row.event_type,
+              templateKey: row.template_key,
+              recipientUserId: row.recipient_user_id,
+              recipientEmail: row.recipient_email,
+              recipientName: row.recipient_name,
+              recipientRole: row.recipient_role,
+              relatedTicketId: row.related_ticket_id,
+              relatedWoNumber: row.related_wo_number,
+              subject: row.subject,
+              htmlBody: row.html_body,
+              textBody: row.text_body,
+              payload: row.payload || {},
+              status: row.status,
+              retryCount: row.retry_count || 0,
+              maxRetries: row.max_retries || 3,
+              nextRetryAt: row.next_retry_at,
+              providerMessageId: row.provider_message_id,
+              errorMessage: row.error_message,
+              createdAt: row.created_at,
+              processedAt: row.processed_at,
+              sentAt: row.sent_at
+            }));
+          }
         }
       }
-    }
 
-    if (dueItems.length === 0) {
-      const localStore = persistenceHooks?.getLocalStore();
-      if (localStore?.emailNotificationQueue) {
-        dueItems = localStore.emailNotificationQueue
-          .filter(
-            q =>
-              (q.status === 'queued' || q.status === 'retry_pending') &&
-              (!q.nextRetryAt || q.nextRetryAt <= nowIso)
+      if (dueItems.length === 0) {
+        const localStore = persistenceHooks?.getLocalStore();
+        if (localStore?.emailNotificationQueue) {
+          dueItems = localStore.emailNotificationQueue
+            .filter(
+              q =>
+                (q.status === 'queued' || q.status === 'retry_pending') &&
+                (!q.nextRetryAt || q.nextRetryAt <= nowIso)
+            )
+            .slice(0, limit);
+        }
+      }
+
+      if (dueItems.length === 0) {
+        break;
+      }
+
+      const fromHeader = formatFromHeader(cfg);
+      const replyToHeader = resolveReplyToAddress(cfg);
+
+      for (const item of dueItems) {
+        if (inProgressQueueIds.has(item.id)) {
+          continue;
+        }
+
+        const baseLogMeta: Record<string, any> = {
+          ...(item.payload || {}),
+          eventId: item.payload?.eventId || item.eventKey,
+          woNumber: item.relatedWoNumber || item.payload?.woNumber || null,
+          createdAt: item.createdAt
+        };
+
+        // Idempotency guard: if already sent or already has providerMessageId, never resend
+        if (
+          item.providerMessageId ||
+          sentEventKeysGuard.has(item.eventKey)
+        ) {
+          if (item.status !== 'sent' && item.status !== 'delivered') {
+            item.status = 'sent';
+            item.errorMessage = null;
+            item.sentAt = item.sentAt || new Date().toISOString();
+            await updateQueueRow(item);
+          }
+          continue;
+        }
+
+        // Check existing delivery logs for same eventKey already sent/delivered
+        const localStore = persistenceHooks?.getLocalStore();
+        const alreadySentLocally = Boolean(
+          localStore?.emailDeliveryLogs?.some(
+            l =>
+              l.eventKey === item.eventKey &&
+              (l.deliveryStatus === 'sent' || l.deliveryStatus === 'delivered')
           )
-          .slice(0, limit);
-      }
-    }
-
-    const fromHeader = formatFromHeader(cfg);
-    const replyToHeader = resolveReplyToAddress(cfg);
-
-    for (const item of dueItems) {
-      if (inProgressQueueIds.has(item.id)) {
-        continue;
-      }
-
-      // Idempotency guard: if already sent or already has providerMessageId, never resend
-      if (
-        item.providerMessageId ||
-        sentEventKeysGuard.has(item.eventKey)
-      ) {
-        if (item.status !== 'sent' && item.status !== 'delivered') {
+        );
+        if (alreadySentLocally) {
+          sentEventKeysGuard.add(item.eventKey);
           item.status = 'sent';
           item.errorMessage = null;
           item.sentAt = item.sentAt || new Date().toISOString();
           await updateQueueRow(item);
+          continue;
         }
-        continue;
-      }
 
-      // Check existing delivery logs for same eventKey already sent/delivered
-      const localStore = persistenceHooks?.getLocalStore();
-      const alreadySentLocally = Boolean(
-        localStore?.emailDeliveryLogs?.some(
-          l =>
-            l.eventKey === item.eventKey &&
-            (l.deliveryStatus === 'sent' || l.deliveryStatus === 'delivered')
-        )
-      );
-      if (alreadySentLocally) {
-        sentEventKeysGuard.add(item.eventKey);
-        item.status = 'sent';
-        item.errorMessage = null;
-        item.sentAt = item.sentAt || new Date().toISOString();
-        await updateQueueRow(item);
-        continue;
-      }
-
-      if (!isValidEmailAddress(item.recipientEmail)) {
-        summary.processed++;
-        item.status = 'skipped';
-        item.errorMessage = 'Email penerima kosong atau tidak valid.';
-        item.processedAt = new Date().toISOString();
-        await updateQueueRow(item);
-        await appendDeliveryLog({
-          queueId: item.id,
-          eventKey: item.eventKey,
-          notificationType: item.eventType,
-          recipientUserId: item.recipientUserId,
-          recipientEmail: item.recipientEmail,
-          recipientName: item.recipientName,
-          recipientRole: item.recipientRole,
-          subject: item.subject,
-          relatedWoNumber: item.relatedWoNumber,
-          deliveryStatus: 'skipped',
-          errorMessage: item.errorMessage
-        });
-        summary.skipped++;
-        continue;
-      }
-
-      // Atomic conditional claim in Supabase to avoid duplicate sends across overlapping batches
-      if (isSupabaseConfigured() && !dedicatedTablesMissing) {
-        const client = getSupabaseBackendClient();
-        if (client) {
-          const { data: claimed, error: claimErr } = await client
-            .from('email_notification_queue')
-            .update({
-              status: 'processing',
-              processed_at: new Date().toISOString()
-            })
-            .eq('id', item.id)
-            .in('status', ['queued', 'retry_pending'])
-            .is('provider_message_id', null)
-            .select('id')
-            .maybeSingle();
-          if (claimErr) {
-            if (isTableMissingError(claimErr)) dedicatedTablesMissing = true;
-          } else if (!claimed) {
-            continue;
-          }
-        }
-      }
-
-      inProgressQueueIds.add(item.id);
-      try {
-        summary.processed++;
-        item.status = 'processing';
-        item.processedAt = new Date().toISOString();
-        await updateQueueRow(item);
-
-        const sendRes = await sendViaGmailSmtp({
-          from: fromHeader,
-          to: item.recipientEmail!,
-          replyTo: replyToHeader,
-          subject: item.subject,
-          html: item.htmlBody,
-          text: item.textBody,
-          idempotencyKey: item.eventKey
-        });
-
-        if (sendRes.ok) {
-          sentEventKeysGuard.add(item.eventKey);
-          if (sentEventKeysGuard.size > 5000) {
-            const firstKey = sentEventKeysGuard.values().next().value;
-            if (firstKey) sentEventKeysGuard.delete(firstKey);
-          }
-          item.status = 'sent';
-          item.providerMessageId = sendRes.messageId || null;
-          item.errorMessage = null;
-          item.sentAt = new Date().toISOString();
+        if (!isValidEmailAddress(item.recipientEmail)) {
+          summary.processed++;
+          item.status = 'skipped';
+          item.errorMessage = 'Email penerima kosong atau tidak valid.';
+          item.processedAt = new Date().toISOString();
           await updateQueueRow(item);
           await appendDeliveryLog({
             queueId: item.id,
@@ -1272,45 +1414,135 @@ export async function processEmailQueueBatch(limit: number = 15): Promise<{
             recipientRole: item.recipientRole,
             subject: item.subject,
             relatedWoNumber: item.relatedWoNumber,
-            deliveryStatus: 'sent',
-            providerMessageId: item.providerMessageId || undefined
+            deliveryStatus: 'skipped',
+            errorMessage: item.errorMessage,
+            metadata: {
+              ...baseLogMeta,
+              processedAt: item.processedAt,
+              errorDetails: item.errorMessage
+            }
           });
-          summary.sent++;
-        } else {
-          const nextRetry = item.retryCount + 1;
-          item.retryCount = nextRetry;
-          item.errorMessage = sendRes.errorMessage || 'Pengiriman email melalui Gmail SMTP gagal.';
+          summary.skipped++;
+          continue;
+        }
 
-          if (sendRes.retryable && nextRetry <= item.maxRetries) {
-            const delaySec = RETRY_BACKOFF_SECONDS[Math.min(nextRetry - 1, RETRY_BACKOFF_SECONDS.length - 1)];
-            item.status = 'retry_pending';
-            item.nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
-            summary.retryScheduled++;
+        // Atomic conditional claim in Supabase to avoid duplicate sends across overlapping batches
+        if (isSupabaseConfigured() && !dedicatedTablesMissing) {
+          const client = getSupabaseBackendClient();
+          if (client) {
+            const { data: claimed, error: claimErr } = await client
+              .from('email_notification_queue')
+              .update({
+                status: 'processing',
+                processed_at: new Date().toISOString()
+              })
+              .eq('id', item.id)
+              .in('status', ['queued', 'retry_pending'])
+              .is('provider_message_id', null)
+              .select('id')
+              .maybeSingle();
+            if (claimErr) {
+              if (isTableMissingError(claimErr)) dedicatedTablesMissing = true;
+            } else if (!claimed) {
+              continue;
+            }
+          }
+        }
+
+        inProgressQueueIds.add(item.id);
+        try {
+          summary.processed++;
+          item.status = 'processing';
+          item.processedAt = new Date().toISOString();
+          await updateQueueRow(item);
+
+          const sendRes = await sendViaGmailSmtp({
+            from: fromHeader,
+            to: item.recipientEmail!,
+            replyTo: replyToHeader,
+            subject: item.subject,
+            html: item.htmlBody,
+            text: item.textBody,
+            idempotencyKey: item.eventKey
+          });
+
+          if (sendRes.ok) {
+            sentEventKeysGuard.add(item.eventKey);
+            if (sentEventKeysGuard.size > 5000) {
+              const firstKey = sentEventKeysGuard.values().next().value;
+              if (firstKey) sentEventKeysGuard.delete(firstKey);
+            }
+            item.status = 'sent';
+            item.providerMessageId = sendRes.messageId || null;
+            item.errorMessage = null;
+            item.sentAt = new Date().toISOString();
+            await updateQueueRow(item);
+            await appendDeliveryLog({
+              queueId: item.id,
+              eventKey: item.eventKey,
+              notificationType: item.eventType,
+              recipientUserId: item.recipientUserId,
+              recipientEmail: item.recipientEmail,
+              recipientName: item.recipientName,
+              recipientRole: item.recipientRole,
+              subject: item.subject,
+              relatedWoNumber: item.relatedWoNumber,
+              deliveryStatus: 'sent',
+              providerMessageId: item.providerMessageId || undefined,
+              metadata: {
+                ...baseLogMeta,
+                processedAt: item.processedAt,
+                sentAt: item.sentAt,
+                providerResponse: sendRes.providerResponse || item.providerMessageId || '250 OK',
+                errorDetails: null
+              }
+            });
+            summary.sent++;
           } else {
-            item.status = 'failed';
-            item.nextRetryAt = null;
-            summary.failed++;
-          }
+            const nextRetry = item.retryCount + 1;
+            item.retryCount = nextRetry;
+            item.errorMessage = sendRes.errorMessage || 'Pengiriman email melalui Gmail SMTP gagal.';
 
-          await updateQueueRow(item);
-          await appendDeliveryLog({
-            queueId: item.id,
-            eventKey: item.eventKey,
-            notificationType: item.eventType,
-            recipientUserId: item.recipientUserId,
-            recipientEmail: item.recipientEmail,
-            recipientName: item.recipientName,
-            recipientRole: item.recipientRole,
-            subject: item.subject,
-            relatedWoNumber: item.relatedWoNumber,
-            deliveryStatus: item.status,
-            errorMessage: item.errorMessage || undefined
-          });
+            if (sendRes.retryable && nextRetry <= item.maxRetries) {
+              const delaySec = RETRY_BACKOFF_SECONDS[Math.min(nextRetry - 1, RETRY_BACKOFF_SECONDS.length - 1)];
+              item.status = 'retry_pending';
+              item.nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
+              summary.retryScheduled++;
+            } else {
+              item.status = 'failed';
+              item.nextRetryAt = null;
+              summary.failed++;
+            }
+
+            await updateQueueRow(item);
+            await appendDeliveryLog({
+              queueId: item.id,
+              eventKey: item.eventKey,
+              notificationType: item.eventType,
+              recipientUserId: item.recipientUserId,
+              recipientEmail: item.recipientEmail,
+              recipientName: item.recipientName,
+              recipientRole: item.recipientRole,
+              subject: item.subject,
+              relatedWoNumber: item.relatedWoNumber,
+              deliveryStatus: item.status,
+              errorMessage: item.errorMessage || undefined,
+              metadata: {
+                ...baseLogMeta,
+                processedAt: item.processedAt,
+                retryCount: item.retryCount,
+                maxRetries: item.maxRetries,
+                nextRetryAt: item.nextRetryAt,
+                providerResponse: sendRes.errorCode || null,
+                errorDetails: item.errorMessage
+              }
+            });
+          }
+        } finally {
+          inProgressQueueIds.delete(item.id);
         }
-      } finally {
-        inProgressQueueIds.delete(item.id);
       }
-    }
+    } while (workerDrainRequested && drainLoop < 5);
   } finally {
     isWorkerProcessing = false;
   }
@@ -1874,54 +2106,152 @@ export async function triggerNewWoLeaderNotifications(params: {
   return { queued, deduped, skipped };
 }
 
+function isUnassignedInstallerValue(val?: string | null): boolean {
+  const clean = String(val || '').trim().toLowerCase();
+  return (
+    !clean ||
+    clean === '-' ||
+    clean === 'unassigned' ||
+    clean === 'belum ditugaskan' ||
+    clean === 'none' ||
+    clean === 'null' ||
+    clean === 'undefined' ||
+    clean === 'teknisi sebelumnya'
+  );
+}
+
+function resolveInstallerUserAccount(
+  users: any[],
+  opts: { id?: string | null; name?: string | null; allowInactive?: boolean }
+): any | null {
+  const targetId = String(opts.id || '').trim();
+  const targetName = isUnassignedInstallerValue(opts.name) ? '' : String(opts.name || '').trim().toLowerCase();
+  if (!targetId && !targetName) return null;
+
+  const candidates = (users || []).filter(
+    u =>
+      u &&
+      u.role === 'installer' &&
+      !u.isDeleted &&
+      (opts.allowInactive ? true : u.active !== false)
+  );
+
+  if (targetId) {
+    const byId = candidates.find(u => String(u.id || '').trim() === targetId);
+    if (byId) return byId;
+  }
+  if (targetName) {
+    const byUsername = candidates.find(u => String(u.username || '').trim().toLowerCase() === targetName);
+    if (byUsername) return byUsername;
+    const byName = candidates.find(u => String(u.name || '').trim().toLowerCase() === targetName);
+    if (byName) return byName;
+  }
+  return null;
+}
+
+function resolveInstallerRecipientEmail(user?: any): string {
+  if (!user) return '';
+  const primary = String(user.email || '').trim();
+  if (isValidEmailAddress(primary)) return primary;
+  const alt = String(user.altEmail || '').trim();
+  if (isValidEmailAddress(alt)) return alt;
+  return primary || alt;
+}
+
 /**
  * Trigger C: WO Assignment Notification — Installer
  * - Fires ONLY to the Installer assigned to the WO.
+ * - Logs skipped status if disabled or if installer user/email is missing.
  */
 export async function triggerWoAssignedInstallerNotification(params: {
   ticket: any;
   installerUser?: any;
   installerName?: string;
+  installerId?: string | null;
   leaderName: string;
   assignmentEventId: string;
   users?: any[];
-}): Promise<{ enqueued: boolean; deduped?: boolean; skipped?: boolean }> {
-  const cfg = await getEmailNotificationConfig();
-  if (!cfg.enabled || !cfg.rules.woAssignedInstaller.enabled) {
-    return { enqueued: false, skipped: true };
-  }
-
+}): Promise<{ enqueued: boolean; deduped?: boolean; skipped?: boolean; queueId?: string }> {
   const t = params.ticket;
   if (!t) return { enqueued: false, skipped: true };
-  const users = params.users || (persistenceHooks ? await persistenceHooks.getUsers() : []);
 
-  let installer = params.installerUser;
-  if (!installer) {
-    const targetId = String(t.installerId || t.installerUid || t.assignedToUid || '').trim();
-    const targetName = String(params.installerName || t.installerName || '').trim().toLowerCase();
-    installer = users.find(
-      u =>
-        u &&
-        u.role === 'installer' &&
-        u.active !== false &&
-        !u.isDeleted &&
-        ((targetId && u.id === targetId) || (targetName && String(u.name || '').trim().toLowerCase() === targetName))
-    );
-  }
-  if (!installer) {
+  const woNumber = String(t.woNumber || t.workOrderNumber || t.id || '').trim();
+  const targetId = String(params.installerUser?.id || params.installerId || t.installerId || t.installerUid || t.assignedToUid || '').trim();
+  const targetName = String(params.installerUser?.name || params.installerName || t.installerName || t.assignedTo || '').trim();
+  const eventKey = `wo_assigned:${t.id || woNumber}:${params.assignmentEventId}`;
+
+  const cfg = await getEmailNotificationConfig();
+  if (!cfg.enabled || !cfg.rules.woAssignedInstaller.enabled) {
+    const reason = !cfg.enabled
+      ? 'Master Email System nonaktif pada Email Notification Center.'
+      : 'Rule notifikasi WO Assigned ke Installer dinonaktifkan.';
+    await appendDeliveryLog({
+      eventKey,
+      notificationType: 'wo_assigned_installer',
+      recipientUserId: targetId || null,
+      recipientEmail: params.installerUser?.email || t.installerEmail || null,
+      recipientName: targetName || null,
+      recipientRole: 'installer',
+      subject: `[MoraJaws] Tugas WO Baru: ${woNumber}`,
+      relatedWoNumber: woNumber,
+      deliveryStatus: 'skipped',
+      errorMessage: reason,
+      metadata: {
+        eventId: params.assignmentEventId,
+        eventTypeLabel: 'WO_ASSIGNED',
+        woNumber,
+        previousInstaller: null,
+        newInstaller: targetName || null,
+        leaderName: params.leaderName,
+        processedAt: new Date().toISOString(),
+        errorDetails: reason
+      }
+    });
     return { enqueued: false, skipped: true };
   }
 
-  const woNumber = String(t.woNumber || t.workOrderNumber || t.id || '').trim();
+  const users = params.users || (persistenceHooks ? await persistenceHooks.getUsers() : []);
+  const installer =
+    params.installerUser ||
+    resolveInstallerUserAccount(users, { id: targetId, name: targetName });
+
+  if (!installer) {
+    const reason = `Akun Installer "${targetName || targetId || '-'}" tidak ditemukan atau tidak aktif di direktori pengguna.`;
+    await appendDeliveryLog({
+      eventKey,
+      notificationType: 'wo_assigned_installer',
+      recipientUserId: targetId || null,
+      recipientEmail: null,
+      recipientName: targetName || null,
+      recipientRole: 'installer',
+      subject: `[MoraJaws] Tugas WO Baru: ${woNumber}`,
+      relatedWoNumber: woNumber,
+      deliveryStatus: 'skipped',
+      errorMessage: reason,
+      metadata: {
+        eventId: params.assignmentEventId,
+        eventTypeLabel: 'WO_ASSIGNED',
+        woNumber,
+        previousInstaller: null,
+        newInstaller: targetName || null,
+        leaderName: params.leaderName,
+        processedAt: new Date().toISOString(),
+        errorDetails: reason
+      }
+    });
+    return { enqueued: false, skipped: true };
+  }
+
   const baseUrl = resolveSafeHttpsBaseUrl();
   const addressParts = [t.streetName || t.address, t.clusterName, t.city].filter(Boolean);
+  const recipientEmail = resolveInstallerRecipientEmail(installer);
 
   const res = await enqueueEmailItem({
-    eventKey: `wo_assigned:${t.id || woNumber}:${params.assignmentEventId}`,
+    eventKey,
     eventType: 'wo_assigned_installer',
     templateKey: 'wo_assigned_installer',
     recipientUserId: installer.id,
-    recipientEmail: installer.email,
+    recipientEmail,
     recipientName: installer.name,
     recipientRole: 'installer',
     relatedTicketId: t.id || null,
@@ -1943,6 +2273,13 @@ export async function triggerWoAssignedInstallerNotification(params: {
       woStatus: t.statusWOInstaller || 'Assigned',
       woDetailUrl: `${baseUrl}/?wo=${encodeURIComponent(woNumber)}`,
       morajawsUrl: baseUrl
+    },
+    metadata: {
+      eventId: params.assignmentEventId,
+      eventTypeLabel: 'WO_ASSIGNED',
+      previousInstaller: null,
+      newInstaller: installer.name,
+      leaderName: params.leaderName
     }
   });
 
@@ -1954,6 +2291,7 @@ export async function triggerWoAssignedInstallerNotification(params: {
 
 /**
  * Trigger D: WO Reassignment Notification
+ * - If previously unassigned, delegates automatically to triggerWoAssignedInstallerNotification (WO_ASSIGNED).
  * - Fires ONLY when the Installer actually changes.
  * - Sends notice to previous Installer & new Installer.
  */
@@ -1962,26 +2300,30 @@ export async function triggerWoReassignedNotifications(params: {
   previousInstallerId?: string | null;
   previousInstallerName?: string | null;
   newInstallerUser?: any;
-  newInstallerName?: string;
+  newInstallerId?: string | null;
+  newInstallerName?: string | null;
   leaderName: string;
   reason?: string;
   changedAt?: string;
   reassignEventId: string;
   users?: any[];
-}): Promise<{ prevEnqueued: boolean; newEnqueued: boolean; unchangedSkipped: boolean }> {
-  const cfg = await getEmailNotificationConfig();
-  if (!cfg.enabled || !cfg.rules.woReassigned.enabled) {
-    return { prevEnqueued: false, newEnqueued: false, unchangedSkipped: false };
-  }
-
+}): Promise<{
+  prevEnqueued: boolean;
+  newEnqueued: boolean;
+  unchangedSkipped: boolean;
+  treatedAsNewAssignment?: boolean;
+}> {
   const t = params.ticket;
   if (!t) return { prevEnqueued: false, newEnqueued: false, unchangedSkipped: false };
 
   const users = params.users || (persistenceHooks ? await persistenceHooks.getUsers() : []);
-  const newInstId = String(params.newInstallerUser?.id || t.installerId || t.installerUid || '').trim();
-  const newInstName = String(params.newInstallerUser?.name || params.newInstallerName || t.installerName || '').trim();
+  const newInstId = String(params.newInstallerUser?.id || params.newInstallerId || t.installerId || t.installerUid || t.assignedToUid || '').trim();
+  const rawNewName = String(params.newInstallerUser?.name || params.newInstallerName || t.installerName || t.assignedTo || '').trim();
+  const newInstName = isUnassignedInstallerValue(rawNewName) ? '' : rawNewName;
+
   const prevInstId = String(params.previousInstallerId || '').trim();
-  const prevInstName = String(params.previousInstallerName || '').trim();
+  const rawPrevName = String(params.previousInstallerName || '').trim();
+  const prevInstName = isUnassignedInstallerValue(rawPrevName) ? '' : rawPrevName;
 
   // Strict guard: never fire if installer did not actually change
   if (
@@ -1991,42 +2333,87 @@ export async function triggerWoReassignedNotifications(params: {
     return { prevEnqueued: false, newEnqueued: false, unchangedSkipped: true };
   }
 
-  const newInstaller =
-    params.newInstallerUser ||
-    users.find(
-      u =>
-        u &&
-        u.role === 'installer' &&
-        u.active !== false &&
-        !u.isDeleted &&
-        ((newInstId && u.id === newInstId) || (newInstName && String(u.name || '').trim().toLowerCase() === newInstName.toLowerCase()))
-    );
-
-  const prevInstaller =
-    (prevInstId || prevInstName)
-      ? users.find(
-          u =>
-            u &&
-            u.role === 'installer' &&
-            ((prevInstId && u.id === prevInstId) || (prevInstName && String(u.name || '').trim().toLowerCase() === prevInstName.toLowerCase()))
-        )
-      : null;
+  // Requirement 3: If WO previously had NO Installer, treat as NEW ASSIGNMENT, not REASSIGNMENT
+  if (!prevInstId && !prevInstName) {
+    const assignRes = await triggerWoAssignedInstallerNotification({
+      ticket: t,
+      installerUser: params.newInstallerUser,
+      installerId: newInstId || null,
+      installerName: newInstName || undefined,
+      leaderName: params.leaderName,
+      assignmentEventId: params.reassignEventId,
+      users
+    });
+    return {
+      prevEnqueued: false,
+      newEnqueued: assignRes.enqueued,
+      unchangedSkipped: false,
+      treatedAsNewAssignment: true
+    };
+  }
 
   const woNumber = String(t.woNumber || t.workOrderNumber || t.id || '').trim();
-  const baseUrl = resolveSafeHttpsBaseUrl();
   const changedAt = params.changedAt || new Date().toISOString();
+  const cfg = await getEmailNotificationConfig();
+  if (!cfg.enabled || !cfg.rules.woReassigned.enabled) {
+    const skipReason = !cfg.enabled
+      ? 'Master Email System nonaktif pada Email Notification Center.'
+      : 'Rule notifikasi WO Reassigned dinonaktifkan.';
+    await appendDeliveryLog({
+      eventKey: `wo_reassigned:${t.id || woNumber}:${params.reassignEventId}`,
+      notificationType: 'wo_reassigned',
+      recipientUserId: newInstId || null,
+      recipientEmail: params.newInstallerUser?.email || null,
+      recipientName: newInstName || null,
+      recipientRole: 'installer',
+      subject: `[MoraJaws] Pengalihan WO: ${woNumber}`,
+      relatedWoNumber: woNumber,
+      deliveryStatus: 'skipped',
+      errorMessage: skipReason,
+      metadata: {
+        eventId: params.reassignEventId,
+        eventTypeLabel: 'WO_REASSIGNED',
+        woNumber,
+        previousInstaller: prevInstName || prevInstId || null,
+        newInstaller: newInstName || newInstId || null,
+        leaderName: params.leaderName,
+        processedAt: changedAt,
+        errorDetails: skipReason
+      }
+    });
+    return { prevEnqueued: false, newEnqueued: false, unchangedSkipped: false };
+  }
+
+  const newInstaller =
+    params.newInstallerUser ||
+    resolveInstallerUserAccount(users, { id: newInstId, name: newInstName });
+
+  const prevInstaller = resolveInstallerUserAccount(users, {
+    id: prevInstId,
+    name: prevInstName,
+    allowInactive: true
+  });
+
+  // Also check ID equality after resolving accounts (e.g., name alias mapped to same user id)
+  if (prevInstaller && newInstaller && prevInstaller.id === newInstaller.id) {
+    return { prevEnqueued: false, newEnqueued: false, unchangedSkipped: true };
+  }
+
+  const baseUrl = resolveSafeHttpsBaseUrl();
   const addressParts = [t.streetName || t.address, t.clusterName, t.city].filter(Boolean);
+  const resolvedPrevDisplay = prevInstaller?.name || prevInstName || prevInstId || 'Teknisi Sebelumnya';
+  const resolvedNewDisplay = newInstaller?.name || newInstName || newInstId || 'Teknisi Baru';
 
   let prevEnqueued = false;
   let newEnqueued = false;
 
-  if (prevInstaller && (!newInstaller || prevInstaller.id !== newInstaller.id)) {
+  if (prevInstaller) {
     const prevRes = await enqueueEmailItem({
       eventKey: `wo_reassigned_prev:${t.id || woNumber}:${params.reassignEventId}:${prevInstaller.id}`,
       eventType: 'wo_reassigned',
       templateKey: 'wo_reassigned_prev_installer',
       recipientUserId: prevInstaller.id,
-      recipientEmail: prevInstaller.email,
+      recipientEmail: resolveInstallerRecipientEmail(prevInstaller),
       recipientName: prevInstaller.name,
       recipientRole: 'installer',
       relatedTicketId: t.id || null,
@@ -2043,14 +2430,46 @@ export async function triggerWoReassignedNotifications(params: {
         appointmentSlot: t.slotTime || '',
         leaderName: params.leaderName,
         previousInstallerName: prevInstaller.name,
-        newInstallerName: newInstaller?.name || newInstName,
+        newInstallerName: resolvedNewDisplay,
         reassignmentReason: params.reason || '',
         changedAt,
         woStatus: t.statusWOInstaller || 'Assigned',
         morajawsUrl: baseUrl
+      },
+      metadata: {
+        eventId: params.reassignEventId,
+        eventTypeLabel: 'WO_REASSIGNED',
+        previousInstaller: prevInstaller.name,
+        newInstaller: resolvedNewDisplay,
+        leaderName: params.leaderName,
+        changedAt
       }
     });
     prevEnqueued = prevRes.enqueued;
+  } else if (prevInstId || prevInstName) {
+    const reason = `Akun Installer sebelumnya "${resolvedPrevDisplay}" tidak ditemukan di direktori pengguna.`;
+    await appendDeliveryLog({
+      eventKey: `wo_reassigned_prev:${t.id || woNumber}:${params.reassignEventId}:missing`,
+      notificationType: 'wo_reassigned',
+      recipientUserId: prevInstId || null,
+      recipientEmail: null,
+      recipientName: resolvedPrevDisplay,
+      recipientRole: 'installer',
+      subject: `[MoraJaws] Pengalihan Tugas: WO ${woNumber}`,
+      relatedWoNumber: woNumber,
+      deliveryStatus: 'skipped',
+      errorMessage: reason,
+      metadata: {
+        eventId: params.reassignEventId,
+        eventTypeLabel: 'WO_REASSIGNED',
+        woNumber,
+        previousInstaller: resolvedPrevDisplay,
+        newInstaller: resolvedNewDisplay,
+        leaderName: params.leaderName,
+        processedAt: new Date().toISOString(),
+        errorDetails: reason
+      }
+    });
   }
 
   if (newInstaller) {
@@ -2059,7 +2478,7 @@ export async function triggerWoReassignedNotifications(params: {
       eventType: 'wo_reassigned',
       templateKey: 'wo_reassigned_new_installer',
       recipientUserId: newInstaller.id,
-      recipientEmail: newInstaller.email,
+      recipientEmail: resolveInstallerRecipientEmail(newInstaller),
       recipientName: newInstaller.name,
       recipientRole: 'installer',
       relatedTicketId: t.id || null,
@@ -2077,16 +2496,48 @@ export async function triggerWoReassignedNotifications(params: {
         appointmentDate: getStrictAppointmentDateServer(t) || t.appointmentDate || '',
         appointmentSlot: t.slotTime || '',
         leaderName: params.leaderName,
-        previousInstallerName: prevInstaller?.name || prevInstName || 'Teknisi Sebelumnya',
+        previousInstallerName: resolvedPrevDisplay,
         newInstallerName: newInstaller.name,
         reassignmentReason: params.reason || '',
         changedAt,
         woStatus: t.statusWOInstaller || 'Assigned',
         woDetailUrl: `${baseUrl}/?wo=${encodeURIComponent(woNumber)}`,
         morajawsUrl: baseUrl
+      },
+      metadata: {
+        eventId: params.reassignEventId,
+        eventTypeLabel: 'WO_REASSIGNED',
+        previousInstaller: resolvedPrevDisplay,
+        newInstaller: newInstaller.name,
+        leaderName: params.leaderName,
+        changedAt
       }
     });
     newEnqueued = newRes.enqueued;
+  } else {
+    const reason = `Akun Installer baru "${resolvedNewDisplay}" tidak ditemukan atau tidak aktif di direktori pengguna.`;
+    await appendDeliveryLog({
+      eventKey: `wo_reassigned_new:${t.id || woNumber}:${params.reassignEventId}:missing`,
+      notificationType: 'wo_reassigned',
+      recipientUserId: newInstId || null,
+      recipientEmail: null,
+      recipientName: resolvedNewDisplay,
+      recipientRole: 'installer',
+      subject: `[MoraJaws] Pengalihan WO Masuk: ${woNumber}`,
+      relatedWoNumber: woNumber,
+      deliveryStatus: 'skipped',
+      errorMessage: reason,
+      metadata: {
+        eventId: params.reassignEventId,
+        eventTypeLabel: 'WO_REASSIGNED',
+        woNumber,
+        previousInstaller: resolvedPrevDisplay,
+        newInstaller: resolvedNewDisplay,
+        leaderName: params.leaderName,
+        processedAt: new Date().toISOString(),
+        errorDetails: reason
+      }
+    });
   }
 
   if (prevEnqueued || newEnqueued) {
@@ -2094,6 +2545,109 @@ export async function triggerWoReassignedNotifications(params: {
   }
 
   return { prevEnqueued, newEnqueued, unchangedSkipped: false };
+}
+
+/**
+ * Authoritative Post-Commit Outbox Dispatcher for ALL WO Assignment & Reassignment routes.
+ * Compares committed DB state (previousTicket vs updated ticket):
+ * - Unchanged Installer -> skipped (0 emails)
+ * - Unassigned -> Installer -> WO_ASSIGNED (1 email to Installer)
+ * - Installer A -> Installer B -> WO_REASSIGNED (2 emails: Installer A + Installer B)
+ */
+export async function dispatchWoAssignmentChangeNotification(params: {
+  ticket: any;
+  previousTicket?: any;
+  previousInstallerId?: string | null;
+  previousInstallerName?: string | null;
+  newInstallerUser?: any;
+  newInstallerId?: string | null;
+  newInstallerName?: string | null;
+  leaderName: string;
+  reason?: string;
+  changedAt?: string;
+  eventId: string;
+  users?: any[];
+}): Promise<{
+  mode: 'assigned' | 'reassigned' | 'unchanged_skipped' | 'invalid_input_skipped';
+  prevEnqueued: boolean;
+  newEnqueued: boolean;
+  unchangedSkipped: boolean;
+  deduped?: boolean;
+  skipped?: boolean;
+}> {
+  const t = params.ticket;
+  if (!t) {
+    return { mode: 'invalid_input_skipped', prevEnqueued: false, newEnqueued: false, unchangedSkipped: false, skipped: true };
+  }
+
+  const prevTicket = params.previousTicket;
+  const rawPrevId = params.previousInstallerId ?? prevTicket?.installerId ?? prevTicket?.installerUid ?? prevTicket?.assignedToUid ?? '';
+  const rawPrevName = params.previousInstallerName ?? prevTicket?.installerName ?? prevTicket?.assignedTo ?? '';
+  const prevInstId = String(rawPrevId || '').trim();
+  const prevInstName = isUnassignedInstallerValue(rawPrevName) ? '' : String(rawPrevName || '').trim();
+
+  const rawNewId = params.newInstallerUser?.id ?? params.newInstallerId ?? t.installerId ?? t.installerUid ?? t.assignedToUid ?? '';
+  const rawNewName = params.newInstallerUser?.name ?? params.newInstallerName ?? t.installerName ?? t.assignedTo ?? '';
+  const newInstId = String(rawNewId || '').trim();
+  const newInstName = isUnassignedInstallerValue(rawNewName) ? '' : String(rawNewName || '').trim();
+
+  if (!newInstId && !newInstName) {
+    return { mode: 'invalid_input_skipped', prevEnqueued: false, newEnqueued: false, unchangedSkipped: false, skipped: true };
+  }
+
+  // Never send notification if assignment target did not change
+  if (
+    (prevInstId && newInstId && prevInstId === newInstId) ||
+    (prevInstName && newInstName && prevInstName.toLowerCase() === newInstName.toLowerCase())
+  ) {
+    return { mode: 'unchanged_skipped', prevEnqueued: false, newEnqueued: false, unchangedSkipped: true };
+  }
+
+  const hasPreviousInstaller = Boolean(prevInstId || prevInstName);
+  if (!hasPreviousInstaller) {
+    const res = await triggerWoAssignedInstallerNotification({
+      ticket: t,
+      installerUser: params.newInstallerUser,
+      installerId: newInstId || null,
+      installerName: newInstName || undefined,
+      leaderName: params.leaderName,
+      assignmentEventId: params.eventId,
+      users: params.users
+    });
+    return {
+      mode: 'assigned',
+      prevEnqueued: false,
+      newEnqueued: res.enqueued,
+      unchangedSkipped: false,
+      deduped: res.deduped,
+      skipped: res.skipped
+    };
+  }
+
+  const reassignRes = await triggerWoReassignedNotifications({
+    ticket: t,
+    previousInstallerId: prevInstId || null,
+    previousInstallerName: prevInstName || null,
+    newInstallerUser: params.newInstallerUser,
+    newInstallerId: newInstId || null,
+    newInstallerName: newInstName || null,
+    leaderName: params.leaderName,
+    reason: params.reason,
+    changedAt: params.changedAt,
+    reassignEventId: params.eventId,
+    users: params.users
+  });
+
+  if (reassignRes.unchangedSkipped) {
+    return { mode: 'unchanged_skipped', prevEnqueued: false, newEnqueued: false, unchangedSkipped: true };
+  }
+
+  return {
+    mode: reassignRes.treatedAsNewAssignment ? 'assigned' : 'reassigned',
+    prevEnqueued: reassignRes.prevEnqueued,
+    newEnqueued: reassignRes.newEnqueued,
+    unchangedSkipped: false
+  };
 }
 
 /**
@@ -2243,6 +2797,7 @@ export function resetEmailServiceCachesForTesting(): void {
   cachedConfig = null;
   cachedTemplates = null;
   dedicatedTablesMissing = false;
+  workerDrainRequested = false;
   lastDailySummaryRunDateWIB = null;
   lastDailyResetTriggerDateWIB = null;
   inProgressQueueIds.clear();

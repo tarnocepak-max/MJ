@@ -6100,6 +6100,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    // Guard: skip redundant request/notification if already assigned to the exact same installer
+    if (
+      cleanInstName &&
+      norm(targetTicket.installerName) === norm(cleanInstName) &&
+      (!matchedInstaller?.id || !targetTicket.installerId || targetTicket.installerId === matchedInstaller.id)
+    ) {
+      return;
+    }
+
     let updatedTicketItem: Ticket | undefined;
 
     setTickets(prev =>
@@ -6288,6 +6297,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const err = 'Tiket Work Order tidak ditemukan.';
       toast.error(err, 'Error');
       return { success: false, error: err };
+    }
+
+    if (
+      ticket.installerName &&
+      ticket.installerName.trim().toLowerCase() === newInstallerName.trim().toLowerCase()
+    ) {
+      const msg = `WO ${ticket.woNumber} sudah ditugaskan kepada ${ticket.installerName}. Pilih teknisi lain untuk melakukan reassign.`;
+      toast.warning(msg, 'Teknisi Tidak Berubah');
+      return { success: false, error: msg };
     }
 
     const foundInstaller = users.find(u => u.name.toLowerCase().trim() === newInstallerName.toLowerCase().trim() && u.role === 'installer');
