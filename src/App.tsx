@@ -48,6 +48,7 @@ import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
 import { ThemeBrandBackground } from './components/common/MoraRepublicBrandVisuals';
+import { safeLocalStorageGet, safeLocalStorageSet } from './utils/safeStorage';
 
 const SetupHubView = lazy(() =>
   import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView }))
@@ -223,7 +224,7 @@ const MainLayout: React.FC = () => {
     const role = currentUser?.role;
     try {
       const hash = window.location.hash.replace('#', '').trim();
-      const saved = localStorage.getItem(`morajaws_active_tab_${currentUser?.id || role}`);
+      const saved = safeLocalStorageGet(`morajaws_active_tab_${currentUser?.id || role}`);
 
       if (isInstaller) {
         if (hash && installerAllowedTabs.includes(hash)) return hash;
@@ -249,7 +250,7 @@ const MainLayout: React.FC = () => {
       setActiveTab('installer_dashboard');
       try {
         const userKey = currentUser?.id || currentUser?.role || 'default';
-        localStorage.setItem(`morajaws_active_tab_${userKey}`, 'installer_dashboard');
+        safeLocalStorageSet(`morajaws_active_tab_${userKey}`, 'installer_dashboard');
         window.history.replaceState({ tab: 'installer_dashboard' }, '', '#installer_dashboard');
       } catch (e) {}
     }
@@ -332,7 +333,7 @@ const MainLayout: React.FC = () => {
     }
     try {
       const userKey = currentUser?.id || currentUser?.role || 'default';
-      localStorage.setItem(`morajaws_active_tab_${userKey}`, targetTab);
+      safeLocalStorageSet(`morajaws_active_tab_${userKey}`, targetTab);
     } catch (e) {}
     if (pushHistory) {
       if (window.location.hash !== `#${targetTab}`) {

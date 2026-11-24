@@ -1,4 +1,5 @@
 import { Ticket, Contractor, User, CoverageArea, RootCauseCategory } from '../types/index.ts';
+import { stripBase64BlobsFromTicket } from '../utils/safeStorage';
 
 export interface SyncQueueItem {
   id: string;
@@ -108,17 +109,19 @@ export async function openOfflineDb(): Promise<IDBDatabase> {
 }
 
 /**
- * Save full list of tickets into offline IndexedDB
+ * Save sanitized ticket snapshots into offline IndexedDB (bounded & stripped of Base64 blobs)
  */
-export async function saveTicketsOffline(tickets: Ticket[]): Promise<void> {
+export async function saveTicketsOffline(tickets: Ticket[], maxCachedTickets = 500): Promise<void> {
   const db = await openOfflineDb();
+  const bounded = Array.isArray(tickets) ? tickets.slice(0, maxCachedTickets) : [];
   return new Promise((resolve, reject) => {
     const tx = db.transaction('tickets', 'readwrite');
     const store = tx.objectStore('tickets');
 
-    // Put each ticket
-    tickets.forEach(ticket => {
-      store.put(ticket);
+    bounded.forEach(ticket => {
+      if (ticket && ticket.id) {
+        store.put(stripBase64BlobsFromTicket(ticket));
+      }
     });
 
     tx.oncomplete = () => resolve();
@@ -127,14 +130,15 @@ export async function saveTicketsOffline(tickets: Ticket[]): Promise<void> {
 }
 
 /**
- * Save or update a single ticket offline
+ * Save or update a single sanitized ticket offline
  */
 export async function saveTicketOffline(ticket: Ticket): Promise<void> {
+  if (!ticket || !ticket.id) return;
   const db = await openOfflineDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('tickets', 'readwrite');
     const store = tx.objectStore('tickets');
-    const req = store.put(ticket);
+    const req = store.put(stripBase64BlobsFromTicket(ticket));
 
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
@@ -504,3 +508,46 @@ export async function clearEntireOfflineDb(): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+/**
+ * Store a key-value record in IndexedDB masterCache (used for legacy backups & local draft assets)
+ */
+export async function putMasterCacheValue<T = any>(key: string, value: T): Promise<void> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('masterCache', 'readwrite');
+    const store = tx.objectStore('masterCache');
+    const req = store.put({ key, value, updatedAt: new Date().toISOString() });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Read a key-value record from IndexedDB masterCache
+ */
+export async function getMasterCacheValue<T = any>(key: string): Promise<T | null> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('masterCache', 'readonly');
+    const store = tx.objectStore('masterCache');
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result ? (req.result.value as T) : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Remove a key-value record from IndexedDB masterCache
+ */
+export async function deleteMasterCacheValue(key: string): Promise<void> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('masterCache', 'readwrite');
+    const store = tx.objectStore('masterCache');
+    const req = store.delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+

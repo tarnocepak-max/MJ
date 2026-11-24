@@ -21,6 +21,19 @@ import {
   openCustomerAddressInGoogleMaps
 } from '../../services/mapsService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { supabaseDb } from '../../services/supabaseDb';
+import {
+  putMasterCacheValue,
+  getMasterCacheValue,
+  deleteMasterCacheValue
+} from '../../services/offlineDb';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageSet,
+  safeLocalStorageRemove,
+  sanitizeCheckoutDraftForLocalStorage,
+  isDataUri
+} from '../../utils/safeStorage';
 import { formatAppointmentDateDisplay, getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { acquireCurrentDeviceGps } from '../../services/geolocationService';
@@ -167,7 +180,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     chatCategories,
     setTicketChatCategory,
     ticketActivities,
-    markTicketEditing
+    markTicketEditing,
+    loadTicketDetailOnDemand
   } = useApp();
   const { isOnline, isSyncing, pendingCount, setIsOfflineModalOpen } = useOfflineSync();
   const { toast } = useToast();
@@ -177,6 +191,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const activeTicket = useMemo(() => {
     return tickets.find(t => t.id === initialTicket.id) || initialTicket;
   }, [tickets, initialTicket]);
+
+  // Hydrate full ticket detail (photoSlots, technicalReport, workSessions) on demand when opened from lightweight list
+  useEffect(() => {
+    if ((activeTicket as any)?._isCriticalPartial && activeTicket?.id) {
+      void loadTicketDetailOnDemand(activeTicket.id);
+    }
+  }, [activeTicket?.id, (activeTicket as any)?._isCriticalPartial, loadTicketDetailOnDemand]);
 
   const [serverProgressTriggerByTicket, setServerProgressTriggerByTicket] = useState<
     Record<string, boolean>
@@ -335,64 +356,77 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const [barcodeScannerSlot, setBarcodeScannerSlot] = useState<PhotoSlotDefinition | null>(null);
   const snInputRef = useRef<HTMLInputElement>(null);
 
-  // Restore local draft when switching tickets
+  // Restore local draft when switching tickets (lightweight text from localStorage, heavy assets from IndexedDB)
   useEffect(() => {
     if (ticketClosed) return;
+    let cancelled = false;
     try {
-      const raw = localStorage.getItem(draftStorageKey);
-      if (!raw) return;
-      const draft = JSON.parse(raw);
-      if (draft && typeof draft === 'object') {
-        if (draft.reportStatus) setReportStatus(draft.reportStatus);
-        if (draft.reportStatusId) setReportStatusId(draft.reportStatusId);
-        if (draft.reasonReport) setReasonReport(draft.reasonReport);
-        if (draft.reasonReportId) setReasonReportId(draft.reasonReportId);
-        if (typeof draft.remarksReport === 'string' && draft.remarksReport.trim()) {
-          setRemarksReport(draft.remarksReport);
-        }
-        if (typeof draft.opmDbm === 'string' && draft.opmDbm.trim()) setOpmDbm(draft.opmDbm);
-        if (typeof draft.ontSerialNumber === 'string' && draft.ontSerialNumber.trim()) {
-          setOntSerialNumber(draft.ontSerialNumber);
-        }
-        if (typeof draft.dropcoreLength === 'string' && draft.dropcoreLength.trim()) {
-          setDropcoreLength(draft.dropcoreLength);
-        }
-        if (typeof draft.fatPort === 'string' && draft.fatPort.trim()) {
-          setFatPort(draft.fatPort);
-        }
-        if (typeof draft.usedMaterials === 'string' && draft.usedMaterials.trim()) {
-          setUsedMaterials(draft.usedMaterials);
-        }
-        if (draft.photoSlots && typeof draft.photoSlots === 'object') {
-          setPhotoSlots(prev => {
-            const next = { ...prev };
-            Object.entries(draft.photoSlots).forEach(([k, val]) => {
-              const key = k as PhotoSlotKey;
-              if (!(key in next) || !val || typeof val !== 'object') return;
-              const draftSlot = val as TechnicalPhotoSlot;
-              if (!draftSlot.url) return;
-              const existing = next[key];
-              if (!existing || existing.uploadStatus !== 'uploaded') {
-                next[key] = draftSlot;
-              }
+      const raw = safeLocalStorageGet(draftStorageKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && typeof draft === 'object') {
+          if (draft.reportStatus) setReportStatus(draft.reportStatus);
+          if (draft.reportStatusId) setReportStatusId(draft.reportStatusId);
+          if (draft.reasonReport) setReasonReport(draft.reasonReport);
+          if (draft.reasonReportId) setReasonReportId(draft.reasonReportId);
+          if (typeof draft.remarksReport === 'string' && draft.remarksReport.trim()) {
+            setRemarksReport(draft.remarksReport);
+          }
+          if (typeof draft.opmDbm === 'string' && draft.opmDbm.trim()) setOpmDbm(draft.opmDbm);
+          if (typeof draft.ontSerialNumber === 'string' && draft.ontSerialNumber.trim()) {
+            setOntSerialNumber(draft.ontSerialNumber);
+          }
+          if (typeof draft.dropcoreLength === 'string' && draft.dropcoreLength.trim()) {
+            setDropcoreLength(draft.dropcoreLength);
+          }
+          if (typeof draft.fatPort === 'string' && draft.fatPort.trim()) {
+            setFatPort(draft.fatPort);
+          }
+          if (typeof draft.usedMaterials === 'string' && draft.usedMaterials.trim()) {
+            setUsedMaterials(draft.usedMaterials);
+          }
+          if (draft.photoSlots && typeof draft.photoSlots === 'object') {
+            setPhotoSlots(prev => {
+              const next = { ...prev };
+              Object.entries(draft.photoSlots).forEach(([k, val]) => {
+                const key = k as PhotoSlotKey;
+                if (!(key in next) || !val || typeof val !== 'object') return;
+                const draftSlot = val as TechnicalPhotoSlot;
+                if (!draftSlot.url) return;
+                const existing = next[key];
+                if (!existing || existing.uploadStatus !== 'uploaded') {
+                  next[key] = draftSlot;
+                }
+              });
+              return next;
             });
-            return next;
-          });
-        }
-        if (typeof draft.customerSignatureUrl === 'string' && draft.customerSignatureUrl) {
-          setCustomerSignatureUrl(draft.customerSignatureUrl);
-        }
-        if (typeof draft.customerConsentConfirmed === 'boolean') {
-          setCustomerConsentConfirmed(draft.customerConsentConfirmed);
-        }
-        if (draft.savedAt) {
-          setDraftSavedAt(draft.savedAt);
+          }
+          if (typeof draft.customerSignatureUrl === 'string' && draft.customerSignatureUrl && !isDataUri(draft.customerSignatureUrl)) {
+            setCustomerSignatureUrl(draft.customerSignatureUrl);
+          }
+          if (typeof draft.customerConsentConfirmed === 'boolean') {
+            setCustomerConsentConfirmed(draft.customerConsentConfirmed);
+          }
+          if (draft.savedAt) {
+            setDraftSavedAt(draft.savedAt);
+          }
         }
       }
     } catch {
       // Ignore malformed draft
     }
-  }, [draftStorageKey, ticketClosed]);
+
+    // Restore any offline un-uploaded signature draft from IndexedDB (never stored in localStorage)
+    void getMasterCacheValue<string>(`draft_sig_${activeTicket.id}`).then(sig => {
+      if (!cancelled && sig && !customerSignatureUrl) {
+        setCustomerSignatureUrl(sig);
+      }
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draftStorageKey, activeTicket.id, ticketClosed]);
 
   // Auto-focus exact next stage section when requested via Continue Work
   useEffect(() => {
@@ -423,7 +457,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       if (ticketClosed) return;
       try {
         const nowIso = new Date().toISOString();
-        const payload = {
+        const sanitizedPayload = sanitizeCheckoutDraftForLocalStorage({
           reportStatus,
           reportStatusId,
           reasonReport,
@@ -438,19 +472,30 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           customerSignatureUrl,
           customerConsentConfirmed,
           savedAt: nowIso
-        };
-        localStorage.setItem(draftStorageKey, JSON.stringify(payload));
-        setDraftSavedAt(nowIso);
-        if (notify) {
-          toast.success(
-            `Draft checkout WO ${activeTicket.woNumber} tersimpan aman di perangkat lokal.`,
-            'Draft Tersimpan'
+        });
+        // Persist inline signature data URI only in IndexedDB, never in localStorage
+        if (isDataUri(customerSignatureUrl)) {
+          void putMasterCacheValue(`draft_sig_${activeTicket.id}`, customerSignatureUrl).catch(() => {});
+        }
+        const writeRes = safeLocalStorageSet(draftStorageKey, JSON.stringify(sanitizedPayload));
+        if (writeRes.ok) {
+          setDraftSavedAt(nowIso);
+          if (notify) {
+            toast.success(
+              `Draft checkout WO ${activeTicket.woNumber} tersimpan aman di perangkat lokal.`,
+              'Draft Tersimpan'
+            );
+          }
+        } else if (notify) {
+          toast.warning(
+            'Penyimpanan lokal penuh. Kirim laporan langsung saat online.',
+            'Draft Penuh'
           );
         }
       } catch {
         if (notify) {
           toast.warning(
-            'Penyimpanan lokal penuh. Kurangi ukuran foto atau kirim langsung saat online.',
+            'Penyimpanan lokal penuh. Kirim laporan langsung saat online.',
             'Draft Penuh'
           );
         }
@@ -1499,6 +1544,27 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           : `${opmDbm.trim()} dBm`
         : '';
 
+      let resolvedSignatureUrl = customerSignatureUrl || undefined;
+      if (resolvedSignatureUrl && isDataUri(resolvedSignatureUrl)) {
+        const sigUpload = await supabaseDb.uploadAssetToStorage({
+          fileName: `signature_${activeTicket.woNumber || activeTicket.id}_${Date.now()}.png`,
+          fileData: resolvedSignatureUrl,
+          mimeType: 'image/png',
+          fileCategory: 'wo_document',
+          relatedWoNumber: activeTicket.woNumber,
+          ticketId: activeTicket.id
+        });
+        if (!sigUpload.success || !sigUpload.downloadUrl) {
+          playErrorSound();
+          const sigErr = sigUpload.error || 'Gagal mengunggah tanda tangan pelanggan ke Supabase Storage.';
+          setReportError(sigErr);
+          toast.error(sigErr, 'Upload Tanda Tangan Gagal');
+          return;
+        }
+        resolvedSignatureUrl = sigUpload.downloadUrl;
+        setCustomerSignatureUrl(sigUpload.downloadUrl);
+      }
+
       const res = await saveProgressReport(activeTicket.id, {
         reportStatus,
         reportStatusId,
@@ -1514,16 +1580,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           usedMaterials: usedMaterials.trim() || undefined,
           photoSlots: verifiedUploadedSlotsList,
           photos: verifiedUploadedSlotsList.map(s => s.url),
-          customerSignatureUrl: customerSignatureUrl || undefined,
+          customerSignatureUrl: resolvedSignatureUrl,
           customerConsentConfirmed
         }
       });
 
       if (res.success) {
-        try {
-          localStorage.removeItem(draftStorageKey);
-          setDraftSavedAt(null);
-        } catch {}
+        safeLocalStorageRemove(draftStorageKey);
+        void deleteMasterCacheValue(`draft_sig_${activeTicket.id}`).catch(() => {});
+        setDraftSavedAt(null);
         playReportSavedSound();
         setSavedReportSnapshot({
           status: reportStatus,

@@ -886,7 +886,7 @@ export function getStorageProvider(): StorageProviderConfig {
 
 export interface StorageFileMetadata {
   fileId: string;
-  storageProvider: 'supabase' | 'base64' | 'legacy_external';
+  storageProvider: 'supabase' | 'local_disk' | 'base64' | 'legacy_external';
   bucketName: string;
   filePath: string;
   originalFileName: string;
@@ -1026,9 +1026,27 @@ export async function uploadFile(params: {
   const pathFolder =
     fileCategory === 'chat_attachment' && cleanWo
       ? `${STORAGE_FOLDERS.LIVE_CHAT}/${cleanWo}`
+      : fileCategory === 'wo_document' && cleanWo
+      ? `${STORAGE_FOLDERS.WORK_ORDERS}/${cleanWo}`
+      : fileCategory === 'image_report' && cleanWo
+      ? `${STORAGE_FOLDERS.TECHNICAL_REPORTS}/${cleanWo}`
       : `test-sandbox/${sanitizePathSegment(userId)}/${fileCategory}`;
-  const pathPrefix = fileCategory === 'chat_attachment' && cleanWo ? 'chat' : 'data';
-  const fileTag = fileCategory === 'chat_attachment' ? 'cht' : 'adp';
+  const pathPrefix =
+    fileCategory === 'chat_attachment' && cleanWo
+      ? 'chat'
+      : fileCategory === 'wo_document' && cleanWo
+      ? 'doc'
+      : fileCategory === 'image_report' && cleanWo
+      ? 'img'
+      : 'data';
+  const fileTag =
+    fileCategory === 'chat_attachment'
+      ? 'cht'
+      : fileCategory === 'wo_document'
+      ? 'doc'
+      : fileCategory === 'image_report'
+      ? 'img'
+      : 'adp';
 
   const { fullPath, uniqueFileId } = buildStorageObjectPath(
     pathFolder,
@@ -1039,10 +1057,21 @@ export async function uploadFile(params: {
 
   // 3. Compute SHA-256 for audit & deduplication
   const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-  const downloadCategory = fileCategory === 'chat_attachment' && cleanWo ? 'live-chat' : 'test-sandbox';
+  const downloadCategory =
+    fileCategory === 'chat_attachment' && cleanWo
+      ? 'live-chat'
+      : fileCategory === 'wo_document' && cleanWo
+      ? 'work-orders'
+      : fileCategory === 'image_report' && cleanWo
+      ? 'technical-reports'
+      : 'test-sandbox';
   const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=${encodeURIComponent(downloadCategory)}${cleanWo ? `&woNumber=${encodeURIComponent(relatedWoNumber!)}` : ''}`;
 
-  // 4. Upload to Supabase Storage (with local persistent disk fallback for operational chat attachments)
+  const isProdOrServerless = Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === 'production'
+  );
+
+  // 4. Upload to Supabase Storage (local disk fallback ONLY allowed in non-prod local dev)
   let storageProvider: 'supabase' | 'local_disk' = 'supabase';
   const uploadResult = await uploadBufferToSupabaseStorage({
     bucket,
@@ -1052,12 +1081,12 @@ export async function uploadFile(params: {
   });
 
   if (!uploadResult.success) {
-    if (fileCategory === 'chat_attachment' && cleanWo) {
+    if (!isProdOrServerless && cleanWo && (fileCategory === 'chat_attachment' || fileCategory === 'wo_document' || fileCategory === 'image_report')) {
       try {
         const localBase = path.resolve(process.cwd(), 'data', 'uploads');
         const targetFile = path.resolve(localBase, fullPath);
         if (!targetFile.startsWith(localBase + path.sep)) {
-          return { success: false, error: 'Path penyimpanan lampiran chat tidak valid.' };
+          return { success: false, error: 'Path penyimpanan file tidak valid.' };
         }
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
         fs.writeFileSync(targetFile, fileBuffer);
@@ -1090,14 +1119,14 @@ export async function uploadFile(params: {
         errorCode: 'STORAGE_UPLOAD_ERROR',
         errorMessage: uploadResult.error
       });
-      return { success: false, error: uploadResult.error };
+      return { success: false, error: uploadResult.error || 'Gagal mengunggah file ke Supabase Storage.' };
     }
   }
 
   // 5. Build compatible metadata
   const metadata: StorageFileMetadata = {
     fileId: uniqueFileId,
-    storageProvider: 'supabase',
+    storageProvider,
     bucketName: bucket,
     filePath: fullPath,
     originalFileName: sanitizeFileName(fileName),
@@ -1181,7 +1210,12 @@ export async function uploadWoPhotoEvidence(params: {
   const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
   const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=technical-reports&woNumber=${encodeURIComponent(woNumber)}`;
 
+  const isProdOrServerless = Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === 'production'
+  );
+
   const client = getSupabaseBackendClient();
+  let supaUploadError: string | undefined;
   if (client) {
     const supaRes = await uploadBufferToSupabaseStorage({
       bucket,
@@ -1211,9 +1245,31 @@ export async function uploadWoPhotoEvidence(params: {
         signedUrl: supaRes.signedUrl
       };
     }
+    supaUploadError = supaRes.error;
   }
 
-  // Persistent backend file fallback when Supabase client or bucket is unconfigured in dev/local runtime
+  if (isProdOrServerless) {
+    const errMsg = supaUploadError || 'Supabase Storage tidak tersedia pada environment produksi.';
+    logStorageOperation({
+      operation: 'upload',
+      status: 'failed',
+      provider: 'supabase',
+      fileId: uniqueFileId,
+      filePath: fullPath,
+      userId,
+      userRole: params.userRole,
+      timestamp: new Date().toISOString(),
+      errorCode: 'STORAGE_UPLOAD_ERROR',
+      errorMessage: errMsg
+    });
+    return {
+      success: false,
+      storageProvider: 'supabase',
+      error: errMsg
+    };
+  }
+
+  // Persistent backend file fallback ONLY when Supabase client/bucket is unconfigured in local dev runtime
   try {
     const localBase = path.resolve(process.cwd(), 'data', 'uploads');
     const targetFile = path.resolve(localBase, fullPath);

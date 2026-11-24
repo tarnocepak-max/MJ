@@ -97,14 +97,18 @@ export function formatSupabaseErrorMessage(err: any, fallback: string): string {
 export interface WorkOrderFilterOptions {
   area?: string;
   contractorId?: string;
+  contractor?: string;
   installerName?: string;
   statusWOAgent?: string;
   statusWOInstaller?: string;
   appointmentDate?: string;
+  search?: string;
   includeArchived?: boolean;
   includeDeleted?: boolean;
   limit?: number;
   offset?: number;
+  page?: number;
+  lightweight?: boolean;
 }
 
 export interface RealtimeSubscriptionOptions {
@@ -224,8 +228,13 @@ export class SupabaseRepository {
     }
 
     try {
-      const query = new URLSearchParams(options as any).toString();
-      const res = await fetch(`/api/supabase/work-orders?${query}`, {
+      const qs = new URLSearchParams();
+      Object.entries(options).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          qs.set(k, String(v));
+        }
+      });
+      const res = await fetch(`/api/supabase/work-orders?${qs.toString()}`, {
         headers: getAuthHeaders()
       });
       const json = await res.json();
@@ -236,6 +245,152 @@ export class SupabaseRepository {
         error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal mengambil list tiket dari Supabase proxy' }
       };
     }
+  }
+
+  /**
+   * PAGINATED GET: Retrieve a single page of Work Orders with server/DB-level filtering & projection
+   */
+  async getWorkOrdersPaginated(
+    options: WorkOrderFilterOptions & { phase?: 'critical' | 'full'; sortBy?: string; sortDir?: 'asc' | 'desc' } = {}
+  ): Promise<{
+    success: boolean;
+    tickets: Ticket[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    serverTime?: string;
+    error?: string;
+    httpStatus?: number;
+  }> {
+    try {
+      const qs = new URLSearchParams();
+      qs.set('phase', options.phase || 'critical');
+      qs.set('page', String(options.page || 1));
+      qs.set('limit', String(options.limit || 100));
+      if (options.area) qs.set('area', options.area);
+      if (options.contractor) qs.set('contractor', options.contractor);
+      if (options.statusWOAgent) qs.set('statusWOAgent', options.statusWOAgent);
+      if (options.statusWOInstaller) qs.set('statusWOInstaller', options.statusWOInstaller);
+      if (options.appointmentDate) qs.set('appointmentDate', options.appointmentDate);
+      if (options.search) qs.set('search', options.search);
+      if (options.includeArchived) qs.set('includeArchived', 'true');
+      if (options.sortBy) qs.set('sortBy', options.sortBy);
+      if (options.sortDir) qs.set('sortDir', options.sortDir);
+
+      const res = await fetch(`/api/work-orders/progressive?${qs.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        return {
+          success: false,
+          tickets: [],
+          total: 0,
+          page: options.page || 1,
+          limit: options.limit || 100,
+          totalPages: 1,
+          httpStatus: res.status,
+          error: json?.error?.message || json?.error || `Gagal memuat data WO (${res.status})`
+        };
+      }
+      return {
+        success: true,
+        tickets: Array.isArray(json.tickets) ? json.tickets : [],
+        total: Number(json.total || 0),
+        page: Number(json.page || 1),
+        limit: Number(json.limit || 100),
+        totalPages: Number(json.totalPages || 1),
+        serverTime: json.serverTime
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        tickets: [],
+        total: 0,
+        page: options.page || 1,
+        limit: options.limit || 100,
+        totalPages: 1,
+        error: err?.message || 'Koneksi jaringan bermasalah saat memuat Work Order.'
+      };
+    }
+  }
+
+  /**
+   * UPLOAD ASSET: Uploads image/signature/document via /api/storage/adapter/upload (Supabase Storage + public.attachments)
+   * with bounded retry on transient network/5xx errors and explicit failure reporting.
+   */
+  async uploadAssetToStorage(params: {
+    fileName: string;
+    fileData: string;
+    mimeType: string;
+    fileCategory: 'image_report' | 'wo_document' | 'chat_attachment' | 'user_profile';
+    relatedWoNumber?: string;
+    ticketId?: string;
+    maxRetries?: number;
+  }): Promise<{
+    success: boolean;
+    downloadUrl?: string;
+    storagePath?: string;
+    fileId?: string;
+    error?: string;
+    httpStatus?: number;
+  }> {
+    const maxRetries = Math.min(2, Math.max(0, params.maxRetries ?? 1));
+    let lastError = 'Gagal mengunggah lampiran.';
+    let lastStatus = 0;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), 25_000) : null;
+        const res = await fetch('/api/storage/adapter/upload', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          signal: controller?.signal,
+          body: JSON.stringify({
+            fileName: params.fileName,
+            fileData: params.fileData,
+            mimeType: params.mimeType,
+            fileCategory: params.fileCategory,
+            relatedWoNumber: params.relatedWoNumber,
+            ticketId: params.ticketId
+          })
+        });
+        if (timer) clearTimeout(timer);
+
+        lastStatus = res.status;
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success && json.downloadUrl) {
+          return {
+            success: true,
+            downloadUrl: json.downloadUrl,
+            storagePath: json.metadata?.filePath,
+            fileId: json.metadata?.fileId
+          };
+        }
+
+        lastError =
+          res.status === 401
+            ? 'Sesi login telah berakhir. Silakan login kembali.'
+            : json?.error?.message || json?.error || `Upload gagal (${res.status})`;
+
+        // Do not retry 4xx validation / auth / permission errors
+        if (res.status >= 400 && res.status < 500) {
+          return { success: false, error: lastError, httpStatus: res.status };
+        }
+      } catch (err: any) {
+        lastError = err?.name === 'AbortError'
+          ? 'Timeout jaringan saat mengunggah file ke server.'
+          : err?.message || 'Koneksi terputus saat mengunggah file.';
+      }
+
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+      }
+    }
+
+    return { success: false, error: lastError, httpStatus: lastStatus || undefined };
   }
 
   /**

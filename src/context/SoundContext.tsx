@@ -13,6 +13,7 @@ import {
   notificationAudioService,
   resolveToastCategory
 } from '../services/notificationAudioService';
+import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../utils/safeStorage';
 
 export interface SoundUpdateResult {
   success: boolean;
@@ -57,7 +58,7 @@ export interface SoundContextType {
 
 function getSessionAuth(): { token: string; role: string; userId: string } {
   try {
-    const raw = localStorage.getItem('morajaws_auth_session');
+    const raw = safeLocalStorageGet('morajaws_auth_session');
     if (!raw) return { token: '', role: '', userId: 'guest' };
     const parsed = JSON.parse(raw);
     return {
@@ -76,7 +77,7 @@ function getPersonalPrefsKey(userId: string): string {
 
 function readPersonalOverrides(userId: string): Partial<SoundSettings> | null {
   try {
-    const raw = localStorage.getItem(getPersonalPrefsKey(userId));
+    const raw = safeLocalStorageGet(getPersonalPrefsKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? (parsed as Partial<SoundSettings>) : null;
@@ -89,9 +90,9 @@ function writePersonalOverrides(userId: string, overrides: Partial<SoundSettings
   try {
     const key = getPersonalPrefsKey(userId);
     if (!overrides) {
-      localStorage.removeItem(key);
+      safeLocalStorageRemove(key);
     } else {
-      localStorage.setItem(key, JSON.stringify(overrides));
+      safeLocalStorageSet(key, JSON.stringify(overrides));
     }
   } catch {
     // Ignore storage quota errors safely
@@ -122,7 +123,7 @@ const SoundContext = createContext<SoundContextType | undefined>(undefined);
 export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [globalSoundSettings, setGlobalSoundSettings] = useState<SoundSettings>(() => {
     try {
-      const stored = localStorage.getItem('morajaws_sound_preferences');
+      const stored = safeLocalStorageGet('morajaws_sound_preferences');
       if (stored) {
         return normalizeSoundSettings(JSON.parse(stored));
       }
@@ -195,9 +196,7 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
           setGlobalSoundSettings(merged);
           soundVersionRef.current = res.version || 1;
           setSoundVersion(res.version || 1);
-          try {
-            localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
-          } catch {}
+          safeLocalStorageSet('morajaws_sound_preferences', JSON.stringify(merged));
         }
       } catch {
         // Keep cached defaults if setting not yet seeded or transient offline
@@ -212,9 +211,7 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
           soundVersionRef.current = ev.version;
           setSoundVersion(ev.version);
         }
-        try {
-          localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
-        } catch {}
+        safeLocalStorageSet('morajaws_sound_preferences', JSON.stringify(merged));
       });
     };
 
@@ -282,9 +279,7 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
         setGlobalSoundSettings(confirmed);
         pendingSoundDraftRef.current = null;
         setSoundConflict(null);
-        try {
-          localStorage.setItem('morajaws_sound_preferences', JSON.stringify(confirmed));
-        } catch {}
+        safeLocalStorageSet('morajaws_sound_preferences', JSON.stringify(confirmed));
         return { success: true };
       } catch (err: any) {
         if (err instanceof ConfigConflictError) {
@@ -327,9 +322,7 @@ export const MoraJawsSoundProvider: React.FC<{ children: React.ReactNode }> = ({
             setGlobalSoundSettings(merged);
             soundVersionRef.current = res.version || 1;
             setSoundVersion(res.version || 1);
-            try {
-              localStorage.setItem('morajaws_sound_preferences', JSON.stringify(merged));
-            } catch {}
+            safeLocalStorageSet('morajaws_sound_preferences', JSON.stringify(merged));
           }
           pendingSoundDraftRef.current = null;
           setSoundConflict(null);

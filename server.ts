@@ -60,6 +60,7 @@ import {
   updateUserInSupabase,
   deleteUserInSupabase,
   getWorkOrdersFromSupabase,
+  getWorkOrdersFromSupabasePaginated,
   getClassifiedWorkOrdersFromSupabase,
   getWorkOrdersUpdatedSinceFromSupabase,
   stripHeavyFieldsForCriticalPhase,
@@ -114,6 +115,9 @@ import {
   appendDistributionLogToSupabase,
   insertKendalaReportToSupabase,
   getKendalaReportsByTicketFromSupabase,
+  insertAttachmentToSupabase,
+  upsertWoPhotoEvidenceToSupabase,
+  deleteWoPhotoEvidenceRowFromSupabase,
   postgresRowToTicket
 } from './server/supabaseAdapter.ts';
 import {
@@ -458,6 +462,82 @@ export function isSupabaseMode(): boolean {
     (process.env.SUPABASE_SECRET_KEY && process.env.SUPABASE_SECRET_KEY.trim())
   );
   return hasSupabaseUrl && hasServiceKey;
+}
+
+/**
+ * Automatically offloads inline Base64 data URIs (e.g. customer signature PNGs or legacy photo inputs)
+ * into Supabase Storage and records metadata in `public.attachments` so Base64 blobs are never stored
+ * inside `work_orders` PostgreSQL JSONB columns.
+ */
+async function offloadDataUriToStorageIfNeeded(params: {
+  rawValue?: string;
+  user: { id: string; name: string; role: string };
+  ticketId?: string;
+  woNumber?: string;
+  fileCategory?: 'image_report' | 'wo_document' | 'chat_attachment';
+  fileNamePrefix?: string;
+}): Promise<{ url?: string; error?: string }> {
+  const val = typeof params.rawValue === 'string' ? params.rawValue.trim() : '';
+  if (!val) return { url: undefined };
+  if (!val.toLowerCase().startsWith('data:')) {
+    return { url: val };
+  }
+
+  const match = val.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/);
+  if (!match) {
+    return { error: 'Format data URI lampiran tidak valid.' };
+  }
+  const mimeType = match[1].toLowerCase();
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer || buffer.length < 16) {
+    return { error: 'Data gambar/tanda tangan kosong.' };
+  }
+
+  const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+  const safeWo = (params.woNumber || params.ticketId || 'WO_GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fileName = `${params.fileNamePrefix || 'asset'}_${safeWo}_${Date.now()}.${ext}`;
+
+  const uploadRes = await uploadFile({
+    userId: params.user.id,
+    userRole: params.user.role,
+    userName: params.user.name,
+    fileCategory: params.fileCategory || 'wo_document',
+    fileName,
+    fileBuffer: buffer,
+    mimeType,
+    relatedWoNumber: params.woNumber
+  });
+
+  if (!uploadRes.success || !uploadRes.downloadUrl || !uploadRes.metadata) {
+    return { error: uploadRes.error || 'Gagal mengunggah aset ke Supabase Storage.' };
+  }
+
+  if (isSupabaseMode()) {
+    await insertAttachmentToSupabase({
+      id: uploadRes.metadata.fileId,
+      fileId: uploadRes.metadata.fileId,
+      workOrderId: params.ticketId || null,
+      ticketId: params.ticketId || null,
+      woNumber: params.woNumber || null,
+      fileName: uploadRes.metadata.originalFileName,
+      fileType: uploadRes.metadata.mimeType,
+      fileSize: uploadRes.metadata.fileSize,
+      storageProvider: uploadRes.storageProvider || 'supabase',
+      storagePath: uploadRes.metadata.filePath,
+      downloadUrl: uploadRes.downloadUrl,
+      senderId: params.user.id,
+      senderName: params.user.name,
+      senderRole: params.user.role,
+      validationStatus: 'verified',
+      payload: {
+        sha256: uploadRes.metadata.sha256,
+        fileCategory: uploadRes.metadata.fileCategory
+      },
+      uploadedAt: uploadRes.metadata.uploadedAt
+    });
+  }
+
+  return { url: uploadRes.downloadUrl };
 }
 
 // -------------------------------------------------------------
@@ -3073,6 +3153,7 @@ function resolveServerHost(): string {
 export async function createExpressApp(options?: {
   skipVite?: boolean;
   deferVite?: boolean;
+  apiOnly?: boolean;
   httpServer?: http.Server;
   nowProvider?: () => Date;
   onViteInstance?: (vite: { close: () => Promise<void> }) => void;
@@ -3552,7 +3633,7 @@ export async function createExpressApp(options?: {
     try {
       const [sbResult, sbContr, sbAreas, sbTemplates] = await Promise.all([
         (user && !passwordChangeRequired)
-          ? getWorkOrdersFromSupabase()
+          ? getWorkOrdersFromSupabase({ lightweight: isCriticalMode })
           : Promise.resolve({ success: true, data: [] }),
         isSecondaryMode
           ? Promise.resolve({ success: true, data: [] })
@@ -6428,6 +6509,58 @@ export async function createExpressApp(options?: {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+
+      // Persist structured photo evidence & attachment metadata into Supabase tables
+      await Promise.allSettled([
+        upsertWoPhotoEvidenceToSupabase({
+          id: slotRecord.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          slotKey: slotRecord.slotKey,
+          slotTitle: slotRecord.title,
+          storagePath: slotRecord.storagePath,
+          photoUrl: slotRecord.url,
+          fileName: slotRecord.fileName,
+          fileSizeBytes: slotRecord.fileSizeBytes,
+          mimeType: slotRecord.mimeType,
+          latitude: slotRecord.latitude,
+          longitude: slotRecord.longitude,
+          gpsAccuracyMeters: slotRecord.gpsAccuracyMeters,
+          altitudeMeters: slotRecord.altitudeMeters,
+          headingDeg: slotRecord.headingDeg,
+          speedMps: slotRecord.speedMps,
+          capturedAt: slotRecord.capturedAtIso,
+          uploadedAt: slotRecord.uploadedAt,
+          technicianId: slotRecord.technicianId,
+          technicianName: slotRecord.technicianName,
+          locationSource: slotRecord.locationSource,
+          permissionStatus: slotRecord.permissionStatus,
+          geotagStatus: slotRecord.geotagStatus,
+          captureMethod: slotRecord.captureMethod,
+          sha256: slotRecord.sha256,
+          clientCaptureId: slotRecord.clientCaptureId,
+          metadata: { badgeText: slotRecord.badgeText, statusTag: slotRecord.statusTag, fieldNotes: slotRecord.fieldNotes }
+        }),
+        insertAttachmentToSupabase({
+          id: slotRecord.id,
+          fileId: slotRecord.id,
+          workOrderId: ticket.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileName: slotRecord.fileName,
+          fileType: slotRecord.mimeType,
+          fileSize: slotRecord.fileSizeBytes,
+          storageProvider: storageRes.storageProvider || 'supabase',
+          storagePath: slotRecord.storagePath,
+          downloadUrl: slotRecord.url,
+          senderId: req.user!.id,
+          senderName: req.user!.name,
+          senderRole: req.user!.role,
+          validationStatus: 'verified',
+          payload: { slotKey: slotRecord.slotKey, sha256: slotRecord.sha256 },
+          uploadedAt: slotRecord.uploadedAt
+        })
+      ]);
     }
 
     if (isLocalJsonModeAllowed()) {
@@ -6581,6 +6714,7 @@ export async function createExpressApp(options?: {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+      await deleteWoPhotoEvidenceRowFromSupabase(ticket.id, cleanSlotKey);
     }
 
     if (isLocalJsonModeAllowed()) {
@@ -6914,9 +7048,29 @@ export async function createExpressApp(options?: {
           };
         }
       }
-      const telemetrySignature = typeof technicalTelemetry.customerSignatureUrl === 'string' && technicalTelemetry.customerSignatureUrl.trim()
+      const rawTelemetrySignature = typeof technicalTelemetry.customerSignatureUrl === 'string' && technicalTelemetry.customerSignatureUrl.trim()
         ? technicalTelemetry.customerSignatureUrl.trim()
         : (prevTr.customerSignatureUrl || ticket.customerSignatureUrl);
+
+      let telemetrySignature = rawTelemetrySignature;
+      if (rawTelemetrySignature && rawTelemetrySignature.toLowerCase().startsWith('data:')) {
+        const sigOffload = await offloadDataUriToStorageIfNeeded({
+          rawValue: rawTelemetrySignature,
+          user: { id: req.user!.id, name: req.user!.name, role: req.user!.role },
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileCategory: 'wo_document',
+          fileNamePrefix: 'signature'
+        });
+        if (sigOffload.error && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            code: 'SIGNATURE_STORAGE_FAILED',
+            error: sigOffload.error
+          });
+        }
+        if (sigOffload.url) telemetrySignature = sigOffload.url;
+      }
 
       updates.technicalReport = {
         ...prevTr,
@@ -7183,10 +7337,31 @@ export async function createExpressApp(options?: {
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
 
-      await insertKendalaReportToSupabase({
-        ...kendalaEntry,
-        payload: { targetInstallerStatus: nextInstallerStatus }
-      });
+      await Promise.allSettled([
+        insertKendalaReportToSupabase({
+          ...kendalaEntry,
+          payload: { targetInstallerStatus: nextInstallerStatus }
+        }),
+        insertAttachmentToSupabase({
+          id: `att_${kendalaEntry.id}`,
+          fileId: storageRes.fileId || kendalaEntry.id,
+          workOrderId: ticket.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileName: safeFileName,
+          fileType: resolvedMime,
+          fileSize: buffer.length,
+          storageProvider: storageRes.storageProvider || 'supabase',
+          storagePath: storageRes.storagePath,
+          downloadUrl: storageRes.downloadUrl,
+          senderId: req.user!.id,
+          senderName: req.user!.name,
+          senderRole: req.user!.role,
+          validationStatus: 'verified',
+          payload: { kendalaReportId: kendalaEntry.id, reasonLabel: cleanReasonLabel },
+          uploadedAt: now
+        })
+      ]);
     }
 
     if (isLocalJsonModeAllowed()) {
@@ -10062,59 +10237,123 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // --- Attachments & File Upload API (Supabase Storage / Secure Persistent Storage) ---
-  app.post('/api/attachments', requireAuth, (req: AuthenticatedRequest, res: Response) => {
-    const { fileName, fileType, fileSize, fileData, woNumber, ticketId } = req.body;
-    if (!fileName || !fileData) {
-      return res.status(400).json({ error: 'Nama file dan data file wajib disertakan.' });
-    }
+  // --- Attachments & File Upload API (Supabase Storage + public.attachments metadata) ---
+  app.post('/api/attachments', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { fileName, fileType, fileSize, fileData, woNumber, ticketId } = req.body;
+      if (!fileName || !fileData) {
+        return res.status(400).json({ error: 'Nama file dan data file wajib disertakan.' });
+      }
 
-    // Validate file size (max 10MB)
-    const maxSizeBytes = 10 * 1024 * 1024;
-    const estimatedSize = fileSize || Math.round((fileData.length * 3) / 4);
-    if (estimatedSize > maxSizeBytes) {
-      return res.status(413).json({ error: `Ukuran file melebihi batas maksimum 10MB (Ukuran: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB).` });
-    }
+      let resolvedMime = (fileType || 'image/jpeg').toLowerCase().trim();
+      let rawBase64 = String(fileData);
+      const dataMatch = rawBase64.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/);
+      if (dataMatch) {
+        resolvedMime = dataMatch[1].toLowerCase();
+        rawBase64 = dataMatch[2];
+      }
 
-    // Validate MIME type
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
-    const cleanMime = (fileType || 'image/jpeg').toLowerCase().trim();
-    const isAllowed = allowedMimes.some(m => cleanMime.startsWith(m) || cleanMime.includes(m.split('/')[1]));
-    if (!isAllowed) {
-      return res.status(415).json({
-        error: `Format file tidak diizinkan (${cleanMime}). Hanya file gambar (JPG, PNG, WEBP), PDF, dan dokumen teks yang diizinkan.`
+      const fileBuffer = Buffer.from(rawBase64, 'base64');
+      const maxSizeBytes = 10 * 1024 * 1024;
+      const actualSize = fileBuffer.length || fileSize || 0;
+      if (actualSize > maxSizeBytes) {
+        return res.status(413).json({
+          error: `Ukuran file melebihi batas maksimum 10MB (Ukuran: ${(actualSize / (1024 * 1024)).toFixed(2)}MB).`
+        });
+      }
+
+      const cleanMime = resolvedMime;
+      const fileCategory = cleanMime.startsWith('image/') ? 'wo_document' : 'wo_document';
+      const uploadRes = await uploadFile({
+        userId: req.user!.id,
+        userRole: req.user!.role,
+        userName: req.user!.name,
+        fileCategory,
+        fileName: String(fileName).trim(),
+        fileBuffer,
+        mimeType: cleanMime,
+        relatedWoNumber: woNumber ? String(woNumber).trim() : undefined
+      });
+
+      if (!uploadRes.success || !uploadRes.metadata || !uploadRes.downloadUrl) {
+        return res.status(400).json({
+          success: false,
+          error: uploadRes.error || 'Gagal mengunggah file lampiran ke penyimpanan.'
+        });
+      }
+
+      const now = uploadRes.metadata.uploadedAt || new Date().toISOString();
+      const fileId = uploadRes.metadata.fileId;
+      const attachment = {
+        fileId,
+        id: fileId,
+        woNumber: woNumber || ticketId || 'WO-GENERAL',
+        ticketId: ticketId || undefined,
+        fileName: uploadRes.metadata.originalFileName,
+        fileType: cleanMime,
+        fileSize: uploadRes.metadata.fileSize,
+        storagePath: uploadRes.metadata.filePath,
+        storageType: uploadRes.storageProvider === 'local_disk' ? 'Local Persistent Storage' : 'Supabase Storage',
+        url: uploadRes.downloadUrl,
+        downloadUrl: uploadRes.downloadUrl,
+        sender: req.user!.name,
+        senderId: req.user!.id,
+        senderRole: req.user!.role,
+        uploadedAt: now,
+        validationStatus: 'verified'
+      };
+
+      if (isSupabaseMode()) {
+        const metaRes = await insertAttachmentToSupabase({
+          id: fileId,
+          fileId,
+          workOrderId: ticketId || null,
+          ticketId: ticketId || null,
+          woNumber: woNumber || null,
+          fileName: attachment.fileName,
+          fileType: cleanMime,
+          fileSize: attachment.fileSize,
+          storageProvider: uploadRes.storageProvider || 'supabase',
+          storagePath: attachment.storagePath,
+          downloadUrl: attachment.downloadUrl,
+          senderId: req.user!.id,
+          senderName: req.user!.name,
+          senderRole: req.user!.role,
+          validationStatus: 'verified',
+          payload: { sha256: uploadRes.metadata.sha256 },
+          uploadedAt: now
+        });
+        if (!metaRes.persisted && !metaRes.skippedSchemaPending && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            code: 'ATTACHMENT_METADATA_FAILED',
+            error: metaRes.error || 'Gagal menyimpan metadata lampiran ke database Supabase.'
+          });
+        }
+      }
+
+      if (isLocalJsonModeAllowed()) {
+        db.attachments = db.attachments || [];
+        db.attachments.unshift(attachment);
+        if (db.attachments.length > 500) db.attachments.pop();
+        saveDatabaseToDisk();
+      }
+
+      await logServerAuditAsync(
+        'Attachment Uploaded',
+        'attachment',
+        fileId,
+        `${req.user!.name} (${req.user!.role}) mengunggah lampiran "${fileName}" (${(attachment.fileSize / 1024).toFixed(1)} KB) untuk WO ${attachment.woNumber}`,
+        req.user
+      );
+
+      res.json({ success: true, attachment });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Gagal memproses unggahan lampiran.'
       });
     }
-
-    const fileId = 'att_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    const now = new Date().toISOString();
-
-    const attachment = {
-      fileId,
-      id: fileId,
-      woNumber: woNumber || ticketId || 'WO-GENERAL',
-      ticketId: ticketId || woNumber,
-      fileName: String(fileName).trim(),
-      fileType: cleanMime,
-      fileSize: estimatedSize,
-      storagePath: `work_orders/${woNumber || 'general'}/${fileId}_${fileName}`,
-      storageType: 'Supabase Storage / Secure Persistent Storage',
-      url: fileData.startsWith('data:') ? fileData : `data:${cleanMime};base64,${fileData}`,
-      sender: req.user!.name,
-      senderId: req.user!.id,
-      senderRole: req.user!.role,
-      uploadedAt: now,
-      validationStatus: 'verified'
-    };
-
-    db.attachments = db.attachments || [];
-    db.attachments.unshift(attachment);
-    if (db.attachments.length > 500) db.attachments.pop();
-    saveDatabaseToDisk();
-
-    logServerAudit('Attachment Uploaded', 'attachment', fileId, `${req.user!.name} (${req.user!.role}) mengunggah lampiran "${fileName}" (${(estimatedSize / 1024).toFixed(1)} KB) untuk WO ${woNumber}`, req.user);
-
-    res.json({ success: true, attachment });
   });
 
   // --- Supabase Storage Readiness & Compatibility APIs ---
@@ -10845,11 +11084,45 @@ export async function createExpressApp(options?: {
       return res.status(400).json({ success: false, error: uploadRes.error });
     }
 
-    // Persist metadata in storageMetadata (signed URLs are transient and never stored permanently)
-    db.storageMetadata = db.storageMetadata || [];
-    db.storageMetadata.unshift(uploadRes.metadata);
-    if (db.storageMetadata.length > 500) db.storageMetadata.pop();
-    saveDatabaseToDisk();
+    if (isSupabaseMode()) {
+      const metaRes = await insertAttachmentToSupabase({
+        id: uploadRes.metadata.fileId,
+        fileId: uploadRes.metadata.fileId,
+        workOrderId: req.body?.ticketId ? String(req.body.ticketId).trim() : null,
+        ticketId: req.body?.ticketId ? String(req.body.ticketId).trim() : null,
+        woNumber: relatedWoNumber ? String(relatedWoNumber).trim() : null,
+        fileName: uploadRes.metadata.originalFileName,
+        fileType: uploadRes.metadata.mimeType,
+        fileSize: uploadRes.metadata.fileSize,
+        storageProvider: uploadRes.storageProvider || 'supabase',
+        storagePath: uploadRes.metadata.filePath,
+        downloadUrl: uploadRes.downloadUrl || null,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role,
+        validationStatus: 'verified',
+        payload: {
+          sha256: uploadRes.metadata.sha256,
+          fileCategory: uploadRes.metadata.fileCategory
+        },
+        uploadedAt: uploadRes.metadata.uploadedAt
+      });
+      if (!metaRes.persisted && !metaRes.skippedSchemaPending && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'ATTACHMENT_METADATA_FAILED',
+          error: metaRes.error || 'Gagal menyimpan metadata file ke database Supabase.'
+        });
+      }
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      // Persist metadata in local dev storageMetadata (signed URLs are transient)
+      db.storageMetadata = db.storageMetadata || [];
+      db.storageMetadata.unshift(uploadRes.metadata);
+      if (db.storageMetadata.length > 500) db.storageMetadata.pop();
+      saveDatabaseToDisk();
+    }
 
     res.json({
       success: true,
@@ -11052,43 +11325,89 @@ export async function createExpressApp(options?: {
       const {
         area,
         contractorId,
+        contractor,
         installerName,
         statusWOAgent,
         statusWOInstaller,
         appointmentDate,
+        search,
         includeArchived,
         includeDeleted,
         limit,
-        offset
+        offset,
+        page,
+        lightweight
       } = req.query as Record<string, string | undefined>;
 
       let tickets: any[] = [];
+      let totalCount: number | undefined;
+      let pageNum: number | undefined;
+      let totalPagesCount: number | undefined;
 
       if (isSupabaseMode()) {
-        const sbResult = await getWorkOrdersFromSupabase({
-          area,
-          contractorId,
-          installerName,
-          appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined,
-          includeArchived: includeArchived === 'true',
-          includeDeleted: includeDeleted === 'true',
-          limit: limit ? parseInt(limit, 10) : undefined,
-          offset: offset ? parseInt(offset, 10) : undefined
-        });
-
-        if (!sbResult.success) {
-          if (!isLocalJsonModeAllowed()) {
-            return res.status(503).json({
-              success: false,
-              error: {
-                code: 'SUPABASE_UNAVAILABLE',
-                message: 'Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi.'
-              }
-            });
+        const usePaginated = Boolean(limit || page || offset || search || statusWOAgent || statusWOInstaller || contractor);
+        if (usePaginated) {
+          const sbPaged = await getWorkOrdersFromSupabasePaginated({
+            area,
+            contractorId,
+            contractor,
+            installerName,
+            statusWOAgent,
+            statusWOInstaller,
+            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined,
+            search,
+            includeArchived: includeArchived === 'true',
+            includeDeleted: includeDeleted === 'true',
+            limit: limit ? parseInt(limit, 10) : 100,
+            offset: offset ? parseInt(offset, 10) : undefined,
+            page: page ? parseInt(page, 10) : 1,
+            lightweight: lightweight !== 'false',
+            userRole: user.role,
+            userId: user.id,
+            userContractor: user.contractor
+          });
+          if (!sbPaged.success) {
+            if (!isLocalJsonModeAllowed()) {
+              return res.status(503).json({
+                success: false,
+                error: {
+                  code: 'SUPABASE_UNAVAILABLE',
+                  message: 'Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi.'
+                }
+              });
+            }
+            tickets = db.tickets;
+          } else {
+            tickets = sbPaged.data?.tickets || [];
+            totalCount = sbPaged.data?.total;
+            pageNum = sbPaged.data?.page;
+            totalPagesCount = sbPaged.data?.totalPages;
           }
-          tickets = db.tickets;
         } else {
-          tickets = sbResult.data || [];
+          const sbResult = await getWorkOrdersFromSupabase({
+            area,
+            contractorId,
+            installerName,
+            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined,
+            includeArchived: includeArchived === 'true',
+            includeDeleted: includeDeleted === 'true',
+            lightweight: lightweight === 'true'
+          });
+
+          if (!sbResult.success) {
+            if (!isLocalJsonModeAllowed()) {
+              return res.status(503).json({
+                success: false,
+                error: {
+                  code: 'SUPABASE_UNAVAILABLE',
+                  message: 'Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi.'
+                }
+              });
+            }
+            tickets = db.tickets;
+          } else {
+            tickets = sbResult.data || [];
+          }
         }
       } else {
         if (!isLocalJsonModeAllowed()) {
@@ -11107,17 +11426,18 @@ export async function createExpressApp(options?: {
       let scoped = scopeTicketsForUser(tickets, user);
 
       // Apply in-memory secondary filters if provided
-      if (statusWOAgent) {
+      if (statusWOAgent && statusWOAgent.toLowerCase() !== 'all') {
         scoped = scoped.filter(t => t.statusWOAgent === statusWOAgent);
       }
-      if (statusWOInstaller) {
+      if (statusWOInstaller && statusWOInstaller.toLowerCase() !== 'all') {
         scoped = scoped.filter(t => t.statusWOInstaller === statusWOInstaller);
       }
 
       return res.json({
         success: true,
         data: scoped,
-        count: scoped.length
+        count: scoped.length,
+        ...(typeof totalCount === 'number' ? { total: totalCount, page: pageNum, totalPages: totalPagesCount } : {})
       });
     } catch (err: any) {
       console.error('[API /api/supabase/work-orders] Error:', err);
@@ -11383,6 +11703,48 @@ export async function createExpressApp(options?: {
           }
           updates.appointmentDate = validated;
         }
+      }
+
+      // Offload any inline Base64 signature or report photos to Supabase Storage so PostgreSQL never stores Base64 blobs
+      if (typeof updates.customerSignatureUrl === 'string' && updates.customerSignatureUrl.trim().toLowerCase().startsWith('data:')) {
+        const off = await offloadDataUriToStorageIfNeeded({
+          rawValue: updates.customerSignatureUrl,
+          user: { id: user.id, name: user.name, role: user.role },
+          ticketId: existing.id,
+          woNumber: existing.woNumber,
+          fileCategory: 'wo_document',
+          fileNamePrefix: 'signature'
+        });
+        if (off.error && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: { code: 'STORAGE_UPLOAD_FAILED', message: off.error } });
+        }
+        if (off.url) updates.customerSignatureUrl = off.url;
+      }
+
+      if (updates.technicalReport && typeof updates.technicalReport === 'object') {
+        const trCopy = { ...updates.technicalReport };
+        for (const [fieldKey, prefix, cat] of [
+          ['customerSignatureUrl', 'signature', 'wo_document'],
+          ['photoBeforeUrl', 'photo_before', 'image_report'],
+          ['photoAfterUrl', 'photo_after', 'image_report']
+        ] as const) {
+          const val = trCopy[fieldKey];
+          if (typeof val === 'string' && val.trim().toLowerCase().startsWith('data:')) {
+            const off = await offloadDataUriToStorageIfNeeded({
+              rawValue: val,
+              user: { id: user.id, name: user.name, role: user.role },
+              ticketId: existing.id,
+              woNumber: existing.woNumber,
+              fileCategory: cat,
+              fileNamePrefix: prefix
+            });
+            if (off.error && !isLocalJsonModeAllowed()) {
+              return res.status(503).json({ success: false, error: { code: 'STORAGE_UPLOAD_FAILED', message: off.error } });
+            }
+            if (off.url) trCopy[fieldKey] = off.url;
+          }
+        }
+        updates.technicalReport = trCopy;
       }
 
       if (!isSupabaseMode()) {
@@ -13769,9 +14131,77 @@ export async function createExpressApp(options?: {
       const isAllLimit = limitRaw.toUpperCase() === 'ALL';
       const limit = isAllLimit ? 5000 : Math.min(500, Math.max(1, Number(limitRaw) || 50));
 
+      const qSearch = String(req.query.search || '').trim();
+      const qArea = String(req.query.area || '').trim();
+      const qContractor = String(req.query.contractor || '').trim();
+      const qStatusAgent = String(req.query.statusWOAgent || '').trim();
+      const qStatusInstaller = String(req.query.statusWOInstaller || '').trim();
+      const qStatusWa = String(req.query.statusWhatsApp || '').trim();
+      const qApproval = String(req.query.approvalStatus || '').trim();
+      const qCategory = String(req.query.category || '').trim();
+      const qApptDate = String(req.query.appointmentDate || '').trim();
+      const qUpdatedSince = String(req.query.updatedSince || '').trim();
+      const sortBy = String(req.query.sortBy || 'updatedAt');
+      const sortDir = String(req.query.sortDir || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      const todayWIB = getJakartaDateStringServer(getNow());
+
+      // Fast DB-level pagination path when a bounded page size is requested without client-only secondary filters
+      const hasClientOnlyFilters = Boolean(
+        (qStatusWa && qStatusWa.toLowerCase() !== 'all') ||
+        (qApproval && qApproval.toLowerCase() !== 'all') ||
+        (qCategory && qCategory.toLowerCase() !== 'all')
+      );
+      if (isSupabaseMode() && !isAllLimit && !hasClientOnlyFilters) {
+        const pagedRes = await getWorkOrdersFromSupabasePaginated({
+          page,
+          limit,
+          includeArchived,
+          area: qArea && qArea.toLowerCase() !== 'all' ? qArea : undefined,
+          contractor: qContractor && qContractor.toLowerCase() !== 'all' ? qContractor : undefined,
+          statusWOAgent: qStatusAgent && qStatusAgent.toLowerCase() !== 'all' ? qStatusAgent : undefined,
+          statusWOInstaller: qStatusInstaller && qStatusInstaller.toLowerCase() !== 'all' ? qStatusInstaller : undefined,
+          appointmentDate: qApptDate || undefined,
+          search: qSearch || undefined,
+          updatedSince: qUpdatedSince || undefined,
+          sortBy,
+          sortDir,
+          lightweight: phase === 'critical',
+          userRole: req.user!.role,
+          userId: req.user!.id,
+          userContractor: req.user!.contractor
+        });
+
+        if (pagedRes.success && pagedRes.data) {
+          const scopedPaged = scopeTicketsForUser(pagedRes.data.tickets, req.user!).map((t: any) =>
+            attachClassificationMetadata(t, todayWIB)
+          );
+          const payloadTickets = phase === 'critical'
+            ? scopedPaged.map(stripHeavyFieldsForCriticalPhase)
+            : scopedPaged;
+          return res.json({
+            success: true,
+            phase,
+            page: pagedRes.data.page,
+            limit: pagedRes.data.limit,
+            total: pagedRes.data.total,
+            totalPages: pagedRes.data.totalPages,
+            operationalDateWIB: todayWIB,
+            tickets: payloadTickets,
+            serverTime: getNow().toISOString()
+          });
+        }
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
+        }
+      }
+
       let tickets: Ticket[] = [];
       if (isSupabaseMode()) {
-        const supaRes = await getWorkOrdersFromSupabase({ includeArchived });
+        const supaRes = await getWorkOrdersFromSupabase({
+          includeArchived,
+          lightweight: phase === 'critical'
+        });
         if (supaRes.success && supaRes.data) {
           tickets = supaRes.data;
         } else if (!isLocalJsonModeAllowed()) {
@@ -13783,41 +14213,38 @@ export async function createExpressApp(options?: {
         tickets = db.tickets || [];
       }
 
-      const todayWIB = getJakartaDateStringServer(getNow());
       let scoped = scopeTicketsForUser(tickets, req.user!).map((t: any) => attachClassificationMetadata(t, todayWIB));
       if (!includeArchived) {
         scoped = scoped.filter((t: any) => !t.isArchived);
       }
 
-      const qSearch = String(req.query.search || '').trim().toLowerCase();
-      const qArea = String(req.query.area || '').trim().toLowerCase();
-      const qContractor = String(req.query.contractor || '').trim().toLowerCase();
-      const qStatusAgent = String(req.query.statusWOAgent || '').trim().toLowerCase();
-      const qStatusInstaller = String(req.query.statusWOInstaller || '').trim().toLowerCase();
-      const qStatusWa = String(req.query.statusWhatsApp || '').trim().toLowerCase();
-      const qApproval = String(req.query.approvalStatus || '').trim().toLowerCase();
-      const qCategory = String(req.query.category || '').trim().toLowerCase();
-      const qApptDate = String(req.query.appointmentDate || '').trim();
-      const qUpdatedSince = String(req.query.updatedSince || '').trim();
+      const qSearchLower = qSearch.toLowerCase();
+      const qAreaLower = qArea.toLowerCase();
+      const qContractorLower = qContractor.toLowerCase();
+      const qStatusAgentLower = qStatusAgent.toLowerCase();
+      const qStatusInstallerLower = qStatusInstaller.toLowerCase();
+      const qStatusWaLower = qStatusWa.toLowerCase();
+      const qApprovalLower = qApproval.toLowerCase();
+      const qCategoryLower = qCategory.toLowerCase();
 
       const filtered = scoped.filter((t: any) => {
-        if (qArea && qArea !== 'all' && String(t.area || '').toLowerCase() !== qArea) return false;
-        if (qContractor && qContractor !== 'all') {
+        if (qAreaLower && qAreaLower !== 'all' && String(t.area || '').toLowerCase() !== qAreaLower) return false;
+        if (qContractorLower && qContractorLower !== 'all') {
           const c = String(t.contractor || t.contractorName || '').toLowerCase();
-          if (c !== qContractor) return false;
+          if (c !== qContractorLower) return false;
         }
-        if (qStatusAgent && qStatusAgent !== 'all' && String(t.statusWOAgent || '').toLowerCase() !== qStatusAgent) return false;
-        if (qStatusInstaller && qStatusInstaller !== 'all' && String(t.statusWOInstaller || '').toLowerCase() !== qStatusInstaller) return false;
-        if (qStatusWa && qStatusWa !== 'all' && String(t.statusWhatsApp || '').toLowerCase() !== qStatusWa) return false;
-        if (qApproval && qApproval !== 'all' && String(t.approvalStatus || '').toLowerCase() !== qApproval) return false;
-        if (qCategory && qCategory !== 'all' && String(t.category || '').toLowerCase() !== qCategory) return false;
+        if (qStatusAgentLower && qStatusAgentLower !== 'all' && String(t.statusWOAgent || '').toLowerCase() !== qStatusAgentLower) return false;
+        if (qStatusInstallerLower && qStatusInstallerLower !== 'all' && String(t.statusWOInstaller || '').toLowerCase() !== qStatusInstallerLower) return false;
+        if (qStatusWaLower && qStatusWaLower !== 'all' && String(t.statusWhatsApp || '').toLowerCase() !== qStatusWaLower) return false;
+        if (qApprovalLower && qApprovalLower !== 'all' && String(t.approvalStatus || '').toLowerCase() !== qApprovalLower) return false;
+        if (qCategoryLower && qCategoryLower !== 'all' && String(t.category || '').toLowerCase() !== qCategoryLower) return false;
         if (qApptDate && String(getStrictAppointmentDateServer(t) || '') !== qApptDate) return false;
         if (qUpdatedSince) {
           const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
           const sinceTs = new Date(qUpdatedSince).getTime();
           if (!Number.isNaN(sinceTs) && ts < sinceTs) return false;
         }
-        if (qSearch) {
+        if (qSearchLower) {
           const hay = [
             t.woNumber,
             t.idCustomer,
@@ -13831,18 +14258,17 @@ export async function createExpressApp(options?: {
             t.fdtName,
             t.fatName
           ].filter(Boolean).join(' ').toLowerCase();
-          if (!hay.includes(qSearch)) return false;
+          if (!hay.includes(qSearchLower)) return false;
         }
         return true;
       });
 
-      const sortBy = String(req.query.sortBy || 'updatedAt');
-      const sortDir = String(req.query.sortDir || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+      const sortMul = sortDir === 'asc' ? 1 : -1;
       filtered.sort((a: any, b: any) => {
         const av = a?.[sortBy] ?? '';
         const bv = b?.[sortBy] ?? '';
         if (av === bv) return 0;
-        return String(av).localeCompare(String(bv), 'id', { numeric: true }) * sortDir;
+        return String(av).localeCompare(String(bv), 'id', { numeric: true }) * sortMul;
       });
 
       const total = filtered.length;

@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { isTicketClosed } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { supabaseDb } from '../../services/supabaseDb';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import {
   X,
@@ -211,18 +212,34 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
           toast.error(`Ukuran "${file.name}" melebihi batas 10MB.`);
           continue;
         }
-        const url = await compressImageToDataUrl(file);
+        const compressedDataUrl = await compressImageToDataUrl(file);
+        const uploadRes = await supabaseDb.uploadAssetToStorage({
+          fileName: file.name,
+          fileData: compressedDataUrl,
+          mimeType: 'image/jpeg',
+          fileCategory: 'chat_attachment',
+          relatedWoNumber: ticket.woNumber,
+          ticketId: ticket.id
+        });
+        if (!uploadRes.success || !uploadRes.downloadUrl) {
+          toast.error(uploadRes.error || `Gagal mengunggah "${file.name}" ke Supabase Storage.`);
+          continue;
+        }
         nextAtts.push({
-          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          url,
+          id: uploadRes.fileId || `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'image',
+          url: uploadRes.downloadUrl,
+          downloadUrl: uploadRes.downloadUrl,
+          storagePath: uploadRes.storagePath,
           fileName: file.name,
           fileSize: file.size,
-          mimeType: file.type
+          mimeType: 'image/jpeg',
+          uploadStatus: 'uploaded'
         });
       }
       if (nextAtts.length > 0) {
         setAttachments(prev => [...prev, ...nextAtts]);
-        toast.info(`${nextAtts.length} foto siap dilampirkan.`);
+        toast.info(`${nextAtts.length} foto berhasil diunggah ke penyimpanan cloud.`);
       }
     } finally {
       setIsCompressingPhoto(false);
@@ -309,15 +326,37 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
     try {
       const finalRemarks = cleanNotes || `Status diperbarui menjadi ${selectedStatus}`;
 
-      // 1. Update Ticket Status & Remarks
+      // 1. Upload customer signature to Supabase Storage first if drawn on canvas
+      let resolvedSignatureUrl: string | undefined;
+      if (hasNewSignatureStroke && signatureDataUrl) {
+        if (signatureDataUrl.toLowerCase().startsWith('data:')) {
+          const sigUpload = await supabaseDb.uploadAssetToStorage({
+            fileName: `signature_${ticket.woNumber || ticket.id}_${Date.now()}.png`,
+            fileData: signatureDataUrl,
+            mimeType: 'image/png',
+            fileCategory: 'wo_document',
+            relatedWoNumber: ticket.woNumber,
+            ticketId: ticket.id
+          });
+          if (!sigUpload.success || !sigUpload.downloadUrl) {
+            toast.error(sigUpload.error || 'Gagal mengunggah tanda tangan pelanggan ke penyimpanan cloud.');
+            return;
+          }
+          resolvedSignatureUrl = sigUpload.downloadUrl;
+        } else {
+          resolvedSignatureUrl = signatureDataUrl;
+        }
+      }
+
+      // 2. Update Ticket Status & Remarks
       updateTicketStatus(ticket.id, undefined, selectedStatus, finalRemarks);
 
-      // 2. Persist signature URL if customer signed on-site
-      if (hasNewSignatureStroke && signatureDataUrl) {
+      // 3. Persist signature Storage URL if customer signed on-site
+      if (resolvedSignatureUrl) {
         updateTicket(
           ticket.id,
           {
-            customerSignatureUrl: signatureDataUrl
+            customerSignatureUrl: resolvedSignatureUrl
           },
           signerName.trim()
             ? `Tanda tangan PIC/Pelanggan (${signerName.trim()}) disimpan`

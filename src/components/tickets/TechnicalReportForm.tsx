@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { useToast } from '../../context/ToastContext';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
+import { supabaseDb } from '../../services/supabaseDb';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import {
   Wrench,
@@ -70,10 +71,12 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
   );
 
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [uploadingTarget, setUploadingTarget] = useState<'before' | 'after' | null>(null);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'before' | 'after') => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'before' | 'after') => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -83,13 +86,42 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = reader.result as string;
-      if (target === 'before') setPhotoBeforeUrl(url);
-      else setPhotoAfterUrl(url);
-    };
-    reader.readAsDataURL(file);
+    setUploadingTarget(target);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+        reader.readAsDataURL(file);
+      });
+
+      const uploadRes = await supabaseDb.uploadAssetToStorage({
+        fileName: `${ticket.woNumber || ticket.id}_${target}_${file.name}`,
+        fileData: dataUrl,
+        mimeType: file.type || 'image/jpeg',
+        fileCategory: 'image_report',
+        relatedWoNumber: ticket.woNumber,
+        ticketId: ticket.id
+      });
+
+      if (!uploadRes.success || !uploadRes.downloadUrl) {
+        const errMsg = uploadRes.error || 'Gagal mengunggah foto ke Supabase Storage.';
+        setNotice({ type: 'error', text: errMsg });
+        toast.error(errMsg, 'Upload Foto Gagal');
+        setTimeout(() => setNotice(null), 4000);
+        return;
+      }
+
+      if (target === 'before') setPhotoBeforeUrl(uploadRes.downloadUrl);
+      else setPhotoAfterUrl(uploadRes.downloadUrl);
+      toast.success('Foto berhasil diunggah ke penyimpanan cloud.', 'Foto Tersimpan');
+    } catch (err: any) {
+      const errMsg = err?.message || 'Gagal memproses file foto.';
+      setNotice({ type: 'error', text: errMsg });
+      toast.error(errMsg, 'Upload Foto Gagal');
+    } finally {
+      setUploadingTarget(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -113,6 +145,11 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
     if (!correctiveAction.trim()) {
       setNotice({ type: 'error', text: 'Tindakan perbaikan wajib diisi.' });
       setTimeout(() => setNotice(null), 3000);
+      return;
+    }
+
+    if (uploadingTarget) {
+      toast.warning('Tunggu upload foto selesai sebelum menyimpan laporan.', 'Upload Berjalan');
       return;
     }
 
@@ -441,10 +478,13 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               ) : (
                 <label className="h-32 border-2 border-dashed border-[#CFDCE8] dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#EAE8FF]/45 dark:hover:bg-slate-800 transition-colors">
                   <Camera className="w-6 h-6 text-[#6657C8] dark:text-[#38BDF8] mb-1" />
-                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">Klik untuk upload foto awal</span>
+                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">
+                    {uploadingTarget === 'before' ? 'Mengunggah foto...' : 'Klik untuk upload foto awal'}
+                  </span>
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={uploadingTarget !== null}
                     onChange={e => handlePhotoUpload(e, 'before')}
                     className="hidden"
                   />
@@ -470,10 +510,13 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
               ) : (
                 <label className="h-32 border-2 border-dashed border-[#CFDCE8] dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#EAE8FF]/45 dark:hover:bg-slate-800 transition-colors">
                   <Camera className="w-6 h-6 text-[#6657C8] dark:text-[#38BDF8] mb-1" />
-                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">Klik untuk upload foto hasil &amp; OPM</span>
+                  <span className="text-[11px] text-[#52647A] dark:text-slate-400">
+                    {uploadingTarget === 'after' ? 'Mengunggah foto...' : 'Klik untuk upload foto hasil & OPM'}
+                  </span>
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={uploadingTarget !== null}
                     onChange={e => handlePhotoUpload(e, 'after')}
                     className="hidden"
                   />

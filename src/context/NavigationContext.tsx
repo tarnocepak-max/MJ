@@ -20,6 +20,7 @@ import {
   setTrackedConfigVersion
 } from '../services/globalConfigService';
 import { useToast } from './ToastContext';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/safeStorage';
 
 const NAV_STORAGE_KEY = 'morajaws_navigation_config_v2';
 
@@ -82,7 +83,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Primary active navigation config (stored locally & synced with Supabase PostgreSQL)
   const [navigationConfig, setNavigationConfig] = useState<NavigationConfig>(() => {
     try {
-      const saved = localStorage.getItem(NAV_STORAGE_KEY);
+      const saved = safeLocalStorageGet(NAV_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         return normalizeNavigationConfig(parsed);
@@ -130,10 +131,9 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Persist to local storage whenever active config updates
   useEffect(() => {
-    try {
-      localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(navigationConfig));
-    } catch (err) {
-      console.error('[NavigationContext] Failed to persist to localStorage:', err);
+    const res = safeLocalStorageSet(NAV_STORAGE_KEY, JSON.stringify(navigationConfig));
+    if (!res.ok && res.error) {
+      console.warn('[NavigationContext] Failed to persist to localStorage:', res.error);
     }
   }, [navigationConfig]);
 
@@ -144,7 +144,7 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const hasSessionToken = () => {
       try {
-        const raw = localStorage.getItem('morajaws_auth_session');
+        const raw = safeLocalStorageGet('morajaws_auth_session');
         const parsed = raw ? JSON.parse(raw) : null;
         return Boolean(parsed?.token);
       } catch {

@@ -3,6 +3,7 @@ import { queryLocationPermissionStatus } from './geolocationService.ts';
 import { calculateHaversineDistanceMeters, isValidCoordinatePair } from './mapsService.ts';
 import { subscribeToGlobalConfigUpdates } from './globalConfigService.ts';
 import type { GpsTrackingConfig, InstallerLocationStatus, InstallerOnlineStatus } from '../types/index.ts';
+import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../utils/safeStorage';
 
 // ==============================================================================
 // MORAJAWS FRONTEND AUTOMATIC INSTALLER GPS TRACKING CONTROLLER
@@ -166,7 +167,7 @@ class InstallerGpsTrackingController {
     const key = this.getQueueStorageKey();
     if (!key) return [];
     try {
-      const raw = localStorage.getItem(key);
+      const raw = safeLocalStorageGet(key);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
@@ -181,9 +182,9 @@ class InstallerGpsTrackingController {
     try {
       const capped = points.slice(-Math.max(10, this.config.offlineQueueMaxEntries));
       if (capped.length === 0) {
-        localStorage.removeItem(key);
+        safeLocalStorageRemove(key);
       } else {
-        localStorage.setItem(key, JSON.stringify(capped));
+        safeLocalStorageSet(key, JSON.stringify(capped));
       }
       this.emitState({ queuedPointsCount: capped.length });
     } catch {}
@@ -206,8 +207,8 @@ class InstallerGpsTrackingController {
 
   private readSessionFromStorage(): { userId: string; role: string; sessionId: string; token: string } | null {
     try {
-      const loggedIn = localStorage.getItem('morajaws_logged_in');
-      const raw = localStorage.getItem('morajaws_auth_session');
+      const loggedIn = safeLocalStorageGet('morajaws_logged_in');
+      const raw = safeLocalStorageGet('morajaws_auth_session');
       if (loggedIn !== 'true' || !raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed?.userId || !parsed?.token || parsed?.role !== 'installer') return null;
@@ -225,11 +226,11 @@ class InstallerGpsTrackingController {
 
   private persistSessionIdToStorage(sessionId: string) {
     try {
-      const raw = localStorage.getItem('morajaws_auth_session');
+      const raw = safeLocalStorageGet('morajaws_auth_session');
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (parsed && parsed.sessionId !== sessionId) {
-        localStorage.setItem('morajaws_auth_session', JSON.stringify({ ...parsed, sessionId }));
+        safeLocalStorageSet('morajaws_auth_session', JSON.stringify({ ...parsed, sessionId }));
       }
     } catch {}
   }

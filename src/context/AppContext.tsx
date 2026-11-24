@@ -98,6 +98,16 @@ import {
 } from '../services/workSessionService';
 import { useToast } from './ToastContext';
 import { saveTicketsOffline, cacheMasterData, getOfflineTickets, removeSyncQueueItem } from '../services/offlineDb';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageSet,
+  safeLocalStorageRemove,
+  stripBase64BlobsFromTicket
+} from '../utils/safeStorage';
+import {
+  inspectAndMigrateLegacyTicketsStorage,
+  cleanupRedundantV4Caches
+} from '../services/localStorageMigration';
 import { useOfflineSync } from './OfflineSyncContext';
 import {
   saveGlobalAppSettingsToSupabase,
@@ -512,7 +522,7 @@ const STORAGE_KEYS = {
   SHEETS_CONFIG: 'morajaws_sheets_config_v4'
 };
 
-// Purge legacy v1/v2/v3 sample storage keys on script evaluation
+// Purge legacy v1/v2/v3 sample storage keys on script evaluation (never touch morajaws_tickets_v4 before safe migration)
 try {
   const legacyKeys = [
     'morajaws_users_v3', 'morajaws_tickets_v3', 'morajaws_contractors_v3',
@@ -520,7 +530,7 @@ try {
     'morajaws_wa_logs_v3', 'morajaws_users_v2', 'morajaws_tickets_v2',
     'morajaws_contractors_v2', 'morajaws_messages_v2'
   ];
-  legacyKeys.forEach(k => localStorage.removeItem(k));
+  legacyKeys.forEach(k => safeLocalStorageRemove(k));
 } catch (e) {}
 
 export const normalizeContractor = (c: any): Contractor => {
@@ -603,7 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'Content-Type': 'application/json'
     };
     try {
-      const sessionStr = localStorage.getItem('morajaws_auth_session');
+      const sessionStr = safeLocalStorageGet('morajaws_auth_session');
       if (sessionStr) {
         const sess = JSON.parse(sessionStr);
         if (sess.token) headers['Authorization'] = `Bearer ${sess.token}`;
@@ -633,30 +643,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     retry: () => Promise<{ success: boolean; error?: string }>;
   } | null>(null);
 
-  const [users, setUsers] = useState<User[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-      if (saved) {
-        const parsed: User[] = JSON.parse(saved);
-        DEFAULT_USERS.forEach(defU => {
-          if (!parsed.some(u => u.id === defU.id || u.username.toLowerCase() === defU.username.toLowerCase())) {
-            parsed.push(defU);
-          }
-        });
-        return parsed;
-      }
-    } catch (e) {}
-    return DEFAULT_USERS;
-  });
+  const [users, setUsers] = useState<User[]>(() => DEFAULT_USERS);
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
-      const stored = localStorage.getItem('morajaws_logged_in');
-      const sessionStr = localStorage.getItem('morajaws_auth_session');
+      const stored = safeLocalStorageGet('morajaws_logged_in');
+      const sessionStr = safeLocalStorageGet('morajaws_auth_session');
       if (stored === 'true' && sessionStr) {
         const session = JSON.parse(sessionStr);
-        const match = users.find(u => u.id === session.userId || u.username === session.username);
-        if (match) return match;
         if (session && session.userId && session.role) {
           return {
             id: session.userId,
@@ -677,190 +671,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return UNAUTHENTICATED_USER;
   });
 
-  const [contractors, setContractors] = useState<Contractor[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CONTRACTORS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return deduplicateContractors(parsed);
-        }
-      }
-    } catch (e) {}
-    return deduplicateContractors(DEFAULT_CONTRACTORS);
-  });
+  const [contractors, setContractors] = useState<Contractor[]>(() =>
+    deduplicateContractors(DEFAULT_CONTRACTORS)
+  );
 
-  const [coverageAreas, setCoverageAreas] = useState<CoverageArea[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.COVERAGE_AREAS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_COVERAGE_AREAS;
-  });
+  const [coverageAreas, setCoverageAreas] = useState<CoverageArea[]>(() => DEFAULT_COVERAGE_AREAS);
 
-  const [rootCauseCategories, setRootCauseCategories] = useState<RootCauseCategory[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ROOT_CAUSES);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_ROOT_CAUSE_CATEGORIES;
-  });
+  const [rootCauseCategories, setRootCauseCategories] = useState<RootCauseCategory[]>(
+    () => DEFAULT_ROOT_CAUSE_CATEGORIES
+  );
 
   const workResultsList = DEFAULT_WORK_RESULTS;
 
-  const [tickets, setTickets] = useState<Ticket[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.TICKETS);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Failed loading tickets from storage', e);
-    }
-    return [];
-  });
+  // Authoritative ticket state is hydrated strictly from Supabase PostgreSQL (never localStorage morajaws_tickets_v4)
+  const [tickets, setTickets] = useState<Ticket[]>([]);
 
   const [ticketMessages, setTicketMessages] = useState<TicketMessage[]>([]);
 
-  const [templates, setTemplates] = useState<WhatsAppTemplate[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.TEMPLATES);
-      if (saved) {
-        const parsed: WhatsAppTemplate[] = JSON.parse(saved);
-        const existingIds = new Set(parsed.map(t => t.id));
-        const missing = DEFAULT_WHATSAPP_TEMPLATES.filter(t => !existingIds.has(t.id));
-        return missing.length > 0 ? [...parsed, ...missing] : parsed;
-      }
-    } catch (e) {}
-    return DEFAULT_WHATSAPP_TEMPLATES;
-  });
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>(() => DEFAULT_WHATSAPP_TEMPLATES);
 
-  const [workflowRules, setWorkflowRules] = useState<WorkflowRule[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.WORKFLOWS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_WORKFLOW_RULES;
-  });
+  const [workflowRules, setWorkflowRules] = useState<WorkflowRule[]>(() => DEFAULT_WORKFLOW_RULES);
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.AUDIT);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [
-      {
-        id: 'audit-1',
-        action: 'MoraJaws System Initialized',
-        entity: 'auth',
-        entityId: 'sys-0',
-        details: 'MoraJaws operational with Contractors, Wi-Fi Root Cause Catalog, and Live Chat Engine',
-        performedBy: 'System',
-        userRole: 'super_admin',
-        timestamp: new Date().toISOString()
-      }
-    ];
-  });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => [
+    {
+      id: 'audit-1',
+      action: 'MoraJaws System Initialized',
+      entity: 'auth',
+      entityId: 'sys-0',
+      details: 'MoraJaws operational with Supabase PostgreSQL as Single Source of Truth',
+      performedBy: 'System',
+      userRole: 'super_admin',
+      timestamp: new Date().toISOString()
+    }
+  ]);
 
   const [ticketActivities, setTicketActivities] = useState<TicketActivity[]>([]);
 
-  const [waLogs, setWaLogs] = useState<WhatsAppMessageLog[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.WA_LOGS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
+  const [waLogs, setWaLogs] = useState<WhatsAppMessageLog[]>([]);
 
-  const [headerMappings, setHeaderMappings] = useState<HeaderMapping[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MAPPINGS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return STANDARD_HEADER_MAPPINGS;
-  });
+  const [headerMappings, setHeaderMappings] = useState<HeaderMapping[]>(() => STANDARD_HEADER_MAPPINGS);
 
-  const [reportDropdownCategories, setReportDropdownCategories] = useState<ReportDropdownCategory[]>(() => {
-    try {
-      const saved = localStorage.getItem('morajaws_report_dropdown_categories');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_REPORT_DROPDOWN_CATEGORIES;
-  });
+  const [reportDropdownCategories, setReportDropdownCategories] = useState<ReportDropdownCategory[]>(
+    () => INITIAL_REPORT_DROPDOWN_CATEGORIES
+  );
 
   const [isDropdownCategoriesLoading, setIsDropdownCategoriesLoading] = useState(true);
 
+  // Contact Center Chat Categories state (hydrated from Supabase global config)
+  const [chatCategories, setChatCategories] = useState<ChatCategoryConfig[]>(() => INITIAL_CHAT_CATEGORIES);
+
+  // Hierarchical Droplists (Status -> Reason -> Remarks) state (hydrated from Supabase global config)
+  const [hierarchicalStatuses, setHierarchicalStatuses] = useState<HierarchicalStatus[]>(
+    () => INITIAL_HIERARCHICAL_DROPLISTS
+  );
+
+  const [canonicalFields, setCanonicalFields] = useState<CanonicalFieldConfig[]>(() => MASTER_CANONICAL_FIELDS);
+
+  // Debounced sanitized IndexedDB offline fallback mirror (NEVER writes tickets to localStorage)
   useEffect(() => {
-    try {
-      localStorage.setItem('morajaws_report_dropdown_categories', JSON.stringify(reportDropdownCategories));
-    } catch (e) {}
-  }, [reportDropdownCategories]);
-
-  // Contact Center Chat Categories state
-  const [chatCategories, setChatCategories] = useState<ChatCategoryConfig[]>(() => {
-    try {
-      const saved = localStorage.getItem('morajaws_chat_categories');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_CHAT_CATEGORIES;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('morajaws_chat_categories', JSON.stringify(chatCategories));
-    } catch (e) {}
-  }, [chatCategories]);
-
-  // Hierarchical Droplists (Status -> Reason -> Remarks) state
-  const [hierarchicalStatuses, setHierarchicalStatuses] = useState<HierarchicalStatus[]>(() => {
-    try {
-      const saved = localStorage.getItem('morajaws_hierarchical_droplists');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_HIERARCHICAL_DROPLISTS;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('morajaws_hierarchical_droplists', JSON.stringify(hierarchicalStatuses));
-    } catch (e) {}
-  }, [hierarchicalStatuses]);
-
-  const [canonicalFields, setCanonicalFields] = useState<CanonicalFieldConfig[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CANONICAL_FIELDS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return MASTER_CANONICAL_FIELDS;
-  });
-
-  // Persistent storage sync
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CANONICAL_FIELDS, JSON.stringify(canonicalFields));
-  }, [canonicalFields]);
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CONTRACTORS, JSON.stringify(contractors));
-  }, [contractors]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.COVERAGE_AREAS, JSON.stringify(coverageAreas));
-  }, [coverageAreas]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ROOT_CAUSES, JSON.stringify(rootCauseCategories));
-  }, [rootCauseCategories]);
-
-  // Persistent storage sync (localStorage & IndexedDB offline cache)
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
-    saveTicketsOffline(tickets).catch(e => console.warn('Failed saving tickets to IndexedDB', e));
+    if (!tickets || tickets.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const sanitized = tickets.slice(0, 500).map(t => stripBase64BlobsFromTicket(t));
+      saveTicketsOffline(sanitized, 500).catch(e => console.warn('Failed saving sanitized offline tickets to IndexedDB', e));
+    }, 800);
+    return () => window.clearTimeout(timer);
   }, [tickets]);
 
-  // Mirror master data catalogs into IndexedDB for offline access
+  // Mirror lightweight master data catalogs into IndexedDB for offline access
   useEffect(() => {
     cacheMasterData({
       contractors,
@@ -870,15 +747,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(e => console.warn('Failed caching master data to IndexedDB', e));
   }, [contractors, users, coverageAreas, rootCauseCategories]);
 
-  // Load offline tickets from IndexedDB on startup if available
+  // Load offline tickets from IndexedDB on startup ONLY when offline OR for unsynced pending edits
   useEffect(() => {
     async function loadFromIndexedDb() {
       try {
         const offlineList = await getOfflineTickets();
-        if (offlineList && offlineList.length > 0) {
+        if (!offlineList || offlineList.length === 0) return;
+        const isOfflineStart = typeof navigator !== 'undefined' && !navigator.onLine;
+        const relevantOffline = isOfflineStart
+          ? offlineList
+          : offlineList.filter(t => (t as any)?._offlineSyncStatus === 'pending');
+        if (relevantOffline.length > 0) {
           setTickets(prev => {
             const existingMap = new Map(prev.map(t => [t.id, t]));
-            offlineList.forEach(t => existingMap.set(t.id, t));
+            relevantOffline.forEach(t => existingMap.set(t.id, stripBase64BlobsFromTicket(t)));
             return Array.from(existingMap.values());
           });
         }
@@ -891,8 +773,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
-      const stored = localStorage.getItem('morajaws_logged_in');
-      const session = localStorage.getItem('morajaws_auth_session');
+      const stored = safeLocalStorageGet('morajaws_logged_in');
+      const session = safeLocalStorageGet('morajaws_auth_session');
       if (stored === 'true' && session) {
         return true;
       }
@@ -1527,9 +1409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const nextDate = val.isAuto || !val.operationalDate ? getJakartaDateString(0) : String(val.operationalDate);
             setTodayWIB(nextDate);
             setOperationalDateState(nextDate);
-            try {
-              localStorage.setItem('morajaws_operational_date', nextDate);
-            } catch {}
+            safeLocalStorageSet('morajaws_operational_date', nextDate);
           } else if (evt.key === 'role_permissions' && val && typeof val === 'object') {
             setDynamicRolePermissions(val);
             setRolePermissions({ ...DEFAULT_ROLE_PERMISSIONS, ...val });
@@ -1588,9 +1468,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               getJakartaDateString(0);
             setTodayWIB(nextWIB);
             setOperationalDateState(nextWIB);
-            try {
-              localStorage.setItem('morajaws_operational_date', nextWIB);
-            } catch {}
+            safeLocalStorageSet('morajaws_operational_date', nextWIB);
             loadCentralData().catch(() => {});
           }
         });
@@ -1680,7 +1558,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const startTrackingFromSession = () => {
       let sessionIdFromStorage: string | null = null;
       try {
-        const rawSess = localStorage.getItem('morajaws_auth_session');
+        const rawSess = safeLocalStorageGet('morajaws_auth_session');
         if (rawSess) {
           const parsed = JSON.parse(rawSess);
           sessionIdFromStorage = parsed?.sessionId || null;
@@ -1735,9 +1613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const liveWIB = data.operationalDateWIB || getJakartaDateString(0);
     setTodayWIB(liveWIB);
     setOperationalDateState(liveWIB);
-    try {
-      localStorage.setItem('morajaws_operational_date', liveWIB);
-    } catch {}
+    safeLocalStorageSet('morajaws_operational_date', liveWIB);
 
     if (data.currentUser && data.isAuthenticated) {
       setCurrentUser(prev => ({ ...prev, ...data.currentUser }));
@@ -1747,9 +1623,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (data.isAuthenticated === false && options.headers['Authorization']) {
       setIsLoggedIn(false);
       setCurrentUser(UNAUTHENTICATED_USER);
+      safeLocalStorageSet('morajaws_logged_in', 'false');
+      safeLocalStorageRemove('morajaws_auth_session');
       try {
-        localStorage.setItem('morajaws_logged_in', 'false');
-        localStorage.removeItem('morajaws_auth_session');
         window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
       } catch (e) {}
     }
@@ -2127,17 +2003,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         if (bootController.signal.aborted) return;
 
-        // PHASE 2 — Secondary & Full Operational Hydration (non-blocking, parallel progressive WO + messages/templates + droplists)
+        // PHASE 2 — Paginated Progressive WO Hydration + Secondary Bootstrap + Global Configs (no limit=ALL, no localStorage)
         setSyncStage('phase2_secondary');
         setIsProgressiveHydrating(true);
 
+        const fetchPaginatedFullChunks = async (): Promise<{
+          tickets: Ticket[];
+          serverTime?: string;
+          ok: boolean;
+        }> => {
+          const PAGE_SIZE = 250;
+          const MAX_HYDRATION_PAGES = 12; // Bounded cap (3,000 rows in memory, additional pages queryable via DB search/pagination)
+          const collected: Ticket[] = [];
+          let latestServerTime: string | undefined;
+
+          try {
+            const firstRes = await fetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
+              headers,
+              signal: bootController.signal
+            });
+            if (firstRes.status === 401) {
+              return { tickets: [], ok: false };
+            }
+            if (!firstRes.ok) return { tickets: [], ok: false };
+            const firstJson = await firstRes.json().catch(() => null);
+            if (!firstJson?.success || !Array.isArray(firstJson.tickets)) {
+              return { tickets: [], ok: false };
+            }
+            collected.push(...firstJson.tickets);
+            latestServerTime = firstJson.serverTime;
+
+            const totalPages = Math.min(MAX_HYDRATION_PAGES, Math.max(1, Number(firstJson.totalPages || 1)));
+            // Paint page 1 immediately before fetching subsequent pages
+            setTickets(prev => mergeProgressiveHydration(prev, firstJson.tickets));
+
+            for (let page = 2; page <= totalPages; page++) {
+              if (bootController.signal.aborted) break;
+              const pageRes = await fetch(
+                `/api/work-orders/progressive?phase=full&page=${page}&limit=${PAGE_SIZE}`,
+                { headers, signal: bootController.signal }
+              );
+              if (!pageRes.ok) break;
+              const pageJson = await pageRes.json().catch(() => null);
+              if (!pageJson?.success || !Array.isArray(pageJson.tickets) || pageJson.tickets.length === 0) {
+                break;
+              }
+              collected.push(...pageJson.tickets);
+              if (pageJson.serverTime) latestServerTime = pageJson.serverTime;
+              setTickets(prev => mergeDeltaTickets(prev, pageJson.tickets, []).tickets);
+            }
+
+            return { tickets: collected, serverTime: latestServerTime, ok: true };
+          } catch {
+            return { tickets: collected, serverTime: latestServerTime, ok: false };
+          }
+        };
+
         const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
-          fetch('/api/work-orders/progressive?phase=full&limit=ALL', {
-            headers,
-            signal: bootController.signal
-          })
-            .then(r => (r.ok ? r.json() : null))
-            .catch(() => null),
+          fetchPaginatedFullChunks(),
           fetch('/api/bootstrap?mode=secondary', {
             headers,
             signal: bootController.signal
@@ -2149,8 +2072,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (bootController.signal.aborted) return;
 
-        if (progressiveFullRes && progressiveFullRes.success && Array.isArray(progressiveFullRes.tickets)) {
-          setTickets(prev => mergeProgressiveHydration(prev, progressiveFullRes.tickets));
+        if (progressiveFullRes.ok && progressiveFullRes.tickets.length > 0) {
           setWoCache('wo:full', progressiveFullRes.tickets, progressiveFullRes.serverTime);
           if (progressiveFullRes.serverTime) {
             lastDeltaWatermarkRef.current = progressiveFullRes.serverTime;
@@ -2219,9 +2141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (globalBoot.operationalDate?.date) {
             setTodayWIB(globalBoot.operationalDate.date);
             setOperationalDateState(globalBoot.operationalDate.date);
-            try {
-              localStorage.setItem('morajaws_operational_date', globalBoot.operationalDate.date);
-            } catch {}
+            safeLocalStorageSet('morajaws_operational_date', globalBoot.operationalDate.date);
           }
         } else {
           const [hierData, chatCatsData, reportCatsData] = await Promise.all([
@@ -2233,6 +2153,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(hierData) && hierData.length > 0) setHierarchicalStatuses(hierData);
           if (Array.isArray(chatCatsData) && chatCatsData.length > 0) setChatCategories(chatCatsData);
           if (Array.isArray(reportCatsData) && reportCatsData.length > 0) setReportDropdownCategories(reportCatsData);
+        }
+
+        // Safe legacy localStorage migration (backs up to IndexedDB & validates counts BEFORE deleting morajaws_tickets_v4)
+        if (progressiveFullRes.ok && navigator.onLine && resolvedUserId) {
+          try {
+            const migRes = await inspectAndMigrateLegacyTicketsStorage({
+              isAuthenticated: true,
+              isOnline: navigator.onLine,
+              userId: resolvedUserId,
+              userName: currentUserRef.current?.name,
+              userRole: resolvedRole,
+              serverTickets: progressiveFullRes.tickets.length > 0 ? progressiveFullRes.tickets : ticketsRef.current
+            });
+            if (migRes.removedLegacyKey && migRes.localCount > 0) {
+              toast.info(migRes.message, 'Migrasi Penyimpanan Selesai');
+            }
+          } catch (migErr) {
+            console.warn('[Migration] Legacy localStorage check deferred:', migErr);
+          }
+        } else if (navigator.onLine) {
+          cleanupRedundantV4Caches();
         }
 
         setIsDropdownCategoriesLoading(false);
@@ -2314,7 +2255,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadCentralData();
   }, []);
 
-  // Register two-way sync processor with OfflineSyncContext
+  // Register two-way authoritative backend sync processor with OfflineSyncContext
   useEffect(() => {
     registerAppSyncHandler(async (items) => {
       let successCount = 0;
@@ -2323,62 +2264,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       for (const item of items) {
         try {
-          if (item.action === 'STATUS_CHANGE') {
-            const { ticketId, statusAgent, statusInstaller, remarks } = item.payload;
-            setTickets(prev => prev.map(t => {
-              if (t.id === ticketId) {
-                return {
-                  ...t,
-                  ...(statusAgent ? { statusWOAgent: statusAgent } : {}),
-                  ...(statusInstaller ? { statusWOInstaller: statusInstaller } : {}),
-                  ...(remarks !== undefined ? { remarksWOInstaller: remarks } : {}),
-                  _offlineSyncStatus: 'synced',
-                  updatedAt: new Date().toISOString()
-                };
-              }
-              return t;
-            }));
-          } else if (item.action === 'REPORT') {
-            const { ticketId, report } = item.payload;
-            setTickets(prev => prev.map(t => {
-              if (t.id === ticketId) {
-                return {
-                  ...t,
-                  technicalReport: report,
-                  _offlineSyncStatus: 'synced',
-                  updatedAt: new Date().toISOString()
-                };
-              }
-              return t;
-            }));
-          } else if (item.action === 'ASSIGN') {
-            const { ticketId, leaderName, installerName } = item.payload;
-            setTickets(prev => prev.map(t => {
-              if (t.id === ticketId) {
-                return {
-                  ...t,
-                  ...(leaderName !== undefined ? { leaderName } : {}),
-                  ...(installerName !== undefined ? { installerName } : {}),
-                  _offlineSyncStatus: 'synced',
-                  updatedAt: new Date().toISOString()
-                };
-              }
-              return t;
-            }));
-          } else if (item.action === 'UPDATE') {
-            const { ticketId, updates } = item.payload;
-            setTickets(prev => prev.map(t => {
-              if (t.id === ticketId) {
-                return {
-                  ...t,
-                  ...updates,
-                  _offlineSyncStatus: 'synced',
-                  updatedAt: new Date().toISOString()
-                };
-              }
-              return t;
-            }));
+          const targetId = String(item.payload?.ticketId || item.entityId || '').trim();
+          if (!targetId) {
+            await removeSyncQueueItem(item.id);
+            continue;
           }
+
+          if (item.action === 'STATUS_CHANGE') {
+            const updates = item.payload?.updates || {
+              ...(item.payload?.statusAgent ? { statusWOAgent: item.payload.statusAgent } : {}),
+              ...(item.payload?.statusInstaller ? { statusWOInstaller: item.payload.statusInstaller } : {}),
+              ...(item.payload?.remarks !== undefined ? { remarksWOInstaller: item.payload.remarks } : {}),
+              ...(item.payload?.workStartedAt ? { workStartedAt: item.payload.workStartedAt } : {}),
+              ...(item.payload?.workStartedBy ? { workStartedBy: item.payload.workStartedBy } : {}),
+              ...(item.payload?.workStartedById ? { workStartedById: item.payload.workStartedById } : {})
+            };
+            const res = await supabaseDb.updateWorkOrder(targetId, updates);
+            if (!res.success) {
+              throw new Error(res.error?.message || `Gagal sinkronisasi status WO ${targetId}`);
+            }
+            setTickets(prev =>
+              prev.map(t =>
+                t.id === targetId
+                  ? { ...t, ...(res.data || updates), _offlineSyncStatus: 'synced' }
+                  : t
+              )
+            );
+          } else if (item.action === 'REPORT') {
+            if (item.payload?.entry) {
+              const entry = item.payload.entry;
+              const resp = await fetch(`/api/tickets/${encodeURIComponent(targetId)}/progress-report`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                  entry,
+                  status: entry.reportStatus || 'Completed',
+                  remarks: entry.remarksReport || '',
+                  reportStatusId: entry.reportStatusId,
+                  reportStatusLabel: entry.reportStatusLabel,
+                  reasonReportId: entry.reasonReportId,
+                  reasonReportLabel: entry.reasonReportLabel
+                })
+              });
+              const json = await resp.json().catch(() => null);
+              if (!resp.ok || !json?.success) {
+                throw new Error(json?.error || `Gagal sinkronisasi progress report WO ${targetId} (${resp.status})`);
+              }
+              if (json.ticket) {
+                setTickets(prev => prev.map(t => (t.id === targetId ? { ...t, ...json.ticket, _offlineSyncStatus: 'synced' } : t)));
+              }
+            } else if (item.payload?.report) {
+              const res = await supabaseDb.updateWorkOrder(targetId, {
+                technicalReport: item.payload.report,
+                updatedAt: new Date().toISOString()
+              });
+              if (!res.success) {
+                throw new Error(res.error?.message || `Gagal sinkronisasi laporan teknis WO ${targetId}`);
+              }
+              setTickets(prev =>
+                prev.map(t =>
+                  t.id === targetId
+                    ? { ...t, ...(res.data || { technicalReport: item.payload.report }), _offlineSyncStatus: 'synced' }
+                    : t
+                )
+              );
+            }
+          } else if (item.action === 'ASSIGN') {
+            const resp = await fetch('/api/tickets/assign', {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                ticketId: targetId,
+                installerName: item.payload?.installerName,
+                installerId: item.payload?.installerId
+              })
+            });
+            const json = await resp.json().catch(() => null);
+            if (!resp.ok || !json?.success) {
+              throw new Error(json?.error || `Gagal sinkronisasi assignment WO ${targetId}`);
+            }
+          } else if (item.action === 'UPDATE') {
+            const updates = item.payload?.updates || {};
+            const res = await supabaseDb.updateWorkOrder(targetId, updates);
+            if (!res.success) {
+              throw new Error(res.error?.message || `Gagal sinkronisasi pembaruan WO ${targetId}`);
+            }
+            setTickets(prev =>
+              prev.map(t =>
+                t.id === targetId
+                  ? { ...t, ...(res.data || updates), _offlineSyncStatus: 'synced' }
+                  : t
+              )
+            );
+          }
+
           await removeSyncQueueItem(item.id);
           successCount++;
         } catch (err: any) {
@@ -2390,48 +2369,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [registerAppSyncHandler]);
 
-  // Authoritative ticketMessages are persisted in backend/Supabase; purge stale browser storage cache
+  // Authoritative ticketMessages & operational configs live in Supabase; do not cache in localStorage
   useEffect(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEYS.MESSAGES);
-    } catch {}
+    safeLocalStorageRemove(STORAGE_KEYS.MESSAGES);
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TEMPLATES, JSON.stringify(templates));
-  }, [templates]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.WORKFLOWS, JSON.stringify(workflowRules));
-  }, [workflowRules]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(auditLogs));
-  }, [auditLogs]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.WA_LOGS, JSON.stringify(waLogs));
-  }, [waLogs]);
-
-  const [googleSheetsConfig, setGoogleSheetsConfig] = useState<GoogleSheetsConfig>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SHEETS_CONFIG);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_SHEETS_CONFIG,
-          ...parsed,
-          accountEmail: parsed.accountEmail || '',
-          accountName: parsed.accountName || ''
-        };
-      }
-    } catch (e) {}
-    return DEFAULT_SHEETS_CONFIG;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SHEETS_CONFIG, JSON.stringify(googleSheetsConfig));
-  }, [googleSheetsConfig]);
+  const [googleSheetsConfig, setGoogleSheetsConfig] = useState<GoogleSheetsConfig>(() => DEFAULT_SHEETS_CONFIG);
 
   const assertSuperAdminConfigWrite = (moduleLabel: string): string | null => {
     if (currentUser.role !== 'super_admin') {
@@ -2739,9 +2682,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const committedDate = json.operationalDate || date;
       setTodayWIB(committedDate);
       setOperationalDateState(committedDate);
-      try {
-        localStorage.setItem('morajaws_operational_date', committedDate);
-      } catch (e) {}
+      safeLocalStorageSet('morajaws_operational_date', committedDate);
       setSyncStatus('SAVED');
       setLastSyncTime(new Date().toISOString());
       addAuditLog('Operational Date Updated', 'global_config', 'operational_date_config', `Tanggal operasional diatur ke ${committedDate} (v${json.version || 1})`);
@@ -2782,9 +2723,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (prev !== liveNowWIB) {
           rolledOver = true;
           setOperationalDateState(liveNowWIB);
-          try {
-            localStorage.setItem('morajaws_operational_date', liveNowWIB);
-          } catch {}
+          safeLocalStorageSet('morajaws_operational_date', liveNowWIB);
           if (navigator.onLine) {
             lastVisibilityRefreshAtRef.current = Date.now();
             refreshActiveTickets().catch(() => {});
@@ -2910,9 +2849,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const expiresIn = data.tokens?.expiresIn;
       const expiresAt = data.tokens?.expiresAt || (expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : undefined);
 
-      try {
-        localStorage.setItem('morajaws_logged_in', 'true');
-        localStorage.setItem('morajaws_auth_session', JSON.stringify({
+      safeLocalStorageSet('morajaws_logged_in', 'true');
+      safeLocalStorageSet(
+        'morajaws_auth_session',
+        JSON.stringify({
           userId: authedUser.id,
           username: authedUser.username,
           role: authedUser.role,
@@ -2926,7 +2866,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionId: data.sessionId,
           sessionVersion: data.sessionVersion || (authedUser as any).sessionVersion || 1,
           expiresAt
-        }));
+        })
+      );
+      try {
         window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
       } catch (e) {}
 
@@ -2965,7 +2907,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshAuthSession = async (): Promise<boolean> => {
     try {
-      const sessionStr = localStorage.getItem('morajaws_auth_session');
+      const sessionStr = safeLocalStorageGet('morajaws_auth_session');
       if (!sessionStr) return false;
       const sess = JSON.parse(sessionStr);
       if (!sess?.refreshToken) return false;
@@ -2985,7 +2927,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           refreshToken: data.tokens.refreshToken || sess.refreshToken,
           expiresAt: data.tokens.expiresAt
         };
-        localStorage.setItem('morajaws_auth_session', JSON.stringify(updatedSess));
+        safeLocalStorageSet('morajaws_auth_session', JSON.stringify(updatedSess));
         return true;
       }
       return false;
@@ -3022,10 +2964,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifiedChatSoundIdsRef.current.clear();
     notifiedWoEventKeysRef.current.clear();
     invalidateWoCache();
+    safeLocalStorageSet('morajaws_logged_in', 'false');
+    safeLocalStorageRemove('morajaws_auth_session');
+    safeLocalStorageRemove(STORAGE_KEYS.MESSAGES);
     try {
-      localStorage.setItem('morajaws_logged_in', 'false');
-      localStorage.removeItem('morajaws_auth_session');
-      localStorage.removeItem(STORAGE_KEYS.MESSAGES);
       window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
     } catch (e) {}
 
@@ -3061,10 +3003,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(nextUser);
     currentUserRef.current = nextUser;
     try {
-      const raw = localStorage.getItem('morajaws_auth_session');
+      const raw = safeLocalStorageGet('morajaws_auth_session');
       const prevSess = raw ? JSON.parse(raw) : {};
       const nextToken = payload.accessToken || payload.token || prevSess.token;
-      localStorage.setItem(
+      safeLocalStorageSet(
         'morajaws_auth_session',
         JSON.stringify({
           ...prevSess,
@@ -3486,11 +3428,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const now = new Date().toISOString();
+    const prevSnapshots = new Map<string, Ticket>();
     const affectedTickets: Ticket[] = [];
     // Strict RBAC: deleteCustomerData MUST NOT delete or soft-delete Work Orders!
     setTickets(prev => prev.map(t => {
       const isTarget = t.idCustomer === customerId || t.customerId === customerId;
       if (!isTarget) return t;
+      prevSnapshots.set(t.id, t);
       const updatedT: Ticket = {
         ...t,
         customerName: '[Data Pelanggan Dihapus]',
@@ -3504,19 +3448,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (affectedTickets.length > 0) {
       setSyncStatus('SYNCING');
-      Promise.all(affectedTickets.map(t => supabaseDb.updateWorkOrder(t.id, t)))
-        .then(() => {
+      Promise.all(affectedTickets.map(t => supabaseDb.updateWorkOrder(t.id, t).then(res => ({ id: t.id, res }))))
+        .then((results) => {
+          const failedIds = new Set(results.filter(r => !r.res?.success).map(r => r.id));
+          if (failedIds.size > 0) {
+            setTickets(prev => prev.map(t => (failedIds.has(t.id) && prevSnapshots.get(t.id)) ? prevSnapshots.get(t.id)! : t));
+            setSyncStatus('ERROR');
+            toast.error(`Gagal menganonimkan ${failedIds.size} tiket di Supabase PostgreSQL.`, 'Penyimpanan Gagal');
+            return;
+          }
           setSyncStatus('SAVED');
           setLastSyncTime(new Date().toISOString());
+          addAuditLog('Customer Data Anonymized', 'ticket', customerId, `Super Admin ${currentUser.name} menganonimkan data pelanggan ID ${customerId}. Alasan: ${reason}. Work Order tetap aktif.`);
+          toast.info(`Data identitas pelanggan ID ${customerId} pada ${affectedTickets.length} tiket berhasil diproses tanpa menghapus Work Order.`, 'Data Pelanggan Diproses');
         })
         .catch(err => {
+          setTickets(prev => prev.map(t => prevSnapshots.get(t.id) || t));
           setSyncStatus('ERROR');
-          console.warn('[Supabase] Error anonymizing customer tickets:', err);
+          toast.error('Gagal menganonimkan data pelanggan: ' + (err?.message || err), 'Penyimpanan Gagal');
         });
     }
 
-    addAuditLog('Customer Data Anonymized', 'ticket', customerId, `Super Admin ${currentUser.name} menganonimkan data pelanggan ID ${customerId}. Alasan: ${reason}. Work Order tetap aktif.`);
-    toast.info(`Data identitas pelanggan ID ${customerId} pada ${affectedTickets.length} tiket berhasil diproses tanpa menghapus Work Order.`, 'Data Pelanggan Diproses');
     return { success: true };
   };
 
@@ -4105,32 +4057,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    setTickets(prev =>
-      prev.map(t => {
-        if (t.id !== ticketId) return t;
-        const nextInstallerStatus = reportData.workResult === 'Tidak Berhasil'
-          ? 'Failed / Cancelled'
-          : reportData.workResult === 'Pekerjaan Tertunda'
-          ? 'Pending Technical'
-          : 'Completed';
+    const prevTicketSnapshot = ticket;
+    const nextInstallerStatus: TicketStatusWOInstaller = reportData.workResult === 'Tidak Berhasil'
+      ? 'Failed / Cancelled'
+      : reportData.workResult === 'Pekerjaan Tertunda'
+      ? 'Pending Technical'
+      : 'Completed';
 
-        return {
-          ...t,
-          technicalReport: report,
-          statusWOInstaller: nextInstallerStatus,
-          statusWOAgent: nextInstallerStatus === 'Completed' ? 'Resolved' : t.statusWOAgent,
-          checkOutAt: checkOutAtVal,
-          workDurationMinutes: workDurationMinVal,
-          workDurationFormatted: workDurationStrVal,
-          workSessionStatus: workSessionStatusVal,
-          workSessions: updatedSessions,
-          _offlineSyncStatus: !isOnline ? 'pending' : 'synced',
-          _offlineLastModified: now,
-          updatedAt: now,
-          updatedBy: currentUser.name
-        };
-      })
-    );
+    const updatedWithReport: Ticket = {
+      ...ticket,
+      technicalReport: report,
+      statusWOInstaller: nextInstallerStatus,
+      statusWOAgent: 'In Progress',
+      approvalStatus: 'BUTUH APPROVAL',
+      checkOutAt: checkOutAtVal,
+      workDurationMinutes: workDurationMinVal,
+      workDurationFormatted: workDurationStrVal,
+      workSessionStatus: workSessionStatusVal,
+      workSessions: updatedSessions,
+      _offlineSyncStatus: !isOnline ? 'pending' : 'synced',
+      _offlineLastModified: now,
+      updatedAt: now,
+      updatedBy: currentUser.name
+    };
+
+    setTickets(prev => prev.map(t => (t.id === ticketId ? updatedWithReport : t)));
 
     const activity: TicketActivity = {
       id: 'act-' + Date.now(),
@@ -4156,53 +4107,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user: { id: currentUser.id, name: currentUser.name, role: currentUser.role }
       }).catch(e => console.warn('Offline report enqueue error', e));
       toast.warning(`Laporan teknis WO ${ticket.woNumber} tersimpan offline di IndexedDB lokal.`, 'Laporan Offline');
+      return { success: true };
     }
 
-    // Persist report to Supabase PostgreSQL
-    const updatedWithReport: Ticket = {
-      ...ticket,
-      technicalReport: report,
-      statusWOInstaller: reportData.workResult === 'Tidak Berhasil' ? 'Failed / Cancelled' : reportData.workResult === 'Pekerjaan Tertunda' ? 'Pending Technical' : 'Completed',
-      statusWOAgent: 'In Progress',
-      approvalStatus: 'BUTUH APPROVAL',
-      checkOutAt: checkOutAtVal,
-      workDurationMinutes: workDurationMinVal,
-      workDurationFormatted: workDurationStrVal,
-      workSessionStatus: workSessionStatusVal,
-      workSessions: updatedSessions,
-      _offlineSyncStatus: !isOnline ? 'pending' : 'synced',
-      _offlineLastModified: now,
-      updatedAt: now,
-      updatedBy: currentUser.name
-    };
-
+    // Persist report authoritatively to Supabase PostgreSQL (single request, with rollback on error)
     setSyncStatus('SYNCING');
     supabaseDb.updateWorkOrder(ticketId, updatedWithReport)
       .then((res) => {
         if (!res.success) {
+          setTickets(prev => prev.map(t => (t.id === ticketId ? prevTicketSnapshot : t)));
           setSyncStatus('ERROR');
           toast.error('Gagal menyimpan laporan teknis ke Supabase PostgreSQL: ' + (res.error?.message || 'Error'), 'Penyimpanan Gagal');
           return;
+        }
+        if (res.data && res.data.id) {
+          setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...res.data } : t)));
         }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
         toast.success(`Laporan teknis lapangan untuk WO ${ticket.woNumber} berhasil disimpan (BUTUH APPROVAL).`, 'Laporan Teknis Tersimpan');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? prevTicketSnapshot : t)));
         setSyncStatus('ERROR');
-        if (!isOnline) {
-          toast.warning(`Laporan teknis WO ${ticket.woNumber} tersimpan offline di IndexedDB lokal.`, 'Laporan Offline');
-        } else {
-          toast.error('Gagal menyimpan laporan teknis ke Supabase PostgreSQL: ' + (err?.message || err), 'Penyimpanan Gagal');
-        }
+        toast.error('Gagal menyimpan laporan teknis ke Supabase PostgreSQL: ' + (err?.message || err), 'Penyimpanan Gagal');
       });
-
-    // Also persist report to backend API
-    fetch(`/api/tickets/${ticketId}/report`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ report })
-    }).catch(e => console.error('Error saving technical report to server:', e));
 
     return { success: true };
   };
@@ -4918,14 +4847,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTickets(prev =>
       prev.map(t => (t.id === ticketId ? verifiedTicket : t))
     );
-    addAuditLog('Report Verified', 'ticket', ticketId, `Dispatch ${currentUser.name} verified technician work report`);
 
+    setSyncStatus('SYNCING');
     supabaseDb.updateWorkOrder(verifiedTicket.id, verifiedTicket)
       .then((res) => {
         if (!res.success) throw new Error(res.error?.message || 'Verifikasi gagal');
+        setSyncStatus('SAVED');
+        setLastSyncTime(new Date().toISOString());
+        addAuditLog('Report Verified', 'ticket', ticketId, `Dispatch ${currentUser.name} verified technician work report`);
         toast.success('Laporan teknis pekerjaan lapangan berhasil diverifikasi oleh Dispatch.', 'Laporan Terverifikasi');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
+        setSyncStatus('ERROR');
         toast.error('Gagal memverifikasi laporan di Supabase PostgreSQL: ' + (err?.message || err), 'Verifikasi Gagal');
       });
   };
@@ -5366,8 +5300,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(t => (t.id === ticketId ? reopenedTicket : t))
     );
 
-    addAuditLog('Ticket Reopened', 'ticket', ticketId, `Reopened WO ${ticket.woNumber}. Alasan: ${reason}`);
-
     setSyncStatus('SYNCING');
     supabaseDb.updateWorkOrder(reopenedTicket.id, reopenedTicket)
       .then((res) => {
@@ -5375,9 +5307,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
         scheduleKpiRefreshRef.current?.();
+        addAuditLog('Ticket Reopened', 'ticket', ticketId, `Reopened WO ${ticket.woNumber}. Alasan: ${reason}`);
         toast.info(`Tiket WO ${ticket.woNumber} berhasil dibuka kembali (Reopened).`, 'Tiket Dibuka Kembali');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? ticket : t)));
         setSyncStatus('ERROR');
         toast.error('Gagal membuka tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
       });
@@ -5947,19 +5881,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     supabaseDb.createWorkOrder(processed)
       .then((res) => {
         if (!res.success) throw new Error(res.error?.message || 'Gagal menyimpan tiket baru');
+        if (res.data && res.data.id) {
+          setTickets(prev => prev.map(t => (t.id === processed.id ? { ...t, ...res.data } : t)));
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        addAuditLog('Ticket Created', 'ticket', processed.id, `Created Work Order ${processed.woNumber} for ${processed.customerName}`);
       })
       .catch(e => {
         console.warn('[Supabase] Error saving created ticket:', e);
+        setTickets(prev => prev.filter(t => t.id !== processed.id));
         setSyncStatus('ERROR');
+        toast.error('Gagal menyimpan Work Order baru ke database: ' + (e?.message || e), 'Penyimpanan Gagal');
       });
 
     if (logs.length > 0) {
       setTicketActivities(prev => [...logs, ...prev]);
     }
 
-    addAuditLog('Ticket Created', 'ticket', processed.id, `Created Work Order ${processed.woNumber} for ${processed.customerName}`);
     return processed;
   };
 
@@ -5969,9 +5908,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Installer can only update technicalReport and remarks on assigned WO
     if (currentUser.role === 'installer') {
+      const myId = String(currentUser.id || '').trim();
       const assignedName = (existing.installerName || '').toLowerCase().trim();
       const currentName = (currentUser.name || '').toLowerCase().trim();
-      if (assignedName !== currentName) {
+      const assignedById = Boolean(myId && (existing.installerId === myId || existing.assignedTo === myId || existing.assignedToUid === myId));
+      if (!assignedById && assignedName !== currentName) {
         return { success: false, error: 'Akses Ditolak: Anda hanya berwenang memperbarui tiket yang ditugaskan kepada akun Anda.' };
       }
       const coreFields: (keyof Ticket)[] = ['woNumber', 'idCustomer', 'customerName', 'customerPhone', 'slotTime', 'contactorName', 'leaderName', 'installerName', 'area'];
@@ -6003,52 +5944,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    let mergedTicket: Ticket | undefined;
-    setTickets(prev =>
-      prev.map(t => {
-        if (t.id !== id) return t;
-        const nextInstallerStatus = updates.installerName
-          ? (t.checkInAt ? t.statusWOInstaller : 'Assigned')
-          : t.statusWOInstaller;
-        const merged: Ticket = {
-          ...t,
-          ...updates,
-          statusWOInstaller: nextInstallerStatus,
-          updatedAt: new Date().toISOString(),
-          updatedBy: currentUser.name
-        };
+    const nextInstallerStatus = updates.installerName
+      ? (existing.checkInAt ? existing.statusWOInstaller : 'Assigned')
+      : existing.statusWOInstaller;
+    const mergedTicket: Ticket = {
+      ...existing,
+      ...updates,
+      statusWOInstaller: nextInstallerStatus,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser.name
+    };
 
-        if (updates.slotTime && updates.slotTime !== t.slotTime) {
-          executeWorkflowsOnTicket(merged, 'slot_time_changed', workflowRules, templates, currentUser.name, currentUser.role);
-        }
-
-        if (updates.installerName && updates.installerName !== t.installerName) {
-          const res = executeWorkflowsOnTicket(merged, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
-          if (res.logs.length > 0) {
-            setTicketActivities(act => [...res.logs, ...act]);
-          }
-        }
-
-        mergedTicket = merged;
-        return merged;
-      })
-    );
-
-    if (mergedTicket) {
-      setSyncStatus('SYNCING');
-      supabaseDb.updateWorkOrder(mergedTicket.id, mergedTicket)
-        .then((res) => {
-          if (!res.success) throw new Error(res.error?.message || 'Gagal memperbarui tiket');
-          setSyncStatus('SAVED');
-          setLastSyncTime(new Date().toISOString());
-        })
-        .catch(e => {
-          console.warn('[Supabase] Error updating ticket:', e);
-          setSyncStatus('ERROR');
-        });
+    if (updates.slotTime && updates.slotTime !== existing.slotTime) {
+      executeWorkflowsOnTicket(mergedTicket, 'slot_time_changed', workflowRules, templates, currentUser.name, currentUser.role);
     }
 
-    addAuditLog('Ticket Updated', 'ticket', id, `Updated fields on ticket: ${reason || Object.keys(updates).join(', ')}`);
+    if (updates.installerName && updates.installerName !== existing.installerName) {
+      const res = executeWorkflowsOnTicket(mergedTicket, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
+      if (res.logs.length > 0) {
+        setTicketActivities(act => [...res.logs, ...act]);
+      }
+    }
+
+    setTickets(prev => prev.map(t => (t.id === id ? mergedTicket : t)));
+
+    setSyncStatus('SYNCING');
+    supabaseDb.updateWorkOrder(mergedTicket.id, updates)
+      .then((res) => {
+        if (!res.success) throw new Error(res.error?.message || 'Gagal memperbarui tiket');
+        if (res.data && res.data.id) {
+          setTickets(prev => prev.map(t => (t.id === id ? { ...t, ...res.data } : t)));
+        }
+        setSyncStatus('SAVED');
+        setLastSyncTime(new Date().toISOString());
+        addAuditLog('Ticket Updated', 'ticket', id, `Updated fields on ticket: ${reason || Object.keys(updates).join(', ')}`);
+      })
+      .catch(e => {
+        console.warn('[Supabase] Error updating ticket:', e);
+        setTickets(prev => prev.map(t => (t.id === id ? existing : t)));
+        setSyncStatus('ERROR');
+        toast.error('Gagal memperbarui Work Order di Supabase PostgreSQL: ' + (e?.message || e), 'Pembaruan Gagal');
+      });
+
     return { success: true };
   };
 
@@ -6109,66 +6046,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    let updatedTicketItem: Ticket | undefined;
+    let updatedTicketItem: Ticket = {
+      ...targetTicket,
+      installerName: cleanInstName || undefined,
+      installerId: matchedInstaller?.id || targetTicket.installerId,
+      installerContact: matchedInstaller?.phone || targetTicket.installerContact,
+      leaderName: targetTicket.leaderName || currentUser.name,
+      leaderId: targetTicket.leaderId || currentUser.id,
+      statusWOInstaller: cleanInstName ? (targetTicket.checkInAt ? targetTicket.statusWOInstaller : 'Assigned') : 'Unassigned',
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser.name
+    };
 
-    setTickets(prev =>
-      prev.map(t => {
-        if (t.id !== ticketId) return t;
-        let updated: Ticket = {
-          ...t,
-          installerName: cleanInstName || undefined,
-          installerId: matchedInstaller?.id || t.installerId,
-          installerContact: matchedInstaller?.phone || t.installerContact,
-          leaderName: t.leaderName || currentUser.name,
-          leaderId: t.leaderId || currentUser.id,
-          statusWOInstaller: cleanInstName ? (t.checkInAt ? t.statusWOInstaller : 'Assigned') : 'Unassigned',
-          updatedAt: new Date().toISOString(),
-          updatedBy: currentUser.name
-        };
-
-        if (cleanInstName) {
-          const res = executeWorkflowsOnTicket(updated, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
-          updated = res.ticket;
-          if (res.logs.length > 0) {
-            setTicketActivities(act => [...res.logs, ...act]);
-          }
-        }
-
-        updatedTicketItem = updated;
-        return updated;
-      })
-    );
-
-    if (updatedTicketItem) {
-      setSyncStatus('SYNCING');
-      fetch('/api/tickets/assign', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          ticketId: updatedTicketItem.id,
-          installerName: cleanInstName,
-          installerId: matchedInstaller?.id,
-          installerContact: matchedInstaller?.phone
-        })
-      })
-        .then(async res => {
-          const json = await res.json().catch(() => ({}));
-          if (!res.ok || !json.success) {
-            throw new Error(json?.error || `Penugasan gagal (${res.status})`);
-          }
-          setSyncStatus('SAVED');
-          setLastSyncTime(new Date().toISOString());
-          if (cleanInstName) {
-            toast.success(`Teknisi ${cleanInstName} berhasil ditugaskan ke WO ${targetTicket.woNumber}!`, 'Penugasan Berhasil');
-          }
-        })
-        .catch(err => {
-          setSyncStatus('ERROR');
-          toast.error('Gagal menyimpan penugasan ke server: ' + (err?.message || err), 'Penugasan Gagal');
-        });
+    if (cleanInstName) {
+      const res = executeWorkflowsOnTicket(updatedTicketItem, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
+      updatedTicketItem = res.ticket;
+      if (res.logs.length > 0) {
+        setTicketActivities(act => [...res.logs, ...act]);
+      }
     }
 
-    addAuditLog('Personnel Assigned', 'ticket', ticketId, `Leader ${currentUser.name} assigned Installer: ${cleanInstName || '-'}`);
+    setTickets(prev => prev.map(t => (t.id === ticketId ? updatedTicketItem : t)));
+
+    setSyncStatus('SYNCING');
+    fetch('/api/tickets/assign', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        ticketId: updatedTicketItem.id,
+        installerName: cleanInstName,
+        installerId: matchedInstaller?.id,
+        installerContact: matchedInstaller?.phone
+      })
+    })
+      .then(async res => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error || `Penugasan gagal (${res.status})`);
+        }
+        if (json.ticket && json.ticket.id) {
+          setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+        }
+        setSyncStatus('SAVED');
+        setLastSyncTime(new Date().toISOString());
+        addAuditLog('Personnel Assigned', 'ticket', ticketId, `Leader ${currentUser.name} assigned Installer: ${cleanInstName || '-'}`);
+        if (cleanInstName) {
+          toast.success(`Teknisi ${cleanInstName} berhasil ditugaskan ke WO ${targetTicket.woNumber}!`, 'Penugasan Berhasil');
+        }
+      })
+      .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? targetTicket : t)));
+        setSyncStatus('ERROR');
+        toast.error('Gagal menyimpan penugasan ke server: ' + (err?.message || err), 'Penugasan Gagal');
+      });
   };
 
   const bulkAssignPersonnel = (
@@ -6206,6 +6136,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const targetSet = new Set(ticketIds);
     const now = new Date().toISOString();
+    const prevSnapshots = new Map<string, Ticket>();
     const updatedTicketsList: Ticket[] = [];
 
     setTickets(prev =>
@@ -6216,6 +6147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (leaderContr && woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) return t;
         if (leaderArea && woArea && !woArea.includes(leaderArea) && !leaderArea.includes(woArea)) return t;
 
+        prevSnapshots.set(t.id, t);
         let updated: Ticket = {
           ...t,
           installerName: cleanInstName !== '' ? cleanInstName : t.installerName,
@@ -6260,26 +6192,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             slotTime: t.slotTime,
             remarksWOInstaller: t.remarksWOInstaller
           })
-        }).then(r => r.json())
+        }).then(async r => ({ id: t.id, ok: r.ok, json: await r.json().catch(() => ({})) }))
       )
     )
-      .then(() => {
+      .then(results => {
+        const failedIds = new Set(results.filter(r => !r.ok || !r.json?.success).map(r => r.id));
+        if (failedIds.size > 0) {
+          setTickets(prev => prev.map(t => (failedIds.has(t.id) && prevSnapshots.get(t.id)) ? prevSnapshots.get(t.id)! : t));
+          setSyncStatus('ERROR');
+          const okCount = updatedTicketsList.length - failedIds.size;
+          toast.error(
+            `${failedIds.size} dari ${updatedTicketsList.length} penugasan gagal disimpan ke server.${okCount > 0 ? ` (${okCount} berhasil)` : ''}`,
+            'Penugasan Massal Gagal'
+          );
+          return;
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
         scheduleKpiRefreshRef.current?.();
+        addAuditLog(
+          'Bulk Personnel Assigned',
+          'ticket',
+          `${updatedTicketsList.length} tickets`,
+          `Bulk assigned ${updatedTicketsList.length} tickets by Leader ${currentUser.name}. Installer: ${cleanInstName || '-'}, Slot: ${slotTime || 'Original'}`
+        );
         toast.success(`Berhasil memperbarui penugasan untuk ${updatedTicketsList.length} tiket.`, 'Penugasan Massal Sukses');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => prevSnapshots.get(t.id) || t));
         setSyncStatus('ERROR');
         toast.error('Gagal menyimpan penugasan massal ke server: ' + (err?.message || err), 'Gagal');
       });
-
-    addAuditLog(
-      'Bulk Personnel Assigned',
-      'ticket',
-      `${updatedTicketsList.length} tickets`,
-      `Bulk assigned ${updatedTicketsList.length} tickets by Leader ${currentUser.name}. Installer: ${cleanInstName || '-'}, Slot: ${slotTime || 'Original'}`
-    );
 
     return { success: true, count: updatedTicketsList.length };
   };
@@ -6384,46 +6327,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTicketStatus = (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => {
     const target = getTicketById(ticketId);
-    let updatedTicketItem: Ticket | undefined;
+    if (!target) return;
 
-    setTickets(prev =>
-      prev.map(t => {
-        if (t.id !== ticketId) return t;
-        const updated: Ticket = {
-          ...t,
-          ...(statusAgent ? { statusWOAgent: statusAgent } : {}),
-          ...(statusInstaller ? { statusWOInstaller: statusInstaller } : {}),
-          ...(remarks ? { remarksWOInstaller: remarks } : {}),
-          updatedAt: new Date().toISOString(),
-          updatedBy: currentUser.name
-        };
+    const updatedTicketItem: Ticket = {
+      ...target,
+      ...(statusAgent ? { statusWOAgent: statusAgent } : {}),
+      ...(statusInstaller ? { statusWOInstaller: statusInstaller } : {}),
+      ...(remarks ? { remarksWOInstaller: remarks } : {}),
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser.name
+    };
 
-        if (statusInstaller === 'Completed') {
-          executeWorkflowsOnTicket(updated, 'ticket_completed', workflowRules, templates, currentUser.name, currentUser.role);
-        }
-
-        updatedTicketItem = updated;
-        return updated;
-      })
-    );
-
-    if (updatedTicketItem) {
-      setSyncStatus('SYNCING');
-      supabaseDb.updateWorkOrder(updatedTicketItem.id, updatedTicketItem)
-        .then((res) => {
-          if (!res.success) throw new Error(res.error?.message || 'Gagal memperbarui status');
-          setSyncStatus('SAVED');
-          setLastSyncTime(new Date().toISOString());
-          scheduleKpiRefreshRef.current?.();
-          toast.info(`Status WO ${target?.woNumber || ticketId} diperbarui (${statusInstaller || statusAgent || 'Updated'}).`, 'Status Berubah');
-        })
-        .catch(err => {
-          setSyncStatus('ERROR');
-          toast.error('Gagal memperbarui status tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-        });
+    if (statusInstaller === 'Completed') {
+      executeWorkflowsOnTicket(updatedTicketItem, 'ticket_completed', workflowRules, templates, currentUser.name, currentUser.role);
     }
 
-    addAuditLog('Status Changed', 'ticket', ticketId, `Agent: ${statusAgent || '-'}, Installer: ${statusInstaller || '-'}`);
+    setTickets(prev => prev.map(t => (t.id === ticketId ? updatedTicketItem : t)));
+
+    setSyncStatus('SYNCING');
+    supabaseDb.updateWorkOrder(updatedTicketItem.id, updatedTicketItem)
+      .then((res) => {
+        if (!res.success) throw new Error(res.error?.message || 'Gagal memperbarui status');
+        if (res.data && res.data.id) {
+          setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...res.data } : t)));
+        }
+        setSyncStatus('SAVED');
+        setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
+        addAuditLog('Status Changed', 'ticket', ticketId, `Agent: ${statusAgent || '-'}, Installer: ${statusInstaller || '-'}`);
+        toast.info(`Status WO ${target?.woNumber || ticketId} diperbarui (${statusInstaller || statusAgent || 'Updated'}).`, 'Status Berubah');
+      })
+      .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
+        setSyncStatus('ERROR');
+        toast.error('Gagal memperbarui status tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
+      });
   };
 
   const archiveTicket = (ticketId: string) => {
@@ -6435,22 +6373,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       archivedAt: new Date().toISOString(),
       archivedBy: currentUser.name
     };
-    setTickets(prev =>
-      prev.map(t => (t.id === ticketId ? archived : t))
-    );
+    setTickets(prev => prev.map(t => (t.id === ticketId ? archived : t)));
     setSyncStatus('SYNCING');
     supabaseDb.archiveWorkOrder(ticketId, currentUser.name)
       .then((res) => {
         if (!res.success) throw new Error(res.error?.message || 'Gagal mengarsipkan tiket');
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        addAuditLog('Ticket Archived', 'ticket', ticketId, `Ticket moved to archive by ${currentUser.name}`);
         toast.info(`WO ${target?.woNumber || ticketId} dipindahkan ke arsip Supabase PostgreSQL.`, 'Tiket Diarsipkan');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
         setSyncStatus('ERROR');
         toast.error('Gagal mengarsipkan tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
       });
-    addAuditLog('Ticket Archived', 'ticket', ticketId, `Ticket moved to archive by ${currentUser.name}`);
   };
 
   const restoreTicket = (ticketId: string) => {
@@ -6466,22 +6403,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deletedBy: undefined,
       deletionReason: undefined
     };
-    setTickets(prev =>
-      prev.map(t => (t.id === ticketId ? restored : t))
-    );
+    setTickets(prev => prev.map(t => (t.id === ticketId ? restored : t)));
     setSyncStatus('SYNCING');
     supabaseDb.restoreWorkOrder(ticketId, currentUser.name)
       .then((res) => {
         if (!res.success) throw new Error(res.error?.message || 'Gagal memulihkan tiket');
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        addAuditLog('Ticket Restored', 'ticket', ticketId, `Ticket restored from archive/deletion by ${currentUser.name}`);
         toast.success(`WO ${target?.woNumber || ticketId} berhasil dipulihkan dari arsip Supabase PostgreSQL.`, 'Tiket Dipulihkan');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
         setSyncStatus('ERROR');
         toast.error('Gagal memulihkan tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
       });
-    addAuditLog('Ticket Restored', 'ticket', ticketId, `Ticket restored from archive/deletion by ${currentUser.name}`);
   };
 
   const deleteTicket = (ticketId: string, reason: string, permanent: boolean = false): { success: boolean; error?: string } => {
@@ -6507,7 +6443,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date().toISOString();
     if (permanent) {
       setTickets(prev => prev.filter(t => t.id !== ticketId));
-      addAuditLog('Ticket Permanently Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menandai hapus permanen WO ${ticket.woNumber}. Alasan: ${reason}`);
     } else {
       // Soft Delete
       setTickets(prev =>
@@ -6524,7 +6459,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         })
       );
-      addAuditLog('Ticket Soft Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason}`);
     }
 
     setSyncStatus('SYNCING');
@@ -6534,12 +6468,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
         if (permanent) {
+          addAuditLog('Ticket Permanently Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menandai hapus permanen WO ${ticket.woNumber}. Alasan: ${reason}`);
           toast.warning(`WO ${ticket.woNumber} telah dihapus dari daftar aktif Supabase PostgreSQL.`, 'WO Dihapus');
         } else {
+          addAuditLog('Ticket Soft Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason}`);
           toast.warning(`WO ${ticket.woNumber} berhasil dihapus (soft delete).`, 'WO Dihapus');
         }
       })
       .catch(err => {
+        setTickets(prev => {
+          const exists = prev.some(t => t.id === ticketId);
+          return exists ? prev.map(t => (t.id === ticketId ? ticket : t)) : [ticket, ...prev];
+        });
         setSyncStatus('ERROR');
         toast.error('Gagal menghapus tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
       });
@@ -6793,13 +6733,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       importedCount++;
     });
 
-    // Apply updates and additions to database
+    // Apply updates and additions to React state (with rollback snapshot on DB failure)
+    const prevUpdatedSnapshots = new Map<string, Ticket>();
+    const newItemIds = new Set(newItems.map(t => t.id));
     setTickets(prev => {
       let result = prev;
       if (updatedTicketsMap.size > 0) {
         result = result.map(t => {
           const upper = (t.woNumber || '').toUpperCase().trim();
           if (updatedTicketsMap.has(upper)) {
+            prevUpdatedSnapshots.set(t.id, t);
             return { ...t, ...updatedTicketsMap.get(upper)! };
           }
           return t;
@@ -6830,24 +6773,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       Promise.all(ops)
-        .then(() => {
+        .then((results) => {
+          const failed = results.find(r => r && r.success === false);
+          if (failed) {
+            throw new Error(failed?.error?.message || failed?.message || 'Sebagian atau seluruh data gagal disimpan ke Supabase.');
+          }
           setSyncStatus('SAVED');
           setLastSyncTime(new Date().toISOString());
+          scheduleKpiRefreshRef.current?.();
           const savedTotal = newItems.length + updatedItemsToSave.length;
+          addAuditLog('Bulk Import Completed', 'import_batch', batchId, `Imported ${importedCount} tiket baru, diperbarui ${updatedCount} tiket. Ditolak ${duplicatesIgnored} nomor WO duplikat.`);
           toast.success(
             `Berhasil menyimpan ${savedTotal} tiket ke Supabase PostgreSQL${updatedCount > 0 ? ` (${newItems.length} baru, ${updatedCount} diperbarui)` : ''}.${duplicatesIgnored > 0 ? ` (${duplicatesIgnored} nomor WO duplikat ditolak)` : ''}`,
             'Import Selesai'
           );
         })
         .catch(err => {
+          setTickets(prev =>
+            prev
+              .filter(t => !newItemIds.has(t.id))
+              .map(t => prevUpdatedSnapshots.get(t.id) || t)
+          );
           setSyncStatus('ERROR');
           toast.error('Gagal menyimpan import tiket ke Supabase PostgreSQL: ' + (err?.message || err), 'Import Gagal');
         });
     } else if (duplicatesIgnored > 0) {
       toast.error(`Semua (${duplicatesIgnored}) nomor WO ditolak karena nomor WO sudah terdaftar dalam sistem.`, 'Nomor WO Duplikat Ditolak');
     }
-
-    addAuditLog('Bulk Import Completed', 'import_batch', batchId, `Imported ${importedCount} tiket baru, diperbarui ${updatedCount} tiket. Ditolak ${duplicatesIgnored} nomor WO duplikat.`);
 
     if (duplicatesIgnored > 0) {
       addAuditLog(
@@ -6912,26 +6864,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetIds = new Set(matchingTickets.map(t => t.id));
     setTickets(prev => prev.filter(t => !targetIds.has(t.id)));
 
-    // Soft delete matching from Supabase PostgreSQL
+    // Soft delete matching from Supabase PostgreSQL (confirm all succeed before showing success toast)
     setSyncStatus('SYNCING');
-    Promise.all(matchingTickets.map(t => supabaseDb.deleteWorkOrder(t.id, reason, currentUser.name)))
-      .then(() => {
+    Promise.all(matchingTickets.map(t => supabaseDb.deleteWorkOrder(t.id, reason, currentUser.name).then(res => ({ t, res }))))
+      .then((results) => {
+        const failed = results.filter(r => !r.res?.success);
+        if (failed.length > 0) {
+          const restoreTickets = failed.map(f => f.t);
+          setTickets(prev => deduplicateTicketsInMemory([...restoreTickets, ...prev]));
+          setSyncStatus('ERROR');
+          toast.error(`Gagal menghapus ${failed.length} dari ${matchingTickets.length} tiket di Supabase PostgreSQL.`, 'Hapus Gagal');
+          return;
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
+        addAuditLog(
+          'Imported Data Purged',
+          'import_batch',
+          importDate,
+          `Superadmin ${currentUser.name} menghapus ${matchingTickets.length} data tiket hasil import tanggal ${importDate}. Alasan: ${reason}`
+        );
+        toast.warning(`Berhasil menghapus ${matchingTickets.length} tiket hasil import tanggal ${importDate} dari Supabase PostgreSQL.`, 'Data Import Dihapus');
       })
       .catch(err => {
         console.warn('[Supabase] Error deleting batch tickets:', err);
+        setTickets(prev => deduplicateTicketsInMemory([...matchingTickets, ...prev]));
         setSyncStatus('ERROR');
+        toast.error('Gagal menghapus data import di Supabase PostgreSQL: ' + (err?.message || err), 'Hapus Gagal');
       });
 
-    addAuditLog(
-      'Imported Data Purged',
-      'import_batch',
-      importDate,
-      `Superadmin ${currentUser.name} menghapus ${matchingTickets.length} data tiket hasil import tanggal ${importDate}. Alasan: ${reason}`
-    );
-
-    toast.warning(`Berhasil menghapus ${matchingTickets.length} tiket hasil import tanggal ${importDate} dari Supabase PostgreSQL.`, 'Data Import Dihapus');
     return { success: true, count: matchingTickets.length };
   };
 
@@ -6952,11 +6914,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const targetSet = new Set(ticketIds);
+    const prevSnapshots = new Map<string, Ticket>();
     let deletedCount = 0;
     const now = new Date().toISOString();
     setTickets(prev =>
       prev.map(t => {
         if (targetSet.has(t.id)) {
+          prevSnapshots.set(t.id, t);
           deletedCount++;
           return {
             ...t,
@@ -6974,23 +6938,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Soft delete in Supabase PostgreSQL
     setSyncStatus('SYNCING');
-    Promise.all(ticketIds.map(id => supabaseDb.deleteWorkOrder(id, reason, currentUser.name)))
-      .then(() => {
+    Promise.all(ticketIds.map(id => supabaseDb.deleteWorkOrder(id, reason, currentUser.name).then(res => ({ id, res }))))
+      .then((results) => {
+        const failedIds = new Set(results.filter(r => !r.res?.success).map(r => r.id));
+        if (failedIds.size > 0) {
+          setTickets(prev => prev.map(t => (failedIds.has(t.id) && prevSnapshots.get(t.id)) ? prevSnapshots.get(t.id)! : t));
+          setSyncStatus('ERROR');
+          toast.error(`Gagal menghapus ${failedIds.size} dari ${ticketIds.length} tiket di Supabase PostgreSQL.`, 'Hapus Massal Gagal');
+          return;
+        }
         setSyncStatus('SAVED');
         setLastSyncTime(new Date().toISOString());
+        scheduleKpiRefreshRef.current?.();
+        addAuditLog(
+          'Bulk Tickets Soft Deleted',
+          'ticket',
+          `${ticketIds.length} tickets`,
+          `Superadmin ${currentUser.name} menghapus massal (soft delete) ${ticketIds.length} tiket Work Order. Alasan: ${reason}`
+        );
         toast.warning(`Berhasil menghapus (soft delete) ${deletedCount} tiket Work Order.`, 'Hapus WO Berhasil');
       })
       .catch(err => {
+        setTickets(prev => prev.map(t => prevSnapshots.get(t.id) || t));
         setSyncStatus('ERROR');
         toast.error('Gagal menghapus tiket massal di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
       });
-
-    addAuditLog(
-      'Bulk Tickets Soft Deleted',
-      'ticket',
-      `${ticketIds.length} tickets`,
-      `Superadmin ${currentUser.name} menghapus massal (soft delete) ${ticketIds.length} tiket Work Order. Alasan: ${reason}`
-    );
 
     return { success: true, count: deletedCount };
   };

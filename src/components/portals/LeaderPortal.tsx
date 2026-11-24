@@ -83,6 +83,7 @@ import {
 import { InstallerDetailModal } from './InstallerDetailModal';
 import { UploadAssignModal } from './UploadAssignModal';
 import { LeaderProgressDashboardView } from './LeaderProgressDashboardView';
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/safeStorage';
 import { ContractorAreaRecapView } from '../reports/ContractorAreaRecapView';
 import {
   DailyLimitSettingsModal,
@@ -232,7 +233,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const QUOTA_STORAGE_KEY = `morajaws_leader_quota_${(leaderContractor || 'default').replace(/\s+/g, '_').toLowerCase()}`;
   const [quotaSettings, setQuotaSettings] = useState<QuotaSettings>(() => {
     try {
-      const saved = localStorage.getItem(QUOTA_STORAGE_KEY);
+      const saved = safeLocalStorageGet(QUOTA_STORAGE_KEY);
       if (saved) return { ...DEFAULT_QUOTA_SETTINGS, ...JSON.parse(saved), contractorName: displayContractor };
     } catch {}
     return { ...DEFAULT_QUOTA_SETTINGS, contractorName: displayContractor };
@@ -250,9 +251,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       if (typeof res.latencyMs === 'number') setQuotaApiLatencyMs(res.latencyMs);
       if (res.success && res.config) {
         setQuotaSettings(res.config);
-        try {
-          localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(res.config));
-        } catch {}
+        safeLocalStorageSet(QUOTA_STORAGE_KEY, JSON.stringify(res.config));
       }
     }).catch(() => {});
 
@@ -311,9 +310,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     const prevSnapshot = quotaSettings;
     setQuotaSettings(next);
     setIsSavingQuota(true);
-    try {
-      localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(next));
-    } catch {}
+    safeLocalStorageSet(QUOTA_STORAGE_KEY, JSON.stringify(next));
 
     const saveRes = await saveLeaderQuotaConfig(next);
     setIsSavingQuota(false);
@@ -334,7 +331,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const COLUMN_STORAGE_KEY = `morajaws_leader_columns_${currentUser.id || 'default'}`;
   const [tableColumns, setTableColumns] = useState<ColumnConfig[]>(() => {
     try {
-      const saved = localStorage.getItem(COLUMN_STORAGE_KEY);
+      const saved = safeLocalStorageGet(COLUMN_STORAGE_KEY);
       if (saved) {
         const parsed: ColumnConfig[] = JSON.parse(saved);
         const orderedCols: ColumnConfig[] = [];
@@ -359,16 +356,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
   const handleSaveColumns = (newCols: ColumnConfig[]) => {
     setTableColumns(newCols);
-    try {
-      localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(newCols));
-    } catch (e) {}
+    safeLocalStorageSet(COLUMN_STORAGE_KEY, JSON.stringify(newCols));
   };
 
   const handleResetColumns = () => {
     setTableColumns(DEFAULT_LEADER_COLUMNS);
-    try {
-      localStorage.removeItem(COLUMN_STORAGE_KEY);
-    } catch (e) {}
+    safeLocalStorageRemove(COLUMN_STORAGE_KEY);
     toast.info('Pengaturan kolom dikembalikan ke default.', 'Kolom Direset');
   };
 

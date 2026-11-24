@@ -1257,6 +1257,115 @@ export async function deleteUserInSupabase(
 // DATA ACCESS LAYER: WORK ORDERS / TICKETS
 // ------------------------------------------------------------------------------
 
+export const WORK_ORDER_LIST_COLUMNS = [
+  'id',
+  'wo_number',
+  'work_order_number',
+  'id_customer',
+  'customer_id',
+  'ticket_number',
+  'ticket_date',
+  'date',
+  'appointment_date',
+  'date_upload',
+  'file_name',
+  'agent_id',
+  'customer_name',
+  'end_user_name',
+  'customer_phone',
+  'customer_contact1',
+  'customer_contact2',
+  'customer_contact3',
+  'customer_phone_normalized',
+  'street_name',
+  'street_alternatif',
+  'address',
+  'city',
+  'postal_code',
+  'cluster_name',
+  'area',
+  'appointment_type',
+  'slot_time',
+  'ticket_category',
+  'initial_ticket_category',
+  'installation_type',
+  'service_type',
+  'homepass_type',
+  'homepass_detail_id',
+  'olt_code',
+  'fdt_code',
+  'fat_code',
+  'fat_port',
+  'dropcore_length',
+  'plan',
+  'service_aging_maintenance',
+  'vendor_name',
+  'router',
+  'ont_brand',
+  'ont_model',
+  'router_brand',
+  'router_model',
+  'router_serial_number',
+  'ont_serial_number',
+  'ont_mac_address',
+  'rg_serial_number',
+  'rg_mac_address',
+  'contractor_id',
+  'contractor_name',
+  'contactor_name',
+  'leader_name',
+  'corlap_name',
+  'corlap_contact',
+  'installer_id',
+  'installer_uid',
+  'assigned_to',
+  'assigned_to_uid',
+  'installer_name',
+  'installer_contact',
+  'installer_contact2',
+  'installer_email',
+  'date_assign_agent',
+  'date_assign_technician',
+  'assigned_at',
+  'assigned_by',
+  'reassigned_at',
+  'reassigned_by',
+  'reassignment_reason',
+  'distribution_status',
+  'distribution_notes',
+  'status_wo_agent',
+  'status_wo_installer',
+  'status_whatsapp',
+  'remarks_wo_installer',
+  'remarks_agent',
+  'remarks',
+  'chat_messages_count',
+  'last_message_at',
+  'last_message_snippet',
+  'check_in_at',
+  'work_session_status',
+  'closed_at',
+  'closed_by',
+  'close_notes',
+  'reopen_reason',
+  'is_archived',
+  'archived_at',
+  'archived_by',
+  'is_deleted',
+  'deleted_at',
+  'deleted_by',
+  'deletion_reason',
+  'imported_at',
+  'import_date',
+  'import_batch_id',
+  'house_location',
+  'fat_location',
+  'payload',
+  'created_at',
+  'updated_at',
+  'updated_by'
+].join(', ');
+
 export interface GetWorkOrdersOptions {
   limit?: number;
   offset?: number;
@@ -1266,10 +1375,12 @@ export interface GetWorkOrdersOptions {
   contractorId?: string;
   installerName?: string;
   appointmentDate?: string;
+  lightweight?: boolean;
 }
 
 /**
  * Fetches Work Orders from Supabase with flexible filtering.
+ * When `lightweight: true`, avoids downloading heavy JSONB columns (`technical_report`, `work_sessions`, `kendala_reports`, etc.).
  */
 export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = {}): Promise<SupabaseOpResult<any[]>> {
   const client = getSupabaseBackendClient();
@@ -1278,7 +1389,8 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
   }
 
   try {
-    let query = client.from('work_orders').select('*');
+    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : '*';
+    let query = client.from('work_orders').select(selectColumns);
 
     if (!options.includeDeleted) {
       query = query.eq('is_deleted', false);
@@ -1301,14 +1413,33 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
 
     query = query.order('created_at', { ascending: false });
 
-    if (typeof options.limit === 'number' && options.limit > 0) {
+    if (typeof options.offset === 'number' && options.offset >= 0 && typeof options.limit === 'number' && options.limit > 0) {
+      query = query.range(options.offset, options.offset + options.limit - 1);
+    } else if (typeof options.limit === 'number' && options.limit > 0) {
       query = query.limit(options.limit);
     }
-    if (typeof options.offset === 'number' && options.offset > 0) {
-      query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
+
+    let { data, error } = await query;
+    // Fallback if staging schema does not yet have house_location/fat_location columns
+    if (error && options.lightweight && isMissingSchemaObjectError(error)) {
+      let fallbackQuery = client.from('work_orders').select('*');
+      if (!options.includeDeleted) fallbackQuery = fallbackQuery.eq('is_deleted', false);
+      if (!options.includeArchived) fallbackQuery = fallbackQuery.eq('is_archived', false);
+      if (options.area) fallbackQuery = fallbackQuery.eq('area', options.area);
+      if (options.contractorId) fallbackQuery = fallbackQuery.eq('contractor_id', options.contractorId);
+      if (options.installerName) fallbackQuery = fallbackQuery.eq('installer_name', options.installerName);
+      if (options.appointmentDate) fallbackQuery = fallbackQuery.eq('appointment_date', options.appointmentDate);
+      fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
+      if (typeof options.offset === 'number' && options.offset >= 0 && typeof options.limit === 'number' && options.limit > 0) {
+        fallbackQuery = fallbackQuery.range(options.offset, options.offset + options.limit - 1);
+      } else if (typeof options.limit === 'number' && options.limit > 0) {
+        fallbackQuery = fallbackQuery.limit(options.limit);
+      }
+      const fallbackRes = await fallbackQuery;
+      data = fallbackRes.data as any;
+      error = fallbackRes.error;
     }
 
-    const { data, error } = await query;
     if (error) {
       const classified = classifySupabaseError(error);
       console.error('[Supabase DAL] getWorkOrders error:', classified.message);
@@ -1320,6 +1451,158 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
   } catch (err: any) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
+  }
+}
+
+export interface DbPaginatedWorkOrdersOptions extends GetWorkOrdersOptions {
+  page?: number;
+  limit?: number;
+  contractor?: string;
+  statusWOAgent?: string;
+  statusWOInstaller?: string;
+  search?: string;
+  updatedSince?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  userRole?: string;
+  userId?: string;
+  userContractor?: string;
+}
+
+export interface DbPaginatedWorkOrdersResult {
+  tickets: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * True database-level paginated & filtered query against Supabase `work_orders` using `.range()` + `{ count: 'exact' }`.
+ * Selects lightweight columns by default to prevent downloading heavy photo/JSON payloads during table browsing.
+ */
+export async function getWorkOrdersFromSupabasePaginated(
+  options: DbPaginatedWorkOrdersOptions = {}
+): Promise<SupabaseOpResult<DbPaginatedWorkOrdersResult>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+
+  const page = Math.max(1, Number(options.page || 1) || 1);
+  const limit = Math.min(500, Math.max(1, Number(options.limit || 50) || 50));
+  const offset = typeof options.offset === 'number' && options.offset >= 0
+    ? options.offset
+    : (page - 1) * limit;
+
+  const sortColMap: Record<string, string> = {
+    updatedAt: 'updated_at',
+    createdAt: 'created_at',
+    appointmentDate: 'appointment_date',
+    woNumber: 'wo_number',
+    customerName: 'customer_name',
+    area: 'area',
+    statusWOAgent: 'status_wo_agent',
+    statusWOInstaller: 'status_wo_installer'
+  };
+  const orderCol = sortColMap[String(options.sortBy || 'updatedAt')] || 'updated_at';
+  const ascending = options.sortDir === 'asc';
+
+  const applyFilters = (baseQuery: any) => {
+    let q = baseQuery;
+    if (!options.includeDeleted) {
+      q = q.eq('is_deleted', false);
+    }
+    if (!options.includeArchived) {
+      q = q.eq('is_archived', false);
+    }
+    if (options.area && options.area.toLowerCase() !== 'all') {
+      q = q.ilike('area', options.area.trim());
+    }
+    if (options.contractorId) {
+      q = q.eq('contractor_id', options.contractorId.trim());
+    }
+    if (options.contractor && options.contractor.toLowerCase() !== 'all') {
+      const cVal = options.contractor.trim().replace(/[,%()]/g, '');
+      if (cVal) {
+        q = q.or(`contractor_name.ilike.%${cVal}%,contactor_name.ilike.%${cVal}%`);
+      }
+    }
+    if (options.installerName) {
+      q = q.ilike('installer_name', options.installerName.trim());
+    }
+    if (options.appointmentDate) {
+      q = q.eq('appointment_date', options.appointmentDate.trim());
+    }
+    if (options.statusWOAgent && options.statusWOAgent.toLowerCase() !== 'all') {
+      q = q.ilike('status_wo_agent', options.statusWOAgent.trim());
+    }
+    if (options.statusWOInstaller && options.statusWOInstaller.toLowerCase() !== 'all') {
+      q = q.ilike('status_wo_installer', options.statusWOInstaller.trim());
+    }
+    if (options.updatedSince) {
+      q = q.gte('updated_at', options.updatedSince);
+    }
+    if (options.search && options.search.trim()) {
+      const s = options.search.trim().replace(/[,%()]/g, '');
+      if (s) {
+        q = q.or(
+          `wo_number.ilike.%${s}%,id_customer.ilike.%${s}%,customer_name.ilike.%${s}%,area.ilike.%${s}%,contractor_name.ilike.%${s}%,installer_name.ilike.%${s}%`
+        );
+      }
+    }
+    // DB-level role scoping pushdown (defense-in-depth alongside scopeTicketsForUser)
+    if (options.userRole === 'installer' && options.userId) {
+      const uid = options.userId.trim().replace(/[,%()]/g, '');
+      q = q.or(`installer_id.eq.${uid},installer_uid.eq.${uid},assigned_to_uid.eq.${uid}`);
+    } else if (options.userRole === 'leader' && options.userContractor) {
+      const lc = options.userContractor.trim().replace(/[,%()]/g, '');
+      if (lc) {
+        q = q.or(`contractor_name.ilike.%${lc}%,contactor_name.ilike.%${lc}%`);
+      }
+    }
+    return q;
+  };
+
+  try {
+    const selectCols = options.lightweight !== false ? WORK_ORDER_LIST_COLUMNS : '*';
+    let query = applyFilters(
+      client.from('work_orders').select(selectCols, { count: 'exact' })
+    );
+    query = query.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+
+    let { data, count, error } = await query;
+    if (error && options.lightweight !== false && isMissingSchemaObjectError(error)) {
+      let fallback = applyFilters(
+        client.from('work_orders').select('*', { count: 'exact' })
+      );
+      fallback = fallback.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+      const fbRes = await fallback;
+      data = fbRes.data as any;
+      count = fbRes.count;
+      error = fbRes.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+
+    const total = typeof count === 'number' ? count : (data || []).length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const tickets = (data || []).map(postgresRowToTicket);
+
+    return {
+      success: true,
+      data: {
+        tickets,
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
   }
 }
 
@@ -2305,6 +2588,183 @@ export async function getKendalaReportsByTicketFromSupabase(ticketId: string): P
     return { success: true, data: mapped };
   } catch {
     return { success: false, data: [] };
+  }
+}
+
+/**
+ * Persists attachment metadata in existing `public.attachments` table.
+ */
+export async function insertAttachmentToSupabase(entry: {
+  id: string;
+  fileId?: string;
+  workOrderId?: string | null;
+  ticketId?: string | null;
+  woNumber?: string | null;
+  fileName: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+  storageProvider: string;
+  storagePath?: string | null;
+  downloadUrl?: string | null;
+  senderId?: string | null;
+  senderName?: string | null;
+  senderRole?: string | null;
+  validationStatus?: string | null;
+  payload?: Record<string, any>;
+  uploadedAt?: string;
+}): Promise<{ persisted: boolean; skippedSchemaPending?: boolean; error?: string }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false, error: 'Supabase client belum dikonfigurasi.' };
+  try {
+    const row = {
+      id: entry.id,
+      file_id: entry.fileId || entry.id,
+      work_order_id: entry.workOrderId || null,
+      ticket_id: entry.ticketId || entry.workOrderId || null,
+      wo_number: entry.woNumber || null,
+      file_name: entry.fileName,
+      file_type: entry.fileType || null,
+      file_size: typeof entry.fileSize === 'number' && entry.fileSize >= 0 ? entry.fileSize : null,
+      storage_provider: entry.storageProvider || 'supabase',
+      storage_path: entry.storagePath || null,
+      download_url: entry.downloadUrl || null,
+      sender_id: entry.senderId || null,
+      sender_name: entry.senderName || null,
+      sender_role: entry.senderRole || null,
+      validation_status: entry.validationStatus || 'verified',
+      payload: entry.payload || {},
+      uploaded_at: entry.uploadedAt || new Date().toISOString()
+    };
+
+    const { error } = await client.from('attachments').upsert([row], { onConflict: 'id' });
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      // Retry with work_order_id=null if FK fails due to non-persisted WO reference
+      if (String(error.code || '') === '23503' && row.work_order_id) {
+        const retry = await client
+          .from('attachments')
+          .upsert([{ ...row, work_order_id: null }], { onConflict: 'id' });
+        if (!retry.error) return { persisted: true };
+      }
+      console.warn('[Supabase DAL] insertAttachment warning:', error.message);
+      return { persisted: false, error: error.message };
+    }
+    return { persisted: true };
+  } catch (err: any) {
+    return { persisted: false, error: err?.message };
+  }
+}
+
+/**
+ * Upserts geo-tagged photo evidence metadata into `public.wo_photo_evidence`.
+ */
+export async function upsertWoPhotoEvidenceToSupabase(entry: {
+  id: string;
+  ticketId: string;
+  woNumber: string;
+  slotKey: string;
+  slotTitle: string;
+  storagePath?: string;
+  photoUrl: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  latitude?: number;
+  longitude?: number;
+  gpsAccuracyMeters?: number;
+  altitudeMeters?: number;
+  headingDeg?: number;
+  speedMps?: number;
+  capturedAt: string;
+  uploadedAt?: string;
+  technicianId: string;
+  technicianName?: string;
+  locationSource?: string;
+  permissionStatus?: string;
+  geotagStatus?: string;
+  captureMethod?: string;
+  sha256?: string;
+  clientCaptureId?: string;
+  metadata?: Record<string, any>;
+}): Promise<{ persisted: boolean; skippedSchemaPending?: boolean; error?: string }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false, error: 'Supabase client belum dikonfigurasi.' };
+  try {
+    const allowedSlots = new Set([
+      'opm',
+      'barcode_sn',
+      'fat_pole',
+      'customer_install',
+      'customer_house',
+      'fat_attenuation'
+    ]);
+    if (!allowedSlots.has(entry.slotKey)) {
+      return { persisted: false, error: `Slot key "${entry.slotKey}" tidak termasuk skema wo_photo_evidence.` };
+    }
+
+    const row = {
+      id: entry.id,
+      ticket_id: entry.ticketId,
+      wo_number: entry.woNumber,
+      slot_key: entry.slotKey,
+      slot_title: entry.slotTitle || entry.slotKey,
+      storage_path: entry.storagePath || null,
+      photo_url: entry.photoUrl,
+      file_name: entry.fileName || null,
+      file_size_bytes: typeof entry.fileSizeBytes === 'number' ? entry.fileSizeBytes : null,
+      mime_type: entry.mimeType || null,
+      latitude: typeof entry.latitude === 'number' ? entry.latitude : null,
+      longitude: typeof entry.longitude === 'number' ? entry.longitude : null,
+      gps_accuracy_meters: typeof entry.gpsAccuracyMeters === 'number' ? entry.gpsAccuracyMeters : null,
+      altitude_meters: typeof entry.altitudeMeters === 'number' ? entry.altitudeMeters : null,
+      heading_deg: typeof entry.headingDeg === 'number' ? entry.headingDeg : null,
+      speed_mps: typeof entry.speedMps === 'number' ? entry.speedMps : null,
+      captured_at: entry.capturedAt || new Date().toISOString(),
+      uploaded_at: entry.uploadedAt || new Date().toISOString(),
+      technician_id: entry.technicianId,
+      technician_name: entry.technicianName || null,
+      location_source: entry.locationSource || null,
+      permission_status: entry.permissionStatus || null,
+      geotag_status: entry.geotagStatus || 'missing',
+      capture_method: entry.captureMethod === 'gallery' ? 'gallery' : 'camera',
+      sha256: entry.sha256 || null,
+      client_capture_id: entry.clientCaptureId || null,
+      metadata: entry.metadata || {},
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await client.from('wo_photo_evidence').upsert([row], { onConflict: 'id' });
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      console.warn('[Supabase DAL] upsertWoPhotoEvidence warning:', error.message);
+      return { persisted: false, error: error.message };
+    }
+    return { persisted: true };
+  } catch (err: any) {
+    return { persisted: false, error: err?.message };
+  }
+}
+
+export async function deleteWoPhotoEvidenceRowFromSupabase(
+  ticketId: string,
+  slotKey: string
+): Promise<{ deleted: boolean }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { deleted: false };
+  try {
+    const { error } = await client
+      .from('wo_photo_evidence')
+      .delete()
+      .eq('ticket_id', ticketId)
+      .eq('slot_key', slotKey);
+    if (error) return { deleted: false };
+    return { deleted: true };
+  } catch {
+    return { deleted: false };
   }
 }
 

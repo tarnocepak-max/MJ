@@ -11,6 +11,7 @@ import {
   NotificationItem,
   NotificationPriority
 } from './notificationTypes';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../utils/safeStorage';
 
 interface StoredNotificationPrefs {
   /** Map of notificationId -> signature at the time it was read */
@@ -40,7 +41,7 @@ function getStorageKey(userId?: string): string {
 
 function loadPrefs(storageKey: string): StoredNotificationPrefs {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = safeLocalStorageGet(storageKey);
     if (!raw) return { readSignatures: {}, clearedSignatures: {} };
     const parsed = JSON.parse(raw);
     return {
@@ -60,7 +61,7 @@ function loadPrefs(storageKey: string): StoredNotificationPrefs {
 
 function savePrefs(storageKey: string, prefs: StoredNotificationPrefs): void {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(prefs));
+    safeLocalStorageSet(storageKey, JSON.stringify(prefs));
   } catch {
     // Ignore storage quota errors cleanly
   }

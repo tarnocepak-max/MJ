@@ -7,9 +7,10 @@ const require = __moraCreateRequire(import.meta.url);
 import express from "express";
 import http from "http";
 import cookieParser from "cookie-parser";
-import path2 from "path";
-import fs2 from "fs";
-import crypto9 from "crypto";
+import { createServer as createViteServer } from "vite";
+import path3 from "path";
+import fs3 from "fs";
+import crypto10 from "crypto";
 import { fileURLToPath } from "url";
 
 // server/supabaseClient.ts
@@ -37,7 +38,7 @@ function getAppEnvironment() {
   if (rawEnv === "development" || rawEnv === "dev") {
     return "development";
   }
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development") {
+  if (process.env.NODE_ENV === "production") {
     return "production";
   }
   return "development";
@@ -132,26 +133,7 @@ function getEnvironmentConfig(envOverride) {
     const anonKey2 = (process.env.PRODUCTION_SUPABASE_ANON_KEY || (process.env.APP_ENV === "staging" ? "" : process.env.SUPABASE_ANON_KEY) || "").trim();
     const appBaseUrl = (process.env.PRODUCTION_APP_BASE_URL || process.env.APP_BASE_URL || PRODUCTION_DEFAULT_APP_BASE_URL).trim();
     const recoveryCallbackUrl = (process.env.PRODUCTION_AUTH_RECOVERY_CALLBACK_URL || process.env.AUTH_RECOVERY_CALLBACK_URL || PRODUCTION_DEFAULT_CALLBACK_URL).trim();
-    const allowedRedirectOrigins = [
-      "https://morajaws.ai.studio",
-      "https://mora-jawskies.vercel.app"
-    ];
-    for (const vercelHost of [
-      process.env.VERCEL_PROJECT_PRODUCTION_URL,
-      process.env.VERCEL_URL,
-      process.env.VERCEL_BRANCH_URL
-    ]) {
-      if (vercelHost && vercelHost.trim()) {
-        const normalized = vercelHost.trim().startsWith("http") ? vercelHost.trim() : `https://${vercelHost.trim()}`;
-        try {
-          const parsed = new URL(normalized);
-          if (parsed.protocol === "https:" && !allowedRedirectOrigins.includes(parsed.origin)) {
-            allowedRedirectOrigins.push(parsed.origin);
-          }
-        } catch {
-        }
-      }
-    }
+    const allowedRedirectOrigins = ["https://morajaws.ai.studio"];
     if (process.env.AUTH_ALLOWED_REDIRECT_ORIGINS || process.env.PRODUCTION_ALLOWED_REDIRECT_ORIGINS) {
       const origins = (process.env.AUTH_ALLOWED_REDIRECT_ORIGINS || process.env.PRODUCTION_ALLOWED_REDIRECT_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
       for (const o of origins) {
@@ -274,24 +256,6 @@ function validateEnvironmentStartup(envOverride) {
 }
 
 // server/supabaseClient.ts
-function resolveEffectiveSupabaseCredentials() {
-  const activeEnv = getAppEnvironment();
-  const envCfg = getEnvironmentConfig(activeEnv);
-  const rawUrl = (envCfg.supabaseUrl || (activeEnv === "staging" ? "" : process.env.SUPABASE_URL) || "").trim();
-  let supabaseUrl = rawUrl;
-  if (rawUrl) {
-    try {
-      const parsed = new URL(rawUrl);
-      if (parsed.protocol === "https:" || process.env.NODE_ENV !== "production" && parsed.protocol === "http:") {
-        supabaseUrl = parsed.origin;
-      }
-    } catch {
-    }
-  }
-  const serviceRoleKey = (envCfg.supabaseServiceRoleKey || (activeEnv === "staging" ? "" : process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY) || "").trim();
-  const anonKey = (envCfg.supabaseAnonKey || (activeEnv === "staging" ? "" : process.env.SUPABASE_ANON_KEY) || "").trim();
-  return { activeEnv, supabaseUrl, serviceRoleKey, anonKey };
-}
 function resolveRuntimeSupabaseEnv() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SECRET_KEY) {
     process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY;
@@ -395,7 +359,10 @@ function getSupabaseBackendClient() {
   if (supabaseInstance) {
     return supabaseInstance;
   }
-  const { activeEnv, supabaseUrl, serviceRoleKey } = resolveEffectiveSupabaseCredentials();
+  const activeEnv = getAppEnvironment();
+  const envCfg = getEnvironmentConfig(activeEnv);
+  const supabaseUrl = (envCfg.supabaseUrl || process.env.SUPABASE_URL || "").trim();
+  const serviceRoleKey = (envCfg.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "").trim();
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
@@ -434,7 +401,9 @@ function getSupabaseBackendClient() {
   }
 }
 async function checkSupabaseConnection() {
-  const { supabaseUrl, serviceRoleKey, anonKey } = resolveEffectiveSupabaseCredentials();
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
   const urlConfigured = isValidSupabaseUrl(supabaseUrl);
   const serviceRoleConfigured = isValidSupabaseSecretKey(serviceRoleKey);
   const anonKeyConfigured = isValidSupabasePublishableKey(anonKey);
@@ -545,135 +514,300 @@ async function checkSupabaseConnection() {
   }
 }
 function isSupabaseConfigured() {
-  const { supabaseUrl, serviceRoleKey } = resolveEffectiveSupabaseCredentials();
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)?.trim();
   return Boolean(supabaseUrl && serviceRoleKey && isValidSupabaseUrl(supabaseUrl) && isValidSupabaseSecretKey(serviceRoleKey));
 }
 
-// server/sessionStore.ts
-var simulateStoreFailureFlag = false;
-var MemorySessionStore = class {
-  constructor(sessionArray) {
-    this.revokedTokens = /* @__PURE__ */ new Set();
-    this.sessions = sessionArray;
+// server/migrationRunner.ts
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import { Pool } from "pg";
+var FORWARD_MIGRATIONS = [
+  "007_phase16a2_staging_schema_initialization.sql",
+  "006_custom_authentication_schema.sql",
+  "007_provision_primary_superadmin.sql",
+  "008_phase1_custom_auth_session_version_alignment.sql",
+  "009_pure_supabase_alignment.sql",
+  "010_app_settings_navigation_alignment.sql",
+  "011_global_config_versioning.sql",
+  "012_wo_lifecycle_overhaul.sql",
+  "013_installer_geotag_photo_locations.sql",
+  "014_wo_expiry_overdue_management.sql",
+  "015_installer_live_gps_tracking.sql",
+  "016_password_reset_jobs_and_tokens.sql",
+  "017_consolidate_roles_to_super_admin.sql",
+  "018_kendala_reports_and_workflow_update.sql",
+  "019_email_notification_system.sql"
+];
+var lastMigrationStatus = {
+  databaseUrlConfigured: false,
+  status: "idle",
+  totalPlanned: FORWARD_MIGRATIONS.length,
+  alreadyAppliedCount: 0,
+  newlyAppliedCount: 0,
+  appliedFiles: [],
+  skippedFiles: [],
+  failedFile: null,
+  lastError: null,
+  lastRunAt: null
+};
+var activeRunPromise = null;
+function resolveDatabaseUrl() {
+  return (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL || "").trim();
+}
+function isDatabaseUrlConfigured() {
+  return resolveDatabaseUrl().length > 0;
+}
+function getMigrationStatus() {
+  return {
+    ...lastMigrationStatus,
+    databaseUrlConfigured: isDatabaseUrlConfigured(),
+    appliedFiles: [...lastMigrationStatus.appliedFiles],
+    skippedFiles: [...lastMigrationStatus.skippedFiles]
+  };
+}
+function sanitizeErrorMessage(err) {
+  const raw = err instanceof Error ? err.message : String(err);
+  return raw.replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "postgresql://[REDACTED]");
+}
+function stripTopLevelTransactionWrapper(sql) {
+  const lines = sql.split(/\r?\n/);
+  const firstCodeIdx = lines.findIndex((line) => {
+    const trimmed = line.trim();
+    return trimmed.length > 0 && !trimmed.startsWith("--");
+  });
+  if (firstCodeIdx !== -1 && /^BEGIN\s*;?\s*$/i.test(lines[firstCodeIdx].trim())) {
+    lines[firstCodeIdx] = "-- [managed transaction BEGIN]";
   }
-  getStoreType() {
-    return "memory";
-  }
-  isSharedStore() {
-    return false;
-  }
-  assertHealthy() {
-    if (simulateStoreFailureFlag) {
-      throw new Error("SESSION_STORE_UNAVAILABLE: Simulasi kegagalan penyimpanan session aktif.");
+  let lastCodeIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (trimmed.length > 0 && !trimmed.startsWith("--")) {
+      lastCodeIdx = i;
+      break;
     }
   }
-  async findSession(tokenOrSessionId, options) {
-    this.assertHealthy();
-    if (!tokenOrSessionId) return void 0;
-    const session = this.sessions.find(
-      (s) => s.sessionId === tokenOrSessionId || s.token === tokenOrSessionId
-    );
-    if (!session) return void 0;
-    const now = Date.now();
-    if (session.status === "active" && new Date(session.expiresAt).getTime() < now) {
-      session.status = "expired";
-    }
-    if (!options?.allowInactive && session.status !== "active") {
-      return void 0;
-    }
-    return session;
+  if (lastCodeIdx !== -1 && /^COMMIT\s*;?\s*$/i.test(lines[lastCodeIdx].trim())) {
+    lines[lastCodeIdx] = "-- [managed transaction COMMIT]";
   }
-  async addSession(session) {
-    this.assertHealthy();
-    const existingIdx = this.sessions.findIndex(
-      (s) => s.sessionId === session.sessionId || s.token === session.token
-    );
-    if (existingIdx !== -1) {
-      this.sessions.splice(existingIdx, 1);
+  return lines.join("\n");
+}
+function createPgPool(connectionString) {
+  let useSsl = true;
+  try {
+    const parsed = new URL(connectionString);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      useSsl = false;
     }
-    this.sessions.unshift(session);
+  } catch {
   }
-  async updateSession(sessionId, updates) {
-    this.assertHealthy();
-    const session = this.sessions.find((s) => s.sessionId === sessionId || s.token === sessionId);
-    if (!session) return false;
-    Object.assign(session, updates);
-    return true;
+  const config = {
+    connectionString,
+    connectionTimeoutMillis: 15e3,
+    idleTimeoutMillis: 1e4,
+    max: 1
+  };
+  if (useSsl) {
+    config.ssl = { rejectUnauthorized: false };
   }
-  async revokeSession(tokenOrSessionId) {
-    this.assertHealthy();
-    if (!tokenOrSessionId) return false;
-    const session = this.sessions.find(
-      (s) => s.sessionId === tokenOrSessionId || s.token === tokenOrSessionId
-    );
-    if (session) {
-      session.status = "revoked";
-      if (session.token) this.revokedTokens.add(session.token);
-      if (session.refreshToken) {
-        this.revokedTokens.add(session.refreshToken);
-        session.refreshToken = void 0;
-      }
-      return true;
+  return new Pool(config);
+}
+function describeConnectionConfigHint(connectionString, rawErrMsg) {
+  try {
+    const parsed = new URL(connectionString);
+    const host = parsed.hostname || "";
+    const port = parsed.port || "5432";
+    const user = decodeURIComponent(parsed.username || "");
+    const pass = decodeURIComponent(parsed.password || "");
+    if (rawErrMsg && (rawErrMsg.includes("ECONNREFUSED") || rawErrMsg.includes("ENETUNREACH") || rawErrMsg.includes("EHOSTUNREACH")) && host.startsWith("db.") && host.endsWith(".supabase.co")) {
+      return `Direct host ${host}:${port} hanya menyediakan IPv6 yang diblokir/tidak tersedia di container ini. Gunakan Session Pooler URI Supabase (IPv4: host *.pooler.supabase.com port 5432 dengan username postgres.<PROJECT_REF>).`;
     }
-    return false;
+    if (!pass || /^\[.*\]$/.test(pass) || pass.toUpperCase().includes("YOUR-PASSWORD") || pass.toUpperCase().includes("YOUR_PASSWORD")) {
+      return "Password pada DATABASE_URL masih berupa placeholder atau kosong.";
+    }
+    if (host.includes("pooler.supabase.com") && !user.includes(".")) {
+      return `Host Supavisor (${host}:${port}) memerlukan format username "postgres.<PROJECT_REF>", bukan "postgres" saja.`;
+    }
+    if (host.startsWith("db.") && host.endsWith(".supabase.co") && user.includes(".")) {
+      return `Direct host (${host}:${port}) memerlukan username "postgres" (tanpa suffix project ref).`;
+    }
+    return `Host=${host}, Port=${port}, UsernameFormat=${user.includes(".") ? "postgres.<ref>" : user || "empty"}. Periksa password database Supabase atau lakukan URL-encode jika password mengandung karakter khusus (@, #, $, %, /).`;
+  } catch {
+    return "Format URI DATABASE_URL tidak valid (pastikan karakter khusus pada password sudah di-URL-encode).";
   }
-  async revokeUserSessions(userId, exceptSessionId) {
-    this.assertHealthy();
-    let count = 0;
-    for (const s of this.sessions) {
-      if (s.userId === userId && s.status === "active") {
-        if (!exceptSessionId || s.sessionId !== exceptSessionId) {
-          s.status = "revoked";
-          if (s.token) this.revokedTokens.add(s.token);
-          if (s.refreshToken) {
-            this.revokedTokens.add(s.refreshToken);
-            s.refreshToken = void 0;
-          }
-          count++;
+}
+async function runPendingSupabaseMigrations() {
+  if (activeRunPromise) {
+    return activeRunPromise;
+  }
+  const run = async () => {
+    const databaseUrl = resolveDatabaseUrl();
+    if (!databaseUrl) {
+      lastMigrationStatus = {
+        databaseUrlConfigured: false,
+        status: "skipped_no_database_url",
+        totalPlanned: FORWARD_MIGRATIONS.length,
+        alreadyAppliedCount: 0,
+        newlyAppliedCount: 0,
+        appliedFiles: [],
+        skippedFiles: [],
+        failedFile: null,
+        lastError: "DATABASE_URL / SUPABASE_DB_URL tidak dikonfigurasi pada environment server.",
+        lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return getMigrationStatus();
+    }
+    lastMigrationStatus = {
+      databaseUrlConfigured: true,
+      status: "running",
+      totalPlanned: FORWARD_MIGRATIONS.length,
+      alreadyAppliedCount: 0,
+      newlyAppliedCount: 0,
+      appliedFiles: [],
+      skippedFiles: [],
+      failedFile: null,
+      lastError: null,
+      lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const pool = createPgPool(databaseUrl);
+    const client = await pool.connect().catch((connErr) => {
+      const msg = sanitizeErrorMessage(connErr);
+      const hint = describeConnectionConfigHint(databaseUrl, msg);
+      lastMigrationStatus = {
+        ...lastMigrationStatus,
+        status: "error",
+        lastError: `Gagal terhubung ke PostgreSQL: ${msg}. (${hint})`,
+        lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      console.error(`[Migrations] Connection failed: ${msg} | ${hint}`);
+      return null;
+    });
+    if (!client) {
+      await pool.end().catch(() => {
+      });
+      return getMigrationStatus();
+    }
+    const appliedFiles = [];
+    const skippedFiles = [];
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS public.morajaws_schema_migrations (
+          filename text PRIMARY KEY,
+          checksum text NOT NULL,
+          applied_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+      const existingRes = await client.query(
+        "SELECT filename, checksum FROM public.morajaws_schema_migrations"
+      );
+      const alreadyAppliedSet = new Set(
+        existingRes.rows.map((r) => r.filename)
+      );
+      for (const filename of FORWARD_MIGRATIONS) {
+        if (alreadyAppliedSet.has(filename)) {
+          skippedFiles.push(filename);
+          continue;
+        }
+        const filePath = path.resolve(process.cwd(), "migrations", filename);
+        if (!fs.existsSync(filePath)) {
+          throw new Error(`File migrasi tidak ditemukan: ${filename}`);
+        }
+        const rawSql = fs.readFileSync(filePath, "utf8");
+        const checksum = crypto.createHash("sha256").update(rawSql).digest("hex");
+        const managedSql = stripTopLevelTransactionWrapper(rawSql);
+        try {
+          await client.query("BEGIN");
+          await client.query(managedSql);
+          await client.query(
+            `INSERT INTO public.morajaws_schema_migrations (filename, checksum)
+             VALUES ($1, $2)
+             ON CONFLICT (filename) DO UPDATE SET checksum = EXCLUDED.checksum`,
+            [filename, checksum]
+          );
+          await client.query("COMMIT");
+          appliedFiles.push(filename);
+          console.log(`[Migrations] Applied ${filename}`);
+        } catch (fileErr) {
+          await client.query("ROLLBACK").catch(() => {
+          });
+          const safeMsg = sanitizeErrorMessage(fileErr);
+          lastMigrationStatus = {
+            databaseUrlConfigured: true,
+            status: "error",
+            totalPlanned: FORWARD_MIGRATIONS.length,
+            alreadyAppliedCount: skippedFiles.length,
+            newlyAppliedCount: appliedFiles.length,
+            appliedFiles,
+            skippedFiles,
+            failedFile: filename,
+            lastError: `Error pada ${filename}: ${safeMsg}`,
+            lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          console.error(`[Migrations] Failed on ${filename}: ${safeMsg}`);
+          return getMigrationStatus();
         }
       }
+      await client.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+            GRANT USAGE ON SCHEMA public TO service_role;
+            GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+            GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+            GRANT ALL ON ALL ROUTINES IN SCHEMA public TO service_role;
+          END IF;
+        END $$;
+      `);
+      await client.query(`NOTIFY pgrst, 'reload schema';`).catch(() => {
+      });
+      lastMigrationStatus = {
+        databaseUrlConfigured: true,
+        status: "completed",
+        totalPlanned: FORWARD_MIGRATIONS.length,
+        alreadyAppliedCount: skippedFiles.length,
+        newlyAppliedCount: appliedFiles.length,
+        appliedFiles,
+        skippedFiles,
+        failedFile: null,
+        lastError: null,
+        lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      console.log(
+        `[Migrations] Completed: ${appliedFiles.length} applied, ${skippedFiles.length} already applied.`
+      );
+      return getMigrationStatus();
+    } catch (err) {
+      const safeMsg = sanitizeErrorMessage(err);
+      lastMigrationStatus = {
+        databaseUrlConfigured: true,
+        status: "error",
+        totalPlanned: FORWARD_MIGRATIONS.length,
+        alreadyAppliedCount: skippedFiles.length,
+        newlyAppliedCount: appliedFiles.length,
+        appliedFiles,
+        skippedFiles,
+        failedFile: null,
+        lastError: safeMsg,
+        lastRunAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      console.error(`[Migrations] Runner error: ${safeMsg}`);
+      return getMigrationStatus();
+    } finally {
+      client.release();
+      await pool.end().catch(() => {
+      });
     }
-    return count;
-  }
-  async getActiveSessionsForUser(userId) {
-    this.assertHealthy();
-    const now = Date.now();
-    return this.sessions.filter((s) => {
-      if (s.userId !== userId) return false;
-      if (s.status === "active" && new Date(s.expiresAt).getTime() < now) {
-        s.status = "expired";
-        return false;
-      }
-      return s.status === "active";
-    });
-  }
-  getAllSessions() {
-    this.assertHealthy();
-    return this.sessions;
-  }
-  loadSessions(sessions) {
-    this.assertHealthy();
-    this.sessions.length = 0;
-    this.sessions.push(...sessions);
-  }
-  async cleanupExpired() {
-    this.assertHealthy();
-    const now = Date.now();
-    let expiredCount = 0;
-    for (const s of this.sessions) {
-      if (s.status === "active" && new Date(s.expiresAt).getTime() < now) {
-        s.status = "expired";
-        expiredCount++;
-      }
-    }
-    return expiredCount;
-  }
-};
-var SERVER_SESSIONS_BUFFER = [];
-var sessionStore = new MemorySessionStore(SERVER_SESSIONS_BUFFER);
+  };
+  activeRunPromise = run().finally(() => {
+    activeRunPromise = null;
+  });
+  return activeRunPromise;
+}
 
 // server/customAuthService.ts
-import crypto from "crypto";
+import crypto2 from "crypto";
 import bcrypt from "bcryptjs";
 
 // server/appFlowHelpers.ts
@@ -1340,7 +1474,7 @@ function userToPostgresRow(user) {
 }
 function postgresRowToUser(row) {
   const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
-  const passwordHash = String(row.password_hash || payload.passwordHash || "").trim();
+  const passwordHash = row.password_hash || payload.passwordHash || "";
   const sessionVersion = typeof row.session_version === "number" ? row.session_version : typeof payload.sessionVersion === "number" ? payload.sessionVersion : 1;
   const authUserId = row.auth_user_id || payload.authUserId || payload.auth_user_id || void 0;
   const accountStatus = row.account_status || payload.accountStatus || "active";
@@ -1350,9 +1484,9 @@ function postgresRowToUser(row) {
   return {
     id: row.id,
     authUserId,
-    name: String(row.name || "").trim(),
-    username: String(row.username || "").trim(),
-    email: String(row.email || "").trim(),
+    name: row.name,
+    username: row.username,
+    email: row.email || "",
     altEmail: row.alt_email || payload.altEmail || payload.alt_email || void 0,
     phone: row.phone || void 0,
     role: row.role,
@@ -1375,7 +1509,6 @@ function postgresRowToUser(row) {
     failedLoginCount,
     lockedUntil,
     passwordChangedAt,
-    isArchived: Boolean(row.is_archived),
     resetTokenHash: row.reset_token_hash ?? payload.resetTokenHash ?? void 0,
     resetTokenExpiresAt: row.reset_token_expires_at ?? payload.resetTokenExpiresAt ?? void 0,
     resetTokenIssuedAt: row.reset_token_issued_at ?? payload.resetTokenIssuedAt ?? void 0,
@@ -1738,19 +1871,6 @@ async function findUserInSupabase(identifier) {
   }
   return result.data || null;
 }
-function pickBestMatchedUserRow(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const score = (r) => {
-    const deleted = Boolean(r?.is_deleted);
-    const archived = Boolean(r?.is_archived);
-    const inactive = r?.active === false || r?.account_status === "inactive";
-    if (!deleted && !archived && !inactive) return 0;
-    if (!deleted && !archived) return 1;
-    if (!deleted) return 2;
-    return 3;
-  };
-  return [...rows].sort((a, b) => score(a) - score(b))[0] || null;
-}
 async function findUserInSupabaseDetailed(identifier) {
   const client = getSupabaseBackendClient();
   if (!client) {
@@ -1768,7 +1888,6 @@ async function findUserInSupabaseDetailed(identifier) {
     };
   }
   const raw = identifier.trim();
-  const cleanLower = raw.toLowerCase();
   if (!raw) {
     return {
       success: false,
@@ -1777,20 +1896,19 @@ async function findUserInSupabaseDetailed(identifier) {
     };
   }
   try {
-    const { data: byIdRows, error: errId } = await client.from("users").select("*").eq("id", raw).limit(5);
+    const { data: byId, error: errId } = await client.from("users").select("*").eq("id", raw).limit(1).maybeSingle();
     if (errId) {
       const classified = classifySupabaseError(errId);
       console.error("[Supabase DAL] findUser query error (id):", classified.message);
       return { success: false, data: null, error: classified };
     }
-    const bestById = pickBestMatchedUserRow(byIdRows || []);
-    if (bestById) {
-      return { success: true, data: postgresRowToUser(bestById) };
+    if (byId) {
+      return { success: true, data: postgresRowToUser(byId) };
     }
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidRegex.test(raw)) {
       try {
-        const { data: byAuthUidRows, error: errAuthUid } = await client.from("users").select("*").eq("auth_user_id", raw).limit(5);
+        const { data: byAuthUid, error: errAuthUid } = await client.from("users").select("*").eq("auth_user_id", raw).limit(1).maybeSingle();
         if (errAuthUid) {
           const errCode = String(errAuthUid.code || "");
           if (!errCode.includes("42703") && !errAuthUid.message?.includes("column")) {
@@ -1798,69 +1916,45 @@ async function findUserInSupabaseDetailed(identifier) {
             return { success: false, data: null, error: classified };
           }
         }
-        const bestByAuthUid = pickBestMatchedUserRow(byAuthUidRows || []);
-        if (bestByAuthUid) {
-          return { success: true, data: postgresRowToUser(bestByAuthUid) };
+        if (byAuthUid) {
+          return { success: true, data: postgresRowToUser(byAuthUid) };
         }
       } catch {
       }
     }
     if (raw.includes("@")) {
-      const { data: byEmailRows, error: errEmail } = await client.from("users").select("*").ilike("email", escapePostgrestLikeValue(raw)).limit(10);
+      const { data: byEmail, error: errEmail } = await client.from("users").select("*").ilike("email", escapePostgrestLikeValue(raw)).limit(1).maybeSingle();
       if (errEmail) {
         const classified = classifySupabaseError(errEmail);
         console.error("[Supabase DAL] findUser query error (email):", classified.message);
         return { success: false, data: null, error: classified };
       }
-      const exactEmails = (byEmailRows || []).filter(
-        (r) => String(r?.email || "").trim().toLowerCase() === cleanLower
-      );
-      const bestByEmail = pickBestMatchedUserRow(exactEmails);
-      if (bestByEmail) {
-        return { success: true, data: postgresRowToUser(bestByEmail) };
+      if (byEmail) {
+        return { success: true, data: postgresRowToUser(byEmail) };
       }
-      const { data: byAltList, error: errAlt } = await client.from("users").select("*").ilike("alt_email", `%${escapePostgrestLikeValue(raw)}%`).limit(20);
+      const { data: byAltList, error: errAlt } = await client.from("users").select("*").ilike("alt_email", `%${escapePostgrestLikeValue(raw)}%`).limit(5);
       if (errAlt) {
         const classified = classifySupabaseError(errAlt);
         console.error("[Supabase DAL] findUser query error (alt_email):", classified.message);
         return { success: false, data: null, error: classified };
       }
       if (Array.isArray(byAltList) && byAltList.length > 0) {
-        const exactAlts = byAltList.filter((r) => {
-          const alts = String(r.alt_email || "").split(/[,;\s]+/).map((s) => s.toLowerCase().trim()).filter(Boolean);
-          return alts.includes(cleanLower);
-        });
-        const bestAlt = pickBestMatchedUserRow(exactAlts);
-        if (bestAlt) {
-          return { success: true, data: postgresRowToUser(bestAlt) };
-        }
+        const cleanTarget = raw.toLowerCase().trim();
+        const matchedRow = byAltList.find((r) => {
+          const alts = String(r.alt_email || "").split(/[,;\s]+/).map((s) => s.toLowerCase().trim());
+          return alts.includes(cleanTarget);
+        }) || byAltList[0];
+        return { success: true, data: postgresRowToUser(matchedRow) };
       }
     }
-    const { data: byUsernameRows, error: errUser } = await client.from("users").select("*").ilike("username", escapePostgrestLikeValue(raw)).limit(10);
+    const { data: byUsername, error: errUser } = await client.from("users").select("*").ilike("username", escapePostgrestLikeValue(raw)).limit(1).maybeSingle();
     if (errUser) {
       const classified = classifySupabaseError(errUser);
       console.error("[Supabase DAL] findUser query error (username):", classified.message);
       return { success: false, data: null, error: classified };
     }
-    const exactUsernames = (byUsernameRows || []).filter(
-      (r) => String(r?.username || "").trim().toLowerCase() === cleanLower
-    );
-    const bestUsername = pickBestMatchedUserRow(exactUsernames);
-    if (bestUsername) {
-      return { success: true, data: postgresRowToUser(bestUsername) };
-    }
-    const { data: paddedCandidates, error: errPad } = await client.from("users").select("*").ilike("username", `%${escapePostgrestLikeValue(raw)}%`).limit(20);
-    if (errPad) {
-      const classified = classifySupabaseError(errPad);
-      console.error("[Supabase DAL] findUser query error (username trimmed):", classified.message);
-      return { success: false, data: null, error: classified };
-    }
-    const trimmedMatches = (paddedCandidates || []).filter(
-      (r) => String(r?.username || "").trim().toLowerCase() === cleanLower
-    );
-    const bestTrimmed = pickBestMatchedUserRow(trimmedMatches);
-    if (bestTrimmed) {
-      return { success: true, data: postgresRowToUser(bestTrimmed) };
+    if (byUsername) {
+      return { success: true, data: postgresRowToUser(byUsername) };
     }
     return { success: true, data: null };
   } catch (err) {
@@ -2043,13 +2137,122 @@ async function deleteUserInSupabase(id, deletedBy, reason) {
     return { success: false, error: classified };
   }
 }
+var WORK_ORDER_LIST_COLUMNS = [
+  "id",
+  "wo_number",
+  "work_order_number",
+  "id_customer",
+  "customer_id",
+  "ticket_number",
+  "ticket_date",
+  "date",
+  "appointment_date",
+  "date_upload",
+  "file_name",
+  "agent_id",
+  "customer_name",
+  "end_user_name",
+  "customer_phone",
+  "customer_contact1",
+  "customer_contact2",
+  "customer_contact3",
+  "customer_phone_normalized",
+  "street_name",
+  "street_alternatif",
+  "address",
+  "city",
+  "postal_code",
+  "cluster_name",
+  "area",
+  "appointment_type",
+  "slot_time",
+  "ticket_category",
+  "initial_ticket_category",
+  "installation_type",
+  "service_type",
+  "homepass_type",
+  "homepass_detail_id",
+  "olt_code",
+  "fdt_code",
+  "fat_code",
+  "fat_port",
+  "dropcore_length",
+  "plan",
+  "service_aging_maintenance",
+  "vendor_name",
+  "router",
+  "ont_brand",
+  "ont_model",
+  "router_brand",
+  "router_model",
+  "router_serial_number",
+  "ont_serial_number",
+  "ont_mac_address",
+  "rg_serial_number",
+  "rg_mac_address",
+  "contractor_id",
+  "contractor_name",
+  "contactor_name",
+  "leader_name",
+  "corlap_name",
+  "corlap_contact",
+  "installer_id",
+  "installer_uid",
+  "assigned_to",
+  "assigned_to_uid",
+  "installer_name",
+  "installer_contact",
+  "installer_contact2",
+  "installer_email",
+  "date_assign_agent",
+  "date_assign_technician",
+  "assigned_at",
+  "assigned_by",
+  "reassigned_at",
+  "reassigned_by",
+  "reassignment_reason",
+  "distribution_status",
+  "distribution_notes",
+  "status_wo_agent",
+  "status_wo_installer",
+  "status_whatsapp",
+  "remarks_wo_installer",
+  "remarks_agent",
+  "remarks",
+  "chat_messages_count",
+  "last_message_at",
+  "last_message_snippet",
+  "check_in_at",
+  "work_session_status",
+  "closed_at",
+  "closed_by",
+  "close_notes",
+  "reopen_reason",
+  "is_archived",
+  "archived_at",
+  "archived_by",
+  "is_deleted",
+  "deleted_at",
+  "deleted_by",
+  "deletion_reason",
+  "imported_at",
+  "import_date",
+  "import_batch_id",
+  "house_location",
+  "fat_location",
+  "payload",
+  "created_at",
+  "updated_at",
+  "updated_by"
+].join(", ");
 async function getWorkOrdersFromSupabase(options = {}) {
   const client = getSupabaseBackendClient();
   if (!client) {
     return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
   }
   try {
-    let query = client.from("work_orders").select("*");
+    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : "*";
+    let query = client.from("work_orders").select(selectColumns);
     if (!options.includeDeleted) {
       query = query.eq("is_deleted", false);
     }
@@ -2069,13 +2272,30 @@ async function getWorkOrdersFromSupabase(options = {}) {
       query = query.eq("appointment_date", options.appointmentDate);
     }
     query = query.order("created_at", { ascending: false });
-    if (typeof options.limit === "number" && options.limit > 0) {
+    if (typeof options.offset === "number" && options.offset >= 0 && typeof options.limit === "number" && options.limit > 0) {
+      query = query.range(options.offset, options.offset + options.limit - 1);
+    } else if (typeof options.limit === "number" && options.limit > 0) {
       query = query.limit(options.limit);
     }
-    if (typeof options.offset === "number" && options.offset > 0) {
-      query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
+    let { data, error } = await query;
+    if (error && options.lightweight && isMissingSchemaObjectError(error)) {
+      let fallbackQuery = client.from("work_orders").select("*");
+      if (!options.includeDeleted) fallbackQuery = fallbackQuery.eq("is_deleted", false);
+      if (!options.includeArchived) fallbackQuery = fallbackQuery.eq("is_archived", false);
+      if (options.area) fallbackQuery = fallbackQuery.eq("area", options.area);
+      if (options.contractorId) fallbackQuery = fallbackQuery.eq("contractor_id", options.contractorId);
+      if (options.installerName) fallbackQuery = fallbackQuery.eq("installer_name", options.installerName);
+      if (options.appointmentDate) fallbackQuery = fallbackQuery.eq("appointment_date", options.appointmentDate);
+      fallbackQuery = fallbackQuery.order("created_at", { ascending: false });
+      if (typeof options.offset === "number" && options.offset >= 0 && typeof options.limit === "number" && options.limit > 0) {
+        fallbackQuery = fallbackQuery.range(options.offset, options.offset + options.limit - 1);
+      } else if (typeof options.limit === "number" && options.limit > 0) {
+        fallbackQuery = fallbackQuery.limit(options.limit);
+      }
+      const fallbackRes = await fallbackQuery;
+      data = fallbackRes.data;
+      error = fallbackRes.error;
     }
-    const { data, error } = await query;
     if (error) {
       const classified = classifySupabaseError(error);
       console.error("[Supabase DAL] getWorkOrders error:", classified.message);
@@ -2086,6 +2306,117 @@ async function getWorkOrdersFromSupabase(options = {}) {
   } catch (err) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
+  }
+}
+async function getWorkOrdersFromSupabasePaginated(options = {}) {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
+  }
+  const page = Math.max(1, Number(options.page || 1) || 1);
+  const limit = Math.min(500, Math.max(1, Number(options.limit || 50) || 50));
+  const offset = typeof options.offset === "number" && options.offset >= 0 ? options.offset : (page - 1) * limit;
+  const sortColMap = {
+    updatedAt: "updated_at",
+    createdAt: "created_at",
+    appointmentDate: "appointment_date",
+    woNumber: "wo_number",
+    customerName: "customer_name",
+    area: "area",
+    statusWOAgent: "status_wo_agent",
+    statusWOInstaller: "status_wo_installer"
+  };
+  const orderCol = sortColMap[String(options.sortBy || "updatedAt")] || "updated_at";
+  const ascending = options.sortDir === "asc";
+  const applyFilters = (baseQuery) => {
+    let q = baseQuery;
+    if (!options.includeDeleted) {
+      q = q.eq("is_deleted", false);
+    }
+    if (!options.includeArchived) {
+      q = q.eq("is_archived", false);
+    }
+    if (options.area && options.area.toLowerCase() !== "all") {
+      q = q.ilike("area", options.area.trim());
+    }
+    if (options.contractorId) {
+      q = q.eq("contractor_id", options.contractorId.trim());
+    }
+    if (options.contractor && options.contractor.toLowerCase() !== "all") {
+      const cVal = options.contractor.trim().replace(/[,%()]/g, "");
+      if (cVal) {
+        q = q.or(`contractor_name.ilike.%${cVal}%,contactor_name.ilike.%${cVal}%`);
+      }
+    }
+    if (options.installerName) {
+      q = q.ilike("installer_name", options.installerName.trim());
+    }
+    if (options.appointmentDate) {
+      q = q.eq("appointment_date", options.appointmentDate.trim());
+    }
+    if (options.statusWOAgent && options.statusWOAgent.toLowerCase() !== "all") {
+      q = q.ilike("status_wo_agent", options.statusWOAgent.trim());
+    }
+    if (options.statusWOInstaller && options.statusWOInstaller.toLowerCase() !== "all") {
+      q = q.ilike("status_wo_installer", options.statusWOInstaller.trim());
+    }
+    if (options.updatedSince) {
+      q = q.gte("updated_at", options.updatedSince);
+    }
+    if (options.search && options.search.trim()) {
+      const s = options.search.trim().replace(/[,%()]/g, "");
+      if (s) {
+        q = q.or(
+          `wo_number.ilike.%${s}%,id_customer.ilike.%${s}%,customer_name.ilike.%${s}%,area.ilike.%${s}%,contractor_name.ilike.%${s}%,installer_name.ilike.%${s}%`
+        );
+      }
+    }
+    if (options.userRole === "installer" && options.userId) {
+      const uid = options.userId.trim().replace(/[,%()]/g, "");
+      q = q.or(`installer_id.eq.${uid},installer_uid.eq.${uid},assigned_to_uid.eq.${uid}`);
+    } else if (options.userRole === "leader" && options.userContractor) {
+      const lc = options.userContractor.trim().replace(/[,%()]/g, "");
+      if (lc) {
+        q = q.or(`contractor_name.ilike.%${lc}%,contactor_name.ilike.%${lc}%`);
+      }
+    }
+    return q;
+  };
+  try {
+    const selectCols = options.lightweight !== false ? WORK_ORDER_LIST_COLUMNS : "*";
+    let query = applyFilters(
+      client.from("work_orders").select(selectCols, { count: "exact" })
+    );
+    query = query.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+    let { data, count, error } = await query;
+    if (error && options.lightweight !== false && isMissingSchemaObjectError(error)) {
+      let fallback = applyFilters(
+        client.from("work_orders").select("*", { count: "exact" })
+      );
+      fallback = fallback.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+      const fbRes = await fallback;
+      data = fbRes.data;
+      count = fbRes.count;
+      error = fbRes.error;
+    }
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+    const total = typeof count === "number" ? count : (data || []).length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const tickets = (data || []).map(postgresRowToTicket);
+    return {
+      success: true,
+      data: {
+        tickets,
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    };
+  } catch (err) {
+    return { success: false, error: classifySupabaseError(err) };
   }
 }
 function stripHeavyFieldsForCriticalPhase(ticket) {
@@ -2840,6 +3171,115 @@ async function getKendalaReportsByTicketFromSupabase(ticketId) {
     return { success: true, data: mapped };
   } catch {
     return { success: false, data: [] };
+  }
+}
+async function insertAttachmentToSupabase(entry) {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false, error: "Supabase client belum dikonfigurasi." };
+  try {
+    const row = {
+      id: entry.id,
+      file_id: entry.fileId || entry.id,
+      work_order_id: entry.workOrderId || null,
+      ticket_id: entry.ticketId || entry.workOrderId || null,
+      wo_number: entry.woNumber || null,
+      file_name: entry.fileName,
+      file_type: entry.fileType || null,
+      file_size: typeof entry.fileSize === "number" && entry.fileSize >= 0 ? entry.fileSize : null,
+      storage_provider: entry.storageProvider || "supabase",
+      storage_path: entry.storagePath || null,
+      download_url: entry.downloadUrl || null,
+      sender_id: entry.senderId || null,
+      sender_name: entry.senderName || null,
+      sender_role: entry.senderRole || null,
+      validation_status: entry.validationStatus || "verified",
+      payload: entry.payload || {},
+      uploaded_at: entry.uploadedAt || (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const { error } = await client.from("attachments").upsert([row], { onConflict: "id" });
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      if (String(error.code || "") === "23503" && row.work_order_id) {
+        const retry = await client.from("attachments").upsert([{ ...row, work_order_id: null }], { onConflict: "id" });
+        if (!retry.error) return { persisted: true };
+      }
+      console.warn("[Supabase DAL] insertAttachment warning:", error.message);
+      return { persisted: false, error: error.message };
+    }
+    return { persisted: true };
+  } catch (err) {
+    return { persisted: false, error: err?.message };
+  }
+}
+async function upsertWoPhotoEvidenceToSupabase(entry) {
+  const client = getSupabaseBackendClient();
+  if (!client) return { persisted: false, error: "Supabase client belum dikonfigurasi." };
+  try {
+    const allowedSlots = /* @__PURE__ */ new Set([
+      "opm",
+      "barcode_sn",
+      "fat_pole",
+      "customer_install",
+      "customer_house",
+      "fat_attenuation"
+    ]);
+    if (!allowedSlots.has(entry.slotKey)) {
+      return { persisted: false, error: `Slot key "${entry.slotKey}" tidak termasuk skema wo_photo_evidence.` };
+    }
+    const row = {
+      id: entry.id,
+      ticket_id: entry.ticketId,
+      wo_number: entry.woNumber,
+      slot_key: entry.slotKey,
+      slot_title: entry.slotTitle || entry.slotKey,
+      storage_path: entry.storagePath || null,
+      photo_url: entry.photoUrl,
+      file_name: entry.fileName || null,
+      file_size_bytes: typeof entry.fileSizeBytes === "number" ? entry.fileSizeBytes : null,
+      mime_type: entry.mimeType || null,
+      latitude: typeof entry.latitude === "number" ? entry.latitude : null,
+      longitude: typeof entry.longitude === "number" ? entry.longitude : null,
+      gps_accuracy_meters: typeof entry.gpsAccuracyMeters === "number" ? entry.gpsAccuracyMeters : null,
+      altitude_meters: typeof entry.altitudeMeters === "number" ? entry.altitudeMeters : null,
+      heading_deg: typeof entry.headingDeg === "number" ? entry.headingDeg : null,
+      speed_mps: typeof entry.speedMps === "number" ? entry.speedMps : null,
+      captured_at: entry.capturedAt || (/* @__PURE__ */ new Date()).toISOString(),
+      uploaded_at: entry.uploadedAt || (/* @__PURE__ */ new Date()).toISOString(),
+      technician_id: entry.technicianId,
+      technician_name: entry.technicianName || null,
+      location_source: entry.locationSource || null,
+      permission_status: entry.permissionStatus || null,
+      geotag_status: entry.geotagStatus || "missing",
+      capture_method: entry.captureMethod === "gallery" ? "gallery" : "camera",
+      sha256: entry.sha256 || null,
+      client_capture_id: entry.clientCaptureId || null,
+      metadata: entry.metadata || {},
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const { error } = await client.from("wo_photo_evidence").upsert([row], { onConflict: "id" });
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { persisted: false, skippedSchemaPending: true };
+      }
+      console.warn("[Supabase DAL] upsertWoPhotoEvidence warning:", error.message);
+      return { persisted: false, error: error.message };
+    }
+    return { persisted: true };
+  } catch (err) {
+    return { persisted: false, error: err?.message };
+  }
+}
+async function deleteWoPhotoEvidenceRowFromSupabase(ticketId, slotKey) {
+  const client = getSupabaseBackendClient();
+  if (!client) return { deleted: false };
+  try {
+    const { error } = await client.from("wo_photo_evidence").delete().eq("ticket_id", ticketId).eq("slot_key", slotKey);
+    if (error) return { deleted: false };
+    return { deleted: true };
+  } catch {
+    return { deleted: false };
   }
 }
 async function appendDistributionLogToSupabase(entry) {
@@ -4037,76 +4477,6 @@ async function insertSystemErrorLogToSupabase(errorLog) {
   } catch (err) {
     console.error("[Supabase DAL] insertSystemErrorLog exception caught safely:", err?.message || err);
     return false;
-  }
-}
-async function insertUserSessionToSupabase(session) {
-  const client = getSupabaseBackendClient();
-  if (!client) return false;
-  try {
-    const row = {
-      id: `us_${session.sessionId}`,
-      session_id: session.sessionId,
-      user_id: session.userId,
-      username: session.username,
-      name: session.name,
-      role: session.role,
-      contractor: session.contractor || null,
-      login_at: session.loginAt,
-      last_activity_at: session.lastActivityAt,
-      expires_at: session.expiresAt,
-      status: session.status || "active",
-      ip_address: session.ipAddress && session.ipAddress !== "127.0.0.1" && !session.ipAddress.includes(":") ? session.ipAddress : null,
-      user_agent: session.userAgent || null,
-      device_type: session.deviceType || "unknown",
-      token_fingerprint: session.tokenFingerprint || null,
-      payload: {
-        raw_ip: session.ipAddress || null,
-        created_via: "express_backend_session_dual_standby"
-      }
-    };
-    const { error } = await client.from("user_sessions").upsert([row], { onConflict: "session_id" });
-    if (error) {
-      console.warn("[Supabase DAL] insertUserSession warning:", error.message);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.warn("[Supabase DAL] insertUserSession exception:", err?.message || err);
-    return false;
-  }
-}
-async function revokeUserSessionInSupabase(sessionId) {
-  const client = getSupabaseBackendClient();
-  if (!client) return false;
-  try {
-    const { error } = await client.from("user_sessions").update({ status: "revoked", last_activity_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("session_id", sessionId);
-    if (error) {
-      console.warn("[Supabase DAL] revokeUserSession warning:", error.message);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.warn("[Supabase DAL] revokeUserSession exception:", err?.message || err);
-    return false;
-  }
-}
-async function getUserSessionsFromSupabase(userId) {
-  const client = getSupabaseBackendClient();
-  if (!client) {
-    return { success: false, error: { code: "NOT_CONFIGURED", message: "Supabase client belum dikonfigurasi." } };
-  }
-  try {
-    let query = client.from("user_sessions").select("*").order("login_at", { ascending: false }).limit(50);
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-    const { data, error } = await query;
-    if (error) {
-      return { success: false, error: classifySupabaseError(error) };
-    }
-    return { success: true, data: data || [] };
-  } catch (err) {
-    return { success: false, error: classifySupabaseError(err) };
   }
 }
 async function insertAssignmentHistoryToSupabase(entry) {
@@ -5336,70 +5706,56 @@ async function verifyUserPasswordEx(password, storedHash) {
   if (!password || !storedHash || typeof password !== "string" || typeof storedHash !== "string") {
     return { valid: false };
   }
-  const trimmedHash = storedHash.trim();
-  if (trimmedHash.startsWith("$2a$") || trimmedHash.startsWith("$2b$") || trimmedHash.startsWith("$2y$")) {
+  if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
     try {
-      const match = await bcrypt.compare(password, trimmedHash);
+      const match = await bcrypt.compare(password, storedHash);
       return { valid: match, needsRehash: false };
     } catch {
       return { valid: false };
     }
   }
-  if (trimmedHash.startsWith("pbkdf2:sha256:")) {
-    const parts = trimmedHash.split(":");
+  if (storedHash.startsWith("pbkdf2:sha256:")) {
+    const parts = storedHash.split(":");
     if (parts.length === 5) {
       const iterations = parseInt(parts[2], 10);
       const salt = parts[3];
-      const originalHash = parts[4].toLowerCase();
-      if (!isNaN(iterations) && iterations > 0 && salt && /^[0-9a-f]+$/i.test(originalHash) && originalHash.length % 2 === 0) {
+      const originalHash = parts[4];
+      if (!isNaN(iterations) && salt && originalHash) {
         try {
-          const keyLen = Math.max(16, Math.floor(originalHash.length / 2));
-          const derivedKeyHex = crypto.pbkdf2Sync(password, salt, iterations, keyLen, "sha256").toString("hex").toLowerCase();
-          if (derivedKeyHex.length === originalHash.length) {
-            const isValid = crypto.timingSafeEqual(
-              Buffer.from(derivedKeyHex, "utf8"),
-              Buffer.from(originalHash, "utf8")
-            );
-            return { valid: isValid, needsRehash: isValid && iterations < 1e5 };
-          }
+          const derivedKey = crypto2.pbkdf2Sync(password, salt, iterations, 32, "sha256");
+          const isValid = crypto2.timingSafeEqual(
+            Buffer.from(derivedKey.toString("hex")),
+            Buffer.from(originalHash)
+          );
+          return { valid: isValid, needsRehash: isValid };
         } catch {
         }
       }
     }
   }
-  if (/^[0-9a-f]{64}$/i.test(trimmedHash)) {
-    try {
-      const sha256Attempt = crypto.createHash("sha256").update(`morajaws_secure_salt_2026:${password}`).digest("hex").toLowerCase();
-      const targetHex = trimmedHash.toLowerCase();
-      if (crypto.timingSafeEqual(Buffer.from(sha256Attempt, "utf8"), Buffer.from(targetHex, "utf8"))) {
-        return { valid: true, needsRehash: true };
-      }
-    } catch {
-    }
-  }
   const legacyAttempt = hashPasswordLegacy(password);
-  if (legacyAttempt.length === trimmedHash.length) {
+  if (legacyAttempt.length === storedHash.length) {
     try {
-      const match = crypto.timingSafeEqual(Buffer.from(legacyAttempt), Buffer.from(trimmedHash));
+      const match = crypto2.timingSafeEqual(Buffer.from(legacyAttempt), Buffer.from(storedHash));
       if (match) return { valid: true, needsRehash: true };
     } catch {
     }
   }
-  if (legacyAttempt === trimmedHash) {
+  if (legacyAttempt === storedHash) {
     return { valid: true, needsRehash: true };
   }
   return { valid: false };
 }
 function generateSecureAccessToken(sessionVersion = 1) {
   const v = Math.max(1, typeof sessionVersion === "number" ? sessionVersion : 1);
-  return `mora_at_v${v}_${crypto.randomBytes(32).toString("hex")}`;
+  return `mora_at_v${v}_${crypto2.randomBytes(32).toString("hex")}`;
 }
 function generateSecureRefreshToken(sessionVersion = 1) {
   const v = Math.max(1, typeof sessionVersion === "number" ? sessionVersion : 1);
-  return `mora_rt_v${v}_${crypto.randomBytes(48).toString("hex")}`;
+  return `mora_rt_v${v}_${crypto2.randomBytes(48).toString("hex")}`;
 }
 function hashToken(token) {
-  return crypto.createHash("sha256").update(token.trim()).digest("hex");
+  return crypto2.createHash("sha256").update(token.trim()).digest("hex");
 }
 async function checkRateLimitAndLockout(identifier, ipAddress) {
   const now = Date.now();
@@ -5457,7 +5813,7 @@ async function recordLoginAttempt(params) {
   const { identifier, ipAddress, success, reason } = params;
   const cleanId = (identifier || "").trim().toLowerCase();
   const now = Date.now();
-  const attemptId = `att_${now}_${crypto.randomBytes(6).toString("hex")}`;
+  const attemptId = `att_${now}_${crypto2.randomBytes(6).toString("hex")}`;
   const nowIso = new Date(now).toISOString();
   const key = `${cleanId}_${ipAddress || "unknown"}`;
   const current = MEMORY_RATE_LIMITER.get(key) || { attempts: 0, lastAttemptAt: now };
@@ -5503,27 +5859,15 @@ async function recordLoginAttempt(params) {
   }
 }
 async function persistNewAuthSession(params) {
-  const {
-    userId,
-    username = "",
-    name = "",
-    role = "installer",
-    contractor,
-    accessToken,
-    refreshToken,
-    ipAddress,
-    userAgent,
-    sessionVersion = 1
-  } = params;
+  const { userId, accessToken, refreshToken, ipAddress, userAgent, sessionVersion = 1 } = params;
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const expiresAt = new Date(now + ACCESS_TOKEN_TTL_MS).toISOString();
   const refreshExpiresAt = new Date(now + REFRESH_TOKEN_TTL_MS).toISOString();
-  const sessionId = `sess_${now}_${crypto.randomBytes(8).toString("hex")}`;
-  const rtId = `rt_${now}_${crypto.randomBytes(8).toString("hex")}`;
+  const sessionId = `sess_${now}_${crypto2.randomBytes(8).toString("hex")}`;
+  const rtId = `rt_${now}_${crypto2.randomBytes(8).toString("hex")}`;
   const sessionHash = hashToken(accessToken);
   const rtHash = hashToken(refreshToken);
-  const deviceType = userAgent && /mobile|android|iphone/i.test(userAgent) ? "mobile" : "desktop";
   const sessionRecord = {
     id: sessionId,
     userId,
@@ -5535,7 +5879,7 @@ async function persistNewAuthSession(params) {
     revokedAt: null,
     ipAddress,
     userAgent,
-    deviceType,
+    deviceType: userAgent && /mobile|android|iphone/i.test(userAgent) ? "mobile" : "desktop",
     createdAt: nowIso
   };
   const rtRecord = {
@@ -5548,106 +5892,67 @@ async function persistNewAuthSession(params) {
     replacedByTokenHash: null,
     createdAt: nowIso
   };
-  const isMissingColumnError = (err) => {
-    const code = String(err?.code || "").toUpperCase();
-    const msg = String(err?.message || "").toLowerCase();
-    return code === "42703" || code === "PGRST204" || msg.includes("session_version");
-  };
   const client = getSupabaseBackendClient();
   if (client) {
-    const baseSessRow = {
-      id: sessionId,
-      user_id: userId,
-      session_id_hash: sessionHash,
-      token_hash: sessionHash,
-      expires_at: expiresAt,
-      last_activity_at: nowIso,
-      ip_address: ipAddress || null,
-      user_agent: userAgent || null,
-      device_type: deviceType,
-      created_at: nowIso
-    };
-    let { error: sessErr } = await client.from("auth_sessions").insert([
-      { ...baseSessRow, session_version: sessionVersion }
-    ]);
-    if (sessErr && isMissingColumnError(sessErr)) {
-      ({ error: sessErr } = await client.from("auth_sessions").insert([baseSessRow]));
-    }
-    if (sessErr) {
-      console.error("[CustomAuth] Failed to persist auth_sessions row:", sessErr.message);
-      throw new Error(`DATABASE_UNAVAILABLE: Gagal menyimpan auth_sessions ke Supabase (${sessErr.message}).`);
-    }
-    const baseRtRow = {
-      id: rtId,
-      user_id: userId,
-      session_id: sessionId,
-      token_hash: rtHash,
-      expires_at: refreshExpiresAt,
-      created_at: nowIso
-    };
-    let { error: rtErr } = await client.from("refresh_tokens").insert([
-      { ...baseRtRow, session_version: sessionVersion }
-    ]);
-    if (rtErr && isMissingColumnError(rtErr)) {
-      ({ error: rtErr } = await client.from("refresh_tokens").insert([baseRtRow]));
-    }
-    if (rtErr) {
-      console.error("[CustomAuth] Failed to persist refresh_tokens row:", rtErr.message);
-      try {
-        await client.from("auth_sessions").delete().eq("id", sessionId);
-      } catch {
+    try {
+      const { error: sessErr } = await client.from("auth_sessions").insert([
+        {
+          id: sessionId,
+          user_id: userId,
+          session_id_hash: sessionHash,
+          token_hash: sessionHash,
+          expires_at: expiresAt,
+          last_activity_at: nowIso,
+          ip_address: ipAddress || null,
+          user_agent: userAgent || null,
+          device_type: sessionRecord.deviceType,
+          created_at: nowIso
+        }
+      ]);
+      if (sessErr) {
+        console.warn("[CustomAuth] Failed to insert into auth_sessions:", sessErr.message);
       }
-      throw new Error(`DATABASE_UNAVAILABLE: Gagal menyimpan refresh_tokens ke Supabase (${rtErr.message}).`);
+      const { error: rtErr } = await client.from("refresh_tokens").insert([
+        {
+          id: rtId,
+          user_id: userId,
+          session_id: sessionId,
+          token_hash: rtHash,
+          expires_at: refreshExpiresAt,
+          created_at: nowIso
+        }
+      ]);
+      if (rtErr) {
+        console.warn("[CustomAuth] Failed to insert into refresh_tokens:", rtErr.message);
+      }
+    } catch (err) {
+      console.warn("[CustomAuth] Session insert exception:", err?.message || err);
     }
-    await insertUserSessionToSupabase({
-      sessionId,
-      userId,
-      username,
-      name,
-      role,
-      contractor,
-      loginAt: nowIso,
-      lastActivityAt: nowIso,
-      expiresAt,
-      status: "active",
-      ipAddress,
-      userAgent,
-      deviceType,
-      tokenFingerprint: sessionHash
-    });
-  } else if (!isLocalJsonModeAllowed()) {
-    throw new Error("DATABASE_UNAVAILABLE: Database authoritative Supabase tidak tersedia untuk menyimpan sesi.");
   }
   LOCAL_AUTH_SESSIONS.push(sessionRecord);
   LOCAL_REFRESH_TOKENS.push(rtRecord);
+  const existingSessIdx = db.sessions ? db.sessions.findIndex((s) => s.sessionId === sessionId) : -1;
   const serverSess = {
     sessionId,
     token: accessToken,
     userId,
-    username,
-    name,
-    role,
-    contractor,
+    username: "",
+    // Populated by caller
+    name: "",
+    // Populated by caller
+    role: "super_admin",
     sessionVersion,
     loginAt: nowIso,
     lastActivityAt: nowIso,
     expiresAt,
     status: "active",
     ipAddress,
-    userAgent,
-    deviceType
+    userAgent
   };
-  try {
-    await sessionStore.addSession(serverSess);
-  } catch {
-  }
-  if (db.sessions) {
-    const existingSessIdx = db.sessions.findIndex((s) => s.sessionId === sessionId);
-    if (existingSessIdx >= 0) {
-      db.sessions[existingSessIdx] = serverSess;
-    } else {
-      db.sessions.push(serverSess);
-    }
+  if (existingSessIdx >= 0 && db.sessions) {
+    db.sessions[existingSessIdx] = serverSess;
+  } else if (db.sessions) {
+    db.sessions.push(serverSess);
   }
   return { sessionId, expiresAt };
 }
@@ -5665,19 +5970,8 @@ async function verifyAccessToken(token) {
   let matchedSession = null;
   if (client) {
     try {
-      const { data: sessRows, error } = await client.from("auth_sessions").select("*").or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`).limit(5);
-      if (error) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: "DATABASE_UNAVAILABLE",
-              message: `Database Supabase gagal memverifikasi sesi: ${error.message}`
-            }
-          };
-        }
-      } else if (Array.isArray(sessRows) && sessRows.length > 0) {
-        const data = sessRows.find((r) => !r.revoked_at) || sessRows[0];
+      const { data, error } = await client.from("auth_sessions").select("*").or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`).limit(1).maybeSingle();
+      if (!error && data) {
         matchedSession = {
           id: data.id,
           userId: data.user_id,
@@ -5685,7 +5979,6 @@ async function verifyAccessToken(token) {
           tokenHash: data.token_hash || data.session_id_hash,
           expiresAt: data.expires_at,
           lastActivityAt: data.last_activity_at,
-          sessionVersion: typeof data.session_version === "number" ? data.session_version : void 0,
           revokedAt: data.revoked_at,
           ipAddress: data.ip_address,
           userAgent: data.user_agent,
@@ -5694,15 +5987,6 @@ async function verifyAccessToken(token) {
         };
       }
     } catch (err) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: "DATABASE_UNAVAILABLE",
-            message: `Koneksi ke database Supabase gagal saat memverifikasi sesi: ${err?.message || "Unknown error"}`
-          }
-        };
-      }
       console.warn("[CustomAuth] DB verify session warning:", err);
     }
   }
@@ -5717,7 +6001,7 @@ async function verifyAccessToken(token) {
   }
   if (!matchedSession && isLocalJsonModeAllowed()) {
     const found = LOCAL_AUTH_SESSIONS.find(
-      (s) => s.sessionIdHash === tokenHash || s.tokenHash === tokenHash
+      (s) => s.sessionIdHash === tokenHash || s.tokenHash === tokenHash || cleanToken.includes(s.id)
     );
     if (found) {
       matchedSession = found;
@@ -5733,7 +6017,6 @@ async function verifyAccessToken(token) {
         tokenHash,
         expiresAt: sSess.expiresAt,
         lastActivityAt: sSess.lastActivityAt,
-        sessionVersion: sSess.sessionVersion,
         revokedAt: sSess.status === "revoked" ? (/* @__PURE__ */ new Date()).toISOString() : null,
         ipAddress: sSess.ipAddress,
         userAgent: sSess.userAgent,
@@ -5842,19 +6125,8 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
   let matchedRt = null;
   if (client) {
     try {
-      const { data: rtRows, error } = await client.from("refresh_tokens").select("*").eq("token_hash", rtHash).limit(1);
-      if (error) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: "DATABASE_UNAVAILABLE",
-              message: `Database Supabase gagal membaca refresh token: ${error.message}`
-            }
-          };
-        }
-      } else if (Array.isArray(rtRows) && rtRows[0]) {
-        const data = rtRows[0];
+      const { data, error } = await client.from("refresh_tokens").select("*").eq("token_hash", rtHash).limit(1).maybeSingle();
+      if (!error && data) {
         matchedRt = {
           id: data.id,
           userId: data.user_id,
@@ -5867,15 +6139,6 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
         };
       }
     } catch (err) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: "DATABASE_UNAVAILABLE",
-            message: `Koneksi ke database Supabase gagal saat refresh token: ${err?.message || "Unknown error"}`
-          }
-        };
-      }
       console.warn("[CustomAuth] DB query refresh token warning:", err);
     }
   }
@@ -5904,7 +6167,6 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
       try {
         await client.from("refresh_tokens").update({ revoked_at: revokeTs }).eq("session_id", matchedRt.sessionId).is("revoked_at", null);
         await client.from("auth_sessions").update({ revoked_at: revokeTs }).eq("id", matchedRt.sessionId).is("revoked_at", null);
-        await revokeUserSessionInSupabase(matchedRt.sessionId);
       } catch {
       }
     }
@@ -5926,50 +6188,6 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
       }
     };
   }
-  if (client && matchedRt.sessionId) {
-    try {
-      const { data: parentRows, error: parentErr } = await client.from("auth_sessions").select("id, revoked_at, expires_at, session_version").eq("id", matchedRt.sessionId).limit(1);
-      if (parentErr) {
-        if (!isLocalJsonModeAllowed()) {
-          return {
-            success: false,
-            error: {
-              code: "DATABASE_UNAVAILABLE",
-              message: `Database gagal memvalidasi sesi induk: ${parentErr.message}`
-            }
-          };
-        }
-      } else {
-        const parentSess = Array.isArray(parentRows) ? parentRows[0] : null;
-        if (!parentSess || parentSess.revoked_at) {
-          const revokeTs = new Date(now).toISOString();
-          try {
-            await client.from("refresh_tokens").update({ revoked_at: revokeTs }).eq("id", matchedRt.id);
-          } catch {
-          }
-          return {
-            success: false,
-            error: {
-              code: "REFRESH_TOKEN_REVOKED",
-              message: "Sesi login terkait telah dicabut atau logout. Silakan login kembali."
-            }
-          };
-        }
-      }
-    } catch {
-    }
-  } else if (isLocalJsonModeAllowed() && matchedRt.sessionId) {
-    const localParent = LOCAL_AUTH_SESSIONS.find((s) => s.id === matchedRt.sessionId);
-    if (localParent?.revokedAt) {
-      return {
-        success: false,
-        error: {
-          code: "REFRESH_TOKEN_REVOKED",
-          message: "Sesi login terkait telah dicabut atau logout. Silakan login kembali."
-        }
-      };
-    }
-  }
   if (new Date(matchedRt.expiresAt).getTime() < now) {
     return {
       success: false,
@@ -5979,22 +6197,14 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
   let user = null;
   if (client) {
     const userRes = await findUserInSupabaseDetailed(matchedRt.userId);
-    if (!userRes.success) {
-      return {
-        success: false,
-        error: {
-          code: "DATABASE_UNAVAILABLE",
-          message: "Database Supabase gagal memuat akun saat memperbarui sesi."
-        }
-      };
+    if (userRes.success && userRes.data) {
+      user = userRes.data;
     }
-    user = userRes.data;
   }
   if (!user && isLocalJsonModeAllowed()) {
     user = db.users.find((u) => u.id === matchedRt.userId) || null;
   }
-  const effectiveStatus = user?.accountStatus || user?.account_status || "active";
-  if (!user || user.isDeleted || !user.active || effectiveStatus === "inactive" || effectiveStatus === "locked") {
+  if (!user || user.isDeleted || !user.active) {
     return {
       success: false,
       error: { code: "ACCOUNT_DISABLED", message: "Akun Anda telah dinonaktifkan atau dihapus." }
@@ -6023,7 +6233,7 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
   matchedRt.revokedAt = nowIso;
   matchedRt.replacedByTokenHash = newRtHash;
   const newRtRecord = {
-    id: `rt_${now}_${crypto.randomBytes(8).toString("hex")}`,
+    id: `rt_${now}_${crypto2.randomBytes(8).toString("hex")}`,
     userId: user.id,
     sessionId: matchedRt.sessionId,
     tokenHash: newRtHash,
@@ -6034,55 +6244,25 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
   };
   LOCAL_REFRESH_TOKENS.push(newRtRecord);
   if (client) {
-    const isMissingColumnError = (err) => {
-      const code = String(err?.code || "").toUpperCase();
-      const msg = String(err?.message || "").toLowerCase();
-      return code === "42703" || code === "PGRST204" || msg.includes("session_version");
-    };
     try {
-      const { error: revOldErr } = await client.from("refresh_tokens").update({ revoked_at: nowIso, replaced_by_token_hash: newRtHash }).eq("id", matchedRt.id);
-      if (revOldErr) {
-        throw new Error(revOldErr.message);
-      }
-      const baseNewRt = {
-        id: newRtRecord.id,
-        user_id: user.id,
-        session_id: matchedRt.sessionId,
-        token_hash: newRtHash,
-        expires_at: newRtExpiresAt,
-        created_at: nowIso
-      };
-      let { error: insRtErr } = await client.from("refresh_tokens").insert([{ ...baseNewRt, session_version: authoritativeVersion }]);
-      if (insRtErr && isMissingColumnError(insRtErr)) {
-        ({ error: insRtErr } = await client.from("refresh_tokens").insert([baseNewRt]));
-      }
-      if (insRtErr) {
-        throw new Error(insRtErr.message);
-      }
-      const { error: updSessErr } = await client.from("auth_sessions").update({
+      await client.from("refresh_tokens").update({ revoked_at: nowIso, replaced_by_token_hash: newRtHash }).eq("id", matchedRt.id);
+      await client.from("refresh_tokens").insert([
+        {
+          id: newRtRecord.id,
+          user_id: user.id,
+          session_id: matchedRt.sessionId,
+          token_hash: newRtHash,
+          expires_at: newRtExpiresAt,
+          created_at: nowIso
+        }
+      ]);
+      await client.from("auth_sessions").update({
         session_id_hash: newSessionHash,
         token_hash: newSessionHash,
         expires_at: newExpiresAt,
         last_activity_at: nowIso
       }).eq("id", matchedRt.sessionId);
-      if (updSessErr) {
-        throw new Error(updSessErr.message);
-      }
-      await client.from("user_sessions").update({
-        last_activity_at: nowIso,
-        expires_at: newExpiresAt,
-        token_fingerprint: newSessionHash
-      }).eq("session_id", matchedRt.sessionId);
     } catch (err) {
-      if (!isLocalJsonModeAllowed()) {
-        return {
-          success: false,
-          error: {
-            code: "DATABASE_UNAVAILABLE",
-            message: `Database Supabase gagal memperbarui rotasi token: ${err?.message || "Unknown error"}`
-          }
-        };
-      }
       console.warn("[CustomAuth] DB token rotation warning:", err?.message || err);
     }
   }
@@ -6092,14 +6272,6 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
     localSess.tokenHash = newSessionHash;
     localSess.expiresAt = newExpiresAt;
     localSess.lastActivityAt = nowIso;
-  }
-  try {
-    await sessionStore.updateSession(matchedRt.sessionId, {
-      token: newAccessToken,
-      expiresAt: newExpiresAt,
-      lastActivityAt: nowIso
-    });
-  } catch {
   }
   const { passwordHash: _, ...safeUser } = user;
   return {
@@ -6126,7 +6298,6 @@ async function revokeAllUserSessions(userId, revokedByUserId, options) {
     try {
       await client.from("auth_sessions").update({ revoked_at: nowIso }).eq("user_id", userId).is("revoked_at", null);
       await client.from("refresh_tokens").update({ revoked_at: nowIso }).eq("user_id", userId).is("revoked_at", null);
-      await client.from("user_sessions").update({ status: "revoked", last_activity_at: nowIso }).eq("user_id", userId).eq("status", "active");
       if (!options?.skipVersionIncrement) {
         const { data: userData } = await client.from("users").select("session_version").eq("id", userId).single();
         const currentVer = typeof userData?.session_version === "number" ? userData.session_version : 1;
@@ -6142,10 +6313,6 @@ async function revokeAllUserSessions(userId, revokedByUserId, options) {
   LOCAL_REFRESH_TOKENS.forEach((r) => {
     if (r.userId === userId) r.revokedAt = nowIso;
   });
-  try {
-    await sessionStore.revokeUserSessions(userId);
-  } catch {
-  }
   if (db.sessions) {
     db.sessions.forEach((s) => {
       if (s.userId === userId) s.status = "revoked";
@@ -6168,16 +6335,21 @@ async function createSessionForUserAfterPasswordChange(params) {
   const refreshToken = generateSecureRefreshToken(sessionVersion);
   const { sessionId, expiresAt } = await persistNewAuthSession({
     userId: user.id,
-    username: user.username,
-    name: user.name,
-    role: user.role,
-    contractor: user.contractor,
     accessToken,
     refreshToken,
     ipAddress,
     userAgent,
     sessionVersion
   });
+  if (db.sessions) {
+    const sess = db.sessions.find((s) => s.sessionId === sessionId);
+    if (sess) {
+      sess.username = user.username;
+      sess.name = user.name;
+      sess.role = user.role;
+      sess.contractor = user.contractor;
+    }
+  }
   return {
     sessionId,
     tokens: {
@@ -6197,64 +6369,28 @@ async function revokeSingleSession(tokenOrSessionId) {
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   const client = getSupabaseBackendClient();
   const isSafeSessionId = /^[a-zA-Z0-9_-]{4,128}$/.test(cleanInput);
-  const affectedSessionIds = /* @__PURE__ */ new Set();
-  if (isSafeSessionId) {
-    affectedSessionIds.add(cleanInput);
+  if (client) {
+    try {
+      await client.from("auth_sessions").update({ revoked_at: nowIso }).eq("session_id_hash", tokenHash).is("revoked_at", null);
+      await client.from("auth_sessions").update({ revoked_at: nowIso }).eq("token_hash", tokenHash).is("revoked_at", null);
+      await client.from("refresh_tokens").update({ revoked_at: nowIso }).eq("token_hash", tokenHash).is("revoked_at", null);
+      if (isSafeSessionId) {
+        await client.from("auth_sessions").update({ revoked_at: nowIso }).eq("id", cleanInput).is("revoked_at", null);
+        await client.from("refresh_tokens").update({ revoked_at: nowIso }).eq("session_id", cleanInput).is("revoked_at", null);
+      }
+    } catch {
+    }
   }
   LOCAL_AUTH_SESSIONS.forEach((s) => {
     if (s.id === cleanInput || s.sessionIdHash === tokenHash || s.tokenHash === tokenHash) {
-      affectedSessionIds.add(s.id);
       s.revokedAt = nowIso;
     }
   });
   LOCAL_REFRESH_TOKENS.forEach((r) => {
-    if (r.tokenHash === tokenHash && r.sessionId) {
-      affectedSessionIds.add(r.sessionId);
-    }
-    if (r.tokenHash === tokenHash || affectedSessionIds.has(r.sessionId)) {
+    if (r.sessionId === cleanInput || r.tokenHash === tokenHash) {
       r.revokedAt = nowIso;
     }
   });
-  if (client) {
-    try {
-      const { data: matchedSessRows } = await client.from("auth_sessions").select("id").or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`).limit(10);
-      if (Array.isArray(matchedSessRows)) {
-        matchedSessRows.forEach((r) => {
-          if (r?.id) affectedSessionIds.add(r.id);
-        });
-      }
-      const { data: matchedRtRows } = await client.from("refresh_tokens").select("session_id").eq("token_hash", tokenHash).limit(10);
-      if (Array.isArray(matchedRtRows)) {
-        matchedRtRows.forEach((r) => {
-          if (r?.session_id) affectedSessionIds.add(r.session_id);
-        });
-      }
-      await client.from("auth_sessions").update({ revoked_at: nowIso }).or(`session_id_hash.eq.${tokenHash},token_hash.eq.${tokenHash}`).is("revoked_at", null);
-      await client.from("refresh_tokens").update({ revoked_at: nowIso }).eq("token_hash", tokenHash).is("revoked_at", null);
-      for (const sid of affectedSessionIds) {
-        await client.from("auth_sessions").update({ revoked_at: nowIso }).eq("id", sid).is("revoked_at", null);
-        await client.from("refresh_tokens").update({ revoked_at: nowIso }).eq("session_id", sid).is("revoked_at", null);
-        await revokeUserSessionInSupabase(sid);
-      }
-    } catch {
-    }
-  }
-  for (const sid of affectedSessionIds) {
-    try {
-      await sessionStore.revokeSession(sid);
-    } catch {
-    }
-    LOCAL_AUTH_SESSIONS.forEach((s) => {
-      if (s.id === sid) s.revokedAt = nowIso;
-    });
-    LOCAL_REFRESH_TOKENS.forEach((r) => {
-      if (r.sessionId === sid) r.revokedAt = nowIso;
-    });
-  }
-  try {
-    await sessionStore.revokeSession(cleanInput);
-  } catch {
-  }
   return true;
 }
 async function loginWithCustomAuth(params) {
@@ -6321,8 +6457,8 @@ async function loginWithCustomAuth(params) {
     return {
       success: false,
       error: {
-        code: "ACCOUNT_NOT_FOUND",
-        message: "Nama pengguna atau email tidak ditemukan. Hubungi Superadmin untuk mendapatkan akses MoraJaws."
+        code: "INVALID_CREDENTIALS",
+        message: "Nama pengguna atau kata sandi tidak cocok. Hubungi Superadmin untuk mendapatkan akses MoraJaws."
       }
     };
   }
@@ -6422,32 +6558,14 @@ async function loginWithCustomAuth(params) {
   const currentVersion = user.sessionVersion || 1;
   const accessToken = generateSecureAccessToken(currentVersion);
   const refreshToken = generateSecureRefreshToken(currentVersion);
-  let sessionId = "";
-  let expiresAt = "";
-  try {
-    const persisted = await persistNewAuthSession({
-      userId: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role,
-      contractor: user.contractor,
-      accessToken,
-      refreshToken,
-      ipAddress,
-      userAgent,
-      sessionVersion: currentVersion
-    });
-    sessionId = persisted.sessionId;
-    expiresAt = persisted.expiresAt;
-  } catch (persistErr) {
-    return {
-      success: false,
-      error: {
-        code: "DATABASE_UNAVAILABLE",
-        message: persistErr?.message || "Gagal menyimpan sesi autentikasi ke database PostgreSQL."
-      }
-    };
-  }
+  const { sessionId, expiresAt } = await persistNewAuthSession({
+    userId: user.id,
+    accessToken,
+    refreshToken,
+    ipAddress,
+    userAgent,
+    sessionVersion: currentVersion
+  });
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   if (client) {
     try {
@@ -6525,7 +6643,7 @@ async function verifySupabaseAuthToken(token, expectedSessionVersion) {
 }
 
 // server/passwordResetService.ts
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 var APP_SETTING_JOBS_KEY = "password_reset_jobs_store";
 var MEMORY_JOBS = /* @__PURE__ */ new Map();
 var jobsHydrated = false;
@@ -6646,11 +6764,11 @@ async function persistUserCredentialUpdate(userId, updates) {
   return true;
 }
 async function generateUniqueCryptographicPlaceholderHash() {
-  const highEntropySecret = `MoraRst!${crypto2.randomBytes(24).toString("base64url")}#9`;
+  const highEntropySecret = `MoraRst!${crypto3.randomBytes(24).toString("base64url")}#9`;
   return hashPasswordWithBcrypt(highEntropySecret);
 }
 function generateSingleUseResetTokenPair(ttlHours = 24) {
-  const rawToken = `mora_rst_${crypto2.randomBytes(24).toString("base64url")}`;
+  const rawToken = `mora_rst_${crypto3.randomBytes(24).toString("base64url")}`;
   const clampedHours = Math.max(1, Math.min(168, Number(ttlHours) || 24));
   const now = Date.now();
   return {
@@ -6804,7 +6922,7 @@ async function createAndStartMassResetJob(input) {
     return true;
   });
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const jobId = `pwjob_${Date.now()}_${crypto2.randomBytes(4).toString("hex")}`;
+  const jobId = `pwjob_${Date.now()}_${crypto3.randomBytes(4).toString("hex")}`;
   const job = {
     id: jobId,
     idempotencyKey: cleanIdempotency,
@@ -7149,7 +7267,7 @@ async function consumeResetTokenAndSetPassword(params) {
   }
   let tokenMatch = false;
   try {
-    tokenMatch = crypto2.timingSafeEqual(Buffer.from(candidateHash), Buffer.from(storedHash));
+    tokenMatch = crypto3.timingSafeEqual(Buffer.from(candidateHash), Buffer.from(storedHash));
   } catch {
     tokenMatch = false;
   }
@@ -8857,7 +8975,7 @@ async function runPhase8ShadowDryRunSuite(caller) {
 }
 
 // server/realtimeHub.ts
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 var MAX_SSE_CONNECTIONS_PER_USER = 3;
 var REALTIME_HEARTBEAT_INTERVAL_MS = 2e4;
 var MAX_SSE_BUFFER_EVENTS = 200;
@@ -8994,7 +9112,7 @@ var RealtimeSandboxHub = class _RealtimeSandboxHub {
       req.socket.setKeepAlive(true, 1e4);
     }
     res.write(":connected mora-jaws-sandbox\n\n");
-    const connectionId = `conn_${Date.now()}_${crypto3.randomBytes(6).toString("hex")}`;
+    const connectionId = `conn_${Date.now()}_${crypto4.randomBytes(6).toString("hex")}`;
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const conn = {
       connectionId,
@@ -9067,7 +9185,7 @@ var RealtimeSandboxHub = class _RealtimeSandboxHub {
       };
     }
     this.sequenceCounter++;
-    const eventId = `evt_sbx_${this.sequenceCounter}_${Date.now()}_${crypto3.randomBytes(3).toString("hex")}`;
+    const eventId = `evt_sbx_${this.sequenceCounter}_${Date.now()}_${crypto4.randomBytes(3).toString("hex")}`;
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
     const event = {
       id: eventId,
@@ -9285,7 +9403,7 @@ data: ${dataString}
 var realtimeSandboxHub = RealtimeSandboxHub.getInstance();
 
 // server/sandbox/sandboxJournal.ts
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 var SANDBOX_WO_PREFIX2 = "WO-SANDBOX-";
 var RECOMMENDED_CHUNK_SIZE = 200;
 var SandboxJournalEngine = class _SandboxJournalEngine {
@@ -9304,7 +9422,7 @@ var SandboxJournalEngine = class _SandboxJournalEngine {
    * Generates a deterministic journal ID based on aggregateId and mutationId
    */
   generateDeterministicJournalId(aggregateId, mutationId) {
-    const hash = crypto4.createHash("sha256").update(`${aggregateId}:${mutationId}`).digest("hex").slice(0, 12);
+    const hash = crypto5.createHash("sha256").update(`${aggregateId}:${mutationId}`).digest("hex").slice(0, 12);
     return `jrn_${aggregateId}_${hash}`;
   }
   /**
@@ -9323,7 +9441,7 @@ var SandboxJournalEngine = class _SandboxJournalEngine {
    */
   async commitAtomicMutation(input) {
     this.assertSandboxPrefix(input.aggregateId);
-    const mutationId = input.mutationId || `mut_${Date.now()}_${crypto4.randomBytes(6).toString("hex")}`;
+    const mutationId = input.mutationId || `mut_${Date.now()}_${crypto5.randomBytes(6).toString("hex")}`;
     const journalId = this.generateDeterministicJournalId(input.aggregateId, mutationId);
     const nowIso = input.timestamp || (/* @__PURE__ */ new Date()).toISOString();
     const existing = this.journalDocs.get(journalId);
@@ -9488,7 +9606,7 @@ var SandboxJournalEngine = class _SandboxJournalEngine {
 var sandboxJournalEngine = SandboxJournalEngine.getInstance();
 
 // server/sandbox/sandboxOutbox.ts
-import crypto5 from "crypto";
+import crypto6 from "crypto";
 var SandboxOutboxStore = class _SandboxOutboxStore {
   constructor() {
     // Persistent in-memory table store simulating PostgreSQL with UNIQUE constraints & atomic locks
@@ -9526,8 +9644,8 @@ var SandboxOutboxStore = class _SandboxOutboxStore {
       };
     }
     this.sequenceCounter++;
-    const rowId = `obx_${Date.now()}_${crypto5.randomBytes(6).toString("hex")}`;
-    const eventId = `evt_${Date.now()}_${crypto5.randomBytes(6).toString("hex")}`;
+    const rowId = `obx_${Date.now()}_${crypto6.randomBytes(6).toString("hex")}`;
+    const eventId = `evt_${Date.now()}_${crypto6.randomBytes(6).toString("hex")}`;
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const row = {
       id: rowId,
@@ -9764,7 +9882,7 @@ var SandboxRecoveryWorker = class {
 };
 
 // server/installerGpsTrackingService.ts
-import crypto6 from "crypto";
+import crypto7 from "crypto";
 var DEFAULT_GPS_TRACKING_CONFIG = {
   enabled: true,
   autoStartOnLogin: true,
@@ -10128,7 +10246,7 @@ async function createInstallerTrackingSession(params) {
     return null;
   }
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const recordId = `inst_sess_${Date.now()}_${crypto6.randomBytes(4).toString("hex")}`;
+  const recordId = `inst_sess_${Date.now()}_${crypto7.randomBytes(4).toString("hex")}`;
   const newSession = {
     id: recordId,
     installerId: params.installer.id,
@@ -10596,7 +10714,7 @@ async function recordInstallerLocationUpdate(params) {
         if (shouldInsertHistory) {
           await client.from("installer_location_history").insert([
             {
-              id: `ilh_${Date.now()}_${crypto6.randomBytes(4).toString("hex")}`,
+              id: `ilh_${Date.now()}_${crypto7.randomBytes(4).toString("hex")}`,
               installer_id: installer.id,
               session_id: point.sessionId,
               latitude: lat,
@@ -10654,7 +10772,7 @@ async function recordInstallerLocationUpdate(params) {
   }
   if (shouldInsertHistory) {
     stores.history.unshift({
-      id: `ilh_${Date.now()}_${crypto6.randomBytes(4).toString("hex")}`,
+      id: `ilh_${Date.now()}_${crypto7.randomBytes(4).toString("hex")}`,
       installerId: installer.id,
       sessionId: point.sessionId,
       latitude: lat,
@@ -11951,9 +12069,9 @@ var SandboxChaosTestRunner = class {
 var sandboxChaosTestRunner = new SandboxChaosTestRunner();
 
 // server/supabaseStorage.ts
-import path from "path";
-import fs from "fs";
-import crypto7 from "crypto";
+import path2 from "path";
+import fs2 from "fs";
+import crypto8 from "crypto";
 var MORAJAWS_STORAGE_BUCKET = "morajaws-reports";
 var STORAGE_FOLDERS = {
   WORK_ORDERS: "work-orders",
@@ -12069,7 +12187,7 @@ function classifyFileSource(rawInput) {
 }
 function sanitizeFileName(name) {
   if (!name) return "unnamed_file";
-  const base = path.basename(name).replace(/\0/g, "");
+  const base = path2.basename(name).replace(/\0/g, "");
   return base.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_{2,}/g, "_").slice(0, 120);
 }
 function sanitizePathSegment(segment) {
@@ -12077,7 +12195,7 @@ function sanitizePathSegment(segment) {
   return segment.trim().split("/").map((p) => p.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64)).filter(Boolean).join("/");
 }
 function validateFileConstraints(buffer, declaredFileName, declaredMimeType, rule) {
-  const ext = path.extname(declaredFileName).toLowerCase();
+  const ext = path2.extname(declaredFileName).toLowerCase();
   if (!rule.allowedExtensions.includes(ext)) {
     return {
       valid: false,
@@ -12131,7 +12249,7 @@ function buildStorageObjectPath(folder, entityId, originalFileName, prefix = "")
   const safeEntity = sanitizePathSegment(entityId);
   const safeName = sanitizeFileName(originalFileName);
   const timestamp = Date.now();
-  const randomSuffix = crypto7.randomBytes(4).toString("hex");
+  const randomSuffix = crypto8.randomBytes(4).toString("hex");
   const uniqueFileId = `file_${timestamp}_${randomSuffix}`;
   const prefixSegment = prefix ? `${sanitizePathSegment(prefix)}_` : "";
   const finalFileName = `${prefixSegment}${uniqueFileId}_${safeName}`;
@@ -12239,11 +12357,11 @@ async function downloadBufferFromSupabaseStorage(params) {
   }
   try {
     const cleanRel = params.storagePath.replace(/^\/+/, "").replace(/\.\./g, "");
-    const localBase = path.resolve(process.cwd(), "data", "uploads");
-    const localFile = path.resolve(localBase, cleanRel);
-    if (localFile.startsWith(localBase + path.sep) && fs.existsSync(localFile)) {
-      const buffer = fs.readFileSync(localFile);
-      const ext = path.extname(localFile).toLowerCase();
+    const localBase = path2.resolve(process.cwd(), "data", "uploads");
+    const localFile = path2.resolve(localBase, cleanRel);
+    if (localFile.startsWith(localBase + path2.sep) && fs2.existsSync(localFile)) {
+      const buffer = fs2.readFileSync(localFile);
+      const ext = path2.extname(localFile).toLowerCase();
       const mimeMap = {
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
@@ -12571,18 +12689,21 @@ async function uploadFile(params) {
     return { success: false, error: validation.error };
   }
   const cleanWo = relatedWoNumber ? sanitizePathSegment(relatedWoNumber) : "";
-  const pathFolder = fileCategory === "chat_attachment" && cleanWo ? `${STORAGE_FOLDERS.LIVE_CHAT}/${cleanWo}` : `test-sandbox/${sanitizePathSegment(userId)}/${fileCategory}`;
-  const pathPrefix = fileCategory === "chat_attachment" && cleanWo ? "chat" : "data";
-  const fileTag = fileCategory === "chat_attachment" ? "cht" : "adp";
+  const pathFolder = fileCategory === "chat_attachment" && cleanWo ? `${STORAGE_FOLDERS.LIVE_CHAT}/${cleanWo}` : fileCategory === "wo_document" && cleanWo ? `${STORAGE_FOLDERS.WORK_ORDERS}/${cleanWo}` : fileCategory === "image_report" && cleanWo ? `${STORAGE_FOLDERS.TECHNICAL_REPORTS}/${cleanWo}` : `test-sandbox/${sanitizePathSegment(userId)}/${fileCategory}`;
+  const pathPrefix = fileCategory === "chat_attachment" && cleanWo ? "chat" : fileCategory === "wo_document" && cleanWo ? "doc" : fileCategory === "image_report" && cleanWo ? "img" : "data";
+  const fileTag = fileCategory === "chat_attachment" ? "cht" : fileCategory === "wo_document" ? "doc" : fileCategory === "image_report" ? "img" : "adp";
   const { fullPath, uniqueFileId } = buildStorageObjectPath(
     pathFolder,
     pathPrefix,
     fileName,
     fileTag
   );
-  const sha256 = crypto7.createHash("sha256").update(fileBuffer).digest("hex");
-  const downloadCategory = fileCategory === "chat_attachment" && cleanWo ? "live-chat" : "test-sandbox";
+  const sha256 = crypto8.createHash("sha256").update(fileBuffer).digest("hex");
+  const downloadCategory = fileCategory === "chat_attachment" && cleanWo ? "live-chat" : fileCategory === "wo_document" && cleanWo ? "work-orders" : fileCategory === "image_report" && cleanWo ? "technical-reports" : "test-sandbox";
   const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=${encodeURIComponent(downloadCategory)}${cleanWo ? `&woNumber=${encodeURIComponent(relatedWoNumber)}` : ""}`;
+  const isProdOrServerless = Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === "production"
+  );
   let storageProvider = "supabase";
   const uploadResult = await uploadBufferToSupabaseStorage({
     bucket,
@@ -12591,15 +12712,15 @@ async function uploadFile(params) {
     mimeType
   });
   if (!uploadResult.success) {
-    if (fileCategory === "chat_attachment" && cleanWo) {
+    if (!isProdOrServerless && cleanWo && (fileCategory === "chat_attachment" || fileCategory === "wo_document" || fileCategory === "image_report")) {
       try {
-        const localBase = path.resolve(process.cwd(), "data", "uploads");
-        const targetFile = path.resolve(localBase, fullPath);
-        if (!targetFile.startsWith(localBase + path.sep)) {
-          return { success: false, error: "Path penyimpanan lampiran chat tidak valid." };
+        const localBase = path2.resolve(process.cwd(), "data", "uploads");
+        const targetFile = path2.resolve(localBase, fullPath);
+        if (!targetFile.startsWith(localBase + path2.sep)) {
+          return { success: false, error: "Path penyimpanan file tidak valid." };
         }
-        fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-        fs.writeFileSync(targetFile, fileBuffer);
+        fs2.mkdirSync(path2.dirname(targetFile), { recursive: true });
+        fs2.writeFileSync(targetFile, fileBuffer);
         storageProvider = "local_disk";
       } catch (diskErr) {
         logStorageOperation({
@@ -12629,12 +12750,12 @@ async function uploadFile(params) {
         errorCode: "STORAGE_UPLOAD_ERROR",
         errorMessage: uploadResult.error
       });
-      return { success: false, error: uploadResult.error };
+      return { success: false, error: uploadResult.error || "Gagal mengunggah file ke Supabase Storage." };
     }
   }
   const metadata = {
     fileId: uniqueFileId,
-    storageProvider: "supabase",
+    storageProvider,
     bucketName: bucket,
     filePath: fullPath,
     originalFileName: sanitizeFileName(fileName),
@@ -12685,9 +12806,13 @@ async function uploadWoPhotoEvidence(params) {
     fileName,
     "evd"
   );
-  const sha256 = crypto7.createHash("sha256").update(fileBuffer).digest("hex");
+  const sha256 = crypto8.createHash("sha256").update(fileBuffer).digest("hex");
   const downloadUrl = `/api/storage/adapter/download?storagePath=${encodeURIComponent(fullPath)}&category=technical-reports&woNumber=${encodeURIComponent(woNumber)}`;
+  const isProdOrServerless = Boolean(
+    process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === "production"
+  );
   const client = getSupabaseBackendClient();
+  let supaUploadError;
   if (client) {
     const supaRes = await uploadBufferToSupabaseStorage({
       bucket,
@@ -12717,15 +12842,36 @@ async function uploadWoPhotoEvidence(params) {
         signedUrl: supaRes.signedUrl
       };
     }
+    supaUploadError = supaRes.error;
+  }
+  if (isProdOrServerless) {
+    const errMsg = supaUploadError || "Supabase Storage tidak tersedia pada environment produksi.";
+    logStorageOperation({
+      operation: "upload",
+      status: "failed",
+      provider: "supabase",
+      fileId: uniqueFileId,
+      filePath: fullPath,
+      userId,
+      userRole: params.userRole,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      errorCode: "STORAGE_UPLOAD_ERROR",
+      errorMessage: errMsg
+    });
+    return {
+      success: false,
+      storageProvider: "supabase",
+      error: errMsg
+    };
   }
   try {
-    const localBase = path.resolve(process.cwd(), "data", "uploads");
-    const targetFile = path.resolve(localBase, fullPath);
-    if (!targetFile.startsWith(localBase + path.sep)) {
+    const localBase = path2.resolve(process.cwd(), "data", "uploads");
+    const targetFile = path2.resolve(localBase, fullPath);
+    if (!targetFile.startsWith(localBase + path2.sep)) {
       return { success: false, storageProvider: "local_disk", error: "Path penyimpanan tidak valid." };
     }
-    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-    fs.writeFileSync(targetFile, fileBuffer);
+    fs2.mkdirSync(path2.dirname(targetFile), { recursive: true });
+    fs2.writeFileSync(targetFile, fileBuffer);
     logStorageOperation({
       operation: "upload",
       status: "success",
@@ -12795,10 +12941,10 @@ async function deleteWoPhotoEvidenceObject(params) {
     }
   }
   try {
-    const localBase = path.resolve(process.cwd(), "data", "uploads");
-    const targetFile = path.resolve(localBase, cleanPath);
-    if (targetFile.startsWith(localBase + path.sep) && fs.existsSync(targetFile)) {
-      fs.unlinkSync(targetFile);
+    const localBase = path2.resolve(process.cwd(), "data", "uploads");
+    const targetFile = path2.resolve(localBase, cleanPath);
+    if (targetFile.startsWith(localBase + path2.sep) && fs2.existsSync(targetFile)) {
+      fs2.unlinkSync(targetFile);
       deletedAny = true;
     }
   } catch {
@@ -12866,7 +13012,7 @@ async function downloadFile(params) {
       error: downloadResult.error || "File tidak ditemukan di storage."
     };
   }
-  const sha256 = crypto7.createHash("sha256").update(downloadResult.data).digest("hex");
+  const sha256 = crypto8.createHash("sha256").update(downloadResult.data).digest("hex");
   logStorageOperation({
     operation: "download",
     status: "success",
@@ -13077,7 +13223,7 @@ async function inspectStorageOrphans(trackedPaths = [], bucket = MORAJAWS_STORAG
 }
 
 // server/emailNotificationService.ts
-import crypto8 from "node:crypto";
+import crypto9 from "node:crypto";
 import nodemailer from "nodemailer";
 
 // server/emailTemplateRenderer.ts
@@ -14204,7 +14350,7 @@ async function renderDemoPreviewForTemplate(templateKey, draftOverride) {
 }
 function getOrCreateSmtpTransporter() {
   const smtp = resolveSmtpRuntimeConfig();
-  const passDigest = crypto8.createHash("sha256").update(smtp.pass).digest("hex").slice(0, 16);
+  const passDigest = crypto9.createHash("sha256").update(smtp.pass).digest("hex").slice(0, 16);
   const key = `${smtp.host}:${smtp.port}:${smtp.secure}:${smtp.user}:${passDigest}:${process.env.SMTP_TEST_ALLOW_SELF_SIGNED || "0"}`;
   if (cachedSmtpTransporter && cachedSmtpTransporterKey === key) {
     return cachedSmtpTransporter;
@@ -15042,14 +15188,14 @@ function verifyResendWebhookSignature(params) {
   }
   if (secretBytes.length === 0) return false;
   const signedContent = `${svixId}.${svixTimestamp}.${rawBody}`;
-  const expectedSig = crypto8.createHmac("sha256", secretBytes).update(signedContent, "utf8").digest("base64");
+  const expectedSig = crypto9.createHmac("sha256", secretBytes).update(signedContent, "utf8").digest("base64");
   const expectedBuf = Buffer.from(expectedSig, "utf8");
   const candidates = svixSignature.split(" ").map((part) => part.trim()).filter(Boolean);
   for (const part of candidates) {
     const [, sigVal] = part.includes(",") ? part.split(",", 2) : ["v1", part];
     if (!sigVal) continue;
     const candidateBuf = Buffer.from(sigVal.trim(), "utf8");
-    if (candidateBuf.length === expectedBuf.length && crypto8.timingSafeEqual(candidateBuf, expectedBuf)) {
+    if (candidateBuf.length === expectedBuf.length && crypto9.timingSafeEqual(candidateBuf, expectedBuf)) {
       return true;
     }
   }
@@ -15826,7 +15972,7 @@ function startEmailNotificationScheduler() {
 
 // server.ts
 var __filename = fileURLToPath(import.meta.url);
-var __dirname = path2.dirname(__filename);
+var __dirname = path3.dirname(__filename);
 function hashPasswordLegacy(password, salt = "morajaws_secure_salt_2026") {
   let h = 2166136261;
   const str = `${salt}:${password}`;
@@ -15962,7 +16108,7 @@ var PROTECTED_PRODUCTION_WO_IDS2 = /* @__PURE__ */ new Set([
   "wo_imp_1793825458959_262dei"
 ]);
 function isLocalJsonModeAllowed() {
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") return false;
+  if (process.env.NODE_ENV === "production") return false;
   if (isSupabaseMode()) return false;
   if (process.env.ALLOW_LOCAL_JSON_MODE === "false") return false;
   return true;
@@ -15971,10 +16117,71 @@ function isSupabaseMode() {
   if (getSupabaseBackendClient() !== null) {
     return true;
   }
-  return isSupabaseConfigured();
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim());
+  const hasServiceKey = Boolean(
+    process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim() || process.env.SUPABASE_SECRET_KEY && process.env.SUPABASE_SECRET_KEY.trim()
+  );
+  return hasSupabaseUrl && hasServiceKey;
 }
-var DATA_DIR = path2.join(__dirname, "data");
-var DB_FILE = path2.join(DATA_DIR, "morajaws_database.json");
+async function offloadDataUriToStorageIfNeeded(params) {
+  const val = typeof params.rawValue === "string" ? params.rawValue.trim() : "";
+  if (!val) return { url: void 0 };
+  if (!val.toLowerCase().startsWith("data:")) {
+    return { url: val };
+  }
+  const match = val.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/);
+  if (!match) {
+    return { error: "Format data URI lampiran tidak valid." };
+  }
+  const mimeType = match[1].toLowerCase();
+  const buffer = Buffer.from(match[2], "base64");
+  if (!buffer || buffer.length < 16) {
+    return { error: "Data gambar/tanda tangan kosong." };
+  }
+  const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
+  const safeWo = (params.woNumber || params.ticketId || "WO_GENERAL").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const fileName = `${params.fileNamePrefix || "asset"}_${safeWo}_${Date.now()}.${ext}`;
+  const uploadRes = await uploadFile({
+    userId: params.user.id,
+    userRole: params.user.role,
+    userName: params.user.name,
+    fileCategory: params.fileCategory || "wo_document",
+    fileName,
+    fileBuffer: buffer,
+    mimeType,
+    relatedWoNumber: params.woNumber
+  });
+  if (!uploadRes.success || !uploadRes.downloadUrl || !uploadRes.metadata) {
+    return { error: uploadRes.error || "Gagal mengunggah aset ke Supabase Storage." };
+  }
+  if (isSupabaseMode()) {
+    await insertAttachmentToSupabase({
+      id: uploadRes.metadata.fileId,
+      fileId: uploadRes.metadata.fileId,
+      workOrderId: params.ticketId || null,
+      ticketId: params.ticketId || null,
+      woNumber: params.woNumber || null,
+      fileName: uploadRes.metadata.originalFileName,
+      fileType: uploadRes.metadata.mimeType,
+      fileSize: uploadRes.metadata.fileSize,
+      storageProvider: uploadRes.storageProvider || "supabase",
+      storagePath: uploadRes.metadata.filePath,
+      downloadUrl: uploadRes.downloadUrl,
+      senderId: params.user.id,
+      senderName: params.user.name,
+      senderRole: params.user.role,
+      validationStatus: "verified",
+      payload: {
+        sha256: uploadRes.metadata.sha256,
+        fileCategory: uploadRes.metadata.fileCategory
+      },
+      uploadedAt: uploadRes.metadata.uploadedAt
+    });
+  }
+  return { url: uploadRes.downloadUrl };
+}
+var DATA_DIR = path3.join(__dirname, "data");
+var DB_FILE = path3.join(DATA_DIR, "morajaws_database.json");
 var INITIAL_SEED_USERS = [
   {
     id: "u-ray",
@@ -16444,11 +16651,11 @@ var db = {
 function loadDatabaseFromDisk() {
   if (!isLocalJsonModeAllowed()) return;
   try {
-    if (!fs2.existsSync(DATA_DIR)) {
-      fs2.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
-    if (fs2.existsSync(DB_FILE)) {
-      const raw = fs2.readFileSync(DB_FILE, "utf-8");
+    if (fs3.existsSync(DB_FILE)) {
+      const raw = fs3.readFileSync(DB_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
         Object.assign(db, parsed, {
@@ -16498,13 +16705,13 @@ function saveDatabaseToDisk() {
     return;
   }
   try {
-    if (!fs2.existsSync(DATA_DIR)) {
-      fs2.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
     db.sessions = SERVER_SESSIONS;
     const tempFile = DB_FILE + ".tmp";
-    fs2.writeFileSync(tempFile, JSON.stringify(db, null, 2), "utf-8");
-    fs2.renameSync(tempFile, DB_FILE);
+    fs3.writeFileSync(tempFile, JSON.stringify(db, null, 2), "utf-8");
+    fs3.renameSync(tempFile, DB_FILE);
   } catch (err) {
     console.error("[Database] Error saving database to disk:", err);
   }
@@ -16973,7 +17180,7 @@ function getAuthCookieOptions(req, maxAgeMs, cookiePath) {
   const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "").split(",")[0].trim().toLowerCase();
   const isHttps = req.secure || proto === "https";
   const isLocalHttpTest = !isHttps && (req.hostname === "localhost" || req.hostname === "127.0.0.1" || req.hostname === "::1");
-  const secureFlag = process.env.NODE_ENV === "production" || process.env.VERCEL === "1" ? isHttps || !isLocalHttpTest : false;
+  const secureFlag = process.env.NODE_ENV === "production" ? isHttps || !isLocalHttpTest : false;
   return {
     httpOnly: true,
     secure: secureFlag,
@@ -16987,26 +17194,12 @@ function getAllowedCorsAndCsrfOrigins() {
   const origins = /* @__PURE__ */ new Set([
     "https://morajawskow.ai.studio",
     "https://morajaws.ai.studio",
-    "https://mora-jawskies.vercel.app",
     ...configured
   ]);
   for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
     if (rawBase && rawBase.trim()) {
       try {
         origins.add(new URL(rawBase.trim()).origin);
-      } catch {
-      }
-    }
-  }
-  for (const vercelHost of [
-    process.env.VERCEL_PROJECT_PRODUCTION_URL,
-    process.env.VERCEL_URL,
-    process.env.VERCEL_BRANCH_URL
-  ]) {
-    if (vercelHost && vercelHost.trim()) {
-      const normalized = vercelHost.trim().startsWith("http") ? vercelHost.trim() : `https://${vercelHost.trim()}`;
-      try {
-        origins.add(new URL(normalized).origin);
       } catch {
       }
     }
@@ -17088,81 +17281,75 @@ async function resolveUserFromHeader(req, res, next) {
   if (!rawToken && req.cookies?.mora_access_token) {
     rawToken = req.cookies.mora_access_token;
   }
-  const reqPath = String(req.path || req.originalUrl || "").split("?")[0];
-  const isAuthLifecycleBypassPath = reqPath === "/api/auth/login" || reqPath === "/api/auth/supabase-login" || reqPath === "/api/auth/refresh" || reqPath === "/api/auth/supabase-refresh" || reqPath === "/api/auth/logout" || reqPath === "/api/auth/supabase-logout" || reqPath === "/api/auth/resolve-identity" || reqPath === "/api/auth/reset-password-token";
-  if (rawToken && reqPath !== "/api/auth/login" && reqPath !== "/api/auth/supabase-login" && reqPath !== "/api/auth/refresh" && reqPath !== "/api/auth/supabase-refresh") {
+  if (rawToken) {
     const token = rawToken;
     const knownSession = SERVER_SESSIONS.find((s) => s.token === token);
     if (knownSession && knownSession.status === "revoked") {
-      if (!isAuthLifecycleBypassPath) {
+      return res.status(401).json({
+        error: "Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.",
+        code: "SESSION_REVOKED"
+      });
+    }
+    try {
+      const customRes = await verifyAccessToken(token);
+      if (customRes.success && customRes.data) {
+        authSource = "server_session";
+        found = customRes.data.user;
+        activeSession = {
+          sessionId: customRes.data.session.id,
+          token,
+          userId: found.id,
+          username: found.username,
+          name: found.name,
+          role: found.role,
+          contractor: found.contractor,
+          sessionVersion: found.sessionVersion || 1,
+          loginAt: customRes.data.session.createdAt,
+          lastActivityAt: customRes.data.session.lastActivityAt,
+          expiresAt: customRes.data.session.expiresAt,
+          status: "active"
+        };
+      } else if (customRes.error?.code === "DATABASE_UNAVAILABLE") {
+        return res.status(503).json({
+          success: false,
+          error: customRes.error.message || "Database authoritative Supabase tidak tersedia.",
+          code: "DATABASE_UNAVAILABLE"
+        });
+      } else if (customRes.error?.code === "SESSION_REVOKED") {
         return res.status(401).json({
-          error: "Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.",
+          error: "Sesi login telah dicabut karena perubahan akun atau logout.",
           code: "SESSION_REVOKED"
         });
+      } else if (customRes.error?.code === "TOKEN_EXPIRED") {
+        return res.status(401).json({
+          error: customRes.error.message || "Token sesi login telah kedaluwarsa.",
+          code: "TOKEN_EXPIRED"
+        });
       }
-    } else {
+    } catch (customErr) {
+    }
+    if (!found && token.startsWith("eyJ")) {
       try {
-        const customRes = await verifyAccessToken(token);
-        if (customRes.success && customRes.data) {
+        const saRes = await verifySupabaseAuthToken(token, knownSession?.sessionVersion);
+        if (saRes.success && saRes.data) {
           authSource = "server_session";
-          found = customRes.data.user;
-          activeSession = {
-            sessionId: customRes.data.session.id,
-            token,
-            userId: found.id,
-            username: found.username,
-            name: found.name,
-            role: found.role,
-            contractor: found.contractor,
-            sessionVersion: found.sessionVersion || 1,
-            loginAt: customRes.data.session.createdAt,
-            lastActivityAt: customRes.data.session.lastActivityAt,
-            expiresAt: customRes.data.session.expiresAt,
-            status: "active"
-          };
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === "DATABASE_UNAVAILABLE") {
-          return res.status(503).json({
-            success: false,
-            error: customRes.error.message || "Database authoritative Supabase tidak tersedia.",
-            code: "DATABASE_UNAVAILABLE"
-          });
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === "SESSION_REVOKED") {
+          found = saRes.data;
+        } else if (saRes.error?.code === "SESSION_REVOKED") {
           return res.status(401).json({
             error: "Sesi login telah dicabut karena perubahan akun atau logout.",
             code: "SESSION_REVOKED"
           });
-        } else if (!isAuthLifecycleBypassPath && customRes.error?.code === "TOKEN_EXPIRED") {
+        } else if (saRes.error?.code === "TOKEN_EXPIRED") {
           return res.status(401).json({
-            error: customRes.error.message || "Token sesi login telah kedaluwarsa.",
+            error: saRes.error.message || "Token telah kedaluwarsa.",
             code: "TOKEN_EXPIRED"
           });
         }
-      } catch (customErr) {
-      }
-      if (!found && token.startsWith("eyJ")) {
-        try {
-          const saRes = await verifySupabaseAuthToken(token, knownSession?.sessionVersion);
-          if (saRes.success && saRes.data) {
-            authSource = "server_session";
-            found = saRes.data;
-          } else if (!isAuthLifecycleBypassPath && saRes.error?.code === "SESSION_REVOKED") {
-            return res.status(401).json({
-              error: "Sesi login telah dicabut karena perubahan akun atau logout.",
-              code: "SESSION_REVOKED"
-            });
-          } else if (!isAuthLifecycleBypassPath && saRes.error?.code === "TOKEN_EXPIRED") {
-            return res.status(401).json({
-              error: saRes.error.message || "Token telah kedaluwarsa.",
-              code: "TOKEN_EXPIRED"
-            });
-          }
-        } catch (saErr) {
-        }
+      } catch (saErr) {
       }
     }
-    if (!found && !isAuthLifecycleBypassPath) {
-      const token2 = rawToken;
-      activeSession = SERVER_SESSIONS.find((s) => s.token === token2 && s.status === "active");
+    if (!found) {
+      activeSession = SERVER_SESSIONS.find((s) => s.token === token && s.status === "active");
       if (activeSession) {
         if (new Date(activeSession.expiresAt).getTime() < now) {
           activeSession.status = "expired";
@@ -18190,8 +18377,8 @@ async function createExpressApp(options) {
   });
   app.get("/api/health", async (_req, res) => {
     const supabaseHealth = await checkSupabaseConnection();
-    const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
-    const isSupaConfigured = isSupabaseConfigured();
+    const isProd = process.env.NODE_ENV === "production";
+    const isSupaConfigured = Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY));
     const localAllowed = isLocalJsonModeAllowed();
     const storageConfig = getStorageProvider();
     let activeDatabaseStatus;
@@ -18266,9 +18453,11 @@ async function createExpressApp(options) {
         urlConfigured: supabaseHealth.urlConfigured,
         serviceRoleConfigured: supabaseHealth.serviceRoleConfigured,
         anonKeyConfigured: supabaseHealth.anonKeyConfigured,
+        databaseUrlConfigured: isDatabaseUrlConfigured(),
         latencyMs: supabaseHealth.latencyMs,
         message: supabaseHealth.message
       },
+      migrations: getMigrationStatus(),
       authentication: {
         primarySystem: "MoraJaws Custom Authentication",
         backendVerification: "active",
@@ -18428,7 +18617,7 @@ async function createExpressApp(options) {
     let templatesList = [];
     try {
       const [sbResult, sbContr, sbAreas, sbTemplates] = await Promise.all([
-        user && !passwordChangeRequired ? getWorkOrdersFromSupabase() : Promise.resolve({ success: true, data: [] }),
+        user && !passwordChangeRequired ? getWorkOrdersFromSupabase({ lightweight: isCriticalMode }) : Promise.resolve({ success: true, data: [] }),
         isSecondaryMode ? Promise.resolve({ success: true, data: [] }) : getContractorsFromSupabase(),
         isSecondaryMode ? Promise.resolve({ success: true, data: [] }) : getCoverageAreasFromSupabase(),
         isCriticalMode ? Promise.resolve({ success: true, data: [] }) : getWaTemplatesFromSupabase()
@@ -18708,7 +18897,7 @@ async function createExpressApp(options) {
     });
     if (!loginRes.success || !loginRes.data) {
       const errCode = loginRes.error?.code || "AUTH_FAILED";
-      const status = errCode === "ACCOUNT_LOCKED" ? 429 : errCode === "ACCOUNT_NOT_FOUND" ? 404 : errCode === "ACCOUNT_DISABLED" || errCode === "ACCOUNT_DELETED" ? 403 : errCode === "DATABASE_UNAVAILABLE" ? 503 : 401;
+      const status = errCode === "ACCOUNT_LOCKED" ? 429 : errCode === "ACCOUNT_DISABLED" || errCode === "ACCOUNT_DELETED" ? 403 : errCode === "DATABASE_UNAVAILABLE" ? 503 : 401;
       return res.status(status).json({
         success: false,
         error: loginRes.error?.message || "Autentikasi gagal.",
@@ -18786,12 +18975,8 @@ async function createExpressApp(options) {
   const handleLogout = async (req, res) => {
     const authHeader = req.headers["authorization"];
     const rawToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : req.cookies?.mora_access_token;
-    const rawRefreshToken = req.cookies?.mora_refresh_token || req.body?.refreshToken;
     if (rawToken) {
       await revokeSingleSession(rawToken);
-    }
-    if (rawRefreshToken && typeof rawRefreshToken === "string") {
-      await revokeSingleSession(rawRefreshToken);
     }
     if (req.user?.role === "installer" || req.session?.sessionId) {
       await endInstallerTrackingSession({
@@ -19172,7 +19357,7 @@ async function createExpressApp(options) {
     }
     const passwordHash = await hashPasswordWithBcrypt(password);
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const userId = "u-" + Date.now() + "-" + crypto9.randomBytes(3).toString("hex");
+    const userId = "u-" + Date.now() + "-" + crypto10.randomBytes(3).toString("hex");
     const newUser = {
       id: userId,
       name: cleanName,
@@ -20892,6 +21077,56 @@ async function createExpressApp(options) {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+      await Promise.allSettled([
+        upsertWoPhotoEvidenceToSupabase({
+          id: slotRecord.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          slotKey: slotRecord.slotKey,
+          slotTitle: slotRecord.title,
+          storagePath: slotRecord.storagePath,
+          photoUrl: slotRecord.url,
+          fileName: slotRecord.fileName,
+          fileSizeBytes: slotRecord.fileSizeBytes,
+          mimeType: slotRecord.mimeType,
+          latitude: slotRecord.latitude,
+          longitude: slotRecord.longitude,
+          gpsAccuracyMeters: slotRecord.gpsAccuracyMeters,
+          altitudeMeters: slotRecord.altitudeMeters,
+          headingDeg: slotRecord.headingDeg,
+          speedMps: slotRecord.speedMps,
+          capturedAt: slotRecord.capturedAtIso,
+          uploadedAt: slotRecord.uploadedAt,
+          technicianId: slotRecord.technicianId,
+          technicianName: slotRecord.technicianName,
+          locationSource: slotRecord.locationSource,
+          permissionStatus: slotRecord.permissionStatus,
+          geotagStatus: slotRecord.geotagStatus,
+          captureMethod: slotRecord.captureMethod,
+          sha256: slotRecord.sha256,
+          clientCaptureId: slotRecord.clientCaptureId,
+          metadata: { badgeText: slotRecord.badgeText, statusTag: slotRecord.statusTag, fieldNotes: slotRecord.fieldNotes }
+        }),
+        insertAttachmentToSupabase({
+          id: slotRecord.id,
+          fileId: slotRecord.id,
+          workOrderId: ticket.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileName: slotRecord.fileName,
+          fileType: slotRecord.mimeType,
+          fileSize: slotRecord.fileSizeBytes,
+          storageProvider: storageRes.storageProvider || "supabase",
+          storagePath: slotRecord.storagePath,
+          downloadUrl: slotRecord.url,
+          senderId: req.user.id,
+          senderName: req.user.name,
+          senderRole: req.user.role,
+          validationStatus: "verified",
+          payload: { slotKey: slotRecord.slotKey, sha256: slotRecord.sha256 },
+          uploadedAt: slotRecord.uploadedAt
+        })
+      ]);
     }
     if (isLocalJsonModeAllowed()) {
       const localIdx = db.tickets.findIndex((t) => t.id === ticket.id || t.woNumber === ticket.woNumber);
@@ -21026,6 +21261,7 @@ async function createExpressApp(options) {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
+      await deleteWoPhotoEvidenceRowFromSupabase(ticket.id, cleanSlotKey);
     }
     if (isLocalJsonModeAllowed()) {
       const localIdx = db.tickets.findIndex((t) => t.id === ticket.id || t.woNumber === ticket.woNumber);
@@ -21299,7 +21535,26 @@ async function createExpressApp(options) {
           };
         }
       }
-      const telemetrySignature = typeof technicalTelemetry.customerSignatureUrl === "string" && technicalTelemetry.customerSignatureUrl.trim() ? technicalTelemetry.customerSignatureUrl.trim() : prevTr.customerSignatureUrl || ticket.customerSignatureUrl;
+      const rawTelemetrySignature = typeof technicalTelemetry.customerSignatureUrl === "string" && technicalTelemetry.customerSignatureUrl.trim() ? technicalTelemetry.customerSignatureUrl.trim() : prevTr.customerSignatureUrl || ticket.customerSignatureUrl;
+      let telemetrySignature = rawTelemetrySignature;
+      if (rawTelemetrySignature && rawTelemetrySignature.toLowerCase().startsWith("data:")) {
+        const sigOffload = await offloadDataUriToStorageIfNeeded({
+          rawValue: rawTelemetrySignature,
+          user: { id: req.user.id, name: req.user.name, role: req.user.role },
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileCategory: "wo_document",
+          fileNamePrefix: "signature"
+        });
+        if (sigOffload.error && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            code: "SIGNATURE_STORAGE_FAILED",
+            error: sigOffload.error
+          });
+        }
+        if (sigOffload.url) telemetrySignature = sigOffload.url;
+      }
       updates.technicalReport = {
         ...prevTr,
         id: prevTr.id || `rep_${Date.now()}`,
@@ -21532,10 +21787,31 @@ async function createExpressApp(options) {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
-      await insertKendalaReportToSupabase({
-        ...kendalaEntry,
-        payload: { targetInstallerStatus: nextInstallerStatus }
-      });
+      await Promise.allSettled([
+        insertKendalaReportToSupabase({
+          ...kendalaEntry,
+          payload: { targetInstallerStatus: nextInstallerStatus }
+        }),
+        insertAttachmentToSupabase({
+          id: `att_${kendalaEntry.id}`,
+          fileId: storageRes.fileId || kendalaEntry.id,
+          workOrderId: ticket.id,
+          ticketId: ticket.id,
+          woNumber: ticket.woNumber,
+          fileName: safeFileName,
+          fileType: resolvedMime,
+          fileSize: buffer.length,
+          storageProvider: storageRes.storageProvider || "supabase",
+          storagePath: storageRes.storagePath,
+          downloadUrl: storageRes.downloadUrl,
+          senderId: req.user.id,
+          senderName: req.user.name,
+          senderRole: req.user.role,
+          validationStatus: "verified",
+          payload: { kendalaReportId: kendalaEntry.id, reasonLabel: cleanReasonLabel },
+          uploadedAt: now
+        })
+      ]);
     }
     if (isLocalJsonModeAllowed()) {
       const localIdx = db.tickets.findIndex((t) => t.id === ticket.id || t.woNumber === ticket.woNumber);
@@ -23427,82 +23703,27 @@ async function createExpressApp(options) {
     }
     return res.status(503).json({ success: false, error: "Database authoritative Supabase tidak tersedia.", code: "DATABASE_UNAVAILABLE" });
   });
-  app.get("/api/sessions", requireSuperAdmin, async (_req, res) => {
+  app.get("/api/sessions", requireSuperAdmin, (_req, res) => {
     const now = Date.now();
-    if (isSupabaseMode()) {
-      const sbRes = await getUserSessionsFromSupabase();
-      if (!sbRes.success) {
-        return res.status(503).json({
-          success: false,
-          error: sbRes.error?.message || "Gagal membaca data sesi dari Supabase.",
-          code: "DATABASE_UNAVAILABLE"
-        });
+    SERVER_SESSIONS.forEach((s) => {
+      if (s.status === "active" && new Date(s.expiresAt).getTime() < now) {
+        s.status = "expired";
       }
-      const mapped = (sbRes.data || []).map((row) => {
-        const expMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-        const rawStatus = row.status || "active";
-        const effectiveStatus = rawStatus === "active" && expMs > 0 && expMs < now ? "expired" : rawStatus;
-        return {
-          sessionId: row.session_id,
-          userId: row.user_id,
-          username: row.username || "",
-          name: row.name || "",
-          role: row.role || "installer",
-          contractor: row.contractor || void 0,
-          loginAt: row.login_at,
-          lastActivityAt: row.last_activity_at,
-          expiresAt: row.expires_at,
-          status: effectiveStatus,
-          ipAddress: row.ip_address || void 0,
-          userAgent: row.user_agent || void 0,
-          deviceType: row.device_type || "unknown"
-        };
-      });
-      return res.json({ sessions: mapped });
-    }
-    await sessionStore.cleanupExpired().catch(() => {
     });
-    const safeSessions = sessionStore.getAllSessions().map((s) => {
-      const { token: _, refreshToken: __, ...safe } = s;
+    const safeSessions = SERVER_SESSIONS.map((s) => {
+      const { token: _, ...safe } = s;
       return safe;
     });
     res.json({ sessions: safeSessions });
   });
-  app.post("/api/sessions/revoke", requireAuth, async (req, res) => {
-    const { sessionId, reason } = req.body || {};
-    if (!sessionId || typeof sessionId !== "string") {
-      return res.status(400).json({ error: "sessionId wajib diisi." });
-    }
-    let ownerUserId = null;
-    if (isSupabaseMode()) {
-      const sbRes = await getUserSessionsFromSupabase();
-      if (sbRes.success && Array.isArray(sbRes.data)) {
-        const matched = sbRes.data.find((r) => r.session_id === sessionId);
-        if (matched) ownerUserId = matched.user_id;
-      }
-      if (!ownerUserId) {
-        const client = getSupabaseBackendClient();
-        if (client) {
-          const { data: authSessRows } = await client.from("auth_sessions").select("id, user_id").eq("id", sessionId).limit(1);
-          if (Array.isArray(authSessRows) && authSessRows[0]) {
-            ownerUserId = authSessRows[0].user_id;
-          }
-        }
-      }
-    } else {
-      const memSess = await sessionStore.findSession(sessionId, { allowInactive: true }).catch(() => void 0);
-      if (memSess) ownerUserId = memSess.userId;
-    }
-    if (!ownerUserId) {
-      return res.status(404).json({ error: "Sesi tidak ditemukan." });
-    }
-    if (ownerUserId !== req.user.id && req.user.role !== "super_admin") {
+  app.post("/api/sessions/revoke", requireAuth, (req, res) => {
+    const { sessionId, reason } = req.body;
+    const session = SERVER_SESSIONS.find((s) => s.sessionId === sessionId);
+    if (!session) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    if (session.userId !== req.user.id && req.user.role !== "super_admin") {
       return res.status(403).json({ error: "Akses Ditolak: Anda hanya dapat mencabut sesi Anda sendiri." });
     }
-    await revokeSingleSession(sessionId);
-    if (isSupabaseMode()) {
-      await revokeUserSessionInSupabase(sessionId);
-    }
+    session.status = "revoked";
     logServerAudit("Session Revoked", "session", sessionId, `Sesi dicabut oleh ${req.user.name}. Alasan: ${reason || "Pencabutan manual"}`, req.user);
     res.json({ success: true, message: "Sesi berhasil dicabut." });
   });
@@ -23548,27 +23769,27 @@ async function createExpressApp(options) {
   });
   app.get("/api/admin/backup/download", requireBackupDownloadPermission, async (req, res) => {
     const BACKUP_FILE_NAME = "morajaws_production_firestore_backup.json";
-    const primaryPath = path2.resolve(__dirname, "data", BACKUP_FILE_NAME);
-    const fallbackPath = path2.resolve(__dirname, BACKUP_FILE_NAME);
-    const BACKUP_FILE_PATH = fs2.existsSync(primaryPath) ? primaryPath : fallbackPath;
+    const primaryPath = path3.resolve(__dirname, "data", BACKUP_FILE_NAME);
+    const fallbackPath = path3.resolve(__dirname, BACKUP_FILE_NAME);
+    const BACKUP_FILE_PATH = fs3.existsSync(primaryPath) ? primaryPath : fallbackPath;
     const EXPECTED_BACKUP_SIZE = 1055520;
     const EXPECTED_BACKUP_SHA256 = "c4b0b42c78f634735f1eb361947e641d096e13b9d071d8654fa13bfb5b1ab876";
     try {
-      if (!fs2.existsSync(BACKUP_FILE_PATH)) {
+      if (!fs3.existsSync(BACKUP_FILE_PATH)) {
         return res.status(404).json({
           error: "File backup produksi tidak ditemukan pada server.",
           code: "BACKUP_FILE_NOT_FOUND"
         });
       }
-      const stat = fs2.statSync(BACKUP_FILE_PATH);
+      const stat = fs3.statSync(BACKUP_FILE_PATH);
       if (stat.size !== EXPECTED_BACKUP_SIZE) {
         return res.status(409).json({
           error: `Integritas ukuran file gagal: ${stat.size} bytes (target: ${EXPECTED_BACKUP_SIZE} bytes).`,
           code: "INTEGRITY_SIZE_MISMATCH"
         });
       }
-      const hash = crypto9.createHash("sha256");
-      const fileBuffer = fs2.readFileSync(BACKUP_FILE_PATH);
+      const hash = crypto10.createHash("sha256");
+      const fileBuffer = fs3.readFileSync(BACKUP_FILE_PATH);
       hash.update(fileBuffer);
       const actualHash = hash.digest("hex");
       if (actualHash !== EXPECTED_BACKUP_SHA256) {
@@ -23588,7 +23809,7 @@ async function createExpressApp(options) {
         `User ${req.user.name} (${req.user.role}) mengunduh file backup produksi (${EXPECTED_BACKUP_SIZE} bytes)`,
         req.user
       );
-      const stream = fs2.createReadStream(BACKUP_FILE_PATH);
+      const stream = fs3.createReadStream(BACKUP_FILE_PATH);
       stream.on("error", (streamErr) => {
         console.error("[Backup Download] Stream error:", streamErr);
         if (!res.headersSent) {
@@ -24100,49 +24321,113 @@ async function createExpressApp(options) {
       currentSyncJobId = null;
     }
   });
-  app.post("/api/attachments", requireAuth, (req, res) => {
-    const { fileName, fileType, fileSize, fileData, woNumber, ticketId } = req.body;
-    if (!fileName || !fileData) {
-      return res.status(400).json({ error: "Nama file dan data file wajib disertakan." });
-    }
-    const maxSizeBytes = 10 * 1024 * 1024;
-    const estimatedSize = fileSize || Math.round(fileData.length * 3 / 4);
-    if (estimatedSize > maxSizeBytes) {
-      return res.status(413).json({ error: `Ukuran file melebihi batas maksimum 10MB (Ukuran: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB).` });
-    }
-    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf", "text/plain"];
-    const cleanMime = (fileType || "image/jpeg").toLowerCase().trim();
-    const isAllowed = allowedMimes.some((m) => cleanMime.startsWith(m) || cleanMime.includes(m.split("/")[1]));
-    if (!isAllowed) {
-      return res.status(415).json({
-        error: `Format file tidak diizinkan (${cleanMime}). Hanya file gambar (JPG, PNG, WEBP), PDF, dan dokumen teks yang diizinkan.`
+  app.post("/api/attachments", requireAuth, async (req, res) => {
+    try {
+      const { fileName, fileType, fileSize, fileData, woNumber, ticketId } = req.body;
+      if (!fileName || !fileData) {
+        return res.status(400).json({ error: "Nama file dan data file wajib disertakan." });
+      }
+      let resolvedMime = (fileType || "image/jpeg").toLowerCase().trim();
+      let rawBase64 = String(fileData);
+      const dataMatch = rawBase64.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/);
+      if (dataMatch) {
+        resolvedMime = dataMatch[1].toLowerCase();
+        rawBase64 = dataMatch[2];
+      }
+      const fileBuffer = Buffer.from(rawBase64, "base64");
+      const maxSizeBytes = 10 * 1024 * 1024;
+      const actualSize = fileBuffer.length || fileSize || 0;
+      if (actualSize > maxSizeBytes) {
+        return res.status(413).json({
+          error: `Ukuran file melebihi batas maksimum 10MB (Ukuran: ${(actualSize / (1024 * 1024)).toFixed(2)}MB).`
+        });
+      }
+      const cleanMime = resolvedMime;
+      const fileCategory = cleanMime.startsWith("image/") ? "wo_document" : "wo_document";
+      const uploadRes = await uploadFile({
+        userId: req.user.id,
+        userRole: req.user.role,
+        userName: req.user.name,
+        fileCategory,
+        fileName: String(fileName).trim(),
+        fileBuffer,
+        mimeType: cleanMime,
+        relatedWoNumber: woNumber ? String(woNumber).trim() : void 0
+      });
+      if (!uploadRes.success || !uploadRes.metadata || !uploadRes.downloadUrl) {
+        return res.status(400).json({
+          success: false,
+          error: uploadRes.error || "Gagal mengunggah file lampiran ke penyimpanan."
+        });
+      }
+      const now = uploadRes.metadata.uploadedAt || (/* @__PURE__ */ new Date()).toISOString();
+      const fileId = uploadRes.metadata.fileId;
+      const attachment = {
+        fileId,
+        id: fileId,
+        woNumber: woNumber || ticketId || "WO-GENERAL",
+        ticketId: ticketId || void 0,
+        fileName: uploadRes.metadata.originalFileName,
+        fileType: cleanMime,
+        fileSize: uploadRes.metadata.fileSize,
+        storagePath: uploadRes.metadata.filePath,
+        storageType: uploadRes.storageProvider === "local_disk" ? "Local Persistent Storage" : "Supabase Storage",
+        url: uploadRes.downloadUrl,
+        downloadUrl: uploadRes.downloadUrl,
+        sender: req.user.name,
+        senderId: req.user.id,
+        senderRole: req.user.role,
+        uploadedAt: now,
+        validationStatus: "verified"
+      };
+      if (isSupabaseMode()) {
+        const metaRes = await insertAttachmentToSupabase({
+          id: fileId,
+          fileId,
+          workOrderId: ticketId || null,
+          ticketId: ticketId || null,
+          woNumber: woNumber || null,
+          fileName: attachment.fileName,
+          fileType: cleanMime,
+          fileSize: attachment.fileSize,
+          storageProvider: uploadRes.storageProvider || "supabase",
+          storagePath: attachment.storagePath,
+          downloadUrl: attachment.downloadUrl,
+          senderId: req.user.id,
+          senderName: req.user.name,
+          senderRole: req.user.role,
+          validationStatus: "verified",
+          payload: { sha256: uploadRes.metadata.sha256 },
+          uploadedAt: now
+        });
+        if (!metaRes.persisted && !metaRes.skippedSchemaPending && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            code: "ATTACHMENT_METADATA_FAILED",
+            error: metaRes.error || "Gagal menyimpan metadata lampiran ke database Supabase."
+          });
+        }
+      }
+      if (isLocalJsonModeAllowed()) {
+        db.attachments = db.attachments || [];
+        db.attachments.unshift(attachment);
+        if (db.attachments.length > 500) db.attachments.pop();
+        saveDatabaseToDisk();
+      }
+      await logServerAuditAsync(
+        "Attachment Uploaded",
+        "attachment",
+        fileId,
+        `${req.user.name} (${req.user.role}) mengunggah lampiran "${fileName}" (${(attachment.fileSize / 1024).toFixed(1)} KB) untuk WO ${attachment.woNumber}`,
+        req.user
+      );
+      res.json({ success: true, attachment });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || "Gagal memproses unggahan lampiran."
       });
     }
-    const fileId = "att_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    const attachment = {
-      fileId,
-      id: fileId,
-      woNumber: woNumber || ticketId || "WO-GENERAL",
-      ticketId: ticketId || woNumber,
-      fileName: String(fileName).trim(),
-      fileType: cleanMime,
-      fileSize: estimatedSize,
-      storagePath: `work_orders/${woNumber || "general"}/${fileId}_${fileName}`,
-      storageType: "Supabase Storage / Secure Persistent Storage",
-      url: fileData.startsWith("data:") ? fileData : `data:${cleanMime};base64,${fileData}`,
-      sender: req.user.name,
-      senderId: req.user.id,
-      senderRole: req.user.role,
-      uploadedAt: now,
-      validationStatus: "verified"
-    };
-    db.attachments = db.attachments || [];
-    db.attachments.unshift(attachment);
-    if (db.attachments.length > 500) db.attachments.pop();
-    saveDatabaseToDisk();
-    logServerAudit("Attachment Uploaded", "attachment", fileId, `${req.user.name} (${req.user.role}) mengunggah lampiran "${fileName}" (${(estimatedSize / 1024).toFixed(1)} KB) untuk WO ${woNumber}`, req.user);
-    res.json({ success: true, attachment });
   });
   app.get("/api/storage/readiness", async (req, res) => {
     try {
@@ -24366,7 +24651,7 @@ async function createExpressApp(options) {
     }
     res.setHeader("Content-Type", downloadResult.mimeType || "application/octet-stream");
     res.setHeader("Content-Length", downloadResult.sizeBytes || downloadResult.data.length);
-    const safeFileName = path2.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
+    const safeFileName = path3.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
     res.setHeader("Content-Disposition", `inline; filename="${safeFileName}"`);
     res.send(downloadResult.data);
   });
@@ -24762,10 +25047,43 @@ async function createExpressApp(options) {
     if (!uploadRes.success || !uploadRes.metadata) {
       return res.status(400).json({ success: false, error: uploadRes.error });
     }
-    db.storageMetadata = db.storageMetadata || [];
-    db.storageMetadata.unshift(uploadRes.metadata);
-    if (db.storageMetadata.length > 500) db.storageMetadata.pop();
-    saveDatabaseToDisk();
+    if (isSupabaseMode()) {
+      const metaRes = await insertAttachmentToSupabase({
+        id: uploadRes.metadata.fileId,
+        fileId: uploadRes.metadata.fileId,
+        workOrderId: req.body?.ticketId ? String(req.body.ticketId).trim() : null,
+        ticketId: req.body?.ticketId ? String(req.body.ticketId).trim() : null,
+        woNumber: relatedWoNumber ? String(relatedWoNumber).trim() : null,
+        fileName: uploadRes.metadata.originalFileName,
+        fileType: uploadRes.metadata.mimeType,
+        fileSize: uploadRes.metadata.fileSize,
+        storageProvider: uploadRes.storageProvider || "supabase",
+        storagePath: uploadRes.metadata.filePath,
+        downloadUrl: uploadRes.downloadUrl || null,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role,
+        validationStatus: "verified",
+        payload: {
+          sha256: uploadRes.metadata.sha256,
+          fileCategory: uploadRes.metadata.fileCategory
+        },
+        uploadedAt: uploadRes.metadata.uploadedAt
+      });
+      if (!metaRes.persisted && !metaRes.skippedSchemaPending && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: "ATTACHMENT_METADATA_FAILED",
+          error: metaRes.error || "Gagal menyimpan metadata file ke database Supabase."
+        });
+      }
+    }
+    if (isLocalJsonModeAllowed()) {
+      db.storageMetadata = db.storageMetadata || [];
+      db.storageMetadata.unshift(uploadRes.metadata);
+      if (db.storageMetadata.length > 500) db.storageMetadata.pop();
+      saveDatabaseToDisk();
+    }
     res.json({
       success: true,
       metadata: uploadRes.metadata,
@@ -24823,7 +25141,7 @@ async function createExpressApp(options) {
     }
     res.setHeader("Content-Type", result.mimeType || "application/octet-stream");
     res.setHeader("Content-Length", result.sizeBytes || result.data.length);
-    const safeFileName = path2.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
+    const safeFileName = path3.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
     res.setHeader("Content-Disposition", `inline; filename="${safeFileName}"`);
     res.send(result.data);
   });
@@ -24928,40 +25246,86 @@ async function createExpressApp(options) {
       const {
         area,
         contractorId,
+        contractor,
         installerName,
         statusWOAgent,
         statusWOInstaller,
         appointmentDate,
+        search,
         includeArchived,
         includeDeleted,
         limit,
-        offset
+        offset,
+        page,
+        lightweight
       } = req.query;
       let tickets = [];
+      let totalCount;
+      let pageNum;
+      let totalPagesCount;
       if (isSupabaseMode()) {
-        const sbResult = await getWorkOrdersFromSupabase({
-          area,
-          contractorId,
-          installerName,
-          appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : void 0,
-          includeArchived: includeArchived === "true",
-          includeDeleted: includeDeleted === "true",
-          limit: limit ? parseInt(limit, 10) : void 0,
-          offset: offset ? parseInt(offset, 10) : void 0
-        });
-        if (!sbResult.success) {
-          if (!isLocalJsonModeAllowed()) {
-            return res.status(503).json({
-              success: false,
-              error: {
-                code: "SUPABASE_UNAVAILABLE",
-                message: "Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi."
-              }
-            });
+        const usePaginated = Boolean(limit || page || offset || search || statusWOAgent || statusWOInstaller || contractor);
+        if (usePaginated) {
+          const sbPaged = await getWorkOrdersFromSupabasePaginated({
+            area,
+            contractorId,
+            contractor,
+            installerName,
+            statusWOAgent,
+            statusWOInstaller,
+            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : void 0,
+            search,
+            includeArchived: includeArchived === "true",
+            includeDeleted: includeDeleted === "true",
+            limit: limit ? parseInt(limit, 10) : 100,
+            offset: offset ? parseInt(offset, 10) : void 0,
+            page: page ? parseInt(page, 10) : 1,
+            lightweight: lightweight !== "false",
+            userRole: user.role,
+            userId: user.id,
+            userContractor: user.contractor
+          });
+          if (!sbPaged.success) {
+            if (!isLocalJsonModeAllowed()) {
+              return res.status(503).json({
+                success: false,
+                error: {
+                  code: "SUPABASE_UNAVAILABLE",
+                  message: "Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi."
+                }
+              });
+            }
+            tickets = db.tickets;
+          } else {
+            tickets = sbPaged.data?.tickets || [];
+            totalCount = sbPaged.data?.total;
+            pageNum = sbPaged.data?.page;
+            totalPagesCount = sbPaged.data?.totalPages;
           }
-          tickets = db.tickets;
         } else {
-          tickets = sbResult.data || [];
+          const sbResult = await getWorkOrdersFromSupabase({
+            area,
+            contractorId,
+            installerName,
+            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : void 0,
+            includeArchived: includeArchived === "true",
+            includeDeleted: includeDeleted === "true",
+            lightweight: lightweight === "true"
+          });
+          if (!sbResult.success) {
+            if (!isLocalJsonModeAllowed()) {
+              return res.status(503).json({
+                success: false,
+                error: {
+                  code: "SUPABASE_UNAVAILABLE",
+                  message: "Koneksi database Supabase tidak tersedia dan mode fallback JSON dilarang di lingkungan produksi."
+                }
+              });
+            }
+            tickets = db.tickets;
+          } else {
+            tickets = sbResult.data || [];
+          }
         }
       } else {
         if (!isLocalJsonModeAllowed()) {
@@ -24976,16 +25340,17 @@ async function createExpressApp(options) {
         tickets = db.tickets;
       }
       let scoped = scopeTicketsForUser(tickets, user);
-      if (statusWOAgent) {
+      if (statusWOAgent && statusWOAgent.toLowerCase() !== "all") {
         scoped = scoped.filter((t) => t.statusWOAgent === statusWOAgent);
       }
-      if (statusWOInstaller) {
+      if (statusWOInstaller && statusWOInstaller.toLowerCase() !== "all") {
         scoped = scoped.filter((t) => t.statusWOInstaller === statusWOInstaller);
       }
       return res.json({
         success: true,
         data: scoped,
-        count: scoped.length
+        count: scoped.length,
+        ...typeof totalCount === "number" ? { total: totalCount, page: pageNum, totalPages: totalPagesCount } : {}
       });
     } catch (err) {
       console.error("[API /api/supabase/work-orders] Error:", err);
@@ -25193,6 +25558,45 @@ async function createExpressApp(options) {
           }
           updates.appointmentDate = validated;
         }
+      }
+      if (typeof updates.customerSignatureUrl === "string" && updates.customerSignatureUrl.trim().toLowerCase().startsWith("data:")) {
+        const off = await offloadDataUriToStorageIfNeeded({
+          rawValue: updates.customerSignatureUrl,
+          user: { id: user.id, name: user.name, role: user.role },
+          ticketId: existing.id,
+          woNumber: existing.woNumber,
+          fileCategory: "wo_document",
+          fileNamePrefix: "signature"
+        });
+        if (off.error && !isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: { code: "STORAGE_UPLOAD_FAILED", message: off.error } });
+        }
+        if (off.url) updates.customerSignatureUrl = off.url;
+      }
+      if (updates.technicalReport && typeof updates.technicalReport === "object") {
+        const trCopy = { ...updates.technicalReport };
+        for (const [fieldKey, prefix, cat] of [
+          ["customerSignatureUrl", "signature", "wo_document"],
+          ["photoBeforeUrl", "photo_before", "image_report"],
+          ["photoAfterUrl", "photo_after", "image_report"]
+        ]) {
+          const val = trCopy[fieldKey];
+          if (typeof val === "string" && val.trim().toLowerCase().startsWith("data:")) {
+            const off = await offloadDataUriToStorageIfNeeded({
+              rawValue: val,
+              user: { id: user.id, name: user.name, role: user.role },
+              ticketId: existing.id,
+              woNumber: existing.woNumber,
+              fileCategory: cat,
+              fileNamePrefix: prefix
+            });
+            if (off.error && !isLocalJsonModeAllowed()) {
+              return res.status(503).json({ success: false, error: { code: "STORAGE_UPLOAD_FAILED", message: off.error } });
+            }
+            if (off.url) trCopy[fieldKey] = off.url;
+          }
+        }
+        updates.technicalReport = trCopy;
       }
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
@@ -27264,9 +27668,68 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       const limitRaw = String(req.query.limit || "50");
       const isAllLimit = limitRaw.toUpperCase() === "ALL";
       const limit = isAllLimit ? 5e3 : Math.min(500, Math.max(1, Number(limitRaw) || 50));
+      const qSearch = String(req.query.search || "").trim();
+      const qArea = String(req.query.area || "").trim();
+      const qContractor = String(req.query.contractor || "").trim();
+      const qStatusAgent = String(req.query.statusWOAgent || "").trim();
+      const qStatusInstaller = String(req.query.statusWOInstaller || "").trim();
+      const qStatusWa = String(req.query.statusWhatsApp || "").trim();
+      const qApproval = String(req.query.approvalStatus || "").trim();
+      const qCategory = String(req.query.category || "").trim();
+      const qApptDate = String(req.query.appointmentDate || "").trim();
+      const qUpdatedSince = String(req.query.updatedSince || "").trim();
+      const sortBy = String(req.query.sortBy || "updatedAt");
+      const sortDir = String(req.query.sortDir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+      const todayWIB = getJakartaDateStringServer2(getNow());
+      const hasClientOnlyFilters = Boolean(
+        qStatusWa && qStatusWa.toLowerCase() !== "all" || qApproval && qApproval.toLowerCase() !== "all" || qCategory && qCategory.toLowerCase() !== "all"
+      );
+      if (isSupabaseMode() && !isAllLimit && !hasClientOnlyFilters) {
+        const pagedRes = await getWorkOrdersFromSupabasePaginated({
+          page,
+          limit,
+          includeArchived,
+          area: qArea && qArea.toLowerCase() !== "all" ? qArea : void 0,
+          contractor: qContractor && qContractor.toLowerCase() !== "all" ? qContractor : void 0,
+          statusWOAgent: qStatusAgent && qStatusAgent.toLowerCase() !== "all" ? qStatusAgent : void 0,
+          statusWOInstaller: qStatusInstaller && qStatusInstaller.toLowerCase() !== "all" ? qStatusInstaller : void 0,
+          appointmentDate: qApptDate || void 0,
+          search: qSearch || void 0,
+          updatedSince: qUpdatedSince || void 0,
+          sortBy,
+          sortDir,
+          lightweight: phase === "critical",
+          userRole: req.user.role,
+          userId: req.user.id,
+          userContractor: req.user.contractor
+        });
+        if (pagedRes.success && pagedRes.data) {
+          const scopedPaged = scopeTicketsForUser(pagedRes.data.tickets, req.user).map(
+            (t) => attachClassificationMetadata(t, todayWIB)
+          );
+          const payloadTickets2 = phase === "critical" ? scopedPaged.map(stripHeavyFieldsForCriticalPhase) : scopedPaged;
+          return res.json({
+            success: true,
+            phase,
+            page: pagedRes.data.page,
+            limit: pagedRes.data.limit,
+            total: pagedRes.data.total,
+            totalPages: pagedRes.data.totalPages,
+            operationalDateWIB: todayWIB,
+            tickets: payloadTickets2,
+            serverTime: getNow().toISOString()
+          });
+        }
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: "Database authoritative Supabase tidak tersedia.", code: "DATABASE_UNAVAILABLE" });
+        }
+      }
       let tickets = [];
       if (isSupabaseMode()) {
-        const supaRes = await getWorkOrdersFromSupabase({ includeArchived });
+        const supaRes = await getWorkOrdersFromSupabase({
+          includeArchived,
+          lightweight: phase === "critical"
+        });
         if (supaRes.success && supaRes.data) {
           tickets = supaRes.data;
         } else if (!isLocalJsonModeAllowed()) {
@@ -27277,39 +27740,36 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       } else {
         tickets = db.tickets || [];
       }
-      const todayWIB = getJakartaDateStringServer2(getNow());
       let scoped = scopeTicketsForUser(tickets, req.user).map((t) => attachClassificationMetadata(t, todayWIB));
       if (!includeArchived) {
         scoped = scoped.filter((t) => !t.isArchived);
       }
-      const qSearch = String(req.query.search || "").trim().toLowerCase();
-      const qArea = String(req.query.area || "").trim().toLowerCase();
-      const qContractor = String(req.query.contractor || "").trim().toLowerCase();
-      const qStatusAgent = String(req.query.statusWOAgent || "").trim().toLowerCase();
-      const qStatusInstaller = String(req.query.statusWOInstaller || "").trim().toLowerCase();
-      const qStatusWa = String(req.query.statusWhatsApp || "").trim().toLowerCase();
-      const qApproval = String(req.query.approvalStatus || "").trim().toLowerCase();
-      const qCategory = String(req.query.category || "").trim().toLowerCase();
-      const qApptDate = String(req.query.appointmentDate || "").trim();
-      const qUpdatedSince = String(req.query.updatedSince || "").trim();
+      const qSearchLower = qSearch.toLowerCase();
+      const qAreaLower = qArea.toLowerCase();
+      const qContractorLower = qContractor.toLowerCase();
+      const qStatusAgentLower = qStatusAgent.toLowerCase();
+      const qStatusInstallerLower = qStatusInstaller.toLowerCase();
+      const qStatusWaLower = qStatusWa.toLowerCase();
+      const qApprovalLower = qApproval.toLowerCase();
+      const qCategoryLower = qCategory.toLowerCase();
       const filtered = scoped.filter((t) => {
-        if (qArea && qArea !== "all" && String(t.area || "").toLowerCase() !== qArea) return false;
-        if (qContractor && qContractor !== "all") {
+        if (qAreaLower && qAreaLower !== "all" && String(t.area || "").toLowerCase() !== qAreaLower) return false;
+        if (qContractorLower && qContractorLower !== "all") {
           const c = String(t.contractor || t.contractorName || "").toLowerCase();
-          if (c !== qContractor) return false;
+          if (c !== qContractorLower) return false;
         }
-        if (qStatusAgent && qStatusAgent !== "all" && String(t.statusWOAgent || "").toLowerCase() !== qStatusAgent) return false;
-        if (qStatusInstaller && qStatusInstaller !== "all" && String(t.statusWOInstaller || "").toLowerCase() !== qStatusInstaller) return false;
-        if (qStatusWa && qStatusWa !== "all" && String(t.statusWhatsApp || "").toLowerCase() !== qStatusWa) return false;
-        if (qApproval && qApproval !== "all" && String(t.approvalStatus || "").toLowerCase() !== qApproval) return false;
-        if (qCategory && qCategory !== "all" && String(t.category || "").toLowerCase() !== qCategory) return false;
+        if (qStatusAgentLower && qStatusAgentLower !== "all" && String(t.statusWOAgent || "").toLowerCase() !== qStatusAgentLower) return false;
+        if (qStatusInstallerLower && qStatusInstallerLower !== "all" && String(t.statusWOInstaller || "").toLowerCase() !== qStatusInstallerLower) return false;
+        if (qStatusWaLower && qStatusWaLower !== "all" && String(t.statusWhatsApp || "").toLowerCase() !== qStatusWaLower) return false;
+        if (qApprovalLower && qApprovalLower !== "all" && String(t.approvalStatus || "").toLowerCase() !== qApprovalLower) return false;
+        if (qCategoryLower && qCategoryLower !== "all" && String(t.category || "").toLowerCase() !== qCategoryLower) return false;
         if (qApptDate && String(getStrictAppointmentDateServer(t) || "") !== qApptDate) return false;
         if (qUpdatedSince) {
           const ts = new Date(t.updatedAt || t.createdAt || 0).getTime();
           const sinceTs = new Date(qUpdatedSince).getTime();
           if (!Number.isNaN(sinceTs) && ts < sinceTs) return false;
         }
-        if (qSearch) {
+        if (qSearchLower) {
           const hay = [
             t.woNumber,
             t.idCustomer,
@@ -27323,17 +27783,16 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
             t.fdtName,
             t.fatName
           ].filter(Boolean).join(" ").toLowerCase();
-          if (!hay.includes(qSearch)) return false;
+          if (!hay.includes(qSearchLower)) return false;
         }
         return true;
       });
-      const sortBy = String(req.query.sortBy || "updatedAt");
-      const sortDir = String(req.query.sortDir || "desc").toLowerCase() === "asc" ? 1 : -1;
+      const sortMul = sortDir === "asc" ? 1 : -1;
       filtered.sort((a, b) => {
         const av = a?.[sortBy] ?? "";
         const bv = b?.[sortBy] ?? "";
         if (av === bv) return 0;
-        return String(av).localeCompare(String(bv), "id", { numeric: true }) * sortDir;
+        return String(av).localeCompare(String(bv), "id", { numeric: true }) * sortMul;
       });
       const total = filtered.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -27789,7 +28248,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         });
       }
       const requestedSessionId = String(req.body?.sessionId || req.body?.session_id || "").trim();
-      const resolvedSessionId = String(req.session?.sessionId || requestedSessionId || "").trim() || `sess_${crypto9.randomBytes(12).toString("hex")}`;
+      const resolvedSessionId = String(req.session?.sessionId || requestedSessionId || "").trim() || `sess_${crypto10.randomBytes(12).toString("hex")}`;
       const ensured = await ensureInstallerTrackingSession({
         installer: {
           id: user.id,
@@ -28283,7 +28742,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         return res.status(400).json({ success: false, error: "Pesan atau catatan tindakan wajib diisi." });
       }
       const record = {
-        id: `sla_act_${Date.now()}_${crypto9.randomBytes(3).toString("hex")}`,
+        id: `sla_act_${Date.now()}_${crypto10.randomBytes(3).toString("hex")}`,
         actionType,
         ticketId: ticketId ? String(ticketId) : void 0,
         woNumber: woNumber ? String(woNumber) : void 0,
@@ -28316,7 +28775,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       if (postToLiveChat && ticketId) {
         const msgCategory = actionType === "ESCALATE_DISPATCH" || actionType === "BYPASS_PERMIT" ? "ISSUE" : "GENERAL";
         const chatText = `[SLA Governance: ${actionType}] ${record.message}`;
-        const msgId = `msg_${Date.now()}_${crypto9.randomBytes(3).toString("hex")}`;
+        const msgId = `msg_${Date.now()}_${crypto10.randomBytes(3).toString("hex")}`;
         const nowIso = record.createdAt;
         let savedSlaMsg = {
           id: msgId,
@@ -28744,7 +29203,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     }
     const startMs = Date.now();
     const startedAt = (/* @__PURE__ */ new Date()).toISOString();
-    const jobId = "sync_" + Date.now() + "_" + crypto9.randomBytes(4).toString("hex");
+    const jobId = "sync_" + Date.now() + "_" + crypto10.randomBytes(4).toString("hex");
     try {
       let resultMessage = "";
       let processedCount = db.tickets.length;
@@ -29892,8 +30351,8 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
   app.all("/data/morajaws_production_firestore_backup.json", (_req, res) => {
     return res.status(404).json({ error: "File tidak ditemukan", code: "NOT_FOUND" });
   });
-  if (process.env.NODE_ENV === "production" || options?.apiOnly) {
-    if (process.env.API_ONLY_MODE === "true" || options?.apiOnly) {
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.API_ONLY_MODE === "true") {
       app.get("/", (_req, res) => {
         res.json({
           status: "ok",
@@ -29907,14 +30366,14 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
           return res.status(404).json({ error: "Not found", code: "NOT_FOUND" });
         }
         return res.status(404).json({
-          error: "Endpoint frontend tidak di-host pada backend API-only.",
+          error: "Endpoint frontend tidak di-host pada backend API-only. Gunakan domain Cloudflare Pages.",
           code: "API_ONLY_MODE"
         });
       });
     } else {
-      const distDir = path2.join(__dirname, "dist");
-      const distAssetsDir = path2.join(distDir, "assets");
-      const indexHtmlPath = path2.join(distDir, "index.html");
+      const distDir = path3.join(__dirname, "dist");
+      const distAssetsDir = path3.join(distDir, "assets");
+      const indexHtmlPath = path3.join(distDir, "index.html");
       app.use("/assets", express.static(distAssetsDir, {
         immutable: true,
         maxAge: "1y"
@@ -29928,7 +30387,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         if (req.path.startsWith("/api/") || req.path.startsWith("/assets/")) {
           return res.status(404).json({ error: "Not found", code: "NOT_FOUND" });
         }
-        if (!fs2.existsSync(indexHtmlPath)) {
+        if (!fs3.existsSync(indexHtmlPath)) {
           console.error("[Production Static] Missing dist/index.html at:", indexHtmlPath);
           return res.status(503).type("html").send(
             '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
@@ -29947,18 +30406,15 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     if (hmrDisabled) {
       process.env.DISABLE_HMR = "true";
     }
-    const vitePkg = "vite";
-    const viteReadyPromise = import(vitePkg).then(
-      ({ createServer: createViteServer }) => createViteServer({
-        server: {
-          middlewareMode: true,
-          hmr: hmrDisabled ? false : options?.httpServer ? { server: options.httpServer } : false,
-          ws: hmrDisabled ? false : void 0,
-          watch: hmrDisabled ? null : void 0
-        },
-        appType: "spa"
-      })
-    ).then((vite) => {
+    const viteReadyPromise = createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: hmrDisabled ? false : options?.httpServer ? { server: options.httpServer } : false,
+        ws: hmrDisabled ? false : void 0,
+        watch: hmrDisabled ? null : void 0
+      },
+      appType: "spa"
+    }).then((vite) => {
       viteMiddleware = vite.middlewares;
       if (options?.onViteInstance) {
         options.onViteInstance(vite);
@@ -30070,7 +30526,7 @@ async function startServer() {
   });
   httpServer.listen(PORT, HOST, () => {
     console.log(`MoraJaws Dispatch Management Server running on http://${HOST}:${PORT}`);
-    checkSupabaseConnection().then(async (res) => {
+    runPendingSupabaseMigrations().then(() => checkSupabaseConnection()).then(async (res) => {
       console.log(`[Startup Check] Supabase: ${res.status.toUpperCase()} - ${res.message}`);
       if (res.status === "connected") {
         await consolidateLegacyRolesOnStartup();
@@ -30080,9 +30536,7 @@ async function startServer() {
     });
   });
 }
-var isDirectRun = process.env.VERCEL !== "1" && Boolean(
-  process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || path2.resolve(process.argv[1]) === path2.resolve(fileURLToPath(import.meta.url)))
-);
+var isDirectRun = process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || path3.resolve(process.argv[1]) === path3.resolve(fileURLToPath(import.meta.url)));
 if (isDirectRun) {
   startServer().catch((err) => {
     console.error("Failed to start server:", err);

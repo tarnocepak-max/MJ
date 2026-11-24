@@ -39,6 +39,7 @@ import {
   setTrackedConfigVersion
 } from '../services/globalConfigService';
 import { useApp } from './AppContext';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/safeStorage';
 
 export type DisplayMode = 'desktop' | 'mobile';
 
@@ -68,22 +69,18 @@ export const resolveDisplayModeForUser = (
   // Strict Role Guard: TEKNISI (installer) is permanently locked to Mobile Mode
   if (user.role === 'installer') {
     if (key && typeof window !== 'undefined') {
-      try {
-        if (window.localStorage.getItem(key) !== 'mobile') {
-          window.localStorage.setItem(key, 'mobile');
-        }
-      } catch {}
+      if (safeLocalStorageGet(key) !== 'mobile') {
+        safeLocalStorageSet(key, 'mobile');
+      }
     }
     return 'mobile';
   }
 
   if (key && typeof window !== 'undefined') {
-    try {
-      const saved = window.localStorage.getItem(key);
-      if (saved === 'desktop' || saved === 'mobile') {
-        return saved;
-      }
-    } catch {}
+    const saved = safeLocalStorageGet(key);
+    if (saved === 'desktop' || saved === 'mobile') {
+      return saved;
+    }
   }
 
   return defaultMode;
@@ -462,7 +459,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [config, setConfig] = useState<UIConfiguration>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = safeLocalStorageGet(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         // Ensure structure completeness
@@ -506,10 +503,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Sync confirmed UI config to local cache & dark theme class (never triggers background DB writes)
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    } catch (e) {
-      console.error('Failed to save UI configuration to localStorage', e);
+    const res = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(config));
+    if (!res.ok && res.error) {
+      console.warn('Failed to save UI configuration to localStorage:', res.error);
     }
 
     if (config.global.themeMode === 'dark') {
@@ -705,7 +701,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 1. Exactly 3 Categories: Contractor & Area, Installer, Menu Tambahan
   const [navCategories, setNavCategoriesState] = useState<NavCategoryConfig[]>(() => {
     try {
-      const saved = localStorage.getItem(NAV_CATEGORIES_KEY);
+      const saved = safeLocalStorageGet(NAV_CATEGORIES_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -719,7 +715,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 2. Exactly 7 Standalone Menus (Menu Mandiri)
   const [standaloneMenus, setStandaloneMenusState] = useState<StandaloneMenuItem[]>(() => {
     try {
-      const saved = localStorage.getItem(NAV_STANDALONE_KEY);
+      const saved = safeLocalStorageGet(NAV_STANDALONE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return sanitizeStandaloneMenus(parsed);
@@ -733,7 +729,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 3. Submenu Items grouped under categories (Sanitized)
   const [submenuItems, setSubmenuItemsState] = useState<NavSubmenuItem[]>(() => {
     try {
-      const saved = localStorage.getItem(NAV_SUBMENUS_KEY);
+      const saved = safeLocalStorageGet(NAV_SUBMENUS_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return sanitizeSubmenuItems(parsed);
@@ -747,7 +743,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 4. Accordion Multi-open Settings
   const [accordionSettings, setAccordionSettingsState] = useState<{ allowMultipleOpenGroups: boolean }>(() => {
     try {
-      const saved = localStorage.getItem(NAV_ACCORDION_KEY);
+      const saved = safeLocalStorageGet(NAV_ACCORDION_KEY);
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.warn('Failed to parse saved accordionSettings', e);
@@ -761,14 +757,10 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     subs: NavSubmenuItem[],
     accordion: { allowMultipleOpenGroups: boolean }
   ) => {
-    try {
-      localStorage.setItem(NAV_CATEGORIES_KEY, JSON.stringify(cats));
-      localStorage.setItem(NAV_STANDALONE_KEY, JSON.stringify(standalone));
-      localStorage.setItem(NAV_SUBMENUS_KEY, JSON.stringify(subs));
-      localStorage.setItem(NAV_ACCORDION_KEY, JSON.stringify(accordion));
-    } catch (e) {
-      console.warn('[UIConfig] Gagal menyimpan cache navigasi lokal:', e);
-    }
+    safeLocalStorageSet(NAV_CATEGORIES_KEY, JSON.stringify(cats));
+    safeLocalStorageSet(NAV_STANDALONE_KEY, JSON.stringify(standalone));
+    safeLocalStorageSet(NAV_SUBMENUS_KEY, JSON.stringify(subs));
+    safeLocalStorageSet(NAV_ACCORDION_KEY, JSON.stringify(accordion));
   };
 
   const navVersionRef = useRef<number>(1);
@@ -1049,13 +1041,9 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Supabase Cloud Sync State
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
-  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('morajaws_ui_cloud_sync_time');
-    } catch {
-      return null;
-    }
-  });
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(() =>
+    safeLocalStorageGet('morajaws_ui_cloud_sync_time')
+  );
   const [lastCloudSyncError, setLastCloudSyncError] = useState<string | null>(null);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'local_only' | 'syncing' | 'error'>('local_only');
 
@@ -1090,9 +1078,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (navDoc.updatedAt) {
       setLastCloudSyncTime(navDoc.updatedAt);
-      try {
-        localStorage.setItem('morajaws_ui_cloud_sync_time', navDoc.updatedAt);
-      } catch {}
+      safeLocalStorageSet('morajaws_ui_cloud_sync_time', navDoc.updatedAt);
     }
     setLastCloudSyncError(null);
     setCloudSyncStatus('synced');
@@ -1200,9 +1186,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 }
                 if (ev.updatedAt) {
                   setLastCloudSyncTime(ev.updatedAt);
-                  try {
-                    localStorage.setItem('morajaws_ui_cloud_sync_time', ev.updatedAt);
-                  } catch {}
+                  safeLocalStorageSet('morajaws_ui_cloud_sync_time', ev.updatedAt);
                 }
                 setCloudSyncStatus('synced');
               }
@@ -1319,9 +1303,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCloudSyncStatus('synced');
       setUiConflict(null);
       pendingUiActionRef.current = null;
-      try {
-        localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
-      } catch {}
+      safeLocalStorageSet('morajaws_ui_cloud_sync_time', res.updatedAt);
       return { success: true, updatedAt: res.updatedAt };
     } catch (err: any) {
       setCloudSyncStatus('error');
@@ -1392,9 +1374,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCloudSyncStatus('synced');
       setUiConflict(null);
       pendingUiActionRef.current = null;
-      try {
-        localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
-      } catch {}
+      safeLocalStorageSet('morajaws_ui_cloud_sync_time', res.updatedAt);
       return { success: true };
     } catch (err: any) {
       setCloudSyncStatus('error');
@@ -1462,9 +1442,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCloudSyncStatus('synced');
       setUiConflict(null);
       pendingUiActionRef.current = null;
-      try {
-        localStorage.setItem('morajaws_ui_cloud_sync_time', res.updatedAt);
-      } catch {}
+      safeLocalStorageSet('morajaws_ui_cloud_sync_time', res.updatedAt);
       return { success: true, updatedAt: res.updatedAt };
     } catch (err: any) {
       setCloudSyncStatus('error');
@@ -1515,9 +1493,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (uiRes?.updatedAt || cloudData.updatedAt) {
         const ts = uiRes?.updatedAt || cloudData.updatedAt;
         setLastCloudSyncTime(ts);
-        try {
-          localStorage.setItem('morajaws_ui_cloud_sync_time', ts);
-        } catch {}
+        safeLocalStorageSet('morajaws_ui_cloud_sync_time', ts);
       }
       setCloudSyncStatus('synced');
       return { success: true };
@@ -1837,9 +1813,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Strictly reject Desktop Mode for TEKNISI / unauthenticated state
       const key = getScopedDisplayModeKey(currentUser);
       if (key && currentUser?.role === 'installer') {
-        try {
-          window.localStorage.setItem(key, 'mobile');
-        } catch {}
+        safeLocalStorageSet(key, 'mobile');
       }
       setDisplayModeState('mobile');
       return;
@@ -1848,9 +1822,7 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const validMode: DisplayMode = mode === 'mobile' ? 'mobile' : 'desktop';
     const scopedKey = getScopedDisplayModeKey(currentUser);
     if (scopedKey) {
-      try {
-        window.localStorage.setItem(scopedKey, validMode);
-      } catch {}
+      safeLocalStorageSet(scopedKey, validMode);
     }
     setDisplayModeState(validMode);
     setSidebarState(validMode === 'mobile' || windowWidth < 1024 ? 'closed' : 'expanded');
