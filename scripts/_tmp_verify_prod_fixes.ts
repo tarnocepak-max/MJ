@@ -15,7 +15,7 @@ async function main() {
   const { createExpressApp, db, SERVER_SESSIONS } = serverMod;
 
   // Ensure an active installer user exists in db.users for RBAC & role-scope tests
-  let installerUser = db.users.find((u: any) => u.role === 'installer' && u.active !== false);
+  let installerUser = db.users.find((u: any) => u.role === 'installer' && u.active !== false && !u.mustChangePassword);
   if (!installerUser) {
     installerUser = {
       id: 'u-test-inst-1',
@@ -123,9 +123,11 @@ async function main() {
             customerId: '1234567',
             customerName: 'Pelanggan Single Uji',
             appointmentDate: '2026-11-25',
-            contractor: 'PT Test Contractor',
-            area: 'Jakarta Selatan',
+            contractor: installerUser.contractor || 'PT Test Contractor',
+            contractorName: installerUser.contractor || 'PT Test Contractor',
+            area: installerUser.area || 'Jakarta Selatan',
             status: 'Pending',
+            installerId: installerUser.id,
             installerUserId: installerUser.id
           }
         ]

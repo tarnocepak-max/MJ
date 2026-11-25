@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { parseWorkOrderText, parseWorkOrderFile } from '../../services/textToTableParser';
 import { TextToTableResult, ParsedRowData } from '../../types/index.ts';
 import { MASTER_CANONICAL_FIELDS, isValidWoNumber } from '../../services/woFieldMappingEngine';
+import { parseAppointmentDate } from '../../services/appointmentDateParser';
 import {
   FileSpreadsheet,
   CheckCircle2,
@@ -722,6 +723,14 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       if (!dateVal) {
         emptyCols.push('Appointment Date');
         probCols.push('Appointment Date');
+      } else {
+        const parsedDate = parseAppointmentDate(dateVal);
+        if (!parsedDate.isValid || !parsedDate.date) {
+          formatErrs.push(parsedDate.error || `Format Appointment Date "${dateVal}" tidak valid`);
+          probCols.push('Appointment Date');
+        } else {
+          updatedMapped.appointmentDate = parsedDate.date;
+        }
       }
 
       let statusType: 'VALID' | 'DATA KOSONG' | 'HEADER TIDAK DITEMUKAN' | 'FORMAT TIDAK VALID' | 'WO DUPLIKAT';

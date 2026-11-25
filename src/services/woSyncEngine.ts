@@ -190,26 +190,46 @@ export function mergeDeltaTickets(
 
 /**
  * Merges Phase 2 full ticket payloads on top of Phase 1 critical partial snapshots
- * while safeguarding actively edited rows.
+ * while safeguarding actively edited rows and preserving any previously loaded rows
+ * not included in a partial chunk/page response.
  */
 export function mergeProgressiveHydration(
   current: Ticket[],
   fullTickets: Ticket[],
   protectedIds: Set<string> = editingTicketIds
 ): Ticket[] {
+  if (!Array.isArray(fullTickets) || fullTickets.length === 0) {
+    return Array.isArray(current) ? current : [];
+  }
   if (!Array.isArray(current) || current.length === 0) {
     return fullTickets;
   }
-  const currentMap = new Map<string, Ticket>();
+
+  const nextMap = new Map<string, Ticket>();
+  const orderedIds: string[] = [];
+
   for (const t of current) {
-    if (t?.id) currentMap.set(String(t.id), t);
+    if (!t?.id) continue;
+    const idStr = String(t.id);
+    if (!nextMap.has(idStr)) {
+      orderedIds.push(idStr);
+    }
+    nextMap.set(idStr, t);
   }
 
-  return fullTickets.map(ft => {
-    if (!ft?.id) return ft;
-    if (protectedIds.has(String(ft.id))) {
-      return currentMap.get(String(ft.id)) || ft;
+  for (const ft of fullTickets) {
+    if (!ft?.id) continue;
+    const idStr = String(ft.id);
+    if (protectedIds.has(idStr) && nextMap.has(idStr)) {
+      continue;
     }
-    return ft;
-  });
+    if (!nextMap.has(idStr)) {
+      orderedIds.push(idStr);
+    }
+    nextMap.set(idStr, ft);
+  }
+
+  return orderedIds
+    .map(id => nextMap.get(id))
+    .filter((t): t is Ticket => Boolean(t));
 }

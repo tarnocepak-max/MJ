@@ -1404,8 +1404,29 @@ export interface GetWorkOrdersOptions {
 }
 
 /**
+ * Sanitizes free-text input used inside PostgREST `.or(...ilike...)` filters
+ * to prevent filter-syntax injection via delimiters, wildcards, or quotes.
+ */
+function sanitizePostgrestIlikeTerm(raw: string): string {
+  return String(raw || '')
+    .trim()
+    .replace(/[,%()*\\"'`]/g, '');
+}
+
+/**
+ * Sanitizes and safely quotes an exact-match value inside PostgREST `.or(...eq...)`.
+ */
+function sanitizePostgrestQuotedValue(raw: string): string {
+  const cleaned = String(raw || '')
+    .trim()
+    .replace(/[\r\n\0"\\]/g, '');
+  return `"${cleaned}"`;
+}
+
+/**
  * Fetches Work Orders from Supabase with flexible filtering.
  * When `lightweight: true`, avoids downloading heavy JSONB columns (`technical_report`, `work_sessions`, `kendala_reports`, etc.).
+ * Automatically paginates in 1,000-row chunks when no explicit limit/offset is provided so older WOs beyond 1,000 rows are never silently truncated.
  */
 export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = {}): Promise<SupabaseOpResult<any[]>> {
   const client = getSupabaseBackendClient();
@@ -1413,10 +1434,8 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
 
-  try {
-    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : '*';
-    let query = client.from('work_orders').select(selectColumns);
-
+  const buildBaseQuery = (selectCols: string) => {
+    let query = client.from('work_orders').select(selectCols);
     if (!options.includeDeleted) {
       query = query.eq('is_deleted', false);
     }
@@ -1435,44 +1454,77 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
     if (options.appointmentDate) {
       query = query.eq('appointment_date', options.appointmentDate);
     }
+    return query.order('created_at', { ascending: false }).order('id', { ascending: true });
+  };
 
-    query = query.order('created_at', { ascending: false });
+  try {
+    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : '*';
+    const hasExplicitLimit = typeof options.limit === 'number' && options.limit > 0;
+    const hasExplicitOffset = typeof options.offset === 'number' && options.offset >= 0;
 
-    if (typeof options.offset === 'number' && options.offset >= 0 && typeof options.limit === 'number' && options.limit > 0) {
-      query = query.range(options.offset, options.offset + options.limit - 1);
-    } else if (typeof options.limit === 'number' && options.limit > 0) {
-      query = query.limit(options.limit);
-    }
-
-    let { data, error } = await query;
-    // Fallback if staging schema does not yet have house_location/fat_location columns
-    if (error && options.lightweight && isMissingSchemaObjectError(error)) {
-      let fallbackQuery = client.from('work_orders').select('*');
-      if (!options.includeDeleted) fallbackQuery = fallbackQuery.eq('is_deleted', false);
-      if (!options.includeArchived) fallbackQuery = fallbackQuery.eq('is_archived', false);
-      if (options.area) fallbackQuery = fallbackQuery.eq('area', options.area);
-      if (options.contractorId) fallbackQuery = fallbackQuery.eq('contractor_id', options.contractorId);
-      if (options.installerName) fallbackQuery = fallbackQuery.eq('installer_name', options.installerName);
-      if (options.appointmentDate) fallbackQuery = fallbackQuery.eq('appointment_date', options.appointmentDate);
-      fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
-      if (typeof options.offset === 'number' && options.offset >= 0 && typeof options.limit === 'number' && options.limit > 0) {
-        fallbackQuery = fallbackQuery.range(options.offset, options.offset + options.limit - 1);
-      } else if (typeof options.limit === 'number' && options.limit > 0) {
-        fallbackQuery = fallbackQuery.limit(options.limit);
+    if (hasExplicitLimit || hasExplicitOffset) {
+      let query = buildBaseQuery(selectColumns);
+      if (hasExplicitOffset && hasExplicitLimit) {
+        query = query.range(options.offset!, options.offset! + options.limit! - 1);
+      } else if (hasExplicitLimit) {
+        query = query.limit(options.limit!);
       }
-      const fallbackRes = await fallbackQuery;
-      data = fallbackRes.data as any;
-      error = fallbackRes.error;
+
+      let { data, error } = await query;
+      if (error && options.lightweight && isMissingSchemaObjectError(error)) {
+        let fallbackQuery = buildBaseQuery('*');
+        if (hasExplicitOffset && hasExplicitLimit) {
+          fallbackQuery = fallbackQuery.range(options.offset!, options.offset! + options.limit! - 1);
+        } else if (hasExplicitLimit) {
+          fallbackQuery = fallbackQuery.limit(options.limit!);
+        }
+        const fallbackRes = await fallbackQuery;
+        data = fallbackRes.data as any;
+        error = fallbackRes.error;
+      }
+
+      if (error) {
+        const classified = classifySupabaseError(error);
+        console.error('[Supabase DAL] getWorkOrders error:', classified.message);
+        return { success: false, error: classified };
+      }
+
+      return { success: true, data: (data || []).map(postgresRowToTicket) };
     }
 
-    if (error) {
-      const classified = classifySupabaseError(error);
-      console.error('[Supabase DAL] getWorkOrders error:', classified.message);
-      return { success: false, error: classified };
+    // Unbounded read: paginate deterministically in 1,000-row chunks to bypass PostgREST max_rows=1000 truncation
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 25;
+    const allRows: any[] = [];
+    let useFallbackColumns = false;
+
+    for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
+      const start = chunkIdx * CHUNK_SIZE;
+      const end = start + CHUNK_SIZE - 1;
+      const activeCols = useFallbackColumns ? '*' : selectColumns;
+
+      let { data, error } = await buildBaseQuery(activeCols).range(start, end);
+      if (error && !useFallbackColumns && options.lightweight && isMissingSchemaObjectError(error)) {
+        useFallbackColumns = true;
+        const fallbackRes = await buildBaseQuery('*').range(start, end);
+        data = fallbackRes.data as any;
+        error = fallbackRes.error;
+      }
+
+      if (error) {
+        const classified = classifySupabaseError(error);
+        console.error('[Supabase DAL] getWorkOrders chunk error:', classified.message);
+        return { success: false, error: classified };
+      }
+
+      const rows = Array.isArray(data) ? data : [];
+      allRows.push(...rows);
+      if (rows.length < CHUNK_SIZE) {
+        break;
+      }
     }
 
-    const tickets = (data || []).map(postgresRowToTicket);
-    return { success: true, data: tickets };
+    return { success: true, data: allRows.map(postgresRowToTicket) };
   } catch (err: any) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
@@ -1548,7 +1600,7 @@ export async function getWorkOrdersFromSupabasePaginated(
       q = q.eq('contractor_id', options.contractorId.trim());
     }
     if (options.contractor && options.contractor.toLowerCase() !== 'all') {
-      const cVal = options.contractor.trim().replace(/[,%()]/g, '');
+      const cVal = sanitizePostgrestIlikeTerm(options.contractor);
       if (cVal) {
         q = q.or(`contractor_name.ilike.%${cVal}%,contactor_name.ilike.%${cVal}%`);
       }
@@ -1569,7 +1621,7 @@ export async function getWorkOrdersFromSupabasePaginated(
       q = q.gte('updated_at', options.updatedSince);
     }
     if (options.search && options.search.trim()) {
-      const s = options.search.trim().replace(/[,%()]/g, '');
+      const s = sanitizePostgrestIlikeTerm(options.search);
       if (s) {
         q = q.or(
           `wo_number.ilike.%${s}%,id_customer.ilike.%${s}%,customer_name.ilike.%${s}%,area.ilike.%${s}%,contractor_name.ilike.%${s}%,installer_name.ilike.%${s}%`
@@ -1578,10 +1630,10 @@ export async function getWorkOrdersFromSupabasePaginated(
     }
     // DB-level role scoping pushdown (defense-in-depth alongside scopeTicketsForUser)
     if (options.userRole === 'installer' && options.userId) {
-      const uid = options.userId.trim().replace(/[,%()]/g, '');
-      q = q.or(`installer_id.eq.${uid},installer_uid.eq.${uid},assigned_to_uid.eq.${uid}`);
+      const safeUid = sanitizePostgrestQuotedValue(options.userId);
+      q = q.or(`installer_id.eq.${safeUid},installer_uid.eq.${safeUid},assigned_to_uid.eq.${safeUid}`);
     } else if (options.userRole === 'leader' && options.userContractor) {
-      const lc = options.userContractor.trim().replace(/[,%()]/g, '');
+      const lc = sanitizePostgrestIlikeTerm(options.userContractor);
       if (lc) {
         q = q.or(`contractor_name.ilike.%${lc}%,contactor_name.ilike.%${lc}%`);
       }
@@ -1594,14 +1646,14 @@ export async function getWorkOrdersFromSupabasePaginated(
     let query = applyFilters(
       client.from('work_orders').select(selectCols, { count: 'exact' })
     );
-    query = query.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+    query = query.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
 
     let { data, count, error } = await query;
     if (error && options.lightweight !== false && isMissingSchemaObjectError(error)) {
       let fallback = applyFilters(
         client.from('work_orders').select('*', { count: 'exact' })
       );
-      fallback = fallback.order(orderCol, { ascending }).range(offset, offset + limit - 1);
+      fallback = fallback.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
       const fbRes = await fallback;
       data = fbRes.data as any;
       count = fbRes.count;
@@ -1683,6 +1735,7 @@ export interface PaginatedWorkOrdersOptions extends GetWorkOrdersOptions {
 
 /**
  * Fetches Work Orders updated since an ISO timestamp for efficient delta sync.
+ * Paginates cleanly in 1,000-row chunks so bulk imports (>500 WOs) are never truncated on delta sync.
  */
 export async function getWorkOrdersUpdatedSinceFromSupabase(
   sinceIso: string
@@ -1692,28 +1745,49 @@ export async function getWorkOrdersUpdatedSinceFromSupabase(
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
-    let { data, error } = await client
-      .from('work_orders')
-      .select(WORK_ORDER_LIST_COLUMNS)
-      .gte('updated_at', sinceIso)
-      .order('updated_at', { ascending: false })
-      .limit(500);
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 10;
+    const allRows: any[] = [];
+    let useFallbackColumns = false;
 
-    if (error && isMissingSchemaObjectError(error)) {
-      const fb = await client
+    for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
+      const start = chunkIdx * CHUNK_SIZE;
+      const end = start + CHUNK_SIZE - 1;
+      const cols = useFallbackColumns ? '*' : WORK_ORDER_LIST_COLUMNS;
+
+      let { data, error } = await client
         .from('work_orders')
-        .select('*')
+        .select(cols)
         .gte('updated_at', sinceIso)
         .order('updated_at', { ascending: false })
-        .limit(500);
-      data = fb.data as any;
-      error = fb.error;
+        .order('id', { ascending: true })
+        .range(start, end);
+
+      if (error && !useFallbackColumns && isMissingSchemaObjectError(error)) {
+        useFallbackColumns = true;
+        const fb = await client
+          .from('work_orders')
+          .select('*')
+          .gte('updated_at', sinceIso)
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(start, end);
+        data = fb.data as any;
+        error = fb.error;
+      }
+
+      if (error) {
+        return { success: false, error: classifySupabaseError(error) };
+      }
+
+      const rows = Array.isArray(data) ? data : [];
+      allRows.push(...rows);
+      if (rows.length < CHUNK_SIZE) {
+        break;
+      }
     }
 
-    if (error) {
-      return { success: false, error: classifySupabaseError(error) };
-    }
-    return { success: true, data: (data || []).map(postgresRowToTicket) };
+    return { success: true, data: allRows.map(postgresRowToTicket) };
   } catch (err: any) {
     return { success: false, error: classifySupabaseError(err) };
   }
@@ -1731,19 +1805,35 @@ export async function getDeletedWorkOrderIdsSinceFromSupabase(
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
-    const { data, error } = await client
-      .from('work_orders')
-      .select('id')
-      .eq('is_deleted', true)
-      .gte('updated_at', sinceIso)
-      .limit(500);
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 10;
+    const allIds: string[] = [];
 
-    if (error) {
-      return { success: false, error: classifySupabaseError(error) };
+    for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
+      const start = chunkIdx * CHUNK_SIZE;
+      const end = start + CHUNK_SIZE - 1;
+      const { data, error } = await client
+        .from('work_orders')
+        .select('id')
+        .eq('is_deleted', true)
+        .gte('updated_at', sinceIso)
+        .order('id', { ascending: true })
+        .range(start, end);
+
+      if (error) {
+        return { success: false, error: classifySupabaseError(error) };
+      }
+      const rows = Array.isArray(data) ? data : [];
+      rows.forEach((r: any) => {
+        if (r?.id) allIds.push(String(r.id));
+      });
+      if (rows.length < CHUNK_SIZE) {
+        break;
+      }
     }
     return {
       success: true,
-      data: (data || []).map((r: any) => String(r.id)).filter(Boolean)
+      data: allIds
     };
   } catch (err: any) {
     return { success: false, error: classifySupabaseError(err) };
@@ -1759,19 +1849,34 @@ export async function getScopedActiveWorkOrderHeadsFromSupabase(): Promise<Supab
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
   try {
-    const { data, error } = await client
-      .from('work_orders')
-      .select('id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived')
-      .eq('is_deleted', false)
-      .eq('is_archived', false)
-      .limit(2000);
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 25;
+    const allRows: any[] = [];
 
-    if (error) {
-      return { success: false, error: classifySupabaseError(error) };
+    for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
+      const start = chunkIdx * CHUNK_SIZE;
+      const end = start + CHUNK_SIZE - 1;
+      const { data, error } = await client
+        .from('work_orders')
+        .select('id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived')
+        .eq('is_deleted', false)
+        .eq('is_archived', false)
+        .order('id', { ascending: true })
+        .range(start, end);
+
+      if (error) {
+        return { success: false, error: classifySupabaseError(error) };
+      }
+      const rows = Array.isArray(data) ? data : [];
+      allRows.push(...rows);
+      if (rows.length < CHUNK_SIZE) {
+        break;
+      }
     }
+
     return {
       success: true,
-      data: (data || []).map((row: any) => ({
+      data: allRows.map((row: any) => ({
         id: String(row.id),
         woNumber: row.wo_number,
         contractorId: row.contractor_id || undefined,
@@ -3267,6 +3372,28 @@ export async function bulkImportWorkOrdersToSupabase(
         return;
       }
 
+      // Validate primitive types on customer identity & name fields
+      const rawCustVal = t.idCustomer ?? t.customerId;
+      if (rawCustVal !== undefined && rawCustVal !== null && typeof rawCustVal !== 'string' && typeof rawCustVal !== 'number') {
+        result.invalidCount++;
+        result.invalidRows.push({
+          index: index + 1,
+          reason: 'Tipe data Customer ID harus berupa string atau angka.',
+          rawWo: normWo
+        });
+        return;
+      }
+      const rawCustNameVal = t.customerName ?? t.endUserName;
+      if (rawCustNameVal !== undefined && rawCustNameVal !== null && typeof rawCustNameVal !== 'string' && typeof rawCustNameVal !== 'number') {
+        result.invalidCount++;
+        result.invalidRows.push({
+          index: index + 1,
+          reason: 'Tipe data Customer Name harus berupa teks.',
+          rawWo: normWo
+        });
+        return;
+      }
+
       // Reject explicitly malformed appointmentDate rather than silently erasing it
       const rawAppDate = t.appointmentDate;
       let normalizedAppDate: string | null = null;
@@ -3607,11 +3734,12 @@ export async function getTicketMessagesFromSupabase(ticketIdOrWo: string): Promi
   if (!client) {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
+  const safeTarget = sanitizePostgrestQuotedValue(ticketIdOrWo);
   try {
     const { data, error } = await client
       .from('ticket_messages')
       .select('*')
-      .or(`ticket_id.eq.${ticketIdOrWo},wo_number.eq.${ticketIdOrWo}`)
+      .or(`ticket_id.eq.${safeTarget},wo_number.eq.${safeTarget}`)
       .order('created_at', { ascending: true });
     if (error) {
       return { success: false, error: classifySupabaseError(error) };
@@ -3630,13 +3758,14 @@ export async function getTicketMessagesPaginatedFromSupabase(
   if (!client) {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
   }
+  const safeTarget = sanitizePostgrestQuotedValue(ticketIdOrWo);
   try {
     const limit = Math.min(Math.max(Number(options?.limit) || 50, 1), 200);
     const before = options?.before ? String(options.before).trim() : '';
     let query = client
       .from('ticket_messages')
       .select('*')
-      .or(`ticket_id.eq.${ticketIdOrWo},wo_number.eq.${ticketIdOrWo}`)
+      .or(`ticket_id.eq.${safeTarget},wo_number.eq.${safeTarget}`)
       .order('created_at', { ascending: false })
       .limit(limit + 1);
     if (before) {

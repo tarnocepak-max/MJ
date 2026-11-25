@@ -1433,7 +1433,7 @@ export class SupabaseRepository {
         this.sseHasConnectedBefore = true;
         this.sseLastConnectedAt = this.sseLastConnectedAt || new Date().toISOString();
         this.setRealtimeConnectionState('connected');
-        if (changed || this.sseDiagnosticLogs.every(l => l.code !== 'DELTA_POLLING_MODE')) {
+        if (changed || this.sseDiagnosticLogs.every(l => l.event !== 'DELTA_POLLING_MODE')) {
           this.addRealtimeLog(
             'info',
             'DELTA_POLLING_MODE',
@@ -1693,6 +1693,7 @@ export class SupabaseRepository {
     const runStream = async () => {
       let abortedByWatchdogOrError = false;
       let switchedToDeltaPolling = false;
+      let immediateServerlessFallback = false;
       try {
         // Negotiate transport capability before opening an SSE connection
         const chosenTransport = await this.resolveRealtimeTransportCapability(authHeaders, currentToken);
@@ -1719,7 +1720,8 @@ export class SupabaseRepository {
         });
 
         if (!response.ok || !response.body) {
-          if (response.status === 504 || response.status === 502) {
+          if (response.status === 504 || response.status === 502 || response.status === 404) {
+            immediateServerlessFallback = true;
             throw new Error(`SSE gateway timeout (HTTP ${response.status})`);
           }
           throw new Error(`Koneksi SSE ditolak oleh server (Status: ${response.status})`);
@@ -1844,14 +1846,21 @@ export class SupabaseRepository {
           const attempt = this.sseReconnectAttempt;
           this.sseReconnectAttempt = attempt + 1;
 
-          // After 3 failed SSE attempts (common behind serverless/edge proxies), fall back cleanly to Delta Polling
-          if (this.sseReconnectAttempt >= 3) {
+          // On gateway 502/504/404 or after 2 failed SSE attempts, switch immediately to adaptive Delta Polling
+          if (immediateServerlessFallback || this.sseReconnectAttempt >= 2) {
             this.setTransportHintFromServer('delta_polling', false, 15000);
             this.addRealtimeLog(
               'info',
               'SSE_FALLBACK_DELTA_POLLING',
-              'SSE gagal berulang kali — beralih otomatis ke mode Delta Polling adaptif.'
+              immediateServerlessFallback
+                ? 'Serverless/gateway SSE tidak didukung (502/504) — beralih langsung ke Delta Polling adaptif.'
+                : 'SSE gagal berulang kali — beralih otomatis ke mode Delta Polling adaptif.'
             );
+            for (const cb of Array.from(this.sseReconnectSubscribers)) {
+              try {
+                cb();
+              } catch {}
+            }
             return;
           }
 

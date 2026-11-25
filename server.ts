@@ -2978,6 +2978,7 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
 
     const assignedId = String(
       ticket.installerId ||
+      ticket.installerUserId ||
       ticket.installerUid ||
       ticket.assignedToUid ||
       ticket.assignedToId ||
@@ -5058,9 +5059,11 @@ export async function createExpressApp(options?: {
       let importedCount = 0;
       let updatedCount = 0;
       let duplicatesIgnored = 0;
+      let invalidCount = 0;
       let distributedCount = 0;
       let undistributedCount = 0;
       const rejectedDuplicates: string[] = [];
+      const invalidRows: Array<{ index: number; reason: string; rawWo?: string }> = [];
 
       const existingWoMap = new Map<string, any>();
       db.tickets.forEach(t => {
@@ -5072,14 +5075,34 @@ export async function createExpressApp(options?: {
       const batchId = 'batch_' + Date.now();
       const newItems: any[] = [];
 
-      importedRows.forEach((item: any) => {
-        const rawWo = (item.woNumber || item.workOrderNumber || '').trim();
-        if (!rawWo) {
-          duplicatesIgnored++;
+      importedRows.forEach((item: any, idx: number) => {
+        if (!item || typeof item !== 'object') {
+          invalidCount++;
+          invalidRows.push({ index: idx + 1, reason: 'Baris data kosong atau bukan objek.' });
+          return;
+        }
+        const rawWoVal = item.woNumber ?? item.workOrderNumber ?? '';
+        const rawWo = (typeof rawWoVal === 'string' || typeof rawWoVal === 'number')
+          ? String(rawWoVal).trim()
+          : '';
+        if (!rawWo || rawWo.replace(/\s+/g, '').length < 3) {
+          invalidCount++;
+          invalidRows.push({ index: idx + 1, reason: 'Nomor WO kosong atau kurang dari 3 karakter.', rawWo });
           return;
         }
         const upperWo = rawWo.toUpperCase();
-        const appDate = normalizeAppointmentDate(item.appointmentDate);
+        const rawAppDate = item.appointmentDate;
+        const hasRawAppDate = rawAppDate !== undefined && rawAppDate !== null && String(rawAppDate).trim() !== '' && String(rawAppDate).trim() !== '-' && String(rawAppDate).trim().toLowerCase() !== 'null';
+        const appDate = normalizeAppointmentDate(rawAppDate);
+        if (hasRawAppDate && !appDate) {
+          invalidCount++;
+          invalidRows.push({
+            index: idx + 1,
+            reason: `Format Appointment Date "${String(rawAppDate)}" tidak valid atau bukan tanggal kalender sah.`,
+            rawWo
+          });
+          return;
+        }
         const rawCustId = (item.idCustomer || item.customerId || '').trim();
         const custDigits = rawCustId.replace(/\D/g, '');
         const validCustId = custDigits.length === 7 ? custDigits : (rawCustId || '');
@@ -5137,6 +5160,21 @@ export async function createExpressApp(options?: {
         importedCount++;
       });
 
+      const onlyInvalidLocal = invalidCount > 0 && importedCount === 0 && updatedCount === 0 && duplicatesIgnored === 0;
+      if (onlyInvalidLocal) {
+        return res.status(400).json({
+          success: false,
+          error: invalidRows[0]?.reason || 'Semua baris import tidak valid.',
+          code: 'VALIDATION_ERROR',
+          importedCount: 0,
+          updatedCount: 0,
+          duplicatesIgnored,
+          invalidCount,
+          invalidRows,
+          failedCount: 0
+        });
+      }
+
       db.tickets.unshift(...newItems);
       db.sheetsConfig.recordsCount = db.tickets.length;
       saveDatabaseToDisk();
@@ -5149,7 +5187,7 @@ export async function createExpressApp(options?: {
         'Bulk Import Completed',
         'import_batch',
         batchId,
-        `Berhasil import ${importedCount} tiket baru (${distributedCount} terdistribusi ke Leader, ${undistributedCount} belum terdistribusi), ${updatedCount} tiket diperbarui, ditolak ${duplicatesIgnored} tiket duplikat`,
+        `Berhasil import ${importedCount} tiket baru (${distributedCount} terdistribusi ke Leader, ${undistributedCount} belum terdistribusi), ${updatedCount} tiket diperbarui, ditolak ${duplicatesIgnored} tiket duplikat, invalid: ${invalidCount}`,
         req.user
       );
 
@@ -5161,6 +5199,9 @@ export async function createExpressApp(options?: {
         undistributedCount,
         duplicatesIgnored,
         rejectedDuplicates,
+        invalidCount,
+        invalidRows,
+        failedCount: 0,
         totalTicketsNow: db.tickets.length,
         batchId
       });
@@ -5171,8 +5212,9 @@ export async function createExpressApp(options?: {
     let distributedCount = 0;
     let undistributedCount = 0;
     const enrichedRows = importedRows.map((item: any) => {
+      if (!item || typeof item !== 'object') return item;
       const appDate = normalizeAppointmentDate(item.appointmentDate);
-      const enriched = enrichTicketDistribution(item, appDate);
+      const enriched = enrichTicketDistribution(item, appDate || item.appointmentDate);
       if (enriched.distributionStatus === 'distributed') distributedCount++;
       else undistributedCount++;
       return enriched;
@@ -5180,14 +5222,27 @@ export async function createExpressApp(options?: {
 
     const supaRes = await bulkImportWorkOrdersToSupabase(enrichedRows, batchId, req.user!.name);
 
-    if (!supaRes.success) {
+    if (!supaRes.success && !supaRes.data?.partialSuccess) {
       console.error('[Bulk Import] Supabase import error:', supaRes.error?.message);
       const isUnavail = supaRes.error?.isUnavailable;
-      const status = isUnavail ? 503 : 500;
+      const status = isUnavail
+        ? 503
+        : (supaRes.error?.httpStatus || (supaRes.error?.isValidationError ? 400 : 500));
+      const errData = supaRes.data;
       return res.status(status).json({
         success: false,
         error: supaRes.error?.message || 'Gagal memproses bulk import di Supabase.',
-        code: supaRes.error?.code || (isUnavail ? 'DATABASE_UNAVAILABLE' : 'SUPABASE_IMPORT_ERROR')
+        code: supaRes.error?.code || (isUnavail ? 'DATABASE_UNAVAILABLE' : 'SUPABASE_IMPORT_ERROR'),
+        ...(errData
+          ? {
+              importedCount: errData.imported,
+              duplicatesIgnored: errData.skippedDuplicates,
+              invalidCount: errData.invalidCount,
+              invalidRows: errData.invalidRows,
+              failedCount: errData.failedCount,
+              failedErrors: errData.failedErrors
+            }
+          : {})
       });
     }
 
@@ -5254,8 +5309,10 @@ export async function createExpressApp(options?: {
       req.user
     );
 
-    return res.json({
+    const respStatus = data.partialSuccess ? 207 : 200;
+    return res.status(respStatus).json({
       success: data.failedCount === 0,
+      partialSuccess: Boolean(data.partialSuccess),
       importedCount: data.imported,
       updatedCount: 0,
       distributedCount,
@@ -10004,11 +10061,22 @@ export async function createExpressApp(options?: {
     }
 
     const {
-      direction = 'pull',
+      direction: rawDirection,
+      mode: rawMode,
       spreadsheetId,
       sheetName = 'Work_Orders',
       accessToken
-    } = req.body;
+    } = req.body || {};
+
+    const normalizedModeInput = String(rawDirection || rawMode || 'pull').trim().toLowerCase();
+    const direction =
+      normalizedModeInput === 'import_only' || normalizedModeInput === 'pull'
+        ? 'pull'
+        : normalizedModeInput === 'export_only' || normalizedModeInput === 'push'
+        ? 'push'
+        : normalizedModeInput === 'both'
+        ? 'both'
+        : normalizedModeInput;
 
     const targetId = extractCleanSpreadsheetId(spreadsheetId || db.sheetsConfig.spreadsheetId);
     const targetSheet = (sheetName || db.sheetsConfig.sheetName || 'Work_Orders').trim();
@@ -10016,6 +10084,10 @@ export async function createExpressApp(options?: {
 
     if (!targetId) {
       return res.status(400).json({ error: 'Spreadsheet ID belum dikonfigurasi.' });
+    }
+
+    if (direction !== 'pull' && direction !== 'push' && direction !== 'both') {
+      return res.status(400).json({ success: false, error: `Mode sinkronisasi '${direction}' tidak valid.` });
     }
 
     const jobId = 'sync_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
@@ -10027,6 +10099,12 @@ export async function createExpressApp(options?: {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      let processedCount = 0;
+      let newCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      let pushedCount = 0;
 
       if (direction === 'pull' || direction === 'both') {
         const fetchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${targetId}/values/${encodeURIComponent(targetSheet)}!A1:AZ5000?valueRenderOption=FORMATTED_VALUE`;
@@ -10088,10 +10166,6 @@ export async function createExpressApp(options?: {
           });
         }
 
-        let processedCount = 0;
-        let newCount = 0;
-        let updatedCount = 0;
-        let skippedCount = 0;
         const nowIso = new Date().toISOString();
         const newSupabaseRows: any[] = [];
         const updatedSupabaseRows: Array<{ id: string; updates: Record<string, any> }> = [];
@@ -10102,7 +10176,7 @@ export async function createExpressApp(options?: {
           processedCount++;
 
           const woNumber = getVal(row, 'WO Number', 'Work Order Number', 'WO', 'Ticket WO');
-          if (!woNumber) {
+          if (!woNumber || woNumber.replace(/\s+/g, '').length < 3) {
             skippedCount++;
             continue;
           }
@@ -10111,7 +10185,12 @@ export async function createExpressApp(options?: {
           const rawCustId = getVal(row, 'ID Customer', 'Customer ID', 'Cust ID');
           const custDigits = rawCustId.replace(/\D/g, '');
           const validCustId = custDigits.length === 7 ? custDigits : (rawCustId || '');
-          const appDate = normalizeAppointmentDate(getVal(row, 'Appointment Date', 'Date', 'Schedule Date'));
+          const rawSheetAppDate = getVal(row, 'Appointment Date', 'Date', 'Schedule Date');
+          const appDate = normalizeAppointmentDate(rawSheetAppDate);
+          if (rawSheetAppDate && !appDate) {
+            skippedCount++;
+            continue;
+          }
 
           if (existingWoMap.has(upperWo)) {
             const existing = existingWoMap.get(upperWo);
@@ -10243,56 +10322,113 @@ export async function createExpressApp(options?: {
             broadcastSupabaseChange('work_orders', 'INSERT', { batchId: jobId, imported: newCount, updated: updatedCount });
           }
         }
-
-        const durationMs = Date.now() - startMs;
-        const completedAt = new Date().toISOString();
-
-        db.sheetsConfig = {
-          ...db.sheetsConfig,
-          lastSyncAt: completedAt,
-          lastSyncStatus: 'success',
-          lastSyncMessage: `Sinkronisasi berhasil: ${processedCount} diproses, ${newCount} baru, ${updatedCount} diperbarui (${durationMs}ms)`,
-          lastErrorMessage: '',
-          recordsCount: db.tickets.length
-        };
-
-        const historyEntry: ServerSyncHistoryEntry = {
-          jobId,
-          syncType: 'pull_sheets',
-          startedAt,
-          completedAt,
-          status: 'Success',
-          processedCount,
-          successCount: newCount + updatedCount,
-          failedCount: skippedCount,
-          newRecordsCount: newCount,
-          updatedRecordsCount: updatedCount,
-          dataSource: `Google Sheets [${targetSheet}]`,
-          initiatedBy: req.user!.name,
-          initiatedByRole: req.user!.role,
-          durationMs
-        };
-
-        db.syncHistory.unshift(historyEntry);
-        if (db.syncHistory.length > 200) db.syncHistory.pop();
-        saveDatabaseToDisk();
-
-        logServerAudit('Google Sheets Sync Succeeded', 'integration', targetId, `Sync Google Sheets [${targetSheet}]: +${newCount} baru, ~${updatedCount} diupdate (${durationMs}ms)`, req.user);
-
-        return res.json({
-          success: true,
-          jobId,
-          durationMs,
-          processedCount,
-          newRecordsCount: newCount,
-          updatedRecordsCount: updatedCount,
-          skippedCount,
-          totalTicketsNow: db.tickets.length,
-          message: `Sinkronisasi Google Sheets selesai: ${newCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui.`
-        });
       }
 
-      throw new Error(`Mode sinkronisasi '${direction}' belum didukung.`);
+      if (direction === 'push' || direction === 'both') {
+        if (!token) {
+          throw new Error('Token OAuth Google diperlukan untuk mengirim (push) data ke Google Sheets.');
+        }
+        let activeTickets: any[] = [];
+        if (isSupabaseMode()) {
+          const woRes = await getWorkOrdersFromSupabase({ includeDeleted: false, includeArchived: false, lightweight: false });
+          if (!woRes.success) {
+            throw new Error(woRes.error?.message || 'Gagal membaca data Work Order Supabase untuk push ke Google Sheets.');
+          }
+          activeTickets = woRes.data || [];
+        } else {
+          activeTickets = (db.tickets || []).filter((t: any) => !t.isArchived && !t.isDeleted);
+        }
+
+        const sheetHeaders = [
+          'WO Number', 'Ticket Number', 'Date', 'Appointment Date', 'ID Customer', 'Customer Name',
+          'Customer Phone', 'Customer Phone 2', 'Area', 'Cluster Name', 'Street Name', 'Street Alternatif',
+          'Contactor Name', 'Leader Name', 'Corlap Contact', 'Installer Name', 'Installer Contact',
+          'Slot Time', 'FDT Code', 'FAT Code', 'Port FAT', 'Ticket Category',
+          'Status WO Agent', 'Status WO Installer', 'Remarks WO Installer', 'Remarks Agent',
+          'Work Result', 'Root Cause Category', 'Root Cause Sub Category', 'Optical Power Rx',
+          'ONT Serial Number', 'Router Serial Number', 'Date Assign Agent', 'Date Assign Technician',
+          'Date Upload', 'File Name', 'Agent ID', 'Updated At', 'Updated By'
+        ];
+        const sheetRows = activeTickets.map((t: any) => [
+          t.woNumber || '', t.ticketNumber || '', t.date || '', t.appointmentDate || '',
+          t.idCustomer || t.customerId || '', t.customerName || t.endUserName || '',
+          t.customerPhone || '', t.customerContact2 || '', t.area || '', t.clusterName || '',
+          t.streetName || '', t.streetAlternatif || '', t.contactorName || t.contractorName || '',
+          t.leaderName || t.corlapName || '', t.corlapContact || '', t.installerName || '',
+          t.installerContact || '', t.slotTime || '', t.fdtCode || '', t.fatCode || '',
+          t.fatPort || '', t.ticketCategory || '', t.statusWOAgent || '', t.statusWOInstaller || '',
+          t.remarksWOInstaller || '', t.remarksAgent || '', t.technicalReport?.workResult || '',
+          t.technicalReport?.rootCauseCategory || '', t.technicalReport?.rootCauseSubCategory || '',
+          t.technicalReport?.opticalPowerRx || t.technicalReport?.opticalPowerDbm || '',
+          t.ontSerialNumber || '', t.routerSerialNumber || '', t.dateAssignAgent || '',
+          t.dateAssignTechnician || '', t.dateUpload || '', t.fileName || '', t.agentId || '',
+          t.updatedAt || new Date().toISOString(), t.updatedBy || 'MoraJaws Sync'
+        ]);
+        const valuesPayload = [sheetHeaders, ...sheetRows];
+        const pushUrl = `https://sheets.googleapis.com/v4/spreadsheets/${targetId}/values/${encodeURIComponent(targetSheet)}!A1:AM${valuesPayload.length}?valueInputOption=USER_ENTERED`;
+        const pushRes = await fetch(pushUrl, {
+          method: 'PUT',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: valuesPayload })
+        });
+        if (!pushRes.ok) {
+          const errJson = await pushRes.json().catch(() => ({}));
+          throw new Error(errJson.error?.message || `Gagal mengirim data ke sheet '${targetSheet}' (${pushRes.status})`);
+        }
+        pushedCount = sheetRows.length;
+      }
+
+      const durationMs = Date.now() - startMs;
+      const completedAt = new Date().toISOString();
+
+      db.sheetsConfig = {
+        ...db.sheetsConfig,
+        lastSyncAt: completedAt,
+        lastSyncStatus: 'success',
+        lastSyncMessage: `Sinkronisasi berhasil: ${processedCount} diproses, ${newCount} baru, ${updatedCount} diperbarui, ${pushedCount} dikirim (${durationMs}ms)`,
+        lastErrorMessage: '',
+        recordsCount: db.tickets.length
+      };
+
+      const historyEntry: ServerSyncHistoryEntry = {
+        jobId,
+        syncType: direction === 'push' ? 'push_sheets' : 'pull_sheets',
+        startedAt,
+        completedAt,
+        status: 'Success',
+        processedCount: processedCount || pushedCount,
+        successCount: newCount + updatedCount + pushedCount,
+        failedCount: skippedCount,
+        newRecordsCount: newCount,
+        updatedRecordsCount: updatedCount,
+        dataSource: `Google Sheets [${targetSheet}]`,
+        initiatedBy: req.user!.name,
+        initiatedByRole: req.user!.role,
+        durationMs
+      };
+
+      db.syncHistory.unshift(historyEntry);
+      if (db.syncHistory.length > 200) db.syncHistory.pop();
+      saveDatabaseToDisk();
+
+      logServerAudit('Google Sheets Sync Succeeded', 'integration', targetId, `Sync Google Sheets [${targetSheet}] (${direction}): +${newCount} baru, ~${updatedCount} diupdate, ^${pushedCount} dikirim (${durationMs}ms)`, req.user);
+
+      return res.json({
+        success: true,
+        jobId,
+        direction,
+        durationMs,
+        processedCount,
+        newRecordsCount: newCount,
+        updatedRecordsCount: updatedCount,
+        pushedCount,
+        skippedCount,
+        totalTicketsNow: db.tickets.length,
+        message: `Sinkronisasi Google Sheets selesai: ${newCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui, ${pushedCount} baris dikirim.`
+      });
     } catch (err: any) {
       const durationMs = Date.now() - startMs;
       const completedAt = new Date().toISOString();
@@ -12117,16 +12253,25 @@ export async function createExpressApp(options?: {
             invalidRows.push({ index: idx + 1, reason: 'Baris data kosong atau bukan objek.' });
             return;
           }
-          const rawWo = String(t.woNumber ?? t.workOrderNumber ?? '').trim();
+          const rawWoVal = t.woNumber ?? t.workOrderNumber ?? '';
+          const rawWo = (typeof rawWoVal === 'string' || typeof rawWoVal === 'number') ? String(rawWoVal).trim() : '';
           const norm = rawWo.toUpperCase().replace(/\s+/g, '');
           if (!norm || norm.length < 3) {
             invalidCount++;
-            invalidRows.push({ index: idx + 1, reason: 'Nomor WO kosong atau kurang dari 3 karakter.', rawWo });
+            invalidRows.push({ index: idx + 1, reason: 'Nomor WO kosong atau kurang dari 3 karakter.', rawWo: String(rawWoVal) });
             return;
           }
-          if (t.appointmentDate && !normalizeAppointmentDate(t.appointmentDate)) {
+          const rawCustVal = t.idCustomer ?? t.customerId;
+          if (rawCustVal !== undefined && rawCustVal !== null && typeof rawCustVal !== 'string' && typeof rawCustVal !== 'number') {
             invalidCount++;
-            invalidRows.push({ index: idx + 1, reason: `Format Appointment Date "${String(t.appointmentDate)}" tidak valid.`, rawWo: norm });
+            invalidRows.push({ index: idx + 1, reason: 'Tipe data Customer ID harus berupa string atau angka.', rawWo: norm });
+            return;
+          }
+          const rawAppDate = t.appointmentDate;
+          const hasRawAppDate = rawAppDate !== undefined && rawAppDate !== null && String(rawAppDate).trim() !== '' && String(rawAppDate).trim() !== '-' && String(rawAppDate).trim().toLowerCase() !== 'null';
+          if (hasRawAppDate && !normalizeAppointmentDate(rawAppDate)) {
+            invalidCount++;
+            invalidRows.push({ index: idx + 1, reason: `Format Appointment Date "${String(rawAppDate)}" tidak valid.`, rawWo: norm });
             return;
           }
           if (seenInRequest.has(norm)) {

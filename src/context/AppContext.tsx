@@ -1514,32 +1514,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Adaptive Delta Sync Coordinator:
-    // - Runs every 15s when Vercel/serverless Delta Polling transport is active (SSE disabled to avoid 30s timeouts).
-    // - Runs every 30s as a safety catch-up when persistent SSE is not yet 'connected'.
-    // - Pauses automatically when offline, tab is hidden, or exponential backoff retry is active.
-    const pollInterval = setInterval(() => {
+    // - Uses live recommendedPollMs (15s on Vercel/serverless Delta Polling, 30s safety catch-up when SSE isn't connected).
+    // - Applies bounded exponential backoff even past 5 consecutive failures so background polling never loops aggressively.
+    // - Pauses automatically when offline or tab is hidden, and restarts cleanly on online/visible events.
+    let deltaPollTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNextDeltaPoll = () => {
       if (isCancelled) return;
-      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-      if (currentUserRef.current?.mustChangePassword) return;
-      if (deltaSyncRetryTimerRef.current) return; // Let backoff timer drive retry cleanly
-
+      if (deltaPollTimer) {
+        clearTimeout(deltaPollTimer);
+        deltaPollTimer = null;
+      }
       const rtStatus = supabaseDb.getRealtimeStatus();
-      const isDeltaTransport = rtStatus.transport === 'delta_polling';
-      if (!isDeltaTransport && rtStatus.state === 'connected') {
-        return; // Persistent SSE push stream is healthy
-      }
+      const baseMs = rtStatus.transport === 'delta_polling'
+        ? Math.max(5_000, rtStatus.recommendedPollMs || 15_000)
+        : 30_000;
+      const errStreak = syncRetryCountRef.current;
+      const delayMs = errStreak > 0
+        ? Math.min(120_000, baseMs * Math.pow(2, Math.min(errStreak - 1, 3))) + Math.floor(Math.random() * 1500)
+        : baseMs;
 
-      if (ticketsRef.current.length > 0) {
-        runDeltaSync().catch(() => {});
-      } else {
-        loadCentralData().catch(() => {});
-      }
-    }, supabaseDb.getRealtimeTransport() === 'delta_polling' ? 15000 : 20000);
+      deltaPollTimer = setTimeout(async () => {
+        deltaPollTimer = null;
+        if (isCancelled) return;
+        const canPoll =
+          (typeof navigator === 'undefined' || navigator.onLine) &&
+          (typeof document === 'undefined' || document.visibilityState === 'visible') &&
+          !currentUserRef.current?.mustChangePassword &&
+          !deltaSyncRetryTimerRef.current;
+
+        if (canPoll) {
+          const liveRt = supabaseDb.getRealtimeStatus();
+          const isDeltaTransport = liveRt.transport === 'delta_polling';
+          if (isDeltaTransport || liveRt.state !== 'connected') {
+            try {
+              if (ticketsRef.current.length > 0) {
+                await runDeltaSync();
+              } else {
+                await loadCentralData();
+              }
+            } catch {}
+          }
+        }
+        scheduleNextDeltaPoll();
+      }, delayMs);
+    };
+    scheduleNextDeltaPoll();
 
     return () => {
       isCancelled = true;
       cancelPendingDeltaRetry();
+      if (deltaPollTimer) {
+        clearTimeout(deltaPollTimer);
+        deltaPollTimer = null;
+      }
       if (deltaSyncAbortRef.current) {
         deltaSyncAbortRef.current.abort();
         deltaSyncAbortRef.current = null;
@@ -1552,7 +1579,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('focus', handleWindowFocusOrVisible);
       document.removeEventListener('visibilitychange', handleWindowFocusOrVisible);
-      clearInterval(pollInterval);
       for (const tm of typingExpiryTimersRef.current.values()) {
         clearTimeout(tm);
       }
@@ -1744,7 +1770,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         cancelPendingDeltaRetry();
         setSyncStatus('SYNCING');
-        const sinceIso = lastDeltaWatermarkRef.current || new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        // Subtract a 5s safety overlap window so serverless/DB clock skew never skips concurrent writes
+        const rawWatermark = lastDeltaWatermarkRef.current;
+        const parsedWatermarkMs = rawWatermark ? Date.parse(rawWatermark) : NaN;
+        const sinceIso = Number.isFinite(parsedWatermarkMs)
+          ? new Date(parsedWatermarkMs - 5_000).toISOString()
+          : new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, {
           headers,
           signal: controller.signal
@@ -1904,10 +1935,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           navigator.onLine &&
           document.visibilityState === 'visible' &&
           getAuthHeaders()['Authorization'] &&
-          !currentUserRef.current?.mustChangePassword &&
-          syncRetryCountRef.current <= 5
+          !currentUserRef.current?.mustChangePassword
         ) {
-          const baseBackoff = Math.min(60_000, 4_000 * Math.pow(2, syncRetryCountRef.current - 1));
+          const cappedExponent = Math.min(syncRetryCountRef.current - 1, 5);
+          const baseBackoff = Math.min(120_000, 4_000 * Math.pow(2, cappedExponent));
           const jitter = Math.floor(Math.random() * 1500);
           const retryDelayMs = baseBackoff + jitter;
           cancelPendingDeltaRetry();
@@ -2098,9 +2129,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ok: boolean;
         }> => {
           const PAGE_SIZE = 250;
-          const MAX_HYDRATION_PAGES = 12; // Bounded cap (3,000 rows in memory, additional pages queryable via DB search/pagination)
+          const MAX_HYDRATION_PAGES = 100; // Safe ceiling (25,000 WOs) so older WOs beyond 3,000 rows remain hydrated across refresh
           const collected: Ticket[] = [];
-          let latestServerTime: string | undefined;
+          let earliestServerTime: string | undefined;
 
           try {
             const firstRes = await fetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
@@ -2116,10 +2147,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return { tickets: [], ok: false };
             }
             collected.push(...firstJson.tickets);
-            latestServerTime = firstJson.serverTime;
+            earliestServerTime = firstJson.serverTime;
 
             const totalPages = Math.min(MAX_HYDRATION_PAGES, Math.max(1, Number(firstJson.totalPages || 1)));
-            // Paint page 1 immediately before fetching subsequent pages
+            // Non-destructively overlay Page 1 onto Phase 1 critical rows so older rows are never discarded
             setTickets(prev => mergeProgressiveHydration(prev, firstJson.tickets));
 
             for (let page = 2; page <= totalPages; page++) {
@@ -2134,16 +2165,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 break;
               }
               collected.push(...pageJson.tickets);
-              if (pageJson.serverTime) latestServerTime = pageJson.serverTime;
-              setTickets(prev => mergeDeltaTickets(prev, pageJson.tickets, []).tickets);
+              setTickets(prev => mergeProgressiveHydration(prev, pageJson.tickets));
             }
 
-            return { tickets: collected, serverTime: latestServerTime, ok: true };
+            return { tickets: collected, serverTime: earliestServerTime, ok: true };
           } catch {
-            return { tickets: collected, serverTime: latestServerTime, ok: false };
+            return { tickets: collected, serverTime: earliestServerTime, ok: false };
           }
         };
 
+        const phase2StartIso = new Date().toISOString();
         const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
           fetchPaginatedFullChunks(),
           fetch('/api/bootstrap?mode=secondary', {
@@ -2157,18 +2188,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (bootController.signal.aborted) return;
 
-        if (progressiveFullRes.ok && progressiveFullRes.tickets.length > 0) {
-          setWoCache('wo:full', progressiveFullRes.tickets, progressiveFullRes.serverTime);
-          if (progressiveFullRes.serverTime) {
-            lastDeltaWatermarkRef.current = progressiveFullRes.serverTime;
-          }
-        }
-
         if (secondaryBootRes && secondaryBootRes.success) {
           const p2Meta = applyBootstrapHydration(secondaryBootRes, { isPhase2Full: true, headers });
           resolvedRole = p2Meta.resolvedRole;
           resolvedUserId = p2Meta.resolvedUserId;
           resolvedActive = p2Meta.resolvedActive;
+        }
+
+        if (progressiveFullRes.ok && progressiveFullRes.tickets.length > 0) {
+          setTickets(prev => mergeProgressiveHydration(prev, progressiveFullRes.tickets));
+          setWoCache('wo:full', progressiveFullRes.tickets, progressiveFullRes.serverTime);
+        }
+
+        // Advance watermark conservatively to earliest timestamp from Phase 2 start so concurrent updates are caught by next delta
+        const candidateWatermarks = [
+          phase2StartIso,
+          progressiveFullRes.serverTime,
+          secondaryBootRes?.serverTime
+        ]
+          .filter((w): w is string => Boolean(w) && Number.isFinite(Date.parse(w!)))
+          .sort((a, b) => Date.parse(a) - Date.parse(b));
+        if (candidateWatermarks.length > 0) {
+          lastDeltaWatermarkRef.current = candidateWatermarks[0];
         }
 
         if (globalBoot) {
@@ -6664,7 +6705,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         invalidCount++;
         return;
       }
-      const woNum = String(item.woNumber ?? item.workOrderNumber ?? '').trim();
+      const rawWoVal = item.woNumber ?? item.workOrderNumber ?? '';
+      if (typeof rawWoVal !== 'string' && typeof rawWoVal !== 'number') {
+        invalidCount++;
+        return;
+      }
+      const woNum = String(rawWoVal).trim();
       const upperWo = normWoKey(woNum);
 
       // Check for empty or invalid WO
@@ -7291,10 +7337,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (validRowsToImport.length > 0) {
             const importRes = await bulkImportTickets(validRowsToImport);
             pulledCount = importRes.importedCount;
-            if (!importRes.success && (importRes.failedCount || 0) > 0) {
+            if (!importRes.success && ((importRes.failedCount || 0) > 0 || (importRes.invalidCount || 0) > 0 || Boolean(importRes.error))) {
               throw new Error(
                 importRes.error ||
-                `Gagal menyimpan ${importRes.failedCount} Work Order dari Google Sheets ke database Supabase (${importRes.importedCount} tersimpan).`
+                `Gagal menyimpan ${importRes.failedCount || importRes.invalidCount} Work Order dari Google Sheets ke database Supabase (${importRes.importedCount} tersimpan).`
               );
             }
           }

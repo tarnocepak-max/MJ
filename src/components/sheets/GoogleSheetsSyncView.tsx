@@ -43,7 +43,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
   const {
     googleSheetsConfig,
     updateGoogleSheetsConfig,
-    syncGoogleSheetsNow,
+    refreshDatabaseData,
     tickets,
     contractors,
     currentUser
@@ -340,8 +340,9 @@ export const GoogleSheetsSyncView: React.FC = () => {
     try {
       const token = getAccessToken();
       const cleanId = extractSpreadsheetId(spreadsheetInput) || googleSheetsConfig.spreadsheetId;
-      
-      // Execute backend sync
+      const resolvedBackendDir = direction === 'import_only' ? 'pull' : direction === 'export_only' ? 'push' : 'both';
+
+      // Execute authoritative backend sync (passing OAuth token when connected)
       const res = await fetch('/api/integrations/google-sheets/sync', {
         method: 'POST',
         headers: {
@@ -350,36 +351,39 @@ export const GoogleSheetsSyncView: React.FC = () => {
           ...(token ? { 'x-google-access-token': token } : {})
         },
         body: JSON.stringify({
-          mode: direction === 'import_only' ? 'pull' : direction === 'export_only' ? 'push' : 'both',
+          direction: resolvedBackendDir,
+          mode: resolvedBackendDir,
           spreadsheetId: cleanId,
           sheetName: selectedSheetName || destSheetName || 'Work_Orders'
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      // Client sync fallback if client token is available
-      if (token) {
-        await syncGoogleSheetsNow(direction);
-      }
-
-      if (res.ok && data.success) {
-        setSyncFeedback({
-          type: 'success',
-          message: data.message || 'Sinkronisasi Google Sheets berhasil dieksekusi.'
-        });
-        setBackendStatus('Synced');
-        setLastErrorMessage('');
-      } else {
+      if (!res.ok || !data?.success) {
+        const errMsg = data?.error || data?.message || `Sinkronisasi Google Sheets gagal (HTTP ${res.status}).`;
         setSyncFeedback({
           type: 'error',
-          message: data.message || 'Sinkronisasi backend Google Sheets mengembalikan kegagalan.'
+          message: errMsg
         });
         setBackendStatus('Error');
-        setLastErrorMessage(data.message || 'Sync failed');
+        setLastErrorMessage(errMsg);
+        return;
       }
+
+      // Refresh frontend state cleanly from database after backend sync succeeds
+      await refreshDatabaseData();
+
+      setSyncFeedback({
+        type: 'success',
+        message: data.message || 'Sinkronisasi Google Sheets berhasil dieksekusi.'
+      });
+      setBackendStatus('Synced');
+      setLastErrorMessage('');
     } catch (err: any) {
-      setSyncFeedback({ type: 'error', message: err?.message || 'Terjadi kesalahan sinkronisasi.' });
+      const errMsg = err?.message || 'Terjadi kesalahan sinkronisasi.';
+      setSyncFeedback({ type: 'error', message: errMsg });
       setBackendStatus('Error');
+      setLastErrorMessage(errMsg);
     } finally {
       setIsSyncing(false);
     }
