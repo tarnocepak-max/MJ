@@ -245,7 +245,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   { id: 'installer_portal', label: 'Dashboard Installer', category: 'Mandiri', order: 5, visible: true, roles: ['installer'] },
   { id: 'installer_tasks', label: 'Tugas Saya', category: 'Mandiri', order: 6, visible: true, roles: ['installer'] },
   { id: 'users', label: 'Manajemen Akun', category: 'Mandiri', order: 7, visible: true, roles: ['super_admin'] },
-  { id: 'database_management', label: 'Database Application', category: 'Mandiri', order: 8, visible: true, roles: ['super_admin'] },
+  { id: 'database_management', label: 'Database Application', category: 'Mandiri', order: 8, visible: true, roles: ['super_admin', 'dispatch'] },
 
   // =========================================================================
   // 2. KATEGORI: WO CONTRACTOR — STATIC

@@ -202,7 +202,7 @@ export const DEFAULT_NAVIGATION_CONFIG: NavigationConfig = {
       categoryId: 'cat_tambahan',
       order: 5,
       visible: true,
-      roles: ['super_admin']
+      roles: ['super_admin', 'dispatch']
     },
     {
       id: 'sheets_sync',

@@ -26,12 +26,12 @@ import {
   BarChart3,
   Building2,
   RefreshCw,
-  Trash2
+  ArrowUpRight
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { parseAppointmentDate, formatAppointmentDateDisplay, getOperationalTodayDate, matchesScheduleDateFilter, ScheduleDateFilterMode } from '../../services/appointmentDateParser';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
-import { ManagementDataDeleteModal } from './ManagementDataDeleteModal';
+import { navigateToDataDeletion } from '../../services/deletionManagementService';
 import { downloadProductionBackup } from '../../services/backupDownloadService';
 
 interface ManagementDataPortalProps {
@@ -72,10 +72,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   // Selected ticket for quality review
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
-  // WO Selection for Deletion (Requirement 5: Management Data Exclusive)
+  // WO Selection for centralized Data Deletion redirect
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
-  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
 
   const handleDownloadBackup = async () => {
@@ -475,20 +473,28 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             </div>
           )}
 
-          {/* Bulk Action Bar for Management Data Deletion */}
+          {/* Bulk Action Bar redirecting to Centralized Data Deletion */}
           {selectedIds.size > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-xs">
-              <span className="font-bold text-rose-800 dark:text-rose-200">
-                {selectedIds.size} Work Order terpilih untuk tindakan penghapusan
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#EAE8FF] dark:bg-[#27104A]/70 border border-[#D4CEFA] dark:border-[#4A2580] rounded-xl text-xs">
+              <span className="font-bold text-[#5145A6] dark:text-[#D8B4FE]">
+                {selectedIds.size} Work Order terpilih — penghapusan data dipusatkan di Database Application → Data Deletion
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsBulkDeleteModalOpen(true)}
-                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  onClick={() => {
+                    const selectedList = filteredTickets.filter(t => selectedIds.has(t.id));
+                    navigateToDataDeletion({
+                      category: 'work_orders',
+                      mode: 'soft_delete',
+                      search: selectedList.length === 1 ? selectedList[0].woNumber : ''
+                    });
+                  }}
+                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-[#6657C8] hover:bg-[#5145A6] dark:bg-[#7135b5] dark:hover:bg-[#58149C] rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Hapus {selectedIds.size} WO Terpilih</span>
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Kelola di Data Deletion</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
@@ -668,24 +674,17 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                   onClick: () => onSelectTicket(t)
                 });
               }
-              actions.push({
-                id: 'delete',
-                label: 'Hapus Work Order',
-                icon: <Trash2 className="w-3.5 h-3.5" />,
-                tone: 'danger',
-                onClick: () => setTicketToDelete(t)
-              });
               return actions;
             }}
             renderDesktopActions={t => (
               <button
                 type="button"
-                onClick={() => setTicketToDelete(t)}
-                className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white dark:bg-rose-950/50 dark:hover:bg-rose-600 dark:text-rose-300 dark:hover:text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-[11px]"
-                title="Hapus Work Order (Superadmin)"
+                onClick={() => (onSelectTicket ? onSelectTicket(t) : navigateToDataDeletion({ category: 'work_orders', search: t.woNumber }))}
+                className="px-2 py-1 bg-[#F0EDFF] hover:bg-[#6657C8] text-[#5145A6] hover:text-white dark:bg-[#27104A] dark:hover:bg-[#7135b5] dark:text-[#D8B4FE] dark:hover:text-white rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-[11px]"
+                title="Lihat Detail Work Order"
               >
-                <Trash2 className="w-3 h-3" />
-                <span>Hapus</span>
+                <Eye className="w-3 h-3" />
+                <span>Detail</span>
               </button>
             )}
             emptyState={{
@@ -861,30 +860,6 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             </div>
           )}
         </div>
-      )}
-
-      {/* Management Data Single Ticket Delete Confirmation Modal */}
-      {ticketToDelete && (
-        <ManagementDataDeleteModal
-          isOpen={Boolean(ticketToDelete)}
-          onClose={() => setTicketToDelete(null)}
-          ticket={ticketToDelete}
-          onSuccess={() => setTicketToDelete(null)}
-        />
-      )}
-
-      {/* Management Data Bulk Delete Confirmation Modal */}
-      {isBulkDeleteModalOpen && (
-        <ManagementDataDeleteModal
-          isOpen={isBulkDeleteModalOpen}
-          onClose={() => setIsBulkDeleteModalOpen(false)}
-          ticket={null}
-          selectedTickets={filteredTickets.filter(t => selectedIds.has(t.id))}
-          onSuccess={() => {
-            setSelectedIds(new Set());
-            setIsBulkDeleteModalOpen(false);
-          }}
-        />
       )}
     </div>
   );

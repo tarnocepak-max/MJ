@@ -148,6 +148,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (menuId === 'overdue_wo') {
       return ['super_admin', 'dispatch', 'leader'].includes(userRole);
     }
+    if (menuId === 'database_management' || menuId === 'data_deletion') {
+      return userRole === 'super_admin' || (userRole === 'dispatch' && hasPermission('delete_wo_data'));
+    }
     if (userRole === 'super_admin') return true;
     const permMap: Record<string, any> = {
       audit_logs: 'view_audit_logs',
@@ -265,6 +268,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       .filter(item => {
         if (!item || item.visible === false) return false;
         if (item.id === 'templates' && userRole !== 'super_admin' && userRole !== 'dispatch') return false;
+        if (item.id === 'database_management') {
+          return canAccessMenuId('database_management');
+        }
         if (Array.isArray(item.roles) && item.roles.length > 0 && (!userRole || !item.roles.includes(userRole))) return false;
         if (!canAccessMenuId(item.id)) return false;
         return true;
@@ -339,6 +345,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (subId === 'templates' && userRole !== 'super_admin' && userRole !== 'dispatch') {
               return false;
             }
+            if (subId === 'database_management') {
+              return canAccessMenuId('database_management');
+            }
             if (Array.isArray(sub.roles) && sub.roles.length > 0 && (!userRole || !sub.roles.includes(userRole))) return false;
             if (!canAccessMenuId(subId)) return false;
             return true;
@@ -365,8 +374,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const hasActive = cat.submenus.some(
         sub =>
           sub.id === activeTab ||
+          (sub.id === 'database_management' && activeTab === 'data_deletion') ||
           (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-          (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+          (sub.id === 'setup' && ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
       );
       initial[cat.id] = hasActive || cat.mode === 'static';
     });
@@ -379,8 +389,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const hasActive = cat.submenus.some(
         sub =>
           sub.id === activeTab ||
+          (sub.id === 'database_management' && activeTab === 'data_deletion') ||
           (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-          (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+          (sub.id === 'setup' && ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
       );
       if (hasActive) {
         setOpenGroups(prev => ({
@@ -804,6 +815,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const SubIcon = resolveNavIcon(item.icon);
                 const isActive =
                   activeTab === item.id ||
+                  (item.id === 'database_management' && activeTab === 'data_deletion') ||
                   (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
                   (item.id === 'setup' &&
                     ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
@@ -990,6 +1002,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     const hasActiveChild = cat.submenus.some(
                       sub =>
                         activeTab === sub.id ||
+                        (sub.id === 'database_management' && activeTab === 'data_deletion') ||
                         (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
                         (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
                     );
@@ -1030,6 +1043,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               const SubIcon = resolveNavIcon(item.icon);
                               const isActive =
                                 activeTab === item.id ||
+                                (item.id === 'database_management' && activeTab === 'data_deletion') ||
                                 (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
                                 (item.id === 'setup' &&
                                   ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));

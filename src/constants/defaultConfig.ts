@@ -699,7 +699,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
     categoryId: 'menu_tambahan',
     order: 11,
     visible: true,
-    roles: ['super_admin']
+    roles: ['super_admin', 'dispatch']
   }
 ];
 

@@ -27,7 +27,7 @@ import {
   isValidCoordinatePair
 } from '../../services/mapsService';
 import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
-import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
+import { navigateToDataDeletion } from '../../services/deletionManagementService';
 import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
 import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
 import {
@@ -35,7 +35,7 @@ import {
   MessageSquare,
   Archive,
   RotateCcw,
-  Trash2,
+  Database,
   Phone,
   MapPin,
   Clock,
@@ -117,10 +117,15 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     ticketActivities,
     loadTicketDetailOnDemand,
     markTicketEditing,
+    hasPermission,
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
   const vv = useVisualViewportModal(isOpen);
+
+  const canOpenDataDeletion =
+    currentUser.role === 'super_admin' ||
+    (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
 
   // Dispatcher verification & decision state
   const [selectedWoAgentStatus, setSelectedWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
@@ -154,9 +159,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   // Reopen ticket banner state
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
-
-  // Delete confirm state (super_admin exclusive)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Technical report editor & chat visibility
   const [showReportEditor, setShowReportEditor] = useState(defaultTab === 'report');
@@ -701,15 +703,22 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <span>{ticket.isArchived ? 'Restore' : 'Arsipkan'}</span>
             </button>
 
-            {currentUser.role === 'super_admin' && (
+            {canOpenDataDeletion && (
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="btn-3d-danger h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                title="Hapus Work Order (Superadmin)"
+                onClick={() => {
+                  onClose();
+                  navigateToDataDeletion({
+                    category: 'work_orders',
+                    mode: 'soft_delete',
+                    search: ticket.woNumber
+                  });
+                }}
+                className="btn-3d-ceramic h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1 text-[#5145A6] dark:text-[#D8B4FE] cursor-pointer"
+                title="Kelola Penghapusan di Database Application → Data Deletion"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Hapus WO</span>
+                <Database className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Data Deletion</span>
               </button>
             )}
           </div>
@@ -1938,19 +1947,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             )}
           </div>
         </div>
-      )}
-
-      {/* Superadmin Delete Modal Guard */}
-      {showDeleteConfirm && currentUser.role === 'super_admin' && (
-        <ManagementDataDeleteModal
-          isOpen={showDeleteConfirm}
-          onClose={() => setShowDeleteConfirm(false)}
-          ticket={ticket}
-          onSuccess={() => {
-            setShowDeleteConfirm(false);
-            onClose();
-          }}
-        />
       )}
     </div>
   );

@@ -17,7 +17,7 @@ import {
   RotateCcw,
   Search,
   ShieldAlert,
-  Trash2,
+  Database,
   Wrench,
   CheckCircle2,
   X
@@ -42,7 +42,7 @@ import {
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { PaginationBar } from '../common/PaginationBar';
 import { LeaderTwoStepReassignModal } from '../portals/LeaderTwoStepReassignModal';
-import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
+import { navigateToDataDeletion } from '../../services/deletionManagementService';
 
 interface OverdueWorkOrdersViewProps {
   onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -143,12 +143,16 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     refreshOverdueTickets,
     reassignTicketPersonnel,
     contractorsList,
-    areasList
+    areasList,
+    hasPermission
   } = useApp();
   const { toast } = useToast();
   const { isCompactUI } = useResponsiveViewport();
 
   const canViewExceptions = currentUser.role === 'super_admin';
+  const canOpenDataDeletion =
+    currentUser.role === 'super_admin' ||
+    (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
   const isLeaderRole = currentUser.role === 'leader';
 
   const [viewMode, setViewMode] = useState<'overdue' | 'exception'>('overdue');
@@ -171,7 +175,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
   const [isReassignSubmitting, setIsReassignSubmitting] = useState(false);
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   const [quotaConfig, setQuotaConfig] = useState<LeaderQuotaConfig>(() => ({
     ...DEFAULT_LEADER_QUOTA_CONFIG,
@@ -872,17 +875,24 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={isDeleteModalOpen}
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="btn-3d-crimson px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus WO Overdue ({selectedTicketIds.length})</span>
-            </button>
-          </div>
+          {canOpenDataDeletion && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  navigateToDataDeletion({
+                    category: 'work_orders',
+                    mode: 'soft_delete',
+                    search: selectedTicketsList.length === 1 ? selectedTicketsList[0].woNumber : ''
+                  })
+                }
+                className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Kelola Penghapusan di Data Deletion</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1299,18 +1309,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           onConfirmReassign={handleConfirmReassign}
         />
       )}
-      {/* Authorized Soft Delete Confirmation Modal for Overdue WO */}
-      <ManagementDataDeleteModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        ticket={selectedTicketsList.length === 1 ? selectedTicketsList[0] : null}
-        selectedTickets={selectedTicketsList.length > 1 ? selectedTicketsList : []}
-        contextLabel={viewMode === 'exception' ? 'Exception WO' : 'Overdue WO'}
-        onSuccess={() => {
-          setSelectedTicketIds([]);
-          void refreshOverdueTickets();
-        }}
-      />
     </div>
   );
 };

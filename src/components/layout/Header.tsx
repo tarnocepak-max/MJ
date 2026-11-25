@@ -72,6 +72,7 @@ const TAB_TITLES: Record<string, string> = {
   login_logs: 'Riwayat Sesi Login',
   system_health: 'Kesehatan Sistem',
   database_management: 'Database Application',
+  data_deletion: 'Data Deletion',
   database_sync: 'Monitoring Sinkronisasi',
   sheets_sync: 'Google Sheets Sync',
   offline_sync: 'Sinkronisasi Offline',

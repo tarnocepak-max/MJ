@@ -49,6 +49,7 @@ import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
 import { ThemeBrandBackground } from './components/common/MoraRepublicBrandVisuals';
 import { safeLocalStorageGet, safeLocalStorageSet } from './utils/safeStorage';
+import type { DeletionNavContext } from './services/deletionManagementService';
 
 const SetupHubView = lazy(() =>
   import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView }))
@@ -259,10 +260,17 @@ const MainLayout: React.FC = () => {
   // Dynamic RBAC enforcement when Super Admin updates role permissions live via SSE
   useEffect(() => {
     if (!isLoggedIn || !currentUser?.role || currentUser.role === 'super_admin') return;
+    if (activeTab === 'database_management' || activeTab === 'data_deletion') {
+      const canAccessDb =
+        hasPermission('database_management') ||
+        (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
+      if (canAccessDb) return;
+    }
     const tabPermMap: Record<string, any> = {
       audit_logs: 'view_audit_logs',
       templates: 'manage_whatsapp_templates',
       database_management: 'database_management',
+      data_deletion: 'delete_wo_data',
       ui_builder: 'ui_configuration',
       import: 'import_data',
       import_excel: 'import_data',
@@ -311,6 +319,7 @@ const MainLayout: React.FC = () => {
   const [whatsAppTicket, setWhatsAppTicket] = useState<Ticket | null>(null);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [liveChatInitialTicketId, setLiveChatInitialTicketId] = useState<string | undefined>(undefined);
+  const [dataDeletionNavContext, setDataDeletionNavContext] = useState<DeletionNavContext | null>(null);
 
   // Central Navigation Dispatcher: updates activeTab, leaderSubTab, localStorage, and history state
   const navigateTo = (tab: string, pushHistory = true) => {
@@ -321,6 +330,9 @@ const MainLayout: React.FC = () => {
     }
     if (currentUser?.role === 'leader' && targetTab === 'quota_settings') {
       targetTab = 'wo_assignment';
+    }
+    if (targetTab === 'database_management') {
+      setDataDeletionNavContext(null);
     }
 
     setActiveTab(targetTab);
@@ -492,8 +504,17 @@ const MainLayout: React.FC = () => {
       }
       navigateTo(isInstaller ? 'installer_chat' : 'contact_centre');
     };
+    const handleNavigateDataDeletion = (e: Event) => {
+      const detail = (e as CustomEvent<DeletionNavContext | undefined>).detail;
+      setDataDeletionNavContext(detail ? { ...detail } : null);
+      navigateTo('data_deletion');
+    };
     window.addEventListener('morajaws:open-live-chat', handleOpenLiveChat);
-    return () => window.removeEventListener('morajaws:open-live-chat', handleOpenLiveChat);
+    window.addEventListener('morajaws:navigate-data-deletion', handleNavigateDataDeletion);
+    return () => {
+      window.removeEventListener('morajaws:open-live-chat', handleOpenLiveChat);
+      window.removeEventListener('morajaws:navigate-data-deletion', handleNavigateDataDeletion);
+    };
   }, [isLoggedIn, isInstaller]);
 
   // SWR background revalidation whenever navigating between WO routes
@@ -1004,9 +1025,28 @@ const MainLayout: React.FC = () => {
           ? <DatabaseSyncMonitoringView />
           : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
       case 'database_management':
-        return currentUser.role === 'super_admin'
-          ? <DatabaseManagementView />
-          : <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
+      case 'data_deletion': {
+        const canAccessDbApp =
+          currentUser.role === 'super_admin' ||
+          (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
+        if (!canAccessDbApp) {
+          return <SetupHubView initialTab="app_config" onNavigateTab={tab => setActiveTab(tab)} />;
+        }
+        const resolvedSubmenu =
+          activeTab === 'data_deletion'
+            ? 'data_deletion'
+            : currentUser.role === 'super_admin'
+            ? dataDeletionNavContext
+              ? 'data_deletion'
+              : 'overview'
+            : 'data_deletion';
+        return (
+          <DatabaseManagementView
+            initialSubmenu={resolvedSubmenu}
+            initialDeletionContext={dataDeletionNavContext}
+          />
+        );
+      }
       case 'import':
       case 'import_excel': {
         const canImportWO = currentUser.role === 'super_admin';

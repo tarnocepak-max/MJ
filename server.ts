@@ -242,6 +242,23 @@ import {
   MAX_STAGE_CHUNK_ROWS,
   MAX_IMPORT_JOB_ROWS
 } from './server/importJobService.ts';
+import {
+  ALL_DELETION_CATEGORIES,
+  getCategoryCountsSummary,
+  listDeletionItems,
+  listDeletionHistory,
+  inspectWoDependencies,
+  executeSoftDeleteBatch,
+  executePermanentDelete,
+  executeRestoreBatch,
+  isCategoryAllowedForRole,
+  recordDeletionLog,
+  type DeletionCategory,
+  type DeletionSubEntity,
+  type DeletionMode,
+  type DeletionTargetInput,
+  type LocalStoreBridge
+} from './server/centralizedDeletionService.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -658,6 +675,11 @@ interface DatabaseSchema {
   emailNotificationTemplates?: Record<string, any>;
   emailNotificationQueue?: any[];
   emailDeliveryLogs?: any[];
+  deletionLogs?: any[];
+  technicalReports?: any[];
+  importHistory?: any[];
+  importJobs?: any[];
+  importStagingRows?: any[];
 }
 
 // Initial seed data so that a fresh deployment is immediately operational and non-empty
@@ -1131,7 +1153,12 @@ export let db: DatabaseSchema = {
   userPreferences: {},
   systemErrorLogs: [],
   emailNotificationQueue: [],
-  emailDeliveryLogs: []
+  emailDeliveryLogs: [],
+  deletionLogs: [],
+  technicalReports: [],
+  importHistory: [],
+  importJobs: [],
+  importStagingRows: []
 };
 
 // Load database from disk or create if not existing (strictly skipped in production or Supabase mode)
@@ -3261,6 +3288,20 @@ export async function createExpressApp(options?: {
   const app = express();
   app.set('trust proxy', 1);
   const PORT = resolveServerPort();
+
+  const deletionStoreBridge: LocalStoreBridge = {
+    db,
+    saveDatabaseToDisk,
+    logServerAuditAsync,
+    broadcastSupabaseChange,
+    revokeUserSessions: (userId: string) => {
+      SERVER_SESSIONS.forEach(s => {
+        if (s.userId === userId) s.status = 'revoked';
+      });
+    },
+    isSupabaseMode,
+    isLocalJsonModeAllowed
+  };
 
   // Production CORS & Security Headers
   const knownProductionOrigins = getAllowedCorsAndCsrfOrigins();
@@ -6831,6 +6872,21 @@ export async function createExpressApp(options?: {
       return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
     }
 
+    if (req.user!.role !== 'super_admin') {
+      logServerAudit(
+        'Access Denied (Centralized Photo Deletion Restricted)',
+        'rbac',
+        req.originalUrl,
+        `User ${req.user!.name} (${req.user!.role}) ditolak menghapus foto bukti secara langsung; gunakan Data Deletion Management.`,
+        req.user
+      );
+      return res.status(403).json({
+        success: false,
+        code: 'REQUIRE_CENTRALIZED_DELETION',
+        error: 'Akses Ditolak: Penghapusan foto bukti tersimpan dipusatkan pada menu Database Application → Data Deletion oleh Super Admin.'
+      });
+    }
+
     if (!checkTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         success: false,
@@ -8495,6 +8551,15 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const deps = await inspectWoDependencies(deletionStoreBridge, target.id);
+    if (deps.activeImportLock) {
+      return res.status(409).json({
+        success: false,
+        code: 'ACTIVE_IMPORT_IN_PROGRESS',
+        error: 'Tidak dapat menghapus WO saat proses import batch terkait masih berjalan.'
+      });
+    }
+
     const nowIso = new Date().toISOString();
     const actor = req.user!.name;
     let updatedTicket: any = null;
@@ -8535,6 +8600,21 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
+    await recordDeletionLog(deletionStoreBridge, {
+      transactionId: `legacy_sd_${Date.now()}`,
+      deletionType: 'soft_delete',
+      category: 'work_orders',
+      sourceTable: 'work_orders',
+      recordId: target.id,
+      woNumber: target.woNumber,
+      actorUserId: req.user!.id,
+      actorName: actor,
+      actorRole: req.user!.role,
+      reason: reason.trim(),
+      relatedCounts: deps.counts,
+      status: 'success',
+      metadata: { legacyRoute: '/api/tickets/:id' }
+    });
     broadcastSupabaseChange('work_orders', 'DELETE', updatedTicket || target);
     await logServerAuditAsync('WO Soft Deleted', 'ticket', target.woNumber, `Super Admin ${actor} menandai terhapus (soft delete) WO ${target.woNumber}. Alasan: ${reason.trim()}`, req.user);
     res.json({ success: true, ticket: updatedTicket || target, message: `Work Order ${target.woNumber} berhasil dihapus (soft delete).` });
@@ -8611,6 +8691,20 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
+    await recordDeletionLog(deletionStoreBridge, {
+      transactionId: `legacy_bulk_${Date.now()}`,
+      deletionType: 'soft_delete',
+      category: 'work_orders',
+      sourceTable: 'work_orders',
+      recordId: Array.from(succeededIds).slice(0, 10).join(','),
+      actorUserId: req.user!.id,
+      actorName: actor,
+      actorRole: req.user!.role,
+      reason: cleanReason,
+      relatedCounts: { succeeded: count, failed: failedIds.length },
+      status: failedIds.length > 0 && count === 0 ? 'failed' : 'success',
+      metadata: { legacyRoute: '/api/tickets/bulk-delete' }
+    });
     await logServerAuditAsync('Bulk WO Soft Deleted', 'ticket', `${count} items`, `Super Admin ${actor} menandai terhapus (soft delete) ${count} WO. Alasan: ${cleanReason}`, req.user);
     res.json({
       success: failedIds.length === 0,
@@ -8698,6 +8792,20 @@ export async function createExpressApp(options?: {
       saveDatabaseToDisk();
     }
 
+    await recordDeletionLog(deletionStoreBridge, {
+      transactionId: `legacy_purge_${Date.now()}`,
+      deletionType: 'soft_delete',
+      category: 'work_orders',
+      sourceTable: 'work_orders',
+      recordId: importDate,
+      actorUserId: req.user!.id,
+      actorName: actor,
+      actorRole: req.user!.role,
+      reason: cleanReason,
+      relatedCounts: { succeeded: purged, failed: failedCount },
+      status: failedCount > 0 && purged === 0 ? 'failed' : 'success',
+      metadata: { legacyRoute: 'purge-by-date', importDate }
+    });
     await logServerAuditAsync('Imported Tickets Soft Deleted by Date', 'import_batch', importDate, `Super Admin ${actor} menandai soft delete ${purged} tiket tanggal import ${importDate}. Alasan: ${cleanReason}`, req.user);
     res.json({
       success: failedCount === 0,
@@ -8951,6 +9059,19 @@ export async function createExpressApp(options?: {
     if (isSupabaseMode()) {
       const delRes = await deleteContractorInSupabase(id);
       if (delRes.success) {
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_con_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'contractors',
+          recordId: id,
+          actorUserId: req.user!.id,
+          actorName: req.user!.name,
+          actorRole: req.user!.role,
+          reason: 'Legacy contractor delete route',
+          relatedCounts: {},
+          status: 'success'
+        });
         await logServerAuditAsync('Contractor Deleted', 'master_data', id, `Kontraktor ${id} dihapus oleh ${req.user!.name}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({ success: true, message: 'Kontraktor berhasil dihapus dari database.' });
@@ -8962,13 +9083,29 @@ export async function createExpressApp(options?: {
     }
 
     if (isLocalJsonModeAllowed()) {
-      const idx = db.contractors.findIndex(c => c.id === id || c.code === id);
-      if (idx !== -1) {
-        db.contractors.splice(idx, 1);
+      const targetCon = db.contractors.find(c => c.id === id || c.code === id) as any;
+      if (targetCon) {
+        targetCon.isDeleted = true;
+        targetCon.deletedAt = new Date().toISOString();
+        targetCon.deletedBy = req.user!.name;
+        targetCon.deletionReason = 'Dihapus melalui rute kontraktor';
         saveDatabaseToDisk();
       }
-      await logServerAuditAsync('Contractor Deleted', 'master_data', id, `Kontraktor ${id} dihapus oleh ${req.user!.name}`, req.user);
-      return res.json({ success: true, message: 'Kontraktor berhasil dihapus.' });
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_con_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'other_data',
+        sourceTable: 'contractors',
+        recordId: id,
+        actorUserId: req.user!.id,
+        actorName: req.user!.name,
+        actorRole: req.user!.role,
+        reason: 'Dihapus melalui rute kontraktor',
+        relatedCounts: {},
+        status: 'success'
+      });
+      await logServerAuditAsync('Contractor Deleted', 'master_data', id, `Kontraktor ${id} ditandai terhapus oleh ${req.user!.name}`, req.user);
+      return res.json({ success: true, message: 'Kontraktor berhasil ditandai terhapus.' });
     }
 
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
@@ -9114,6 +9251,19 @@ export async function createExpressApp(options?: {
     if (isSupabaseMode()) {
       const delRes = await deleteCoverageAreaInSupabase(id);
       if (delRes.success) {
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_area_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'coverage_areas',
+          recordId: id,
+          actorUserId: req.user!.id,
+          actorName: req.user!.name,
+          actorRole: req.user!.role,
+          reason: 'Legacy coverage area delete route',
+          relatedCounts: {},
+          status: 'success'
+        });
         await logServerAuditAsync('Coverage Area Deleted', 'master_data', id, `Coverage area ${id} dihapus oleh ${req.user!.name}`, req.user);
         if (!isLocalJsonModeAllowed()) {
           return res.json({ success: true, message: 'Coverage area berhasil dihapus dari database.' });
@@ -9125,13 +9275,29 @@ export async function createExpressApp(options?: {
     }
 
     if (isLocalJsonModeAllowed()) {
-      const idx = db.coverageAreas.findIndex(a => a.id === id || a.name === id);
-      if (idx !== -1) {
-        db.coverageAreas.splice(idx, 1);
+      const targetArea = db.coverageAreas.find(a => a.id === id || a.name === id) as any;
+      if (targetArea) {
+        targetArea.isDeleted = true;
+        targetArea.deletedAt = new Date().toISOString();
+        targetArea.deletedBy = req.user!.name;
+        targetArea.deletionReason = 'Dihapus melalui rute area';
         saveDatabaseToDisk();
       }
-      await logServerAuditAsync('Coverage Area Deleted', 'master_data', id, `Coverage area ${id} dihapus oleh ${req.user!.name}`, req.user);
-      return res.json({ success: true, message: 'Coverage area berhasil dihapus.' });
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_area_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'other_data',
+        sourceTable: 'coverage_areas',
+        recordId: id,
+        actorUserId: req.user!.id,
+        actorName: req.user!.name,
+        actorRole: req.user!.role,
+        reason: 'Dihapus melalui rute area',
+        relatedCounts: {},
+        status: 'success'
+      });
+      await logServerAuditAsync('Coverage Area Deleted', 'master_data', id, `Coverage area ${id} ditandai terhapus oleh ${req.user!.name}`, req.user);
+      return res.json({ success: true, message: 'Coverage area berhasil ditandai terhapus.' });
     }
 
     return res.status(503).json({ success: false, error: 'Database authoritative Supabase tidak tersedia.', code: 'DATABASE_UNAVAILABLE' });
@@ -9744,6 +9910,14 @@ export async function createExpressApp(options?: {
       }
     });
 
+    if (permanent) {
+      return res.status(403).json({
+        success: false,
+        code: 'REQUIRE_CENTRALIZED_DELETION',
+        error: 'Hapus permanen akun hanya diperbolehkan melalui halaman terpusat Database Application → Data Deletion.'
+      });
+    }
+
     if (isSupabaseMode()) {
       const delRes = await deleteUserInSupabase(id, req.user?.name, reason);
       if (!delRes.success && !isLocalJsonModeAllowed()) {
@@ -9751,6 +9925,19 @@ export async function createExpressApp(options?: {
         return res.status(status).json({ success: false, error: delRes.error?.message || 'Gagal menghapus pengguna di Supabase.' });
       }
       if (!isLocalJsonModeAllowed()) {
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_usr_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'users',
+          recordId: id,
+          actorUserId: req.user!.id,
+          actorName: req.user!.name,
+          actorRole: req.user!.role,
+          reason: String(reason).trim(),
+          relatedCounts: {},
+          status: 'success'
+        });
         await logServerAuditAsync('User Soft Deleted', 'auth', id, `Akun ${targetUser.name} dinonaktifkan & ditandai terhapus (soft delete). Alasan: ${reason}`, req.user);
         return res.json({ success: true, message: `Akun ${targetUser.name} berhasil dihapus dari database.` });
       }
@@ -9759,17 +9946,25 @@ export async function createExpressApp(options?: {
     if (isLocalJsonModeAllowed()) {
       const userIndex = db.users.findIndex(u => u.id === id);
       if (userIndex !== -1) {
-        if (permanent) {
-          db.users.splice(userIndex, 1);
-          await logServerAuditAsync('User Permanently Deleted', 'auth', id, `Akun ${targetUser.name} (@${targetUser.username}) dihapus permanen oleh Super Admin. Alasan: ${reason}`, req.user);
-        } else {
-          targetUser.isDeleted = true;
-          targetUser.active = false;
-          targetUser.deletedAt = new Date().toISOString();
-          targetUser.deletedBy = req.user?.name;
-          targetUser.deletionReason = reason;
-          await logServerAuditAsync('User Soft Deleted', 'auth', id, `Akun ${targetUser.name} dinonaktifkan & ditandai terhapus (soft delete). Alasan: ${reason}`, req.user);
-        }
+        targetUser.isDeleted = true;
+        targetUser.active = false;
+        targetUser.deletedAt = new Date().toISOString();
+        targetUser.deletedBy = req.user?.name;
+        targetUser.deletionReason = reason;
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_usr_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'users',
+          recordId: id,
+          actorUserId: req.user!.id,
+          actorName: req.user!.name,
+          actorRole: req.user!.role,
+          reason: String(reason).trim(),
+          relatedCounts: {},
+          status: 'success'
+        });
+        await logServerAuditAsync('User Soft Deleted', 'auth', id, `Akun ${targetUser.name} dinonaktifkan & ditandai terhapus (soft delete). Alasan: ${reason}`, req.user);
         saveDatabaseToDisk();
       }
 
@@ -12306,6 +12501,14 @@ export async function createExpressApp(options?: {
       const cleanReason = String(reason).trim();
       const actor = user.name;
 
+      const deps = await inspectWoDependencies(deletionStoreBridge, cleanId);
+      if (deps.activeImportLock) {
+        return res.status(409).json({
+          success: false,
+          error: { code: 'ACTIVE_IMPORT_IN_PROGRESS', message: 'Tidak dapat menghapus WO saat proses import batch terkait masih berjalan.' }
+        });
+      }
+
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
@@ -12331,6 +12534,21 @@ export async function createExpressApp(options?: {
         target.updatedAt = nowIso;
         target.updatedBy = actor;
         saveDatabaseToDisk();
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_supa_sd_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'work_orders',
+          sourceTable: 'work_orders',
+          recordId: target.id,
+          woNumber: target.woNumber,
+          actorUserId: user.id,
+          actorName: actor,
+          actorRole: user.role,
+          reason: cleanReason,
+          relatedCounts: deps.counts,
+          status: 'success',
+          metadata: { legacyRoute: '/api/supabase/work-orders/:id' }
+        });
         broadcastSupabaseChange('work_orders', 'DELETE', target);
         await logServerAuditAsync('Work Order Soft Deleted (Local Dev)', 'work_order', target.id, `WO ${target.woNumber} di-soft-delete oleh ${actor}. Alasan: ${cleanReason}`, user);
         return res.json({ success: true, data: target, message: `Work Order ${target.woNumber} berhasil ditandai terhapus (soft delete).` });
@@ -12349,6 +12567,21 @@ export async function createExpressApp(options?: {
         saveDatabaseToDisk();
       }
 
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_supa_sd_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'work_orders',
+        sourceTable: 'work_orders',
+        recordId: updated.id || cleanId,
+        woNumber: updated.woNumber || deps.woNumber || null,
+        actorUserId: user.id,
+        actorName: actor,
+        actorRole: user.role,
+        reason: cleanReason,
+        relatedCounts: deps.counts,
+        status: 'success',
+        metadata: { legacyRoute: '/api/supabase/work-orders/:id' }
+      });
       broadcastSupabaseChange('work_orders', 'DELETE', updated);
       await logServerAuditAsync('Work Order Soft Deleted (Supabase)', 'work_order', updated.id || cleanId, `WO ${updated.woNumber || cleanId} di-soft-delete oleh ${actor}. Alasan: ${cleanReason}`, user);
 
@@ -13348,10 +13581,17 @@ export async function createExpressApp(options?: {
       const user = req.user!;
       const { reason } = req.body || {};
 
-      if (user.role !== 'super_admin' && user.role !== 'leader') {
+      if (user.role !== 'super_admin') {
+        logServerAudit(
+          'Access Denied (User Deletion Restricted to Superadmin)',
+          'rbac',
+          req.originalUrl,
+          `User ${user.name} (${user.role}) ditolak menghapus user ${id}.`,
+          user
+        );
         return res.status(403).json({
           success: false,
-          error: { code: 'FORBIDDEN_ROLE', message: 'Akses Ditolak: Hanya Super Admin dan Leader yang dapat menghapus pengguna.' }
+          error: { code: 'FORBIDDEN_ROLE', message: 'Akses Ditolak: Penghapusan pengguna hanya diizinkan untuk Superadmin melalui Data Deletion Management.' }
         });
       }
 
@@ -13370,16 +13610,6 @@ export async function createExpressApp(options?: {
           success: false,
           error: { code: 'NOT_FOUND', message: 'Pengguna tidak ditemukan.' }
         });
-      }
-
-      // Leader isolation check
-      if (user.role === 'leader') {
-        if (!isLeaderAllowedToManageInstaller(user, existingUser)) {
-          return res.status(403).json({
-            success: false,
-            error: { code: 'FORBIDDEN_SCOPE', message: 'Akses Ditolak: Leader hanya dapat menghapus installer dari kontraktor yang sama.' }
-          });
-        }
       }
 
       // Revoke sessions
@@ -13660,10 +13890,29 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
         }
-        db.contractors = db.contractors.filter(x => x.id !== id);
-        saveDatabaseToDisk();
+        const target = db.contractors.find(x => x.id === id) as any;
+        if (target) {
+          target.isDeleted = true;
+          target.deletedAt = new Date().toISOString();
+          target.deletedBy = user.name;
+          target.deletionReason = 'Dihapus melalui API kontraktor';
+          saveDatabaseToDisk();
+        }
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_supa_con_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'contractors',
+          recordId: id,
+          actorUserId: user.id,
+          actorName: user.name,
+          actorRole: user.role,
+          reason: 'Dihapus melalui API kontraktor',
+          relatedCounts: {},
+          status: 'success'
+        });
         broadcastSupabaseChange('contractors', 'DELETE', { id });
-        await logServerAuditAsync('Contractor Deleted (Local Dev)', 'contractor', id, `Mitra ${id} dihapus oleh ${user.name}`, user);
+        await logServerAuditAsync('Contractor Deleted (Local Dev)', 'contractor', id, `Mitra ${id} ditandai terhapus oleh ${user.name}`, user);
         return res.json({ success: true, data: true });
       }
 
@@ -13673,6 +13922,19 @@ export async function createExpressApp(options?: {
       }
       db.contractors = db.contractors.filter(x => x.id !== id);
       saveDatabaseToDisk();
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_supa_con_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'other_data',
+        sourceTable: 'contractors',
+        recordId: id,
+        actorUserId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        reason: 'Dihapus melalui API kontraktor',
+        relatedCounts: {},
+        status: 'success'
+      });
       broadcastSupabaseChange('contractors', 'DELETE', { id });
       await logServerAuditAsync('Contractor Deleted (Supabase)', 'contractor', id, `Mitra ${id} diarsipkan/dihapus oleh ${user.name}`, user);
       return res.json({ success: true, data: true });
@@ -13785,10 +14047,29 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
         }
-        db.coverageAreas = db.coverageAreas.filter(a => a.id !== id);
-        saveDatabaseToDisk();
+        const target = db.coverageAreas.find(a => a.id === id) as any;
+        if (target) {
+          target.isDeleted = true;
+          target.deletedAt = new Date().toISOString();
+          target.deletedBy = user.name;
+          target.deletionReason = 'Dihapus melalui API coverage area';
+          saveDatabaseToDisk();
+        }
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_supa_area_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'coverage_areas',
+          recordId: id,
+          actorUserId: user.id,
+          actorName: user.name,
+          actorRole: user.role,
+          reason: 'Dihapus melalui API coverage area',
+          relatedCounts: {},
+          status: 'success'
+        });
         broadcastSupabaseChange('coverage_areas', 'DELETE', { id });
-        await logServerAuditAsync('Coverage Area Deleted (Local Dev)', 'coverage_area', id, `Area ${id} dihapus oleh ${user.name}`, user);
+        await logServerAuditAsync('Coverage Area Deleted (Local Dev)', 'coverage_area', id, `Area ${id} ditandai terhapus oleh ${user.name}`, user);
         return res.json({ success: true, data: true });
       }
 
@@ -13798,6 +14079,19 @@ export async function createExpressApp(options?: {
       }
       db.coverageAreas = db.coverageAreas.filter(a => a.id !== id);
       saveDatabaseToDisk();
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_supa_area_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'other_data',
+        sourceTable: 'coverage_areas',
+        recordId: id,
+        actorUserId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        reason: 'Dihapus melalui API coverage area',
+        relatedCounts: {},
+        status: 'success'
+      });
       broadcastSupabaseChange('coverage_areas', 'DELETE', { id });
       await logServerAuditAsync('Coverage Area Deleted (Supabase)', 'coverage_area', id, `Area ${id} dihapus oleh ${user.name}`, user);
       return res.json({ success: true, data: true });
@@ -13855,8 +14149,8 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 19f. DELETE /api/supabase/wa-templates/:id
-  app.delete('/api/supabase/wa-templates/:id', requireTemplateManager, async (req: AuthenticatedRequest, res: Response) => {
+  // 19f. DELETE /api/supabase/wa-templates/:id (Restricted to Superadmin; audited in deletion_logs)
+  app.delete('/api/supabase/wa-templates/:id', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const user = req.user!;
@@ -13864,14 +14158,46 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
         }
-        db.templates = db.templates.filter(t => t.id !== id);
-        saveDatabaseToDisk();
+        const tpl = db.templates.find(t => t.id === id) as any;
+        if (tpl) {
+          tpl.isDeleted = true;
+          tpl.deletedAt = new Date().toISOString();
+          tpl.deletedBy = user.name;
+          tpl.deletionReason = 'Dihapus melalui API template WA';
+          saveDatabaseToDisk();
+        }
+        await recordDeletionLog(deletionStoreBridge, {
+          transactionId: `legacy_supa_tpl_${Date.now()}`,
+          deletionType: 'soft_delete',
+          category: 'other_data',
+          sourceTable: 'wa_templates',
+          recordId: id,
+          actorUserId: user.id,
+          actorName: user.name,
+          actorRole: user.role,
+          reason: 'Dihapus melalui API template WA',
+          relatedCounts: {},
+          status: 'success'
+        });
         return res.json({ success: true, data: true });
       }
       const result = await deleteWaTemplateInSupabase(id);
       if (!result.success) {
         return res.status(result.error?.isUnavailable ? 503 : 400).json({ success: false, error: result.error });
       }
+      await recordDeletionLog(deletionStoreBridge, {
+        transactionId: `legacy_supa_tpl_${Date.now()}`,
+        deletionType: 'soft_delete',
+        category: 'other_data',
+        sourceTable: 'wa_templates',
+        recordId: id,
+        actorUserId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        reason: 'Dihapus melalui API template WA',
+        relatedCounts: {},
+        status: 'success'
+      });
       await logServerAuditAsync('WA Template Deleted (Supabase)', 'template', id, `Template WA ${id} dihapus oleh ${user.name}`, user);
       return res.json({ success: true, data: true });
     } catch (err: any) {
@@ -18287,6 +18613,360 @@ export async function createExpressApp(options?: {
       return res.json({ received: true, updated: handled });
     } catch {
       return res.status(400).json({ received: false });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // CENTRALIZED DATABASE DELETION MANAGEMENT API (/api/deletion/*)
+  // ---------------------------------------------------------------------------
+
+  const requireDeletionPortalAccess = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+    }
+    if (req.user.role === 'super_admin') {
+      return next();
+    }
+    if (req.user.role === 'dispatch') {
+      const hasExplicitPerm = await hasDynamicPermission('dispatch', 'delete_wo_data');
+      if (hasExplicitPerm) {
+        return next();
+      }
+    }
+    logServerAudit(
+      'Access Denied (Centralized Data Deletion)',
+      'rbac',
+      req.originalUrl,
+      `User ${req.user.name} (${req.user.role}) ditolak mengakses Data Deletion Management.`,
+      req.user
+    );
+    return res.status(403).json({
+      success: false,
+      code: 'FORBIDDEN_ROLE',
+      error: 'Akses Ditolak: Halaman dan aksi Data Deletion Management hanya untuk Superadmin atau Dispatch yang diberi izin eksplisit.'
+    });
+  };
+
+  const isValidCategory = (cat: string): cat is DeletionCategory =>
+    (ALL_DELETION_CATEGORIES as string[]).includes(cat);
+
+  app.get('/api/deletion/categories-summary', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const summary = await getCategoryCountsSummary(deletionStoreBridge, req.user!.role);
+      return res.json({ success: true, summary });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat ringkasan kategori.' });
+    }
+  });
+
+  app.get('/api/deletion/items', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const category = String(req.query.category || 'work_orders') as DeletionCategory;
+      if (!isValidCategory(category)) {
+        return res.status(400).json({ success: false, code: 'INVALID_CATEGORY', error: `Kategori "${category}" tidak dikenal.` });
+      }
+      const subEntity = String(req.query.subEntity || 'all') as DeletionSubEntity;
+      const mode = String(req.query.mode || 'soft_delete') as DeletionMode;
+
+      const result = await listDeletionItems(deletionStoreBridge, {
+        actorRole: req.user!.role,
+        category,
+        subEntity,
+        mode,
+        search: String(req.query.search || ''),
+        contractor: String(req.query.contractor || 'all'),
+        area: String(req.query.area || 'all'),
+        appointmentDate: String(req.query.appointmentDate || ''),
+        status: String(req.query.status || 'all'),
+        deletionStatus: (req.query.deletionStatus as any) || undefined,
+        page: Number(req.query.page || 1),
+        pageSize: Number(req.query.pageSize || 25)
+      });
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      const code = Number(err?.statusCode || 500);
+      return res.status(code).json({
+        success: false,
+        code: err?.code || 'LIST_DELETION_ITEMS_FAILED',
+        error: err?.message || 'Gagal mengambil daftar data.'
+      });
+    }
+  });
+
+  app.get('/api/deletion/dependencies/:category/:id', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const category = String(req.params.category || '') as DeletionCategory;
+      const recordId = String(req.params.id || '').trim();
+      if (!isValidCategory(category) || !recordId) {
+        return res.status(400).json({ success: false, code: 'INVALID_PARAMS', error: 'Kategori atau ID record tidak valid.' });
+      }
+      if (!isCategoryAllowedForRole(req.user!.role, category)) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_CATEGORY', error: 'Role Anda tidak berwenang memeriksa dependensi kategori ini.' });
+      }
+      if (category === 'work_orders') {
+        const deps = await inspectWoDependencies(deletionStoreBridge, recordId);
+        if (!deps.found) {
+          return res.status(404).json({ success: false, code: 'NOT_FOUND', error: `Work Order "${recordId}" tidak ditemukan.` });
+        }
+        return res.json({ success: true, dependencies: deps });
+      }
+      return res.json({
+        success: true,
+        dependencies: {
+          found: true,
+          id: recordId,
+          counts: {
+            assignment_history: 0,
+            ticket_messages: 0,
+            technical_reports: 0,
+            attachments: 0,
+            wo_progress_report_history: 0,
+            wo_distribution_logs: 0,
+            wo_kendala_reports: 0,
+            wo_photo_evidence: 0
+          },
+          blockingTotal: 0,
+          canSoftDelete: category !== 'import_staging',
+          canPermanentDelete: req.user!.role === 'super_admin',
+          blockingReasons: []
+        }
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memeriksa dependensi record.' });
+    }
+  });
+
+  app.post('/api/deletion/soft-delete', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { category, subEntity, recordIds, targets, reason } = req.body || {};
+      const cleanReason = String(reason || '').trim();
+      if (cleanReason.length < 5) {
+        return res.status(400).json({ success: false, code: 'INVALID_REASON', error: 'Alasan soft delete wajib diisi minimal 5 karakter.' });
+      }
+
+      let resolvedTargets: DeletionTargetInput[] = [];
+      if (Array.isArray(targets) && targets.length > 0) {
+        resolvedTargets = targets
+          .filter((t: any) => t && isValidCategory(String(t.category || '')) && String(t.recordId || '').trim())
+          .map((t: any) => ({
+            category: t.category as DeletionCategory,
+            recordId: String(t.recordId).trim(),
+            subEntity: t.subEntity as DeletionSubEntity | undefined
+          }));
+      } else if (isValidCategory(String(category || '')) && Array.isArray(recordIds) && recordIds.length > 0) {
+        resolvedTargets = recordIds
+          .map((id: any) => String(id || '').trim())
+          .filter(Boolean)
+          .map(id => ({
+            category: category as DeletionCategory,
+            recordId: id,
+            subEntity: subEntity as DeletionSubEntity | undefined
+          }));
+      }
+
+      if (resolvedTargets.length === 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_TARGETS', error: 'Pilih minimal satu record valid untuk di-soft-delete.' });
+      }
+
+      for (const t of resolvedTargets) {
+        if (!isCategoryAllowedForRole(req.user!.role, t.category, t.subEntity)) {
+          return res.status(403).json({
+            success: false,
+            code: 'FORBIDDEN_CATEGORY',
+            error: `Role ${req.user!.role} tidak diizinkan menghapus kategori "${t.category}".`
+          });
+        }
+      }
+
+      const result = await executeSoftDeleteBatch(
+        deletionStoreBridge,
+        { id: req.user!.id, name: req.user!.name, role: req.user!.role },
+        resolvedTargets,
+        cleanReason
+      );
+
+      if (!result.success && result.succeeded.length === 0) {
+        const firstCode = result.failed[0]?.code || 'SOFT_DELETE_FAILED';
+        const status =
+          firstCode === 'CONCURRENT_DELETION_LOCKED' || firstCode === 'ACTIVE_IMPORT_IN_PROGRESS'
+            ? 409
+            : firstCode === 'PROTECTED_RECORD' || firstCode === 'FORBIDDEN_ROLE'
+            ? 403
+            : firstCode === 'NOT_FOUND'
+            ? 404
+            : 400;
+        return res.status(status).json({
+          success: false,
+          code: firstCode,
+          error: result.failed[0]?.error || 'Gagal memproses soft delete.',
+          ...result
+        });
+      }
+
+      return res.json({
+        ...result,
+        message:
+          result.failed.length > 0
+            ? `Soft delete selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} gagal.`
+            : `Berhasil melakukan soft delete pada ${result.succeeded.length} data.`
+      });
+    } catch (err: any) {
+      return res.status(Number(err?.statusCode || 500)).json({
+        success: false,
+        code: err?.code || 'SOFT_DELETE_ERROR',
+        error: err?.message || 'Gagal melakukan soft delete.'
+      });
+    }
+  });
+
+  app.post('/api/deletion/permanent-delete', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        logServerAudit(
+          'Access Denied (Permanent Delete Superadmin Only)',
+          'rbac',
+          req.originalUrl,
+          `User ${req.user.name} (${req.user.role}) ditolak melakukan Permanent Delete.`,
+          req.user
+        );
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          error: 'Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.'
+        });
+      }
+
+      const { category, subEntity, recordId, confirmText, reason } = req.body || {};
+      if (!isValidCategory(String(category || '')) || !String(recordId || '').trim()) {
+        return res.status(400).json({ success: false, code: 'INVALID_PARAMS', error: 'Kategori dan recordId wajib disertakan.' });
+      }
+
+      const result = await executePermanentDelete(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        { category: category as DeletionCategory, recordId: String(recordId).trim(), subEntity: subEntity as DeletionSubEntity | undefined },
+        String(confirmText || ''),
+        String(reason || '')
+      );
+
+      if (!result.success) {
+        const status =
+          result.code === 'FORBIDDEN_ROLE' || result.code === 'PROTECTED_RECORD'
+            ? 403
+            : result.code === 'NOT_FOUND'
+            ? 404
+            : result.code === 'HAS_BLOCKING_RELATIONS' || result.code === 'CONCURRENT_DELETION_LOCKED' || result.code === 'ACTIVE_IMPORT_IN_PROGRESS'
+            ? 409
+            : result.code === 'TRANSACTION_ROLLED_BACK'
+            ? 500
+            : 400;
+        return res.status(status).json(result);
+      }
+
+      return res.json({
+        ...result,
+        message: 'Data berhasil dihapus permanen secara atomik dan tercatat di Deletion History.'
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        code: 'PERMANENT_DELETE_ERROR',
+        error: err?.message || 'Gagal melakukan hapus permanen.'
+      });
+    }
+  });
+
+  app.post('/api/deletion/restore', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          error: 'Akses Ditolak: Fitur Restore Data hanya diperbolehkan untuk Superadmin.'
+        });
+      }
+
+      const { category, subEntity, recordIds, targets, reason } = req.body || {};
+      let resolvedTargets: DeletionTargetInput[] = [];
+      if (Array.isArray(targets) && targets.length > 0) {
+        resolvedTargets = targets
+          .filter((t: any) => t && isValidCategory(String(t.category || '')) && String(t.recordId || '').trim())
+          .map((t: any) => ({
+            category: t.category as DeletionCategory,
+            recordId: String(t.recordId).trim(),
+            subEntity: t.subEntity as DeletionSubEntity | undefined
+          }));
+      } else if (isValidCategory(String(category || '')) && Array.isArray(recordIds) && recordIds.length > 0) {
+        resolvedTargets = recordIds
+          .map((id: any) => String(id || '').trim())
+          .filter(Boolean)
+          .map(id => ({
+            category: category as DeletionCategory,
+            recordId: id,
+            subEntity: subEntity as DeletionSubEntity | undefined
+          }));
+      }
+
+      if (resolvedTargets.length === 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_TARGETS', error: 'Pilih minimal satu record untuk dipulihkan.' });
+      }
+
+      const result = await executeRestoreBatch(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        resolvedTargets,
+        typeof reason === 'string' ? reason : undefined
+      );
+
+      if (!result.success && result.succeeded.length === 0) {
+        const firstCode = result.failed[0]?.code || 'RESTORE_FAILED';
+        const status = firstCode === 'DUPLICATE_ACTIVE_WO' || firstCode === 'CONCURRENT_DELETION_LOCKED' ? 409 : firstCode === 'NOT_FOUND' ? 404 : 400;
+        return res.status(status).json({
+          success: false,
+          code: firstCode,
+          error: result.failed[0]?.error || 'Gagal memulihkan data.',
+          ...result
+        });
+      }
+
+      return res.json({
+        ...result,
+        message:
+          result.failed.length > 0
+            ? `Pemulihan selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} gagal.`
+            : `Berhasil memulihkan ${result.succeeded.length} data.`
+      });
+    } catch (err: any) {
+      return res.status(Number(err?.statusCode || 500)).json({
+        success: false,
+        code: err?.code || 'RESTORE_ERROR',
+        error: err?.message || 'Gagal memulihkan data.'
+      });
+    }
+  });
+
+  app.get('/api/deletion/history', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const result = await listDeletionHistory(deletionStoreBridge, {
+        search: String(req.query.search || ''),
+        category: String(req.query.category || 'all'),
+        deletionType: String(req.query.deletionType || 'all'),
+        actor: String(req.query.actor || 'all'),
+        status: String(req.query.status || 'all'),
+        dateFrom: String(req.query.dateFrom || ''),
+        dateTo: String(req.query.dateTo || ''),
+        page: Number(req.query.page || 1),
+        pageSize: Number(req.query.pageSize || 25)
+      });
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat riwayat penghapusan.' });
     }
   });
 
