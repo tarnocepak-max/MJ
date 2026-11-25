@@ -7,8 +7,8 @@ const require = __moraCreateRequire(import.meta.url);
 import express from "express";
 import http from "http";
 import cookieParser from "cookie-parser";
-import path4 from "path";
-import fs4 from "fs";
+import path3 from "path";
+import fs3 from "fs";
 import crypto11 from "crypto";
 import { fileURLToPath } from "url";
 
@@ -1513,6 +1513,7 @@ function postgresRowToUser(row) {
     mustChangePassword: Boolean(row.must_change_password),
     sessionVersion,
     isDeleted: Boolean(row.is_deleted),
+    isArchived: Boolean(row.is_archived),
     deletedAt: row.deleted_at || void 0,
     deletedBy: row.deleted_by || void 0,
     deletionReason: row.deletion_reason || void 0,
@@ -6293,11 +6294,13 @@ async function verifyAccessToken(token) {
       error: { code: "ACCOUNT_DELETED", message: "Akun staf telah dihapus dari sistem." }
     };
   }
-  if (!authoritativeUser.active) {
+  const normalizedAccStatus = String(authoritativeUser.accountStatus || "").trim().toLowerCase();
+  const isAccountActive = authoritativeUser.active !== false && !authoritativeUser.isArchived && (!normalizedAccStatus || normalizedAccStatus === "active");
+  if (!isAccountActive) {
     matchedSession.revokedAt = (/* @__PURE__ */ new Date()).toISOString();
     return {
       success: false,
-      error: { code: "ACCOUNT_DISABLED", message: "Akun Anda sedang dinonaktifkan oleh Administrator." }
+      error: { code: "ACCOUNT_DISABLED", message: "Akun Anda sedang dinonaktifkan atau diarsipkan oleh Administrator." }
     };
   }
   const authoritativeVersion = authoritativeUser.sessionVersion || 1;
@@ -6428,10 +6431,11 @@ async function rotateRefreshToken(rawRefreshToken, ipAddress, userAgent) {
   if (!user && isLocalJsonModeAllowed()) {
     user = db.users.find((u) => u.id === matchedRt.userId) || null;
   }
-  if (!user || user.isDeleted || !user.active) {
+  const rtAccStatus = String(user?.accountStatus || "").trim().toLowerCase();
+  if (!user || user.isDeleted || !user.active || user.isArchived || rtAccStatus && rtAccStatus !== "active") {
     return {
       success: false,
-      error: { code: "ACCOUNT_DISABLED", message: "Akun Anda telah dinonaktifkan atau dihapus." }
+      error: { code: "ACCOUNT_DISABLED", message: "Akun Anda telah dinonaktifkan, diarsipkan, atau dihapus." }
     };
   }
   const authoritativeVersion = user.sessionVersion || 1;
@@ -16195,14 +16199,34 @@ function startEmailNotificationScheduler() {
 }
 
 // server/importJobService.ts
-import fs3 from "fs";
-import path3 from "path";
 import crypto10 from "crypto";
 var DEFAULT_IMPORT_BATCH_SIZE = 500;
 var MIN_IMPORT_BATCH_SIZE = 25;
 var MAX_IMPORT_BATCH_SIZE = 500;
 var MAX_STAGE_CHUNK_ROWS = 500;
 var MAX_IMPORT_JOB_ROWS = 25e3;
+var MAX_STAGING_ROW_BYTES = 65536;
+var DEFAULT_BATCH_LOCK_TTL_SECONDS = 120;
+var ALLOWED_IMPORT_TEMPLATE_TYPES = /* @__PURE__ */ new Set([
+  "BASE_DATA_WO",
+  "WO_KORLAP",
+  "INSTALLER_WO",
+  "ASSIGNED_TEKNISI",
+  "CUSTOM",
+  "TEXT_TO_TABLE",
+  "XLSX",
+  "CSV",
+  "JSON"
+]);
+var ImportServiceError = class extends Error {
+  constructor(message, code = "IMPORT_ERROR", statusCode = 400, retryable = false) {
+    super(message);
+    this.name = "ImportServiceError";
+    this.code = code;
+    this.statusCode = statusCode;
+    this.retryable = retryable;
+  }
+};
 function clampBatchSize(size) {
   const n = Number(size);
   if (!Number.isFinite(n)) return DEFAULT_IMPORT_BATCH_SIZE;
@@ -16328,7 +16352,7 @@ function dbRowToError(r) {
 function dbRowToHistory(r) {
   return {
     id: r.id,
-    jobId: r.job_id,
+    jobId: r.job_id || r.original_job_id || "",
     importName: r.import_name || null,
     sourceFile: r.source_file || null,
     importedBy: r.imported_by,
@@ -16344,204 +16368,170 @@ function dbRowToHistory(r) {
 }
 var ProductionImportStore = class {
   constructor() {
-    this.schemaAvailable = null;
-    this.schemaCheckedAt = 0;
-    const isVercel = Boolean(process.env.VERCEL);
-    this.fallbackDir = isVercel ? path3.join("/tmp", "morajaws_import_jobs") : path3.join(process.cwd(), "data", "import_jobs");
+    this.schemaVerified = false;
   }
-  ensureFallbackDir() {
-    try {
-      if (!fs3.existsSync(this.fallbackDir)) {
-        fs3.mkdirSync(this.fallbackDir, { recursive: true });
-      }
-    } catch {
-    }
-  }
-  readLocalJson(fileName, defaultVal) {
-    try {
-      const p = path3.join(this.fallbackDir, fileName);
-      if (fs3.existsSync(p)) {
-        return JSON.parse(fs3.readFileSync(p, "utf8"));
-      }
-    } catch {
-    }
-    return defaultVal;
-  }
-  writeLocalJson(fileName, data) {
-    try {
-      this.ensureFallbackDir();
-      const p = path3.join(this.fallbackDir, fileName);
-      fs3.writeFileSync(p, JSON.stringify(data), "utf8");
-    } catch {
-    }
-  }
-  async isRelationalSchemaReady() {
+  getRequiredClient() {
     const client = getSupabaseBackendClient();
-    if (!client) return false;
-    const now = Date.now();
-    if (this.schemaAvailable === true) return true;
-    if (this.schemaAvailable === false && now - this.schemaCheckedAt < 6e4) {
-      return false;
+    if (!client) {
+      throw new ImportServiceError(
+        "Database authoritative PostgreSQL/Supabase belum dikonfigurasi pada server.",
+        "DATABASE_UNAVAILABLE",
+        503,
+        true
+      );
     }
-    try {
-      const { error } = await client.from("import_jobs").select("id").limit(1);
-      this.schemaCheckedAt = now;
-      if (!error) {
-        this.schemaAvailable = true;
-        return true;
+    return client;
+  }
+  wrapDbError(error, target, operation) {
+    if (error instanceof ImportServiceError) return error;
+    const code = String(error?.code || "").trim();
+    const rawMsg = String(error?.message || error?.details || error?.hint || error || "").trim();
+    if (code === "42P01" || code === "42883" || code === "42703" || code === "PGRST202" || code === "PGRST204" || code === "PGRST205" || /could not find the (function|table)|does not exist|schema cache/i.test(rawMsg)) {
+      this.schemaVerified = false;
+      return new ImportServiceError(
+        `Skema/RPC Enterprise Import (Migration 020) belum tersedia atau belum lengkap pada PostgreSQL (${target}/${operation}): ${rawMsg}. Jalankan migrations/020_enterprise_import_architecture.sql terlebih dahulu.`,
+        "MIGRATION_020_REQUIRED",
+        503,
+        false
+      );
+    }
+    if (rawMsg.includes("IMPORT_JOB_NOT_FOUND")) {
+      return new ImportServiceError("Import job tidak ditemukan di database.", "IMPORT_JOB_NOT_FOUND", 404, false);
+    }
+    if (rawMsg.includes("IMPORT_BATCH_NOT_FOUND")) {
+      return new ImportServiceError("Batch impor tidak ditemukan di database.", "IMPORT_BATCH_NOT_FOUND", 404, false);
+    }
+    if (rawMsg.includes("IMPORT_JOB_CANCELLED")) {
+      return new ImportServiceError("Import job telah dibatalkan.", "IMPORT_JOB_CANCELLED", 409, false);
+    }
+    if (rawMsg.includes("IMPORT_BATCH_ALREADY_COMPLETED")) {
+      return new ImportServiceError("Batch impor sudah berstatus completed.", "IMPORT_BATCH_ALREADY_COMPLETED", 409, false);
+    }
+    if (rawMsg.includes("IMPORT_BATCH_LOCK_LOST")) {
+      return new ImportServiceError("Lock pemrosesan batch dipegang worker lain atau telah kedaluwarsa.", "IMPORT_BATCH_LOCK_LOST", 409, false);
+    }
+    const classified = classifySupabaseError(error, { table: target, operation });
+    const isTransient = classified.isUnavailable || code === "57P01" || code === "57P03" || code === "40001" || code === "40P01" || code === "08006" || code === "08001" || /timeout|timed out|etimedout|econnreset|econnrefused|fetch failed|502|503|504|connection|pool/i.test(rawMsg);
+    if (isTransient) {
+      return new ImportServiceError(
+        classified.message || `Gangguan koneksi sementara ke database (${operation}): ${rawMsg}`,
+        "DATABASE_TRANSIENT_ERROR",
+        503,
+        true
+      );
+    }
+    return new ImportServiceError(
+      classified.message || rawMsg || `Operasi database ${target}.${operation} gagal.`,
+      code || "DATABASE_ERROR",
+      500,
+      false
+    );
+  }
+  async ensureSchemaReady() {
+    if (this.schemaVerified) return;
+    const client = this.getRequiredClient();
+    const tables = ["import_jobs", "import_batches", "import_staging_rows", "import_row_errors", "import_history"];
+    for (const tbl of tables) {
+      const { error } = await client.from(tbl).select("id").limit(1);
+      if (error) {
+        throw this.wrapDbError(error, tbl, "schema_probe");
       }
-      const classified = classifySupabaseError(error, { table: "import_jobs", operation: "probe" });
-      if (classified.isSchemaError) {
-        this.schemaAvailable = false;
-        return false;
+    }
+    const [batchColProbe, historyColProbe, rpcProbe, dupLookupProbe] = await Promise.all([
+      client.from("import_batches").select("id, locked_by, lock_expires_at, updated_rows").limit(1),
+      client.from("import_history").select("id, original_job_id").limit(1),
+      client.rpc("morajaws_claim_import_batch", {
+        p_job_id: "__migration_020_schema_probe__",
+        p_worker_id: "schema_probe",
+        p_batch_number: null,
+        p_retry_failed: false,
+        p_lock_ttl_seconds: 30
+      }),
+      client.rpc("morajaws_find_existing_wo_numbers", {
+        p_wo_numbers: []
+      })
+    ]);
+    if (batchColProbe.error) throw this.wrapDbError(batchColProbe.error, "import_batches", "schema_probe");
+    if (historyColProbe.error) throw this.wrapDbError(historyColProbe.error, "import_history", "schema_probe");
+    if (rpcProbe.error) throw this.wrapDbError(rpcProbe.error, "morajaws_claim_import_batch", "rpc_probe");
+    if (dupLookupProbe.error) throw this.wrapDbError(dupLookupProbe.error, "morajaws_find_existing_wo_numbers", "rpc_probe");
+    this.schemaVerified = true;
+  }
+  async createJob(job, opts) {
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const metadata = opts?.clientRequestId ? { clientRequestId: opts.clientRequestId } : {};
+    const { error } = await client.from("import_jobs").insert([
+      {
+        id: job.id,
+        import_name: job.importName,
+        source_file: job.sourceFile,
+        source_format: job.sourceFormat,
+        template_type: job.templateType,
+        duplicate_policy: job.duplicatePolicy,
+        auto_register_contractors: job.autoRegisterContractors,
+        batch_size: job.batchSize,
+        total_rows: job.totalRows,
+        staged_rows: job.stagedRows,
+        processed_rows: job.processedRows,
+        successful_rows: job.successfulRows,
+        updated_rows: job.updatedRows,
+        duplicate_rows: job.duplicateRows,
+        failed_rows: job.failedRows,
+        total_batches: job.totalBatches,
+        completed_batches: job.completedBatches,
+        current_batch: job.currentBatch,
+        status: job.status,
+        error_summary: job.errorSummary || null,
+        metadata,
+        created_by: job.createdBy,
+        created_by_id: job.createdById || null,
+        created_at: job.createdAt,
+        started_at: job.startedAt || null,
+        updated_at: job.updatedAt,
+        completed_at: job.completedAt || null,
+        cancelled_at: job.cancelledAt || null
       }
-      return false;
-    } catch {
-      this.schemaCheckedAt = now;
-      return false;
+    ]);
+    if (error) {
+      throw this.wrapDbError(error, "import_jobs", "createJob");
     }
   }
-  async readFallbackSetting(key, defaultVal) {
-    const client = getSupabaseBackendClient();
-    if (client) {
-      try {
-        const { data, error } = await client.from("app_settings").select("value").eq("key", key).maybeSingle();
-        if (!error && data && data.value !== void 0 && data.value !== null) {
-          return data.value;
-        }
-      } catch {
-      }
+  async findJobByClientRequestId(clientRequestId) {
+    if (!clientRequestId) return null;
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_jobs").select("*").eq("metadata->>clientRequestId", clientRequestId).neq("status", "cancelled").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) {
+      throw this.wrapDbError(error, "import_jobs", "findJobByClientRequestId");
     }
-    return this.readLocalJson(`${key}.json`, defaultVal);
-  }
-  async writeFallbackSetting(key, value, updatedBy = "System") {
-    this.writeLocalJson(`${key}.json`, value);
-    const client = getSupabaseBackendClient();
-    if (client) {
-      try {
-        await client.from("app_settings").upsert(
-          {
-            key,
-            value,
-            updated_at: (/* @__PURE__ */ new Date()).toISOString(),
-            updated_by: updatedBy
-          },
-          { onConflict: "key" }
-        );
-      } catch {
-      }
-    }
-  }
-  async createJob(job) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { error } = await client.from("import_jobs").insert([
-        {
-          id: job.id,
-          import_name: job.importName,
-          source_file: job.sourceFile,
-          source_format: job.sourceFormat,
-          template_type: job.templateType,
-          duplicate_policy: job.duplicatePolicy,
-          auto_register_contractors: job.autoRegisterContractors,
-          batch_size: job.batchSize,
-          total_rows: job.totalRows,
-          staged_rows: job.stagedRows,
-          processed_rows: job.processedRows,
-          successful_rows: job.successfulRows,
-          updated_rows: job.updatedRows,
-          duplicate_rows: job.duplicateRows,
-          failed_rows: job.failedRows,
-          total_batches: job.totalBatches,
-          completed_batches: job.completedBatches,
-          current_batch: job.currentBatch,
-          status: job.status,
-          error_summary: job.errorSummary || null,
-          created_by: job.createdBy,
-          created_by_id: job.createdById || null,
-          created_at: job.createdAt,
-          started_at: job.startedAt || null,
-          updated_at: job.updatedAt,
-          completed_at: job.completedAt || null,
-          cancelled_at: job.cancelledAt || null
-        }
-      ]);
-      if (!error) return;
-    }
-    await this.writeFallbackSetting(`morajaws_imp_job_${job.id}`, job, job.createdBy);
-    const index = await this.readFallbackSetting("morajaws_imp_jobs_index", []);
-    const nextIndex = [job.id, ...index.filter((id) => id !== job.id)].slice(0, 60);
-    await this.writeFallbackSetting("morajaws_imp_jobs_index", nextIndex, job.createdBy);
-  }
-  async updateJob(jobId, patch) {
-    const client = getSupabaseBackendClient();
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    if (client && await this.isRelationalSchemaReady()) {
-      const dbPatch = { updated_at: now };
-      if (patch.totalRows !== void 0) dbPatch.total_rows = patch.totalRows;
-      if (patch.stagedRows !== void 0) dbPatch.staged_rows = patch.stagedRows;
-      if (patch.processedRows !== void 0) dbPatch.processed_rows = patch.processedRows;
-      if (patch.successfulRows !== void 0) dbPatch.successful_rows = patch.successfulRows;
-      if (patch.updatedRows !== void 0) dbPatch.updated_rows = patch.updatedRows;
-      if (patch.duplicateRows !== void 0) dbPatch.duplicate_rows = patch.duplicateRows;
-      if (patch.failedRows !== void 0) dbPatch.failed_rows = patch.failedRows;
-      if (patch.totalBatches !== void 0) dbPatch.total_batches = patch.totalBatches;
-      if (patch.completedBatches !== void 0) dbPatch.completed_batches = patch.completedBatches;
-      if (patch.currentBatch !== void 0) dbPatch.current_batch = patch.currentBatch;
-      if (patch.status !== void 0) dbPatch.status = patch.status;
-      if (patch.errorSummary !== void 0) dbPatch.error_summary = patch.errorSummary;
-      if (patch.startedAt !== void 0) dbPatch.started_at = patch.startedAt;
-      if (patch.completedAt !== void 0) dbPatch.completed_at = patch.completedAt;
-      if (patch.cancelledAt !== void 0) dbPatch.cancelled_at = patch.cancelledAt;
-      const { data, error } = await client.from("import_jobs").update(dbPatch).eq("id", jobId).select("*").maybeSingle();
-      if (!error && data) {
-        const batches2 = await this.getBatches(jobId);
-        return enrichJobFlags(dbRowToJob(data), batches2);
-      }
-    }
-    const existing = await this.readFallbackSetting(`morajaws_imp_job_${jobId}`, null);
-    if (!existing) return null;
-    const next = { ...existing, ...patch, updatedAt: now };
-    await this.writeFallbackSetting(`morajaws_imp_job_${jobId}`, next);
-    const batches = await this.getBatches(jobId);
-    return enrichJobFlags(next, batches);
+    if (!data) return null;
+    const batches = await this.getBatches(data.id);
+    return enrichJobFlags(dbRowToJob(data), batches);
   }
   async getJob(jobId) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { data, error } = await client.from("import_jobs").select("*").eq("id", jobId).maybeSingle();
-      if (!error && data) {
-        const batches2 = await this.getBatches(jobId);
-        return enrichJobFlags(dbRowToJob(data), batches2);
-      }
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_jobs").select("*").eq("id", jobId).maybeSingle();
+    if (error) {
+      throw this.wrapDbError(error, "import_jobs", "getJob");
     }
-    const existing = await this.readFallbackSetting(`morajaws_imp_job_${jobId}`, null);
-    if (!existing) return null;
+    if (!data) return null;
     const batches = await this.getBatches(jobId);
-    return enrichJobFlags(existing, batches);
+    return enrichJobFlags(dbRowToJob(data), batches);
   }
   async listJobs(limit = 30) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { data, error } = await client.from("import_jobs").select("*").order("created_at", { ascending: false }).limit(limit);
-      if (!error && Array.isArray(data)) {
-        return data.map(dbRowToJob);
-      }
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_jobs").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (error) {
+      throw this.wrapDbError(error, "import_jobs", "listJobs");
     }
-    const index = await this.readFallbackSetting("morajaws_imp_jobs_index", []);
-    const results = [];
-    for (const id of index.slice(0, limit)) {
-      const j = await this.readFallbackSetting(`morajaws_imp_job_${id}`, null);
-      if (j) results.push(enrichJobFlags(j));
-    }
-    return results;
+    return (data || []).map(dbRowToJob);
   }
   async upsertBatches(batches) {
     if (batches.length === 0) return;
-    const jobId = batches[0].jobId;
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const payload = batches.map((b) => ({
+    const client = this.getRequiredClient();
+    for (let i = 0; i < batches.length; i += 200) {
+      const payload = batches.slice(i, i + 200).map((b) => ({
         id: b.id,
         job_id: b.jobId,
         batch_number: b.batchNumber,
@@ -16560,374 +16550,190 @@ var ProductionImportStore = class {
         processed_at: b.processedAt || null
       }));
       const { error } = await client.from("import_batches").upsert(payload, { onConflict: "job_id,batch_number" });
-      if (!error) return;
-    }
-    const existing = await this.readFallbackSetting(`morajaws_imp_batches_${jobId}`, []);
-    const map = /* @__PURE__ */ new Map();
-    existing.forEach((b) => map.set(b.batchNumber, b));
-    batches.forEach((b) => map.set(b.batchNumber, b));
-    await this.writeFallbackSetting(
-      `morajaws_imp_batches_${jobId}`,
-      Array.from(map.values()).sort((a, b) => a.batchNumber - b.batchNumber)
-    );
-  }
-  async updateBatch(jobId, batchNumber, patch) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const dbPatch = {};
-      if (patch.processedRows !== void 0) dbPatch.processed_rows = patch.processedRows;
-      if (patch.successfulRows !== void 0) dbPatch.successful_rows = patch.successfulRows;
-      if (patch.duplicateRows !== void 0) dbPatch.duplicate_rows = patch.duplicateRows;
-      if (patch.failedRows !== void 0) dbPatch.failed_rows = patch.failedRows;
-      if (patch.status !== void 0) dbPatch.status = patch.status;
-      if (patch.retryCount !== void 0) dbPatch.retry_count = patch.retryCount;
-      if (patch.errorMessage !== void 0) dbPatch.error_message = patch.errorMessage;
-      if (patch.durationMs !== void 0) dbPatch.duration_ms = patch.durationMs;
-      if (patch.startedAt !== void 0) dbPatch.started_at = patch.startedAt;
-      if (patch.processedAt !== void 0) dbPatch.processed_at = patch.processedAt;
-      const { data, error } = await client.from("import_batches").update(dbPatch).eq("job_id", jobId).eq("batch_number", batchNumber).select("*").maybeSingle();
-      if (!error && data) return dbRowToBatch(data);
-    }
-    const existing = await this.readFallbackSetting(`morajaws_imp_batches_${jobId}`, []);
-    let updated = null;
-    const next = existing.map((b) => {
-      if (b.batchNumber !== batchNumber) return b;
-      updated = { ...b, ...patch };
-      return updated;
-    });
-    await this.writeFallbackSetting(`morajaws_imp_batches_${jobId}`, next);
-    return updated;
-  }
-  async getBatches(jobId) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { data, error } = await client.from("import_batches").select("*").eq("job_id", jobId).order("batch_number", { ascending: true });
-      if (!error && Array.isArray(data)) {
-        return data.map(dbRowToBatch);
+      if (error) {
+        throw this.wrapDbError(error, "import_batches", "upsertBatches");
       }
     }
-    return await this.readFallbackSetting(`morajaws_imp_batches_${jobId}`, []);
+  }
+  async getBatches(jobId) {
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_batches").select("*").eq("job_id", jobId).order("batch_number", { ascending: true });
+    if (error) {
+      throw this.wrapDbError(error, "import_batches", "getBatches");
+    }
+    return (data || []).map(dbRowToBatch);
+  }
+  async getStagingLookupIndex(jobId) {
+    const client = this.getRequiredClient();
+    const rowNumbers = /* @__PURE__ */ new Set();
+    const canonicalWos = /* @__PURE__ */ new Set();
+    let maxRowNumber = 0;
+    let offset = 0;
+    const pageSize = 1e3;
+    while (true) {
+      const { data, error } = await client.from("import_staging_rows").select("row_number, wo_number").eq("job_id", jobId).order("row_number", { ascending: true }).range(offset, offset + pageSize - 1);
+      if (error) {
+        throw this.wrapDbError(error, "import_staging_rows", "getStagingLookupIndex");
+      }
+      if (!data || data.length === 0) break;
+      for (const r of data) {
+        const rn = Number(r.row_number);
+        if (Number.isFinite(rn)) {
+          rowNumbers.add(rn);
+          if (rn > maxRowNumber) maxRowNumber = rn;
+        }
+        const canon = canonicalWoKey(r.wo_number);
+        if (canon) canonicalWos.add(canon);
+      }
+      if (data.length < pageSize) break;
+      offset += pageSize;
+    }
+    return { rowNumbers, canonicalWos, maxRowNumber };
   }
   async upsertStagingRows(rows) {
     if (rows.length === 0) return;
-    const jobId = rows[0].jobId;
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      for (let i = 0; i < rows.length; i += 200) {
-        const chunk = rows.slice(i, i + 200).map((r) => ({
-          id: r.id,
-          job_id: r.jobId,
-          batch_number: r.batchNumber,
-          row_number: r.rowNumber,
-          wo_number: r.woNumber,
-          raw_payload: r.rawPayload,
-          normalized_payload: r.normalizedPayload,
-          validation_status: r.validationStatus,
-          processing_status: r.processingStatus,
-          error_code: r.errorCode || null,
-          error_message: r.errorMessage || null,
-          created_at: r.createdAt,
-          processed_at: r.processedAt || null
-        }));
-        const { error } = await client.from("import_staging_rows").upsert(chunk, { onConflict: "job_id,row_number" });
-        if (error) {
-          throw new Error(`Staging insert error: ${error.message}`);
-        }
+    const client = this.getRequiredClient();
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200).map((r) => ({
+        id: r.id,
+        job_id: r.jobId,
+        batch_number: r.batchNumber,
+        row_number: r.rowNumber,
+        wo_number: r.woNumber,
+        raw_payload: r.rawPayload,
+        normalized_payload: r.normalizedPayload,
+        validation_status: r.validationStatus,
+        processing_status: r.processingStatus,
+        error_code: r.errorCode || null,
+        error_message: r.errorMessage || null,
+        created_at: r.createdAt,
+        processed_at: r.processedAt || null
+      }));
+      const { error } = await client.from("import_staging_rows").upsert(chunk, { onConflict: "job_id,row_number" });
+      if (error) {
+        throw this.wrapDbError(error, "import_staging_rows", "upsertStagingRows");
       }
-      return;
-    }
-    const grouped = /* @__PURE__ */ new Map();
-    for (const r of rows) {
-      const bNo = r.batchNumber ?? 0;
-      if (!grouped.has(bNo)) grouped.set(bNo, []);
-      grouped.get(bNo).push(r);
-    }
-    for (const [bNo, list] of grouped.entries()) {
-      const key = `morajaws_imp_stg_${jobId}_b${bNo}`;
-      const existing = await this.readFallbackSetting(key, []);
-      const rowMap = /* @__PURE__ */ new Map();
-      existing.forEach((item) => rowMap.set(item.rowNumber, item));
-      list.forEach((item) => rowMap.set(item.rowNumber, item));
-      await this.writeFallbackSetting(
-        key,
-        Array.from(rowMap.values()).sort((a, b) => a.rowNumber - b.rowNumber)
-      );
     }
   }
   async getStagingRows(jobId, opts) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const out = [];
-      let offset = 0;
-      const pageSize = 500;
-      while (true) {
-        let q = client.from("import_staging_rows").select("*").eq("job_id", jobId).order("row_number", { ascending: true }).range(offset, offset + pageSize - 1);
-        if (typeof opts?.batchNumber === "number") {
-          q = q.eq("batch_number", opts.batchNumber);
-        }
-        const { data, error } = await q;
-        if (error) throw new Error(`Read staging rows error: ${error.message}`);
-        if (!data || data.length === 0) break;
-        out.push(...data.map(dbRowToStaging));
-        if (data.length < pageSize) break;
-        offset += pageSize;
+    const client = this.getRequiredClient();
+    const out = [];
+    let offset = 0;
+    const pageSize = 500;
+    while (true) {
+      let q = client.from("import_staging_rows").select("*").eq("job_id", jobId).order("row_number", { ascending: true }).range(offset, offset + pageSize - 1);
+      if (typeof opts?.batchNumber === "number") {
+        q = q.eq("batch_number", opts.batchNumber);
       }
-      return out;
+      const { data, error } = await q;
+      if (error) {
+        throw this.wrapDbError(error, "import_staging_rows", "getStagingRows");
+      }
+      if (!data || data.length === 0) break;
+      out.push(...data.map(dbRowToStaging));
+      if (data.length < pageSize) break;
+      offset += pageSize;
     }
-    if (typeof opts?.batchNumber === "number") {
-      return await this.readFallbackSetting(
-        `morajaws_imp_stg_${jobId}_b${opts.batchNumber}`,
-        []
-      );
-    }
-    const batches = await this.getBatches(jobId);
-    const all = [];
-    const batchNums = Array.from(/* @__PURE__ */ new Set([0, ...batches.map((b) => b.batchNumber)]));
-    for (const bNo of batchNums) {
-      const part = await this.readFallbackSetting(`morajaws_imp_stg_${jobId}_b${bNo}`, []);
-      all.push(...part);
-    }
-    return all.sort((a, b) => a.rowNumber - b.rowNumber);
+    return out;
   }
-  async updateStagingRows(rows) {
-    await this.upsertStagingRows(rows);
+  async syncStagedCount(jobId) {
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_sync_staged_count", {
+      p_job_id: jobId
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_sync_staged_count", "rpc");
+    }
+    if (!data) return null;
+    const batches = await this.getBatches(jobId);
+    return enrichJobFlags(dbRowToJob(data), batches);
+  }
+  async clearRowErrorsForRows(jobId, rowNumbers) {
+    if (rowNumbers.length === 0) return;
+    const client = this.getRequiredClient();
+    for (let i = 0; i < rowNumbers.length; i += 200) {
+      const slice = rowNumbers.slice(i, i + 200);
+      const { error } = await client.from("import_row_errors").delete().eq("job_id", jobId).in("row_number", slice);
+      if (error) {
+        throw this.wrapDbError(error, "import_row_errors", "clearRowErrorsForRows");
+      }
+    }
   }
   async appendRowErrors(errors) {
     if (errors.length === 0) return;
-    const jobId = errors[0].jobId;
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      for (let i = 0; i < errors.length; i += 200) {
-        const chunk = errors.slice(i, i + 200).map((e) => ({
-          id: e.id,
-          job_id: e.jobId,
-          batch_number: e.batchNumber ?? null,
-          row_number: e.rowNumber,
-          wo_number: e.woNumber || null,
-          error_code: e.errorCode,
-          error_message: e.errorMessage,
-          raw_payload: e.rawPayload || {},
-          created_at: e.createdAt
-        }));
-        await client.from("import_row_errors").insert(chunk);
-      }
-      return;
-    }
-    const key = `morajaws_imp_err_${jobId}`;
-    const existing = await this.readFallbackSetting(key, []);
-    const seen = new Set(existing.map((e) => `${e.rowNumber}:${e.errorCode}`));
-    const merged = [...existing];
-    for (const err of errors) {
-      const k = `${err.rowNumber}:${err.errorCode}`;
-      if (!seen.has(k)) {
-        seen.add(k);
-        merged.push(err);
+    const client = this.getRequiredClient();
+    for (let i = 0; i < errors.length; i += 200) {
+      const chunk = errors.slice(i, i + 200).map((e) => ({
+        id: e.id,
+        job_id: e.jobId,
+        batch_number: e.batchNumber ?? null,
+        row_number: e.rowNumber,
+        wo_number: e.woNumber || null,
+        error_code: e.errorCode,
+        error_message: e.errorMessage,
+        raw_payload: e.rawPayload || {},
+        created_at: e.createdAt
+      }));
+      const { error } = await client.from("import_row_errors").insert(chunk);
+      if (error) {
+        throw this.wrapDbError(error, "import_row_errors", "appendRowErrors");
       }
     }
-    await this.writeFallbackSetting(key, merged.slice(0, 5e3));
   }
   async getRowErrors(jobId, limit = 1e3, offset = 0) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { data, error } = await client.from("import_row_errors").select("*").eq("job_id", jobId).order("row_number", { ascending: true }).range(offset, offset + limit - 1);
-      if (!error && Array.isArray(data)) {
-        return data.map(dbRowToError);
-      }
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_row_errors").select("*").eq("job_id", jobId).order("row_number", { ascending: true }).range(offset, offset + limit - 1);
+    if (error) {
+      throw this.wrapDbError(error, "import_row_errors", "getRowErrors");
     }
-    const existing = await this.readFallbackSetting(`morajaws_imp_err_${jobId}`, []);
-    return existing.sort((a, b) => a.rowNumber - b.rowNumber).slice(offset, offset + limit);
-  }
-  async upsertHistory(record) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { error } = await client.from("import_history").upsert(
-        [
-          {
-            id: record.id,
-            job_id: record.jobId,
-            import_name: record.importName || null,
-            source_file: record.sourceFile || null,
-            imported_by: record.importedBy,
-            imported_by_id: record.importedById || null,
-            total_rows: record.totalRows,
-            success_count: record.successCount,
-            duplicate_count: record.duplicateCount,
-            failed_count: record.failedCount,
-            status: record.status,
-            duration_ms: record.durationMs ?? null,
-            created_at: record.createdAt
-          }
-        ],
-        { onConflict: "job_id" }
-      );
-      if (!error) return;
-    }
-    const existing = await this.readFallbackSetting("morajaws_imp_history_list", []);
-    const next = [record, ...existing.filter((h) => h.jobId !== record.jobId)].slice(0, 100);
-    await this.writeFallbackSetting("morajaws_imp_history_list", next, record.importedBy);
+    return (data || []).map(dbRowToError);
   }
   async listHistory(limit = 50) {
-    const client = getSupabaseBackendClient();
-    if (client && await this.isRelationalSchemaReady()) {
-      const { data, error } = await client.from("import_history").select("*").order("created_at", { ascending: false }).limit(limit);
-      if (!error && Array.isArray(data)) {
-        return data.map(dbRowToHistory);
-      }
+    const client = this.getRequiredClient();
+    const { data, error } = await client.from("import_history").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (error) {
+      throw this.wrapDbError(error, "import_history", "listHistory");
     }
-    const existing = await this.readFallbackSetting("morajaws_imp_history_list", []);
-    return existing.slice(0, limit);
+    return (data || []).map(dbRowToHistory);
   }
   async findExistingWoNumbers(candidates) {
     const existingSet = /* @__PURE__ */ new Set();
-    const client = getSupabaseBackendClient();
-    if (!client || candidates.length === 0) return existingSet;
-    const chunkSize = 150;
-    for (let i = 0; i < candidates.length; i += chunkSize) {
-      const slice = candidates.slice(i, i + chunkSize);
-      const woList = Array.from(
-        new Set(slice.flatMap((c) => [c.normWo, c.rawTrimmed, c.rawTrimmed.toUpperCase()]).filter(Boolean))
-      );
-      if (woList.length === 0) continue;
-      const { data, error } = await client.from("work_orders").select("wo_number").in("wo_number", woList);
+    const client = this.getRequiredClient();
+    if (candidates.length === 0) return existingSet;
+    const allInputs = Array.from(
+      new Set(candidates.flatMap((c) => [c.normWo, c.rawTrimmed]).filter(Boolean))
+    );
+    const chunkSize = 250;
+    for (let i = 0; i < allInputs.length; i += chunkSize) {
+      const slice = allInputs.slice(i, i + chunkSize);
+      if (slice.length === 0) continue;
+      const { data, error } = await client.rpc("morajaws_find_existing_wo_numbers", {
+        p_wo_numbers: slice
+      });
       if (error) {
-        const classified = classifySupabaseError(error, { table: "work_orders", operation: "duplicate_check" });
-        throw new Error(classified.message);
+        throw this.wrapDbError(error, "morajaws_find_existing_wo_numbers", "rpc");
       }
       (data || []).forEach((r) => {
-        const key = canonicalWoKey(r.wo_number);
+        const key = canonicalWoKey(typeof r === "string" ? r : r?.canonical_wo ?? "");
         if (key) existingSet.add(key);
       });
     }
     return existingSet;
   }
-  async commitWorkOrderBatch(params) {
-    const client = getSupabaseBackendClient();
-    if (!client) {
-      throw new Error("Supabase client belum dikonfigurasi pada server.");
-    }
-    const out = {
-      insertedWoNumbers: [],
-      updatedWoNumbers: [],
-      duplicateWoNumbers: [],
-      failedRows: []
-    };
-    const chunkSize = 100;
-    for (let i = 0; i < params.rows.length; i += chunkSize) {
-      const slice = params.rows.slice(i, i + chunkSize);
-      const candidates = slice.map((r) => {
-        const normWo = normalizeWoNumber(r.woNumber || r.workOrderNumber);
-        const rawTrimmed = String(r.woNumber || r.workOrderNumber || "").trim();
-        return { normWo, rawTrimmed, row: r };
-      });
-      const existingKeys = await this.findExistingWoNumbers(candidates);
-      const freshDbRows = [];
-      const updateCandidates = [];
-      for (const item of candidates) {
-        const key = canonicalWoKey(item.normWo);
-        if (!item.normWo || !key) {
-          out.failedRows.push({ woNumber: "", errorCode: "INVALID_WO", errorMessage: "Nomor WO kosong" });
-          continue;
-        }
-        if (PROTECTED_PRODUCTION_WO_IDS.has(item.normWo)) {
-          out.duplicateWoNumbers.push(item.normWo);
-          continue;
-        }
-        if (existingKeys.has(key)) {
-          if (params.duplicatePolicy === "update_allowed") {
-            updateCandidates.push({ normWo: item.normWo, data: item.row });
-          } else {
-            out.duplicateWoNumbers.push(item.normWo);
-          }
-          continue;
-        }
-        freshDbRows.push(
-          ticketToPostgresRow({
-            ...item.row,
-            woNumber: item.normWo,
-            workOrderNumber: item.normWo,
-            importBatchId: params.batchId,
-            importedAt: item.row.importedAt || (/* @__PURE__ */ new Date()).toISOString(),
-            updatedBy: params.importedBy || "Import"
-          })
-        );
-      }
-      if (freshDbRows.length > 0) {
-        const { error: insertErr } = await client.from("work_orders").insert(freshDbRows);
-        if (!insertErr) {
-          freshDbRows.forEach((r) => out.insertedWoNumbers.push(String(r.wo_number)));
-        } else {
-          const classified = classifySupabaseError(insertErr, { table: "work_orders", operation: "batch_insert" });
-          if (classified.isUnavailable) {
-            throw new Error(classified.message);
-          }
-          for (const single of freshDbRows) {
-            const { error: sErr } = await client.from("work_orders").insert([single]);
-            if (!sErr) {
-              out.insertedWoNumbers.push(String(single.wo_number));
-            } else {
-              const sClass = classifySupabaseError(sErr, { table: "work_orders", operation: "single_insert" });
-              if (sClass.isDuplicate || sClass.code === "23505") {
-                if (params.duplicatePolicy === "update_allowed") {
-                  updateCandidates.push({
-                    normWo: String(single.wo_number),
-                    data: candidates.find((c) => c.normWo === single.wo_number)?.row || {}
-                  });
-                } else {
-                  out.duplicateWoNumbers.push(String(single.wo_number));
-                }
-              } else {
-                out.failedRows.push({
-                  woNumber: String(single.wo_number),
-                  errorCode: sClass.code || "DB_INSERT_ERROR",
-                  errorMessage: sClass.message
-                });
-              }
-            }
-          }
-        }
-      }
-      for (const upd of updateCandidates) {
-        const safeUpdate = {
-          updated_at: (/* @__PURE__ */ new Date()).toISOString(),
-          updated_by: params.importedBy || "ImportUpdate"
-        };
-        if (upd.data.appointmentDate) safeUpdate.appointment_date = toDateOnlyString(upd.data.appointmentDate);
-        if (upd.data.slotTime) safeUpdate.slot_time = String(upd.data.slotTime).trim();
-        if (upd.data.customerPhone) safeUpdate.customer_phone = String(upd.data.customerPhone).trim();
-        if (upd.data.streetName) safeUpdate.street_name = String(upd.data.streetName).trim();
-        if (upd.data.clusterName) safeUpdate.cluster_name = String(upd.data.clusterName).trim();
-        if (upd.data.area) safeUpdate.area = String(upd.data.area).trim();
-        if (upd.data.contactorName || upd.data.contractorName) {
-          const cVal = String(upd.data.contractorName || upd.data.contactorName).trim();
-          safeUpdate.contractor_name = cVal;
-          safeUpdate.contactor_name = cVal;
-        }
-        if (upd.data.fatCode) safeUpdate.fat_code = String(upd.data.fatCode).trim();
-        if (upd.data.fdtCode) safeUpdate.fdt_code = String(upd.data.fdtCode).trim();
-        if (upd.data.leaderId) safeUpdate.leader_name = upd.data.leaderName || null;
-        const { error: updErr } = await client.from("work_orders").update(safeUpdate).eq("wo_number", upd.normWo);
-        if (updErr) {
-          out.failedRows.push({
-            woNumber: upd.normWo,
-            errorCode: "DB_UPDATE_ERROR",
-            errorMessage: updErr.message
-          });
-        } else {
-          out.updatedWoNumbers.push(upd.normWo);
-        }
-      }
-    }
-    return out;
-  }
   async getAuthUsersAndContractors() {
-    const client = getSupabaseBackendClient();
-    if (!client) return { users: [], contractors: [] };
-    try {
-      const [uRes, cRes] = await Promise.all([
-        client.from("users").select("id, name, role, contractor, contractor_id, area, phone, active, is_deleted").eq("is_deleted", false),
-        client.from("contractors").select("id, name, code, leader_id, leader_name, active, is_archived")
-      ]);
-      const users = (uRes.data || []).map((u) => ({
+    const client = this.getRequiredClient();
+    const [uRes, cRes] = await Promise.all([
+      client.from("users").select("id, name, role, contractor, contractor_id, area, phone, active, is_deleted, is_archived, account_status").eq("is_deleted", false),
+      client.from("contractors").select("id, name, code, leader_id, leader_name, active, is_archived")
+    ]);
+    if (uRes.error) throw this.wrapDbError(uRes.error, "users", "getAuthUsersAndContractors");
+    if (cRes.error) throw this.wrapDbError(cRes.error, "contractors", "getAuthUsersAndContractors");
+    const users = (uRes.data || []).map((u) => {
+      const accountStatus = String(u.account_status || "").trim().toLowerCase();
+      const isArchived = Boolean(u.is_archived);
+      const isDeleted = Boolean(u.is_deleted);
+      const isActive = u.active !== false && !isDeleted && !isArchived && (!accountStatus || accountStatus === "active");
+      return {
         id: u.id,
         name: u.name,
         role: u.role,
@@ -16935,37 +16741,196 @@ var ProductionImportStore = class {
         contractorId: u.contractor_id,
         area: u.area,
         phone: u.phone,
-        active: u.active !== false,
-        isDeleted: Boolean(u.is_deleted)
-      }));
-      const contractors = (cRes.data || []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        code: c.code,
-        leaderId: c.leader_id,
-        leaderName: c.leader_name,
-        active: c.active !== false,
-        isArchived: Boolean(c.is_archived)
-      }));
-      return { users, contractors };
-    } catch {
-      return { users: [], contractors: [] };
+        active: isActive,
+        isDeleted,
+        isArchived,
+        accountStatus: accountStatus || "active"
+      };
+    });
+    const contractors = (cRes.data || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      leaderId: c.leader_id,
+      leaderName: c.leader_name,
+      active: c.active !== false,
+      isArchived: Boolean(c.is_archived)
+    }));
+    return { users, contractors };
+  }
+  async startJobAtomic(jobId) {
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const existing = await this.getJob(jobId);
+    if (!existing) {
+      throw new ImportServiceError(`Import job "${jobId}" tidak ditemukan.`, "IMPORT_JOB_NOT_FOUND", 404);
     }
+    if (existing.status === "cancelled") {
+      throw new ImportServiceError("Import job sudah dibatalkan.", "IMPORT_JOB_CANCELLED", 409);
+    }
+    if (existing.status === "completed") {
+      return existing;
+    }
+    if (existing.status === "staging" && existing.stagedRows < Math.max(existing.totalRows, 1)) {
+      throw new ImportServiceError(
+        `Staging belum lengkap (${existing.stagedRows}/${existing.totalRows} baris).`,
+        "IMPORT_STAGING_INCOMPLETE",
+        409
+      );
+    }
+    const { data, error } = await client.from("import_jobs").update({
+      status: "processing",
+      started_at: existing.startedAt || (/* @__PURE__ */ new Date()).toISOString(),
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).eq("id", jobId).neq("status", "cancelled").select("*").maybeSingle();
+    if (error) {
+      throw this.wrapDbError(error, "import_jobs", "startJobAtomic");
+    }
+    if (!data) {
+      const refreshed = await this.getJob(jobId);
+      if (refreshed?.status === "cancelled") {
+        throw new ImportServiceError("Import job sudah dibatalkan.", "IMPORT_JOB_CANCELLED", 409);
+      }
+      throw new ImportServiceError(`Import job "${jobId}" tidak dapat dimulai.`, "START_JOB_FAILED", 409);
+    }
+    const batches = await this.getBatches(jobId);
+    return enrichJobFlags(dbRowToJob(data), batches);
+  }
+  async claimNextBatch(params) {
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_claim_import_batch", {
+      p_job_id: params.jobId,
+      p_worker_id: params.workerId,
+      p_batch_number: typeof params.batchNumber === "number" ? params.batchNumber : null,
+      p_retry_failed: Boolean(params.retryFailed),
+      p_lock_ttl_seconds: params.lockTtlSeconds ?? DEFAULT_BATCH_LOCK_TTL_SECONDS
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_claim_import_batch", "rpc");
+    }
+    const batches = data?.job ? await this.getBatches(params.jobId) : [];
+    const job = data?.job ? enrichJobFlags(dbRowToJob(data.job), batches) : null;
+    const batch = data?.batch ? dbRowToBatch(data.batch) : null;
+    return {
+      claimed: Boolean(data?.claimed),
+      reason: data?.reason || "NO_ELIGIBLE_BATCH",
+      job,
+      batch
+    };
+  }
+  async commitClaimedBatchAtomic(params) {
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_commit_import_batch_atomic", {
+      p_job_id: params.jobId,
+      p_batch_number: params.batchNumber,
+      p_worker_id: params.workerId,
+      p_wo_rows: params.woRows,
+      p_duplicate_policy: params.duplicatePolicy,
+      p_duration_ms: Math.max(1, Math.floor(params.durationMs || 1)),
+      p_imported_by: params.importedBy || "System",
+      p_imported_by_id: params.importedById || null
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_commit_import_batch_atomic", "rpc");
+    }
+    const batches = await this.getBatches(params.jobId);
+    const job = enrichJobFlags(dbRowToJob(data.job), batches);
+    const batch = dbRowToBatch(data.batch);
+    return {
+      job,
+      batch,
+      insertedWoNumbers: Array.isArray(data.insertedWoNumbers) ? data.insertedWoNumbers.map(String) : [],
+      updatedWoNumbers: Array.isArray(data.updatedWoNumbers) ? data.updatedWoNumbers.map(String) : [],
+      duplicateWoNumbers: Array.isArray(data.duplicateWoNumbers) ? data.duplicateWoNumbers.map(String) : [],
+      failedRows: Array.isArray(data.failedRows) ? data.failedRows : [],
+      hasMorePending: Boolean(data.hasMorePending),
+      historyWritten: Boolean(data.historyWritten),
+      history: data.history ? dbRowToHistory(data.history) : null
+    };
+  }
+  async failClaimedBatchAtomic(params) {
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_fail_claimed_batch_atomic", {
+      p_job_id: params.jobId,
+      p_batch_number: params.batchNumber,
+      p_worker_id: params.workerId,
+      p_error_message: params.errorMessage,
+      p_duration_ms: Math.max(1, Math.floor(params.durationMs || 1))
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_fail_claimed_batch_atomic", "rpc");
+    }
+    const batches = await this.getBatches(params.jobId);
+    return {
+      job: enrichJobFlags(dbRowToJob(data.job), batches),
+      batch: dbRowToBatch(data.batch),
+      hasMorePending: Boolean(data.hasMorePending),
+      historyWritten: Boolean(data.historyWritten),
+      history: data.history ? dbRowToHistory(data.history) : null
+    };
+  }
+  async cancelJobAtomic(params) {
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_cancel_import_job_atomic", {
+      p_job_id: params.jobId,
+      p_cancelled_by: params.cancelledBy || "System",
+      p_cancelled_by_id: params.cancelledById || null
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_cancel_import_job_atomic", "rpc");
+    }
+    const batches = await this.getBatches(params.jobId);
+    return enrichJobFlags(dbRowToJob(data), batches);
+  }
+  async retryFailedBatchesAtomic(jobId) {
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const { data, error } = await client.rpc("morajaws_retry_import_job_atomic", {
+      p_job_id: jobId
+    });
+    if (error) {
+      throw this.wrapDbError(error, "morajaws_retry_import_job_atomic", "rpc");
+    }
+    const batches = await this.getBatches(jobId);
+    return enrichJobFlags(dbRowToJob(data), batches);
   }
 };
 var EnterpriseImportEngine = class {
   constructor(store, hooks) {
-    this.activeBatchLocks = /* @__PURE__ */ new Set();
     this.store = store || new ProductionImportStore();
     this.hooks = hooks || {};
   }
   async createImportJob(params, user) {
     const totalRows = Math.max(0, Math.floor(Number(params.totalRows) || 0));
     if (totalRows <= 0) {
-      throw new Error("Jumlah baris totalRows harus lebih dari 0.");
+      throw new ImportServiceError("Jumlah baris totalRows harus lebih dari 0.", "INVALID_ROW_COUNT", 400);
     }
     if (totalRows > MAX_IMPORT_JOB_ROWS) {
-      throw new Error(`Maksimum ${MAX_IMPORT_JOB_ROWS.toLocaleString()} baris per job impor untuk menjaga stabilitas sistem.`);
+      throw new ImportServiceError(
+        `Maksimum ${MAX_IMPORT_JOB_ROWS.toLocaleString()} baris per job impor untuk menjaga stabilitas sistem.`,
+        "INVALID_ROW_COUNT",
+        400
+      );
+    }
+    const templateType = String(params.templateType || "CUSTOM").trim().toUpperCase();
+    if (!ALLOWED_IMPORT_TEMPLATE_TYPES.has(templateType)) {
+      throw new ImportServiceError(
+        `Template type "${templateType}" tidak dikenali.`,
+        "INVALID_TEMPLATE_TYPE",
+        400
+      );
+    }
+    const clientRequestId = typeof params.clientRequestId === "string" && params.clientRequestId.trim() ? params.clientRequestId.trim().slice(0, 120) : void 0;
+    if (this.store.ensureSchemaReady) {
+      await this.store.ensureSchemaReady();
+    }
+    if (clientRequestId && this.store.findJobByClientRequestId) {
+      const existingByReq = await this.store.findJobByClientRequestId(clientRequestId);
+      if (existingByReq) {
+        return existingByReq;
+      }
     }
     const batchSize = clampBatchSize(params.batchSize);
     const totalBatches = Math.ceil(totalRows / batchSize);
@@ -16973,10 +16938,10 @@ var EnterpriseImportEngine = class {
     const jobId = makeId("impjob");
     const job = enrichJobFlags({
       id: jobId,
-      importName: (params.importName || params.sourceFile || `Import ${now.slice(0, 10)}`).trim(),
-      sourceFile: (params.sourceFile || "import_data.xlsx").trim(),
-      sourceFormat: (params.sourceFormat || "xlsx").trim().toLowerCase(),
-      templateType: params.templateType || "CUSTOM",
+      importName: (params.importName || params.sourceFile || `Import ${now.slice(0, 10)}`).trim().slice(0, 255),
+      sourceFile: (params.sourceFile || "import_data.xlsx").trim().slice(0, 255),
+      sourceFormat: (params.sourceFormat || "xlsx").trim().toLowerCase().slice(0, 32),
+      templateType,
       duplicatePolicy: params.duplicatePolicy === "update_allowed" ? "update_allowed" : "skip",
       autoRegisterContractors: params.autoRegisterContractors !== false,
       batchSize,
@@ -17001,7 +16966,7 @@ var EnterpriseImportEngine = class {
       completedAt: null,
       cancelledAt: null
     });
-    await this.store.createJob(job);
+    await this.store.createJob(job, { clientRequestId });
     const batches = [];
     for (let b = 1; b <= totalBatches; b++) {
       const startRow = (b - 1) * batchSize + 1;
@@ -17030,23 +16995,44 @@ var EnterpriseImportEngine = class {
   }
   /**
    * Validates and persists a staging slice (up to 500 rows per HTTP request).
-   * Detects intra-job duplicates, database duplicates, invalid Customer IDs,
-   * missing/invalid WO Numbers, invalid calendar Appointment Dates, and preserves
-   * all unmapped fields + blank cells cleanly.
+   * Uses lightweight staging lookup index (row_number + wo_number only) so
+   * multi-chunk jobs up to 25,000 rows remain O(N) without JSONB re-downloads.
    */
   async stageJobRows(jobId, rows, opts) {
     const job = await this.store.getJob(jobId);
-    if (!job) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-    if (job.status === "cancelled") throw new Error("Import job telah dibatalkan dan tidak dapat menerima data staging.");
+    if (!job) {
+      throw new ImportServiceError(`Import job "${jobId}" tidak ditemukan.`, "IMPORT_JOB_NOT_FOUND", 404);
+    }
+    if (job.status === "cancelled") {
+      throw new ImportServiceError("Import job telah dibatalkan dan tidak dapat menerima data staging.", "IMPORT_JOB_CANCELLED", 409);
+    }
+    if (job.status !== "staging") {
+      throw new ImportServiceError(
+        `Import job berstatus "${job.status}" dan tidak lagi menerima data staging.`,
+        "INVALID_JOB_STATE",
+        409
+      );
+    }
     if (!Array.isArray(rows) || rows.length === 0) {
-      throw new Error("Payload rows staging tidak boleh kosong.");
+      throw new ImportServiceError("Payload rows staging tidak boleh kosong.", "INVALID_ROWS", 400);
     }
     if (rows.length > MAX_STAGE_CHUNK_ROWS) {
-      throw new Error(`Maksimal ${MAX_STAGE_CHUNK_ROWS} baris per request staging untuk mencegah payload overflow.`);
+      throw new ImportServiceError(
+        `Maksimal ${MAX_STAGE_CHUNK_ROWS} baris per request staging untuk mencegah payload overflow.`,
+        "STAGE_CHUNK_TOO_LARGE",
+        400
+      );
     }
-    const existingStaged = await this.store.getStagingRows(jobId);
-    const seenCanonicalInJob = new Set(existingStaged.map((r) => r.canonicalWo).filter(Boolean));
-    const existingRowNums = new Set(existingStaged.map((r) => r.rowNumber));
+    if (opts?.startRowNumber !== void 0 && (!Number.isInteger(opts.startRowNumber) || opts.startRowNumber < 1 || opts.startRowNumber > job.totalRows)) {
+      throw new ImportServiceError(
+        `startRowNumber harus bilangan bulat antara 1 dan ${job.totalRows}.`,
+        "INVALID_ROW_NUMBER",
+        400
+      );
+    }
+    const stagingIdx = await this.store.getStagingLookupIndex(jobId);
+    const seenCanonicalInJob = stagingIdx.canonicalWos;
+    const existingRowNums = stagingIdx.rowNumbers;
     const normalizedCandidates = [];
     for (const r of rows) {
       const m = r?.mapped && typeof r.mapped === "object" ? r.mapped : r;
@@ -17056,24 +17042,51 @@ var EnterpriseImportEngine = class {
       if (normWo) normalizedCandidates.push({ normWo, rawTrimmed });
     }
     const existingInDbSet = await this.store.findExistingWoNumbers(normalizedCandidates);
-    const baseStart = opts?.startRowNumber ?? existingStaged.length + 1;
+    const baseStart = opts?.startRowNumber ?? stagingIdx.maxRowNumber + 1;
     const strictMode = opts?.validationMode !== "standard" && job.templateType !== "ASSIGNED_TEKNISI";
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const stagedBatch = [];
+    const stagedRowNumbers = [];
     const validationErrorsToRecord = [];
     let validCount = 0;
     let invalidCount = 0;
     let duplicateCount = 0;
+    const isInvalidScalarType = (val) => val !== void 0 && val !== null && typeof val !== "string" && typeof val !== "number";
     for (let i = 0; i < rows.length; i++) {
       const input = rows[i] || {};
-      let rowNum = Number(input.rowNumber);
-      if (!Number.isFinite(rowNum) || rowNum < 1) {
-        rowNum = baseStart + i;
+      if (Buffer.byteLength(JSON.stringify(input), "utf8") > MAX_STAGING_ROW_BYTES) {
+        throw new ImportServiceError(
+          `Ukuran payload baris staging ke-${i + 1} melebihi batas aman 64KB.`,
+          "PAYLOAD_TOO_LARGE",
+          413
+        );
       }
-      while (existingRowNums.has(rowNum)) {
-        rowNum++;
+      let rowNum;
+      if (input.rowNumber !== void 0) {
+        const parsedRn = Number(input.rowNumber);
+        if (!Number.isInteger(parsedRn) || parsedRn < 1 || parsedRn > job.totalRows) {
+          throw new ImportServiceError(
+            `Nomor baris staging (${input.rowNumber}) harus antara 1 dan ${job.totalRows}.`,
+            "INVALID_ROW_NUMBER",
+            400
+          );
+        }
+        rowNum = parsedRn;
+      } else {
+        rowNum = baseStart + i;
+        while (existingRowNums.has(rowNum)) {
+          rowNum++;
+        }
+        if (rowNum > job.totalRows) {
+          throw new ImportServiceError(
+            `Nomor baris staging (${rowNum}) melebihi totalRows (${job.totalRows}).`,
+            "INVALID_ROW_NUMBER",
+            400
+          );
+        }
       }
       existingRowNums.add(rowNum);
+      stagedRowNumbers.push(rowNum);
       const batchNumber = Math.min(job.totalBatches, Math.max(1, Math.ceil(rowNum / job.batchSize)));
       const rawPayload = input.raw && typeof input.raw === "object" ? { ...input.raw } : { ...input };
       const mappedSrc = input.mapped && typeof input.mapped === "object" ? { ...input.mapped } : { ...input };
@@ -17085,7 +17098,32 @@ var EnterpriseImportEngine = class {
       let errMsg = "";
       let validationStatus = "valid";
       let processingStatus = "pending";
-      if (!normWo || normWo.length < 3 || !/^[A-Z0-9._-]+$/i.test(normWo)) {
+      const scalarFieldsToCheck = [
+        ["woNumber", rawWoVal, 120],
+        ["customerName", mappedSrc.customerName, 300],
+        ["customerPhone", mappedSrc.customerPhone, 100],
+        ["contractorName", mappedSrc.contractorName ?? mappedSrc.contactorName, 250],
+        ["area", mappedSrc.area, 250],
+        ["slotTime", mappedSrc.slotTime, 120],
+        ["appointmentDate", mappedSrc.appointmentDate, 100]
+      ];
+      for (const [fieldName, fieldVal, maxLen] of scalarFieldsToCheck) {
+        if (isInvalidScalarType(fieldVal)) {
+          validationStatus = "invalid";
+          processingStatus = "failed";
+          errCode = "INVALID_FIELD_TYPE";
+          errMsg = `Field "${fieldName}" harus berupa teks/angka, bukan objek atau boolean.`;
+          break;
+        }
+        if (fieldVal !== void 0 && fieldVal !== null && String(fieldVal).length > maxLen) {
+          validationStatus = "invalid";
+          processingStatus = "failed";
+          errCode = "FIELD_TOO_LONG";
+          errMsg = `Field "${fieldName}" melebihi batas panjang ${maxLen} karakter.`;
+          break;
+        }
+      }
+      if (!errCode && (!normWo || normWo.length < 3 || !/^[A-Z0-9._-]+$/i.test(normWo))) {
         validationStatus = "invalid";
         processingStatus = "failed";
         errCode = !normWo ? "MISSING_WO_NUMBER" : "INVALID_WO_NUMBER";
@@ -17134,8 +17172,8 @@ var EnterpriseImportEngine = class {
           }
         }
       }
-      const contractorVal = String(mappedSrc.contractorName || mappedSrc.contactorName || "").trim();
-      const areaVal = String(mappedSrc.area || "").trim();
+      const contractorVal = isInvalidScalarType(mappedSrc.contractorName ?? mappedSrc.contactorName) ? "" : String(mappedSrc.contractorName || mappedSrc.contactorName || "").trim();
+      const areaVal = isInvalidScalarType(mappedSrc.area) ? "" : String(mappedSrc.area || "").trim();
       if (!errCode && strictMode) {
         if (!contractorVal) {
           validationStatus = "invalid";
@@ -17165,20 +17203,27 @@ var EnterpriseImportEngine = class {
           }
         }
       }
+      const resolvedUnmappedHeaders = Array.isArray(mappedSrc.unmappedHeaders) ? mappedSrc.unmappedHeaders.map((h) => String(h)).filter(Boolean) : Array.isArray(input.unmappedHeaders) ? input.unmappedHeaders.map((h) => String(h)).filter(Boolean) : [];
+      const baseAdditionalFields = mappedSrc.additionalFields && typeof mappedSrc.additionalFields === "object" ? { ...mappedSrc.additionalFields } : input.additionalFields && typeof input.additionalFields === "object" ? { ...input.additionalFields } : {};
+      for (const uh of resolvedUnmappedHeaders) {
+        if (!(uh in baseAdditionalFields) && Object.prototype.hasOwnProperty.call(rawPayload, uh)) {
+          baseAdditionalFields[uh] = rawPayload[uh];
+        }
+      }
       const normalizedPayload = {
         ...mappedSrc,
         woNumber: normWo || woStr,
         workOrderNumber: normWo || woStr,
-        idCustomer: String(rawCustId ?? "").trim() || void 0,
-        customerId: String(rawCustId ?? "").trim() || void 0,
+        idCustomer: isInvalidScalarType(rawCustId) ? void 0 : String(rawCustId ?? "").trim() || void 0,
+        customerId: isInvalidScalarType(rawCustId) ? void 0 : String(rawCustId ?? "").trim() || void 0,
         contractorName: contractorVal || void 0,
         contactorName: contractorVal || void 0,
         area: areaVal || void 0,
         appointmentDate: normalizedDate || void 0,
         fileName: mappedSrc.fileName || job.sourceFile,
         importDate: mappedSrc.importDate || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-        additionalFields: mappedSrc.additionalFields && typeof mappedSrc.additionalFields === "object" ? mappedSrc.additionalFields : input.additionalFields && typeof input.additionalFields === "object" ? input.additionalFields : {},
-        unmappedHeaders: Array.isArray(mappedSrc.unmappedHeaders) ? mappedSrc.unmappedHeaders : Array.isArray(input.unmappedHeaders) ? input.unmappedHeaders : []
+        additionalFields: baseAdditionalFields,
+        unmappedHeaders: resolvedUnmappedHeaders
       };
       if (validationStatus === "valid") validCount++;
       else if (validationStatus === "duplicate") {
@@ -17226,17 +17271,13 @@ var EnterpriseImportEngine = class {
       });
     }
     await this.store.upsertStagingRows(stagedBatch);
+    if (this.store.clearRowErrorsForRows && stagedRowNumbers.length > 0) {
+      await this.store.clearRowErrorsForRows(jobId, stagedRowNumbers);
+    }
     if (validationErrorsToRecord.length > 0) {
       await this.store.appendRowErrors(validationErrorsToRecord);
     }
-    const allStagedAfter = await this.store.getStagingRows(jobId);
-    const totalStagedNow = allStagedAfter.length;
-    const isStagingComplete = totalStagedNow >= job.totalRows;
-    const updatedJob = await this.store.updateJob(jobId, {
-      stagedRows: totalStagedNow,
-      totalRows: Math.max(job.totalRows, totalStagedNow),
-      status: isStagingComplete && job.status === "staging" ? "queued" : job.status
-    });
+    const updatedJob = await this.store.syncStagedCount(jobId);
     return {
       job: updatedJob || job,
       stagedCount: stagedBatch.length,
@@ -17246,80 +17287,72 @@ var EnterpriseImportEngine = class {
     };
   }
   async startJob(jobId) {
-    const job = await this.store.getJob(jobId);
-    if (!job) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-    if (job.status === "cancelled") throw new Error("Import job sudah dibatalkan.");
-    if (job.status === "completed") return job;
-    const updated = await this.store.updateJob(jobId, {
-      status: "processing",
-      startedAt: job.startedAt || (/* @__PURE__ */ new Date()).toISOString()
-    });
-    return updated || job;
+    return this.store.startJobAtomic(jobId);
   }
   /**
-   * Idempotent single-batch execution step designed for chunked Vercel serverless
-   * or Node.js background loop execution.
-   * - Never re-processes batches already marked 'completed'.
-   * - Stops safely if job is cancelled.
-   * - Isolates row errors & transient batch errors cleanly.
+   * Distributed-safe, ACID single-batch execution step for Vercel serverless & Node.js.
+   * - Uses PostgreSQL FOR UPDATE SKIP LOCKED via claimNextBatch() — zero Node.js memory locks.
+   * - Commits work_orders + import_staging_rows + import_row_errors + import_batches +
+   *   import_jobs + import_history atomically in a single PostgreSQL transaction.
    */
   async processNextBatch(jobId, user, opts) {
-    if (this.activeBatchLocks.has(jobId)) {
-      const current = await this.store.getJob(jobId);
-      if (!current) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-      return { job: current, processedBatch: null, done: current.status === "completed" || current.status === "cancelled" };
+    if (opts?.batchNumber !== void 0 && (!Number.isInteger(opts.batchNumber) || opts.batchNumber < 1)) {
+      throw new ImportServiceError("Nomor batch harus bilangan bulat positif (>= 1).", "INVALID_BATCH_NUMBER", 400);
     }
-    this.activeBatchLocks.add(jobId);
-    try {
-      const job = await this.store.getJob(jobId);
-      if (!job) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-      if (job.status === "cancelled") {
-        return { job, processedBatch: null, done: true };
+    const workerId = makeId("worker");
+    const claim = await this.store.claimNextBatch({
+      jobId,
+      workerId,
+      batchNumber: opts?.batchNumber,
+      retryFailed: opts?.retryFailed,
+      lockTtlSeconds: DEFAULT_BATCH_LOCK_TTL_SECONDS
+    });
+    if (!claim.claimed) {
+      if (claim.reason === "JOB_NOT_FOUND" || !claim.job) {
+        throw new ImportServiceError(`Import job "${jobId}" tidak ditemukan.`, "IMPORT_JOB_NOT_FOUND", 404);
       }
-      const batches = await this.store.getBatches(jobId);
-      let targetBatch;
-      if (typeof opts?.batchNumber === "number") {
-        targetBatch = batches.find((b) => b.batchNumber === opts.batchNumber);
-      } else if (opts?.retryFailed) {
-        targetBatch = batches.find((b) => b.status === "failed");
-      } else {
-        targetBatch = batches.find((b) => b.status === "pending" || b.status === "processing");
-      }
-      if (!targetBatch) {
-        const finalized = await this.recomputeAndFinalizeJob(jobId, user);
-        return { job: finalized, processedBatch: null, done: true };
-      }
-      if (targetBatch.status === "completed") {
-        const currentJob = await this.recomputeAndFinalizeJob(jobId, user);
-        const remaining = (await this.store.getBatches(jobId)).some(
-          (b) => b.status === "pending" || b.status === "processing"
+      if (claim.reason === "STAGING_INCOMPLETE") {
+        throw new ImportServiceError(
+          `Staging belum lengkap (${claim.job.stagedRows}/${claim.job.totalRows} baris).`,
+          "IMPORT_STAGING_INCOMPLETE",
+          409
         );
-        return { job: currentJob, processedBatch: targetBatch, done: !remaining };
       }
-      const batchStartMs = Date.now();
-      const startedAtIso = (/* @__PURE__ */ new Date()).toISOString();
-      const nextRetryCount = targetBatch.status === "failed" ? targetBatch.retryCount + 1 : targetBatch.retryCount;
-      await this.store.updateJob(jobId, {
-        status: "processing",
-        startedAt: job.startedAt || startedAtIso,
-        currentBatch: targetBatch.batchNumber
-      });
-      await this.store.updateBatch(jobId, targetBatch.batchNumber, {
-        status: "processing",
-        retryCount: nextRetryCount,
-        startedAt: startedAtIso,
-        errorMessage: null
-      });
-      const batchRows = await this.store.getStagingRows(jobId, { batchNumber: targetBatch.batchNumber });
-      const { users, contractors } = await this.store.getAuthUsersAndContractors();
+      if (claim.reason === "BATCH_LOCKED_BY_ANOTHER_WORKER") {
+        throw new ImportServiceError(
+          "Batch impor sedang dikunci dan diproses oleh instance worker lain. Silakan coba lagi sesaat.",
+          "BATCH_LOCK_CONTENTION",
+          409,
+          true
+        );
+      }
+      if (opts?.batchNumber !== void 0 && opts.batchNumber > claim.job.totalBatches) {
+        throw new ImportServiceError(
+          `Batch #${opts.batchNumber} di luar jangkauan job (total ${claim.job.totalBatches} batch).`,
+          "INVALID_BATCH_NUMBER",
+          400
+        );
+      }
+      return {
+        job: claim.job,
+        processedBatch: null,
+        done: true
+      };
+    }
+    const job = claim.job;
+    const targetBatch = claim.batch;
+    const batchStartMs = Date.now();
+    try {
+      const [batchRows, authCtx] = await Promise.all([
+        this.store.getStagingRows(jobId, { batchNumber: targetBatch.batchNumber }),
+        this.store.getAuthUsersAndContractors()
+      ]);
       const validPendingRows = batchRows.filter(
-        (r) => r.validationStatus === "valid" && (r.processingStatus === "pending" || r.processingStatus === "failed")
+        (r) => r.validationStatus === "valid" && (r.processingStatus === "pending" || r.processingStatus === "failed" || r.processingStatus === "processing")
       );
-      const alreadyDupCount = batchRows.filter((r) => r.validationStatus === "duplicate").length;
-      const alreadyInvalidCount = batchRows.filter((r) => r.validationStatus === "invalid").length;
-      const enrichedObjects = validPendingRows.map((r) => {
+      const enrichedTickets = validPendingRows.map((r) => {
         const t = { ...r.normalizedPayload };
-        const dist = resolveLeaderForWorkOrder(t, users, contractors);
+        const dist = resolveLeaderForWorkOrder(t, authCtx.users, authCtx.contractors);
         return {
           ...t,
           woNumber: r.woNumber,
@@ -17335,330 +17368,121 @@ var EnterpriseImportEngine = class {
           distributionNotes: dist.distributionNotes
         };
       });
-      let batchSuccess = 0;
-      let batchUpdated = 0;
-      let batchDup = alreadyDupCount;
-      let batchFailed = alreadyInvalidCount;
-      let batchErrorMsg = null;
-      let batchFinalStatus = "completed";
-      try {
-        let commitRes = null;
-        let lastErr = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            commitRes = await this.store.commitWorkOrderBatch({
-              rows: enrichedObjects,
-              duplicatePolicy: job.duplicatePolicy,
-              batchId: `${jobId}_b${targetBatch.batchNumber}`,
-              importedBy: user.name
-            });
-            lastErr = null;
+      const batchTag = `${jobId}_b${targetBatch.batchNumber}`;
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const woRows = enrichedTickets.map(
+        (ticket) => ticketToPostgresRow({
+          ...ticket,
+          importBatchId: batchTag,
+          importedAt: ticket.importedAt || nowIso,
+          updatedBy: user.name || "Import"
+        })
+      );
+      let commitRes = null;
+      let lastErr = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          commitRes = await this.store.commitClaimedBatchAtomic({
+            jobId,
+            batchNumber: targetBatch.batchNumber,
+            workerId,
+            woRows,
+            duplicatePolicy: job.duplicatePolicy,
+            durationMs: Math.max(1, Date.now() - batchStartMs),
+            importedBy: user.name,
+            importedById: user.id
+          });
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          const isRetryable = err instanceof ImportServiceError ? err.retryable : false;
+          if (!isRetryable || attempt >= 1) {
             break;
-          } catch (err) {
-            lastErr = err;
-            await new Promise((res) => setTimeout(res, 150 * (attempt + 1)));
           }
-        }
-        if (!commitRes || lastErr) {
-          throw lastErr || new Error("Commit batch gagal.");
-        }
-        const insertedSet = new Set(commitRes.insertedWoNumbers.map((w) => canonicalWoKey(w)));
-        const updatedSet = new Set(commitRes.updatedWoNumbers.map((w) => canonicalWoKey(w)));
-        const dupSet = new Set(commitRes.duplicateWoNumbers.map((w) => canonicalWoKey(w)));
-        const failedMap = /* @__PURE__ */ new Map();
-        commitRes.failedRows.forEach((fr) => {
-          failedMap.set(canonicalWoKey(fr.woNumber), { errorCode: fr.errorCode, errorMessage: fr.errorMessage });
-        });
-        batchSuccess = commitRes.insertedWoNumbers.length;
-        batchUpdated = commitRes.updatedWoNumbers.length;
-        batchDup += commitRes.duplicateWoNumbers.length;
-        batchFailed += commitRes.failedRows.length;
-        const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-        const rowUpdates = [];
-        const newRowErrors = [];
-        for (const sr of validPendingRows) {
-          const key = canonicalWoKey(sr.woNumber);
-          if (insertedSet.has(key) || updatedSet.has(key)) {
-            rowUpdates.push({
-              ...sr,
-              processingStatus: "succeeded",
-              processedAt: nowIso
-            });
-          } else if (dupSet.has(key)) {
-            rowUpdates.push({
-              ...sr,
-              processingStatus: "duplicate_skipped",
-              errorCode: "DUPLICATE_CONFLICT",
-              errorMessage: `Nomor WO ${sr.woNumber} sudah terdaftar di database.`,
-              processedAt: nowIso
-            });
-            newRowErrors.push({
-              id: makeId("imperr"),
-              jobId,
-              batchNumber: targetBatch.batchNumber,
-              rowNumber: sr.rowNumber,
-              woNumber: sr.woNumber,
-              errorCode: "DUPLICATE_CONFLICT",
-              errorMessage: `Nomor WO ${sr.woNumber} sudah terdaftar di database.`,
-              rawPayload: sr.rawPayload,
-              createdAt: nowIso
-            });
-          } else {
-            const failInfo = failedMap.get(key) || {
-              errorCode: "COMMIT_FAILED",
-              errorMessage: `Baris WO ${sr.woNumber} gagal disimpan ke database.`
-            };
-            rowUpdates.push({
-              ...sr,
-              processingStatus: "failed",
-              errorCode: failInfo.errorCode,
-              errorMessage: failInfo.errorMessage,
-              processedAt: nowIso
-            });
-            newRowErrors.push({
-              id: makeId("imperr"),
-              jobId,
-              batchNumber: targetBatch.batchNumber,
-              rowNumber: sr.rowNumber,
-              woNumber: sr.woNumber,
-              errorCode: failInfo.errorCode,
-              errorMessage: failInfo.errorMessage,
-              rawPayload: sr.rawPayload,
-              createdAt: nowIso
-            });
-          }
-        }
-        if (rowUpdates.length > 0) await this.store.updateStagingRows(rowUpdates);
-        if (newRowErrors.length > 0) await this.store.appendRowErrors(newRowErrors);
-        if ((batchSuccess > 0 || batchUpdated > 0) && this.hooks.onWorkOrdersCommitted) {
-          const committedTickets = enrichedObjects.filter((o) => {
-            const k = canonicalWoKey(o.woNumber);
-            return insertedSet.has(k) || updatedSet.has(k);
-          });
-          await Promise.resolve(
-            this.hooks.onWorkOrdersCommitted({
-              jobId,
-              batchNumber: targetBatch.batchNumber,
-              importedCount: batchSuccess,
-              updatedCount: batchUpdated,
-              committedTickets,
-              users,
-              user
-            })
-          ).catch(() => {
-          });
-        }
-      } catch (batchErr) {
-        batchFinalStatus = "failed";
-        batchErrorMsg = batchErr?.message || `Batch #${targetBatch.batchNumber} gagal diproses.`;
-        batchFailed = validPendingRows.length + alreadyInvalidCount;
-        const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-        const failedUpdates = validPendingRows.map((sr) => ({
-          ...sr,
-          processingStatus: "failed",
-          errorCode: "BATCH_COMMIT_FAILED",
-          errorMessage: batchErrorMsg,
-          processedAt: nowIso
-        }));
-        if (failedUpdates.length > 0) {
-          await this.store.updateStagingRows(failedUpdates);
+          await new Promise((res) => setTimeout(res, 150 * (attempt + 1)));
         }
       }
-      const durationMs = Math.max(1, Date.now() - batchStartMs);
-      const processedBatch = await this.store.updateBatch(jobId, targetBatch.batchNumber, {
-        status: batchFinalStatus,
-        processedRows: batchRows.length,
-        successfulRows: batchSuccess + batchUpdated,
-        duplicateRows: batchDup,
-        failedRows: batchFailed,
-        errorMessage: batchErrorMsg,
-        durationMs,
-        processedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      const updatedJob = await this.recomputeAndFinalizeJob(jobId, user);
-      const nextBatches = await this.store.getBatches(jobId);
-      const hasMorePending = nextBatches.some((b) => b.status === "pending" || b.status === "processing");
-      return {
-        job: updatedJob,
-        processedBatch: processedBatch || targetBatch,
-        done: !hasMorePending
-      };
-    } finally {
-      this.activeBatchLocks.delete(jobId);
-    }
-  }
-  async recomputeAndFinalizeJob(jobId, user) {
-    const currentJob = await this.store.getJob(jobId);
-    if (!currentJob) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-    const batches = await this.store.getBatches(jobId);
-    const stagingRows = await this.store.getStagingRows(jobId);
-    const completedBatches = batches.filter((b) => b.status === "completed").length;
-    const failedBatches = batches.filter((b) => b.status === "failed").length;
-    const pendingBatches = batches.filter((b) => b.status === "pending" || b.status === "processing").length;
-    let processedRows = 0;
-    let successfulRows = 0;
-    let duplicateRows = 0;
-    let failedRows = 0;
-    if (stagingRows.length > 0) {
-      for (const r of stagingRows) {
-        if (r.processingStatus === "succeeded") {
-          processedRows++;
-          successfulRows++;
-        } else if (r.processingStatus === "duplicate_skipped") {
-          processedRows++;
-          duplicateRows++;
-        } else if (r.processingStatus === "failed") {
-          processedRows++;
-          failedRows++;
-        } else if (r.processingStatus === "cancelled") {
-          processedRows++;
-        }
+      if (!commitRes || lastErr) {
+        throw lastErr || new ImportServiceError("Commit batch atomik gagal.", "COMMIT_BATCH_FAILED", 500, false);
       }
-    } else {
-      for (const b of batches) {
-        if (b.status === "completed" || b.status === "failed") {
-          processedRows += b.processedRows;
-          successfulRows += b.successfulRows;
-          duplicateRows += b.duplicateRows;
-          failedRows += b.failedRows;
-        }
-      }
-    }
-    let nextStatus = currentJob.status;
-    let completedAt = currentJob.completedAt;
-    let errorSummary = currentJob.errorSummary || null;
-    if (currentJob.status === "cancelled") {
-      nextStatus = "cancelled";
-    } else if (pendingBatches === 0) {
-      completedAt = completedAt || (/* @__PURE__ */ new Date()).toISOString();
-      if (failedBatches > 0 && successfulRows === 0) {
-        nextStatus = "failed";
-        const firstErr = batches.find((b) => b.status === "failed")?.errorMessage;
-        errorSummary = firstErr || `${failedBatches} batch gagal diproses.`;
-      } else if (failedBatches > 0 || failedRows > 0) {
-        nextStatus = "completed_with_errors";
-        errorSummary = `${failedRows} baris tidak valid/gagal diproses (${failedBatches} batch error).`;
-      } else {
-        nextStatus = "completed";
-        errorSummary = null;
-      }
-    } else {
-      nextStatus = "processing";
-    }
-    const updated = await this.store.updateJob(jobId, {
-      processedRows,
-      successfulRows,
-      duplicateRows,
-      failedRows,
-      completedBatches,
-      status: nextStatus,
-      errorSummary,
-      completedAt
-    }) || currentJob;
-    if (pendingBatches === 0 && (nextStatus === "completed" || nextStatus === "completed_with_errors" || nextStatus === "failed")) {
-      const durationMs = updated.startedAt ? Math.max(1, Date.parse(completedAt || (/* @__PURE__ */ new Date()).toISOString()) - Date.parse(updated.startedAt)) : null;
-      const historyRecord = {
-        id: `imphist_${jobId}`,
-        jobId,
-        importName: updated.importName,
-        sourceFile: updated.sourceFile,
-        importedBy: updated.createdBy,
-        importedById: updated.createdById || null,
-        totalRows: updated.totalRows,
-        successCount: successfulRows,
-        duplicateCount: duplicateRows,
-        failedCount: failedRows,
-        status: nextStatus,
-        durationMs,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      await this.store.upsertHistory(historyRecord);
-      if (this.hooks.onJobFinalized) {
+      if ((commitRes.insertedWoNumbers.length > 0 || commitRes.updatedWoNumbers.length > 0) && this.hooks.onWorkOrdersCommitted) {
+        const committedSet = new Set(
+          [...commitRes.insertedWoNumbers, ...commitRes.updatedWoNumbers].map((w) => canonicalWoKey(w))
+        );
+        const committedTickets = enrichedTickets.filter((o) => committedSet.has(canonicalWoKey(o.woNumber)));
         await Promise.resolve(
-          this.hooks.onJobFinalized({ job: updated, history: historyRecord, user })
+          this.hooks.onWorkOrdersCommitted({
+            jobId,
+            batchNumber: targetBatch.batchNumber,
+            importedCount: commitRes.insertedWoNumbers.length,
+            updatedCount: commitRes.updatedWoNumbers.length,
+            committedTickets,
+            users: authCtx.users,
+            user
+          })
         ).catch(() => {
         });
       }
-    }
-    return updated;
-  }
-  /**
-   * Re-queues ONLY failed batches without reprocessing already completed batches.
-   */
-  async retryFailedBatches(jobId, user) {
-    const job = await this.store.getJob(jobId);
-    if (!job) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-    if (job.status === "cancelled") throw new Error("Import job sudah dibatalkan dan tidak dapat di-retry.");
-    const batches = await this.store.getBatches(jobId);
-    const failedBatches = batches.filter((b) => b.status === "failed");
-    if (failedBatches.length === 0) {
-      return job;
-    }
-    for (const fb of failedBatches) {
-      await this.store.updateBatch(jobId, fb.batchNumber, {
-        status: "pending",
-        retryCount: (fb.retryCount || 0) + 1,
-        errorMessage: null
-      });
-      const batchRows = await this.store.getStagingRows(jobId, { batchNumber: fb.batchNumber });
-      const resetRows = batchRows.filter((r) => r.validationStatus === "valid" && r.processingStatus === "failed").map((r) => ({
-        ...r,
-        processingStatus: "pending",
-        errorCode: null,
-        errorMessage: null,
-        processedAt: null
-      }));
-      if (resetRows.length > 0) {
-        await this.store.updateStagingRows(resetRows);
-      }
-    }
-    const updated = await this.store.updateJob(jobId, {
-      status: "processing",
-      completedAt: null,
-      errorSummary: null
-    });
-    const refreshed = updated || await this.store.getJob(jobId);
-    void user;
-    return refreshed;
-  }
-  /**
-   * Safely cancels pending/processing batches while preserving any already committed batches.
-   */
-  async cancelImportJob(jobId, user) {
-    const job = await this.store.getJob(jobId);
-    if (!job) throw new Error(`Import job "${jobId}" tidak ditemukan.`);
-    if (job.status === "completed") return job;
-    const batches = await this.store.getBatches(jobId);
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    for (const b of batches) {
-      if (b.status === "pending" || b.status === "processing") {
-        await this.store.updateBatch(jobId, b.batchNumber, {
-          status: "cancelled",
-          processedAt: nowIso
+      if (commitRes.historyWritten && commitRes.history && this.hooks.onJobFinalized) {
+        await Promise.resolve(
+          this.hooks.onJobFinalized({
+            job: commitRes.job,
+            history: commitRes.history,
+            user
+          })
+        ).catch(() => {
         });
       }
+      return {
+        job: commitRes.job,
+        processedBatch: commitRes.batch,
+        done: !commitRes.hasMorePending
+      };
+    } catch (batchErr) {
+      if (batchErr instanceof ImportServiceError && (batchErr.code === "IMPORT_JOB_CANCELLED" || batchErr.code === "IMPORT_BATCH_LOCK_LOST" || batchErr.code === "IMPORT_BATCH_ALREADY_COMPLETED" || batchErr.code === "MIGRATION_020_REQUIRED" || batchErr.code === "DATABASE_UNAVAILABLE")) {
+        throw batchErr;
+      }
+      const failRes = await this.store.failClaimedBatchAtomic({
+        jobId,
+        batchNumber: targetBatch.batchNumber,
+        workerId,
+        errorMessage: batchErr?.message || `Batch #${targetBatch.batchNumber} gagal diproses.`,
+        durationMs: Math.max(1, Date.now() - batchStartMs)
+      });
+      if (failRes.historyWritten && failRes.history && this.hooks.onJobFinalized) {
+        await Promise.resolve(
+          this.hooks.onJobFinalized({
+            job: failRes.job,
+            history: failRes.history,
+            user
+          })
+        ).catch(() => {
+        });
+      }
+      return {
+        job: failRes.job,
+        processedBatch: failRes.batch,
+        done: !failRes.hasMorePending
+      };
     }
-    const updated = await this.store.updateJob(jobId, {
-      status: "cancelled",
-      cancelledAt: nowIso
-    }) || job;
-    const historyRecord = {
-      id: `imphist_${jobId}`,
+  }
+  /**
+   * Atomically re-queues ONLY failed batches without reprocessing completed batches.
+   */
+  async retryFailedBatches(jobId, user) {
+    void user;
+    return this.store.retryFailedBatchesAtomic(jobId);
+  }
+  /**
+   * Atomically cancels pending/processing batches while preserving committed batches.
+   */
+  async cancelImportJob(jobId, user) {
+    return this.store.cancelJobAtomic({
       jobId,
-      importName: updated.importName,
-      sourceFile: updated.sourceFile,
-      importedBy: user.name || updated.createdBy,
-      importedById: user.id || updated.createdById || null,
-      totalRows: updated.totalRows,
-      successCount: updated.successfulRows,
-      duplicateCount: updated.duplicateRows,
-      failedCount: updated.failedRows,
-      status: "cancelled",
-      durationMs: updated.startedAt ? Math.max(1, Date.now() - Date.parse(updated.startedAt)) : null,
-      createdAt: nowIso
-    };
-    await this.store.upsertHistory(historyRecord);
-    return await this.store.getJob(jobId) || updated;
+      cancelledBy: user.name,
+      cancelledById: user.id
+    });
   }
   async listImportJobs(limit = 30) {
     return this.store.listJobs(limit);
@@ -17695,7 +17519,7 @@ var EnterpriseImportEngine = class {
 
 // server.ts
 var __filename = fileURLToPath(import.meta.url);
-var __dirname = path4.dirname(__filename);
+var __dirname = path3.dirname(__filename);
 function hashPasswordLegacy(password, salt = "morajaws_secure_salt_2026") {
   let h = 2166136261;
   const str = `${salt}:${password}`;
@@ -17908,8 +17732,8 @@ async function offloadDataUriToStorageIfNeeded(params) {
   }
   return { url: uploadRes.downloadUrl };
 }
-var DATA_DIR = path4.join(__dirname, "data");
-var DB_FILE = path4.join(DATA_DIR, "morajaws_database.json");
+var DATA_DIR = path3.join(__dirname, "data");
+var DB_FILE = path3.join(DATA_DIR, "morajaws_database.json");
 var INITIAL_SEED_USERS = [
   {
     id: "u-ray",
@@ -18379,11 +18203,11 @@ var db = {
 function loadDatabaseFromDisk() {
   if (!isLocalJsonModeAllowed()) return;
   try {
-    if (!fs4.existsSync(DATA_DIR)) {
-      fs4.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
-    if (fs4.existsSync(DB_FILE)) {
-      const raw = fs4.readFileSync(DB_FILE, "utf-8");
+    if (fs3.existsSync(DB_FILE)) {
+      const raw = fs3.readFileSync(DB_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
         Object.assign(db, parsed, {
@@ -18433,13 +18257,13 @@ function saveDatabaseToDisk() {
     return;
   }
   try {
-    if (!fs4.existsSync(DATA_DIR)) {
-      fs4.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs3.existsSync(DATA_DIR)) {
+      fs3.mkdirSync(DATA_DIR, { recursive: true });
     }
     db.sessions = SERVER_SESSIONS;
     const tempFile = DB_FILE + ".tmp";
-    fs4.writeFileSync(tempFile, JSON.stringify(db, null, 2), "utf-8");
-    fs4.renameSync(tempFile, DB_FILE);
+    fs3.writeFileSync(tempFile, JSON.stringify(db, null, 2), "utf-8");
+    fs3.renameSync(tempFile, DB_FILE);
   } catch (err) {
     console.error("[Database] Error saving database to disk:", err);
   }
@@ -19053,6 +18877,11 @@ async function resolveUserFromHeader(req, res, next) {
           error: customRes.error.message || "Token sesi login telah kedaluwarsa.",
           code: "TOKEN_EXPIRED"
         });
+      } else if (customRes.error?.code === "ACCOUNT_DELETED" || customRes.error?.code === "ACCOUNT_DISABLED") {
+        return res.status(403).json({
+          error: customRes.error.message || "Akun pengguna tidak aktif, diarsipkan, atau telah dihapus.",
+          code: customRes.error.code
+        });
       }
     } catch (customErr) {
     }
@@ -19113,7 +18942,8 @@ async function resolveUserFromHeader(req, res, next) {
             if (!authoritativeUser && isLocalJsonModeAllowed()) {
               authoritativeUser = db.users.find((u) => u.id === activeSession.userId) || null;
             }
-            if (!authoritativeUser || authoritativeUser.isDeleted || !authoritativeUser.active) {
+            const step3AccStatus = String(authoritativeUser?.accountStatus || "").trim().toLowerCase();
+            if (!authoritativeUser || authoritativeUser.isDeleted || !authoritativeUser.active || authoritativeUser.isArchived || step3AccStatus && step3AccStatus !== "active") {
               activeSession.status = "revoked";
               activeSession = void 0;
               found = void 0;
@@ -19692,6 +19522,15 @@ function requireBackupDownloadPermission(req, res, next) {
 async function requireImportPermission(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: "Tidak terautentikasi", code: "UNAUTHENTICATED" });
+  }
+  const accountStatus = String(req.user.accountStatus || "").trim().toLowerCase();
+  const isAccountActive = req.user.active !== false && !req.user.isDeleted && !req.user.isArchived && (!accountStatus || accountStatus === "active");
+  if (!isAccountActive) {
+    logServerAudit("Access Denied (Inactive Account Import Attempt)", "rbac", req.originalUrl, `User ${req.user.name} (${req.user.role}) dengan akun non-aktif/diarsipkan ditolak melakukan import WO`, req.user);
+    return res.status(403).json({
+      error: "Akses Ditolak: Akun pengguna tidak aktif atau telah diarsipkan.",
+      code: "ACCOUNT_INACTIVE"
+    });
   }
   if (req.user.role === "super_admin") {
     return next();
@@ -25550,19 +25389,19 @@ async function createExpressApp(options) {
   });
   app.get("/api/admin/backup/download", requireBackupDownloadPermission, async (req, res) => {
     const BACKUP_FILE_NAME = "morajaws_production_firestore_backup.json";
-    const primaryPath = path4.resolve(__dirname, "data", BACKUP_FILE_NAME);
-    const fallbackPath = path4.resolve(__dirname, BACKUP_FILE_NAME);
-    const BACKUP_FILE_PATH = fs4.existsSync(primaryPath) ? primaryPath : fallbackPath;
+    const primaryPath = path3.resolve(__dirname, "data", BACKUP_FILE_NAME);
+    const fallbackPath = path3.resolve(__dirname, BACKUP_FILE_NAME);
+    const BACKUP_FILE_PATH = fs3.existsSync(primaryPath) ? primaryPath : fallbackPath;
     const EXPECTED_BACKUP_SIZE = 1055520;
     const EXPECTED_BACKUP_SHA256 = "c4b0b42c78f634735f1eb361947e641d096e13b9d071d8654fa13bfb5b1ab876";
     try {
-      if (!fs4.existsSync(BACKUP_FILE_PATH)) {
+      if (!fs3.existsSync(BACKUP_FILE_PATH)) {
         return res.status(404).json({
           error: "File backup produksi tidak ditemukan pada server.",
           code: "BACKUP_FILE_NOT_FOUND"
         });
       }
-      const stat = fs4.statSync(BACKUP_FILE_PATH);
+      const stat = fs3.statSync(BACKUP_FILE_PATH);
       if (stat.size !== EXPECTED_BACKUP_SIZE) {
         return res.status(409).json({
           error: `Integritas ukuran file gagal: ${stat.size} bytes (target: ${EXPECTED_BACKUP_SIZE} bytes).`,
@@ -25570,7 +25409,7 @@ async function createExpressApp(options) {
         });
       }
       const hash = crypto11.createHash("sha256");
-      const fileBuffer = fs4.readFileSync(BACKUP_FILE_PATH);
+      const fileBuffer = fs3.readFileSync(BACKUP_FILE_PATH);
       hash.update(fileBuffer);
       const actualHash = hash.digest("hex");
       if (actualHash !== EXPECTED_BACKUP_SHA256) {
@@ -25590,7 +25429,7 @@ async function createExpressApp(options) {
         `User ${req.user.name} (${req.user.role}) mengunduh file backup produksi (${EXPECTED_BACKUP_SIZE} bytes)`,
         req.user
       );
-      const stream = fs4.createReadStream(BACKUP_FILE_PATH);
+      const stream = fs3.createReadStream(BACKUP_FILE_PATH);
       stream.on("error", (streamErr) => {
         console.error("[Backup Download] Stream error:", streamErr);
         if (!res.headersSent) {
@@ -26642,7 +26481,7 @@ async function createExpressApp(options) {
     }
     res.setHeader("Content-Type", downloadResult.mimeType || "application/octet-stream");
     res.setHeader("Content-Length", downloadResult.sizeBytes || downloadResult.data.length);
-    const safeFileName = path4.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
+    const safeFileName = path3.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
     res.setHeader("Content-Disposition", `inline; filename="${safeFileName}"`);
     res.send(downloadResult.data);
   });
@@ -27132,7 +26971,7 @@ async function createExpressApp(options) {
     }
     res.setHeader("Content-Type", result.mimeType || "application/octet-stream");
     res.setHeader("Content-Length", result.sizeBytes || result.data.length);
-    const safeFileName = path4.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
+    const safeFileName = path3.basename(storagePath).replace(/["\r\n\\;]/g, "_") || "file";
     res.setHeader("Content-Disposition", `inline; filename="${safeFileName}"`);
     res.send(result.data);
   });
@@ -27958,11 +27797,36 @@ async function createExpressApp(options) {
       );
     }
   });
+  const MAX_VERCEL_SAFE_STAGE_BYTES = 4 * 1024 * 1024;
+  const isValidImportJobId = (id) => /^[A-Za-z0-9_-]{3,120}$/.test(id);
+  const ensureImportDbAvailable = (res) => {
+    if (!isSupabaseMode()) {
+      res.status(503).json({
+        success: false,
+        error: {
+          code: "DATABASE_UNAVAILABLE",
+          message: "Database authoritative PostgreSQL/Supabase tidak tersedia. Enterprise Batch Import memerlukan koneksi Supabase PostgreSQL."
+        }
+      });
+      return false;
+    }
+    return true;
+  };
+  const handleImportRouteError = (res, err, fallbackCode, fallbackMessage) => {
+    if (err instanceof ImportServiceError) {
+      return res.status(err.statusCode).json({
+        success: false,
+        error: { code: err.code, message: err.message, retryable: err.retryable }
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: { code: fallbackCode, message: err?.message || fallbackMessage }
+    });
+  };
   app.post("/api/imports/jobs", requireImportPermission, async (req, res) => {
     try {
-      if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
-        return res.status(503).json({ success: false, error: { code: "DATABASE_UNAVAILABLE", message: "Database authoritative Supabase tidak tersedia." } });
-      }
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user;
       const body = req.body || {};
       const totalRows = Number(body.totalRows || 0);
@@ -27970,6 +27834,30 @@ async function createExpressApp(options) {
         return res.status(400).json({
           success: false,
           error: { code: "INVALID_ROW_COUNT", message: `Jumlah totalRows wajib antara 1 hingga ${MAX_IMPORT_JOB_ROWS}.` }
+        });
+      }
+      if (body.duplicatePolicy !== void 0 && body.duplicatePolicy !== "skip" && body.duplicatePolicy !== "update_allowed") {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_DUPLICATE_POLICY", message: 'duplicatePolicy harus bernilai "skip" atau "update_allowed".' }
+        });
+      }
+      if (typeof body.sourceFile === "string" && body.sourceFile.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_SOURCE_FILE", message: "Nama sourceFile maksimal 255 karakter." }
+        });
+      }
+      if (typeof body.importName === "string" && body.importName.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_IMPORT_NAME", message: "Nama importName maksimal 255 karakter." }
+        });
+      }
+      if (body.clientRequestId !== void 0 && (typeof body.clientRequestId !== "string" || body.clientRequestId.trim().length > 120)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_CLIENT_REQUEST_ID", message: "clientRequestId harus berupa string maksimal 120 karakter." }
         });
       }
       const job = await enterpriseImportEngine.createImportJob(
@@ -27981,24 +27869,49 @@ async function createExpressApp(options) {
           duplicatePolicy: body.duplicatePolicy === "update_allowed" ? "update_allowed" : "skip",
           autoRegisterContractors: body.autoRegisterContractors !== false,
           batchSize: Number(body.batchSize) || 500,
-          totalRows
+          totalRows,
+          clientRequestId: typeof body.clientRequestId === "string" ? body.clientRequestId.trim() : void 0
         },
         { id: user.id, name: user.name, role: user.role }
       );
       return res.status(201).json({ success: true, data: job });
     } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "CREATE_JOB_FAILED", message: err?.message || "Gagal membuat import job." }
-      });
+      return handleImportRouteError(res, err, "CREATE_JOB_FAILED", "Gagal membuat import job.");
     }
   });
   app.post("/api/imports/jobs/:jobId/stage", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
+      const contentLength = Number(req.headers["content-length"] || 0);
+      if (Number.isFinite(contentLength) && contentLength > MAX_VERCEL_SAFE_STAGE_BYTES) {
+        return res.status(413).json({
+          success: false,
+          error: {
+            code: "PAYLOAD_TOO_LARGE",
+            message: "Ukuran chunk staging melebihi batas aman 4MB Vercel Serverless. Kurangi jumlah baris per request staging."
+          }
+        });
+      }
+      const serializedBytes = Buffer.byteLength(JSON.stringify(req.body || {}), "utf8");
+      if (serializedBytes > MAX_VERCEL_SAFE_STAGE_BYTES) {
+        return res.status(413).json({
+          success: false,
+          error: {
+            code: "PAYLOAD_TOO_LARGE",
+            message: "Ukuran payload staging melebihi batas aman 4MB Vercel Serverless."
+          }
+        });
+      }
       const jobId = String(req.params.jobId || "").trim();
       const { rows, startRowNumber, validationMode } = req.body || {};
-      if (!jobId) {
-        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Job ID wajib diisi." } });
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
+      if (startRowNumber !== void 0 && (!Number.isInteger(startRowNumber) || startRowNumber < 1)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_ROW_NUMBER", message: "startRowNumber harus bilangan bulat positif (>= 1)." }
+        });
       }
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(400).json({ success: false, error: { code: "INVALID_ROWS", message: "Rows staging harus berupa array tidak kosong." } });
@@ -28015,29 +27928,37 @@ async function createExpressApp(options) {
       });
       return res.json({ success: true, data: stageRes });
     } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "STAGE_ROWS_FAILED", message: err?.message || "Gagal menyimpan rows staging." }
-      });
+      return handleImportRouteError(res, err, "STAGE_ROWS_FAILED", "Gagal menyimpan rows staging.");
     }
   });
   app.post("/api/imports/jobs/:jobId/start", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const job = await enterpriseImportEngine.startJob(jobId);
       return res.json({ success: true, data: job });
     } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "START_JOB_FAILED", message: err?.message || "Gagal memulai import job." }
-      });
+      return handleImportRouteError(res, err, "START_JOB_FAILED", "Gagal memulai import job.");
     }
   });
   app.post("/api/imports/jobs/:jobId/process-next", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const { batchNumber, retryFailed } = req.body || {};
+      if (batchNumber !== void 0 && (!Number.isInteger(batchNumber) || batchNumber < 1)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_BATCH_NUMBER", message: "batchNumber harus bilangan bulat positif (>= 1)." }
+        });
+      }
       const result = await enterpriseImportEngine.processNextBatch(
         jobId,
         { id: user.id, name: user.name, role: user.role },
@@ -28048,69 +27969,71 @@ async function createExpressApp(options) {
       );
       return res.json({ success: true, data: result });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "PROCESS_BATCH_FAILED", message: err?.message || "Gagal memproses batch impor." }
-      });
+      return handleImportRouteError(res, err, "PROCESS_BATCH_FAILED", "Gagal memproses batch impor.");
     }
   });
   app.post("/api/imports/jobs/:jobId/cancel", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const job = await enterpriseImportEngine.cancelImportJob(jobId, { id: user.id, name: user.name, role: user.role });
       await logServerAuditAsync("Enterprise Import Job Cancelled", "import_batch", jobId, `Job ${jobId} dibatalkan oleh ${user.name}`, user);
       return res.json({ success: true, data: job });
     } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "CANCEL_JOB_FAILED", message: err?.message || "Gagal membatalkan import job." }
-      });
+      return handleImportRouteError(res, err, "CANCEL_JOB_FAILED", "Gagal membatalkan import job.");
     }
   });
   app.post("/api/imports/jobs/:jobId/retry", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const job = await enterpriseImportEngine.retryFailedBatches(jobId, { id: user.id, name: user.name, role: user.role });
       return res.json({ success: true, data: job });
     } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "RETRY_JOB_FAILED", message: err?.message || "Gagal mengulang batch yang gagal." }
-      });
+      return handleImportRouteError(res, err, "RETRY_JOB_FAILED", "Gagal mengulang batch yang gagal.");
     }
   });
   app.get("/api/imports/jobs", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
       const jobs = await enterpriseImportEngine.listImportJobs(limit);
       return res.json({ success: true, data: jobs });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "LIST_JOBS_FAILED", message: err?.message || "Gagal mengambil daftar import job." }
-      });
+      return handleImportRouteError(res, err, "LIST_JOBS_FAILED", "Gagal mengambil daftar import job.");
     }
   });
   app.get("/api/imports/jobs/:jobId", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const job = await enterpriseImportEngine.getImportJobDetail(jobId);
       if (!job) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Import job tidak ditemukan." } });
       }
       return res.json({ success: true, data: job });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "GET_JOB_FAILED", message: err?.message || "Gagal mengambil detail import job." }
-      });
+      return handleImportRouteError(res, err, "GET_JOB_FAILED", "Gagal mengambil detail import job.");
     }
   });
   app.get("/api/imports/jobs/:jobId/errors", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || "").trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_JOB_ID", message: "Format Job ID tidak valid." } });
+      }
       const format = String(req.query.format || "json").toLowerCase();
       if (format === "csv") {
         const csv = await enterpriseImportEngine.formatJobErrorsCsv(jobId);
@@ -28123,22 +28046,17 @@ async function createExpressApp(options) {
       const errors = await enterpriseImportEngine.getImportJobErrors(jobId, limit, offset);
       return res.json({ success: true, data: errors });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "GET_JOB_ERRORS_FAILED", message: err?.message || "Gagal mengambil laporan error impor." }
-      });
+      return handleImportRouteError(res, err, "GET_JOB_ERRORS_FAILED", "Gagal mengambil laporan error impor.");
     }
   });
   app.get("/api/imports/history", requireImportPermission, async (req, res) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
       const history = await enterpriseImportEngine.listImportHistory(limit);
       return res.json({ success: true, data: history });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "LIST_HISTORY_FAILED", message: err?.message || "Gagal mengambil riwayat impor." }
-      });
+      return handleImportRouteError(res, err, "LIST_HISTORY_FAILED", "Gagal mengambil riwayat impor.");
     }
   });
   app.get("/api/supabase/users", requireAuth, async (req, res) => {
@@ -32693,9 +32611,9 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         });
       });
     } else {
-      const distDir = path4.join(__dirname, "dist");
-      const distAssetsDir = path4.join(distDir, "assets");
-      const indexHtmlPath = path4.join(distDir, "index.html");
+      const distDir = path3.join(__dirname, "dist");
+      const distAssetsDir = path3.join(distDir, "assets");
+      const indexHtmlPath = path3.join(distDir, "index.html");
       app.use("/assets", express.static(distAssetsDir, {
         immutable: true,
         maxAge: "1y"
@@ -32709,7 +32627,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         if (req.path.startsWith("/api/") || req.path.startsWith("/assets/")) {
           return res.status(404).json({ error: "Not found", code: "NOT_FOUND" });
         }
-        if (!fs4.existsSync(indexHtmlPath)) {
+        if (!fs3.existsSync(indexHtmlPath)) {
           console.error("[Production Static] Missing dist/index.html at:", indexHtmlPath);
           return res.status(503).type("html").send(
             '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
@@ -32861,7 +32779,7 @@ async function startServer() {
     });
   });
 }
-var isDirectRun = process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || path4.resolve(process.argv[1]) === path4.resolve(fileURLToPath(import.meta.url)));
+var isDirectRun = process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || path3.resolve(process.argv[1]) === path3.resolve(fileURLToPath(import.meta.url)));
 if (isDirectRun) {
   startServer().catch((err) => {
     console.error("Failed to start server:", err);

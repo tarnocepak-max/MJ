@@ -169,11 +169,12 @@ test('Transient retry succeeds automatically while persistent batch error isolat
   assert.equal(store.getCommittedCount(), 75);
 });
 
-test('Validation, duplicate policies (skip vs update_allowed), protected WO guard, cancellation, and import_history survival', async () => {
+test('Validation, duplicate policies (skip vs update_allowed), soft-deleted/archived WO guard, cancellation, and import_history survival', async () => {
   const store = createInMemoryImportTestStore({
     initialWorkOrders: [
-      { woNumber: 'WO-EXIST-001', wo_number: 'WO-EXIST-001', area: 'OLD_AREA' },
-      { id: 'wo_1793825457141_u4bnht', woNumber: 'WO-EXPRESS-TEST-1793825456810', wo_number: 'WO-EXPRESS-TEST-1793825456810' }
+      { id: 'wo_synth_exist_1', woNumber: 'WO-EXIST-001', wo_number: 'WO-EXIST-001', area: 'OLD_AREA' },
+      { id: 'wo_synth_deleted_1', woNumber: 'WO-SYNTH-DEL-001', wo_number: 'WO-SYNTH-DEL-001', area: 'DEL_AREA', isDeleted: true },
+      { id: 'wo_synth_archived_1', woNumber: 'WO-SYNTH-ARC-001', wo_number: 'WO-SYNTH-ARC-001', area: 'ARC_AREA', isArchived: true }
     ]
   });
   const engine = new EnterpriseImportEngine(store);
@@ -184,7 +185,7 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
     {
       rowNumber: 3,
       mapped: {
-        woNumber: 'WO-EXIST-001',
+        woNumber: '  wo - exist - 001 ', // Case/whitespace variant matching WO-EXIST-001
         idCustomer: '1234567',
         contractorName: 'PT A',
         area: 'NEW_AREA',
@@ -214,7 +215,7 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
     {
       rowNumber: 6,
       mapped: {
-        woNumber: 'WO-EXPRESS-TEST-1793825456810', // Protected historical WO
+        woNumber: 'WO-SYNTH-DEL-001', // Soft-deleted synthetic WO
         idCustomer: '7654322',
         contractorName: 'PT A',
         area: 'BDG',
@@ -228,8 +229,8 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
     operator
   );
   const staged = await engine.stageJobRows(job.id, rows);
-  assert.equal(staged.validCount, 2); // WO-VALID-00001, WO-VALID-00002 (existing & protected already marked duplicate in skip mode)
-  assert.equal(staged.duplicateCount, 2); // WO-EXIST-001 + WO-EXPRESS-TEST-1793825456810
+  assert.equal(staged.validCount, 2); // WO-VALID-00001, WO-VALID-00002
+  assert.equal(staged.duplicateCount, 2); // wo-exist 001 + WO-SYNTH-DEL-001
   assert.equal(staged.invalidCount, 2); // WO-BAD-CID, WO-BAD-DATE
 
   const processed = await engine.processNextBatch(job.id, operator);
@@ -238,9 +239,9 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
   assert.equal(processed.job.failedRows, 2);
   assert.equal(processed.job.status, 'completed_with_errors');
 
-  // Also test update_allowed policy + protected WO guard inside commitClaimedBatchAtomic
+  // Also test update_allowed policy + soft-deleted/archived WO guard inside commitClaimedBatchAtomic
   const updJob = await engine.createImportJob(
-    { sourceFile: 'update_allowed.xlsx', totalRows: 2, batchSize: 25, duplicatePolicy: 'update_allowed' },
+    { sourceFile: 'update_allowed.xlsx', totalRows: 3, batchSize: 25, duplicatePolicy: 'update_allowed' },
     operator
   );
   const updStaged = await engine.stageJobRows(updJob.id, [
@@ -257,20 +258,31 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
     {
       rowNumber: 2,
       mapped: {
-        woNumber: 'WO-EXPRESS-TEST-1793825456810',
+        woNumber: 'WO-SYNTH-DEL-001',
         idCustomer: '7654322',
         contractorName: 'PT A',
-        area: 'SHOULD_NOT_OVERWRITE',
+        area: 'SHOULD_NOT_OVERWRITE_DEL',
+        appointmentDate: '2026-11-26'
+      }
+    },
+    {
+      rowNumber: 3,
+      mapped: {
+        woNumber: 'WO-SYNTH-ARC-001',
+        idCustomer: '7654323',
+        contractorName: 'PT A',
+        area: 'SHOULD_NOT_OVERWRITE_ARC',
         appointmentDate: '2026-11-26'
       }
     }
   ]);
-  assert.equal(updStaged.validCount, 2);
+  assert.equal(updStaged.validCount, 3);
   const updProcessed = await engine.processNextBatch(updJob.id, operator);
-  assert.equal(updProcessed.job.updatedRows, 1); // WO-EXIST-001 updated
-  assert.equal(updProcessed.job.duplicateRows, 1); // Protected historical WO guarded & skipped
+  assert.equal(updProcessed.job.updatedRows, 1); // Only active WO-EXIST-001 updated
+  assert.equal(updProcessed.job.duplicateRows, 2); // Soft-deleted & archived WOs guarded & skipped
   assert.equal(store.workOrdersMap.get('wo-exist-001')?.area, 'NEW_AREA');
-  assert.notEqual(store.workOrdersMap.get('wo-express-test-1793825456810')?.area, 'SHOULD_NOT_OVERWRITE');
+  assert.equal(store.workOrdersMap.get('wo-synth-del-001')?.area, 'DEL_AREA');
+  assert.equal(store.workOrdersMap.get('wo-synth-arc-001')?.area, 'ARC_AREA');
 
   // Verify history survives even if job row is deleted (ON DELETE SET NULL + original_job_id)
   store.deleteJobPreserveHistoryForTest(job.id);
@@ -291,6 +303,147 @@ test('Validation, duplicate policies (skip vs update_allowed), protected WO guar
   const afterCancel = await engine.processNextBatch(cancelJob.id, operator);
   assert.equal(afterCancel.done, true);
   assert.equal(afterCancel.processedBatch, null);
+});
+
+test('Staging completeness guard, stale worker lock loss in failClaimedBatchAtomic, strict payload validation, and idempotency', async () => {
+  const store = createInMemoryImportTestStore();
+  const engine = new EnterpriseImportEngine(store);
+  const operator = { id: 'usr_sa', name: 'Superadmin', role: 'super_admin' };
+
+  // 1. Idempotent clientRequestId prevents duplicate jobs on retry
+  const firstJob = await engine.createImportJob(
+    { sourceFile: 'idempotent.xlsx', totalRows: 5, batchSize: 25, clientRequestId: 'req-abc-123' },
+    operator
+  );
+  const retriedJob = await engine.createImportJob(
+    { sourceFile: 'idempotent.xlsx', totalRows: 5, batchSize: 25, clientRequestId: 'req-abc-123' },
+    operator
+  );
+  assert.equal(retriedJob.id, firstJob.id);
+
+  // 2. Staging completeness guard rejects premature startJob / processNextBatch
+  await engine.stageJobRows(firstJob.id, makeSyntheticRows(3, 'WO-INC'));
+  await assert.rejects(
+    () => engine.startJob(firstJob.id),
+    (err: any) => err instanceof ImportServiceError && err.code === 'IMPORT_STAGING_INCOMPLETE' && err.statusCode === 409
+  );
+  await assert.rejects(
+    () => engine.processNextBatch(firstJob.id, operator),
+    (err: any) => err instanceof ImportServiceError && err.code === 'IMPORT_STAGING_INCOMPLETE' && err.statusCode === 409
+  );
+
+  // 2b. Re-staging an overlapping chunk while still in 'staging' status replaces errors without duplicating import_row_errors
+  await engine.stageJobRows(firstJob.id, [
+    {
+      rowNumber: 3,
+      mapped: {
+        woNumber: 'WO-INC-00003',
+        idCustomer: 'BAD', // Intentionally invalid during partial chunk 1
+        contractorName: 'PT Fiberindo Mitra',
+        area: 'BANDUNG 02',
+        appointmentDate: '2026-11-26'
+      }
+    }
+  ]);
+  assert.equal((await engine.getImportJobErrors(firstJob.id)).filter(e => e.rowNumber === 3).length, 1);
+  await engine.stageJobRows(firstJob.id, [
+    {
+      rowNumber: 3,
+      mapped: {
+        woNumber: 'WO-INC-00003',
+        idCustomer: 'BAD',
+        contractorName: 'PT Fiberindo Mitra',
+        area: 'BANDUNG 02',
+        appointmentDate: '2026-11-26'
+      }
+    }
+  ]);
+  assert.equal((await engine.getImportJobErrors(firstJob.id)).filter(e => e.rowNumber === 3).length, 1);
+
+  // 3. Reject out-of-range rowNumber, oversized payload, and preserve unmappedHeaders + additionalFields
+  await assert.rejects(
+    () => engine.stageJobRows(firstJob.id, [{ rowNumber: 6, mapped: { woNumber: 'WO-OVR-01' } }]),
+    (err: any) => err instanceof ImportServiceError && err.code === 'INVALID_ROW_NUMBER' && err.statusCode === 400
+  );
+  await assert.rejects(
+    () =>
+      engine.stageJobRows(firstJob.id, [
+        {
+          rowNumber: 4,
+          mapped: { woNumber: 'WO-HUGE-01', customerName: 'X'.repeat(70_000) }
+        }
+      ]),
+    (err: any) => err instanceof ImportServiceError && err.code === 'PAYLOAD_TOO_LARGE' && err.statusCode === 413
+  );
+
+  // Stage rows 4 (invalid object phone) and 5 (valid with unmappedHeaders + additionalFields)
+  const restStage = await engine.stageJobRows(firstJob.id, [
+    {
+      rowNumber: 4,
+      mapped: {
+        woNumber: 'WO-INC-00004',
+        idCustomer: '1000004',
+        customerPhone: { nested: 'invalid' } as any,
+        contractorName: 'PT Fiberindo Mitra',
+        area: 'BANDUNG 02',
+        appointmentDate: '2026-11-26'
+      }
+    },
+    {
+      rowNumber: 5,
+      mapped: {
+        woNumber: 'WO-INC-00005',
+        idCustomer: '1000005',
+        customerName: 'Pelanggan 5',
+        contractorName: 'PT Fiberindo Mitra',
+        area: 'BANDUNG 02',
+        appointmentDate: '2026-11-26',
+        unmappedHeaders: ['Extra Col A']
+      },
+      raw: {
+        'WO Number': 'WO-INC-00005',
+        'Extra Col A': 'Preserved Value A'
+      }
+    }
+  ]);
+  assert.equal(restStage.invalidCount, 1);
+  assert.equal(restStage.validCount, 1);
+  assert.equal(restStage.job.status, 'queued');
+  const stagedRows = await store.getStagingRows(firstJob.id);
+  const row5 = stagedRows.find(r => r.rowNumber === 5)!;
+  assert.deepEqual(row5.normalizedPayload.unmappedHeaders, ['Extra Col A']);
+  assert.equal(row5.normalizedPayload.additionalFields['Extra Col A'], 'Preserved Value A');
+
+  // Once job transitioned to 'queued', additional stage calls must be rejected with INVALID_JOB_STATE
+  await assert.rejects(
+    () => engine.stageJobRows(firstJob.id, [{ rowNumber: 4, mapped: { woNumber: 'WO-INC-00004' } }]),
+    (err: any) => err instanceof ImportServiceError && err.code === 'INVALID_JOB_STATE' && err.statusCode === 409
+  );
+
+  // 4. Stale worker lock ownership guard in failClaimedBatchAtomic
+  const lockJob = await engine.createImportJob(
+    { sourceFile: 'fail_lock_guard.xlsx', totalRows: 10, batchSize: 25 },
+    operator
+  );
+  await engine.stageJobRows(lockJob.id, makeSyntheticRows(10, 'WO-FLOCK'));
+  const claimW1 = await store.claimNextBatch({ jobId: lockJob.id, workerId: 'worker_1', lockTtlSeconds: 30 });
+  assert.equal(claimW1.claimed, true);
+  store.expireLockForTest(lockJob.id, 1);
+  const claimW2 = await store.claimNextBatch({ jobId: lockJob.id, workerId: 'worker_2', lockTtlSeconds: 30 });
+  assert.equal(claimW2.claimed, true);
+
+  // Stale worker_1 cannot mark batch 1 failed after worker_2 recovered the lock
+  await assert.rejects(
+    () =>
+      store.failClaimedBatchAtomic({
+        jobId: lockJob.id,
+        batchNumber: 1,
+        workerId: 'worker_1',
+        errorMessage: 'Stale error',
+        durationMs: 100
+      }),
+    (err: any) => err instanceof ImportServiceError && err.code === 'IMPORT_BATCH_LOCK_LOST' && err.statusCode === 409
+  );
 });
 
 test('Scale contract harness processes 5,000 rows in 500-row batches consistently', async () => {

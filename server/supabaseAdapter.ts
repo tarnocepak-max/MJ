@@ -425,6 +425,7 @@ export function postgresRowToUser(row: any): ServerUser {
     mustChangePassword: Boolean(row.must_change_password),
     sessionVersion,
     isDeleted: Boolean(row.is_deleted),
+    isArchived: Boolean(row.is_archived),
     deletedAt: row.deleted_at || undefined,
     deletedBy: row.deleted_by || undefined,
     deletionReason: row.deletion_reason || undefined,

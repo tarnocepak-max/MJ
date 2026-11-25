@@ -2004,6 +2004,11 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
           error: customRes.error.message || 'Token sesi login telah kedaluwarsa.',
           code: 'TOKEN_EXPIRED'
         });
+      } else if (customRes.error?.code === 'ACCOUNT_DELETED' || customRes.error?.code === 'ACCOUNT_DISABLED') {
+        return res.status(403).json({
+          error: customRes.error.message || 'Akun pengguna tidak aktif, diarsipkan, atau telah dihapus.',
+          code: customRes.error.code
+        });
       }
     } catch (customErr) {
       // Fallback
@@ -2073,7 +2078,14 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
               authoritativeUser = db.users.find(u => u.id === activeSession!.userId) || null;
             }
 
-            if (!authoritativeUser || authoritativeUser.isDeleted || !authoritativeUser.active) {
+            const step3AccStatus = String((authoritativeUser as any)?.accountStatus || '').trim().toLowerCase();
+            if (
+              !authoritativeUser ||
+              authoritativeUser.isDeleted ||
+              !authoritativeUser.active ||
+              (authoritativeUser as any).isArchived ||
+              (step3AccStatus && step3AccStatus !== 'active')
+            ) {
               activeSession.status = 'revoked';
               activeSession = undefined;
               found = undefined;
@@ -2827,6 +2839,20 @@ function requireBackupDownloadPermission(req: AuthenticatedRequest, res: Respons
 async function requireImportPermission(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: 'Tidak terautentikasi', code: 'UNAUTHENTICATED' });
+  }
+  const accountStatus = String((req.user as any).accountStatus || '').trim().toLowerCase();
+  const isAccountActive =
+    req.user.active !== false &&
+    !req.user.isDeleted &&
+    !(req.user as any).isArchived &&
+    (!accountStatus || accountStatus === 'active');
+
+  if (!isAccountActive) {
+    logServerAudit('Access Denied (Inactive Account Import Attempt)', 'rbac', req.originalUrl, `User ${req.user.name} (${req.user.role}) dengan akun non-aktif/diarsipkan ditolak melakukan import WO`, req.user);
+    return res.status(403).json({
+      error: 'Akses Ditolak: Akun pengguna tidak aktif atau telah diarsipkan.',
+      code: 'ACCOUNT_INACTIVE'
+    });
   }
   if (req.user.role === 'super_admin') {
     return next();
@@ -12446,6 +12472,30 @@ export async function createExpressApp(options?: {
           error: { code: 'INVALID_ROW_COUNT', message: `Jumlah totalRows wajib antara 1 hingga ${MAX_IMPORT_JOB_ROWS}.` }
         });
       }
+      if (body.duplicatePolicy !== undefined && body.duplicatePolicy !== 'skip' && body.duplicatePolicy !== 'update_allowed') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_DUPLICATE_POLICY', message: 'duplicatePolicy harus bernilai "skip" atau "update_allowed".' }
+        });
+      }
+      if (typeof body.sourceFile === 'string' && body.sourceFile.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_SOURCE_FILE', message: 'Nama sourceFile maksimal 255 karakter.' }
+        });
+      }
+      if (typeof body.importName === 'string' && body.importName.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_IMPORT_NAME', message: 'Nama importName maksimal 255 karakter.' }
+        });
+      }
+      if (body.clientRequestId !== undefined && (typeof body.clientRequestId !== 'string' || body.clientRequestId.trim().length > 120)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_CLIENT_REQUEST_ID', message: 'clientRequestId harus berupa string maksimal 120 karakter.' }
+        });
+      }
       const job = await enterpriseImportEngine.createImportJob(
         {
           importName: typeof body.importName === 'string' ? body.importName : undefined,
@@ -12455,7 +12505,8 @@ export async function createExpressApp(options?: {
           duplicatePolicy: body.duplicatePolicy === 'update_allowed' ? 'update_allowed' : 'skip',
           autoRegisterContractors: body.autoRegisterContractors !== false,
           batchSize: Number(body.batchSize) || 500,
-          totalRows
+          totalRows,
+          clientRequestId: typeof body.clientRequestId === 'string' ? body.clientRequestId.trim() : undefined
         },
         { id: user.id, name: user.name, role: user.role }
       );
@@ -12478,10 +12529,26 @@ export async function createExpressApp(options?: {
           }
         });
       }
+      const serializedBytes = Buffer.byteLength(JSON.stringify(req.body || {}), 'utf8');
+      if (serializedBytes > MAX_VERCEL_SAFE_STAGE_BYTES) {
+        return res.status(413).json({
+          success: false,
+          error: {
+            code: 'PAYLOAD_TOO_LARGE',
+            message: 'Ukuran payload staging melebihi batas aman 4MB Vercel Serverless.'
+          }
+        });
+      }
       const jobId = String(req.params.jobId || '').trim();
       const { rows, startRowNumber, validationMode } = req.body || {};
       if (!isValidImportJobId(jobId)) {
         return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
+      if (startRowNumber !== undefined && (!Number.isInteger(startRowNumber) || startRowNumber < 1)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_ROW_NUMBER', message: 'startRowNumber harus bilangan bulat positif (>= 1).' }
+        });
       }
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(400).json({ success: false, error: { code: 'INVALID_ROWS', message: 'Rows staging harus berupa array tidak kosong.' } });
@@ -12526,6 +12593,12 @@ export async function createExpressApp(options?: {
         return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
       }
       const { batchNumber, retryFailed } = req.body || {};
+      if (batchNumber !== undefined && (!Number.isInteger(batchNumber) || batchNumber < 1)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_BATCH_NUMBER', message: 'batchNumber harus bilangan bulat positif (>= 1).' }
+        });
+      }
       const result = await enterpriseImportEngine.processNextBatch(
         jobId,
         { id: user.id, name: user.name, role: user.role },

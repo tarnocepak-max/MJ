@@ -4,7 +4,6 @@ import {
   canonicalWoKey,
   classifySupabaseError,
   normalizeWoNumber,
-  PROTECTED_PRODUCTION_WO_IDS,
   ticketToPostgresRow,
   toDateOnlyString
 } from './supabaseAdapter.ts';
@@ -24,7 +23,19 @@ export const MIN_IMPORT_BATCH_SIZE = 25;
 export const MAX_IMPORT_BATCH_SIZE = 500;
 export const MAX_STAGE_CHUNK_ROWS = 500;
 export const MAX_IMPORT_JOB_ROWS = 25000;
+export const MAX_STAGING_ROW_BYTES = 65536;
 export const DEFAULT_BATCH_LOCK_TTL_SECONDS = 120;
+export const ALLOWED_IMPORT_TEMPLATE_TYPES = new Set([
+  'BASE_DATA_WO',
+  'WO_KORLAP',
+  'INSTALLER_WO',
+  'ASSIGNED_TEKNISI',
+  'CUSTOM',
+  'TEXT_TO_TABLE',
+  'XLSX',
+  'CSV',
+  'JSON'
+]);
 
 export class ImportServiceError extends Error {
   code: string;
@@ -95,6 +106,7 @@ export interface ClaimBatchResult {
     | 'JOB_NOT_FOUND'
     | 'JOB_CANCELLED'
     | 'JOB_ALREADY_COMPLETED'
+    | 'STAGING_INCOMPLETE'
     | 'BATCH_LOCKED_BY_ANOTHER_WORKER'
     | 'NO_ELIGIBLE_BATCH';
   job: ImportJobSummary | null;
@@ -123,7 +135,8 @@ export interface AtomicBatchFailResult {
 
 export interface ImportPersistenceStore {
   ensureSchemaReady?(): Promise<void>;
-  createJob(job: ImportJobSummary): Promise<void>;
+  createJob(job: ImportJobSummary, opts?: { clientRequestId?: string }): Promise<void>;
+  findJobByClientRequestId?(clientRequestId: string): Promise<ImportJobSummary | null>;
   getJob(jobId: string): Promise<ImportJobSummary | null>;
   listJobs(limit?: number): Promise<ImportJobSummary[]>;
   upsertBatches(batches: ImportBatchSummary[]): Promise<void>;
@@ -136,6 +149,7 @@ export interface ImportPersistenceStore {
   upsertStagingRows(rows: InternalStagingRow[]): Promise<void>;
   getStagingRows(jobId: string, opts?: { batchNumber?: number }): Promise<InternalStagingRow[]>;
   syncStagedCount(jobId: string): Promise<ImportJobSummary | null>;
+  clearRowErrorsForRows?(jobId: string, rowNumbers: number[]): Promise<void>;
   appendRowErrors(errors: ImportRowErrorRecord[]): Promise<void>;
   getRowErrors(jobId: string, limit?: number, offset?: number): Promise<ImportRowErrorRecord[]>;
   listHistory(limit?: number): Promise<ImportHistoryRecord[]>;
@@ -382,6 +396,7 @@ export function createInMemoryImportTestStore(options?: {
   deleteJobPreserveHistoryForTest: (jobId: string) => void;
 } {
   const jobs = new Map<string, ImportJobSummary>();
+  const clientRequestIndex = new Map<string, string>();
   const batchesMap = new Map<string, Map<number, InMemoryBatchState>>();
   const stagingMap = new Map<string, Map<number, InternalStagingRow>>();
   const errorsMap = new Map<string, ImportRowErrorRecord[]>();
@@ -423,8 +438,19 @@ export function createInMemoryImportTestStore(options?: {
       return;
     },
 
-    async createJob(job) {
+    async createJob(job, opts) {
       jobs.set(job.id, { ...job });
+      if (opts?.clientRequestId) {
+        clientRequestIndex.set(opts.clientRequestId, job.id);
+      }
+    },
+
+    async findJobByClientRequestId(clientRequestId) {
+      const id = clientRequestIndex.get(clientRequestId);
+      if (!id) return null;
+      const j = jobs.get(id);
+      if (!j || j.status === 'cancelled') return null;
+      return enrichJobFlags(j, getSortedBatches(id));
     },
 
     async getJob(jobId) {
@@ -494,6 +520,13 @@ export function createInMemoryImportTestStore(options?: {
       return enrichJobFlags(next, getSortedBatches(jobId));
     },
 
+    async clearRowErrorsForRows(jobId, rowNumbers) {
+      if (rowNumbers.length === 0) return;
+      const rowSet = new Set(rowNumbers);
+      const list = errorsMap.get(jobId) || [];
+      errorsMap.set(jobId, list.filter(e => !rowSet.has(e.rowNumber)));
+    },
+
     async appendRowErrors(errors) {
       for (const e of errors) {
         if (!errorsMap.has(e.jobId)) errorsMap.set(e.jobId, []);
@@ -537,6 +570,13 @@ export function createInMemoryImportTestStore(options?: {
       if (!job) throw new ImportServiceError(`Import job "${jobId}" tidak ditemukan.`, 'IMPORT_JOB_NOT_FOUND', 404);
       if (job.status === 'cancelled') throw new ImportServiceError('Import job sudah dibatalkan.', 'IMPORT_JOB_CANCELLED', 409);
       if (job.status === 'completed') return enrichJobFlags(job, getSortedBatches(jobId));
+      if (job.status === 'staging' && job.stagedRows < Math.max(job.totalRows, 1)) {
+        throw new ImportServiceError(
+          `Staging belum lengkap (${job.stagedRows}/${job.totalRows} baris).`,
+          'IMPORT_STAGING_INCOMPLETE',
+          409
+        );
+      }
       const next: ImportJobSummary = {
         ...job,
         status: 'processing',
@@ -552,6 +592,9 @@ export function createInMemoryImportTestStore(options?: {
       if (!job) return { claimed: false, reason: 'JOB_NOT_FOUND', job: null, batch: null };
       if (job.status === 'cancelled') return { claimed: false, reason: 'JOB_CANCELLED', job: enrichJobFlags(job, getSortedBatches(jobId)), batch: null };
       if (job.status === 'completed') return { claimed: false, reason: 'JOB_ALREADY_COMPLETED', job: enrichJobFlags(job, getSortedBatches(jobId)), batch: null };
+      if (job.status === 'staging' && job.stagedRows < Math.max(job.totalRows, 1)) {
+        return { claimed: false, reason: 'STAGING_INCOMPLETE', job: enrichJobFlags(job, getSortedBatches(jobId)), batch: null };
+      }
 
       const nowMs = Date.now();
       const allBatches = Array.from(batchesMap.get(jobId)?.values() || []).sort((a, b) => a.batchNumber - b.batchNumber);
@@ -654,15 +697,11 @@ export function createInMemoryImportTestStore(options?: {
           failedRows.push({ woNumber: '', errorCode: 'INVALID_WO', errorMessage: 'Nomor WO kosong' });
           continue;
         }
-        if (PROTECTED_PRODUCTION_WO_IDS.has(String(row.id || '')) || PROTECTED_PRODUCTION_WO_IDS.has(normWo)) {
-          duplicateWoNumbers.push(normWo);
-          continue;
-        }
         if (workOrdersMap.has(key)) {
           const existingWo = workOrdersMap.get(key)!;
           if (
-            PROTECTED_PRODUCTION_WO_IDS.has(String(existingWo.id || '')) ||
-            PROTECTED_PRODUCTION_WO_IDS.has(String(existingWo.woNumber || existingWo.wo_number || ''))
+            Boolean(existingWo.isDeleted || existingWo.is_deleted) ||
+            Boolean(existingWo.isArchived || existingWo.is_archived)
           ) {
             duplicateWoNumbers.push(normWo);
           } else if (duplicatePolicy === 'update_allowed') {
@@ -851,7 +890,7 @@ export function createInMemoryImportTestStore(options?: {
       const batch = batchesMap.get(jobId)?.get(batchNumber);
       if (!batch) throw new ImportServiceError(`Batch #${batchNumber} tidak ditemukan.`, 'IMPORT_BATCH_NOT_FOUND', 404);
 
-      if (batch.lockedBy !== workerId && batch.status === 'completed') {
+      if (batch.status === 'completed') {
         const { lockedBy: _lb, lockedAt: _la, lockExpiresAt: _le, updatedRows: _ur, ...cleanBatch } = batch;
         return {
           job: enrichJobFlags(job, getSortedBatches(jobId)),
@@ -860,6 +899,9 @@ export function createInMemoryImportTestStore(options?: {
           historyWritten: false,
           history: null
         };
+      }
+      if (batch.status !== 'processing' || batch.lockedBy !== workerId) {
+        throw new ImportServiceError(`Lock batch #${batchNumber} dipegang worker lain atau sudah dilepaskan.`, 'IMPORT_BATCH_LOCK_LOST', 409);
       }
 
       const nowIso = new Date().toISOString();
@@ -1163,7 +1205,7 @@ class ProductionImportStore implements ImportPersistenceStore {
     }
 
     // 2. Verify Migration 020 RPC functions & updated_rows/locked_by schema are deployed
-    const [batchColProbe, historyColProbe, rpcProbe] = await Promise.all([
+    const [batchColProbe, historyColProbe, rpcProbe, dupLookupProbe] = await Promise.all([
       client.from('import_batches').select('id, locked_by, lock_expires_at, updated_rows').limit(1),
       client.from('import_history').select('id, original_job_id').limit(1),
       client.rpc('morajaws_claim_import_batch', {
@@ -1172,19 +1214,24 @@ class ProductionImportStore implements ImportPersistenceStore {
         p_batch_number: null,
         p_retry_failed: false,
         p_lock_ttl_seconds: 30
+      }),
+      client.rpc('morajaws_find_existing_wo_numbers', {
+        p_wo_numbers: []
       })
     ]);
 
     if (batchColProbe.error) throw this.wrapDbError(batchColProbe.error, 'import_batches', 'schema_probe');
     if (historyColProbe.error) throw this.wrapDbError(historyColProbe.error, 'import_history', 'schema_probe');
     if (rpcProbe.error) throw this.wrapDbError(rpcProbe.error, 'morajaws_claim_import_batch', 'rpc_probe');
+    if (dupLookupProbe.error) throw this.wrapDbError(dupLookupProbe.error, 'morajaws_find_existing_wo_numbers', 'rpc_probe');
 
     this.schemaVerified = true;
   }
 
-  async createJob(job: ImportJobSummary): Promise<void> {
+  async createJob(job: ImportJobSummary, opts?: { clientRequestId?: string }): Promise<void> {
     await this.ensureSchemaReady();
     const client = this.getRequiredClient();
+    const metadata = opts?.clientRequestId ? { clientRequestId: opts.clientRequestId } : {};
     const { error } = await client.from('import_jobs').insert([
       {
         id: job.id,
@@ -1207,6 +1254,7 @@ class ProductionImportStore implements ImportPersistenceStore {
         current_batch: job.currentBatch,
         status: job.status,
         error_summary: job.errorSummary || null,
+        metadata,
         created_by: job.createdBy,
         created_by_id: job.createdById || null,
         created_at: job.createdAt,
@@ -1219,6 +1267,26 @@ class ProductionImportStore implements ImportPersistenceStore {
     if (error) {
       throw this.wrapDbError(error, 'import_jobs', 'createJob');
     }
+  }
+
+  async findJobByClientRequestId(clientRequestId: string): Promise<ImportJobSummary | null> {
+    if (!clientRequestId) return null;
+    await this.ensureSchemaReady();
+    const client = this.getRequiredClient();
+    const { data, error } = await client
+      .from('import_jobs')
+      .select('*')
+      .eq('metadata->>clientRequestId', clientRequestId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      throw this.wrapDbError(error, 'import_jobs', 'findJobByClientRequestId');
+    }
+    if (!data) return null;
+    const batches = await this.getBatches(data.id);
+    return enrichJobFlags(dbRowToJob(data), batches);
   }
 
   async getJob(jobId: string): Promise<ImportJobSummary | null> {
@@ -1396,6 +1464,22 @@ class ProductionImportStore implements ImportPersistenceStore {
     return enrichJobFlags(dbRowToJob(data), batches);
   }
 
+  async clearRowErrorsForRows(jobId: string, rowNumbers: number[]): Promise<void> {
+    if (rowNumbers.length === 0) return;
+    const client = this.getRequiredClient();
+    for (let i = 0; i < rowNumbers.length; i += 200) {
+      const slice = rowNumbers.slice(i, i + 200);
+      const { error } = await client
+        .from('import_row_errors')
+        .delete()
+        .eq('job_id', jobId)
+        .in('row_number', slice);
+      if (error) {
+        throw this.wrapDbError(error, 'import_row_errors', 'clearRowErrorsForRows');
+      }
+    }
+  }
+
   async appendRowErrors(errors: ImportRowErrorRecord[]): Promise<void> {
     if (errors.length === 0) return;
     const client = this.getRequiredClient();
@@ -1450,25 +1534,24 @@ class ProductionImportStore implements ImportPersistenceStore {
     const client = this.getRequiredClient();
     if (candidates.length === 0) return existingSet;
 
-    const chunkSize = 150;
-    for (let i = 0; i < candidates.length; i += chunkSize) {
-      const slice = candidates.slice(i, i + chunkSize);
-      const woList = Array.from(
-        new Set(slice.flatMap(c => [c.normWo, c.rawTrimmed, c.rawTrimmed.toUpperCase()]).filter(Boolean))
-      );
-      if (woList.length === 0) continue;
+    const allInputs = Array.from(
+      new Set(candidates.flatMap(c => [c.normWo, c.rawTrimmed]).filter(Boolean))
+    );
+    const chunkSize = 250;
+    for (let i = 0; i < allInputs.length; i += chunkSize) {
+      const slice = allInputs.slice(i, i + chunkSize);
+      if (slice.length === 0) continue;
 
-      const { data, error } = await client
-        .from('work_orders')
-        .select('wo_number')
-        .in('wo_number', woList);
+      const { data, error } = await client.rpc('morajaws_find_existing_wo_numbers', {
+        p_wo_numbers: slice
+      });
 
       if (error) {
-        throw this.wrapDbError(error, 'work_orders', 'findExistingWoNumbers');
+        throw this.wrapDbError(error, 'morajaws_find_existing_wo_numbers', 'rpc');
       }
 
       (data || []).forEach((r: any) => {
-        const key = canonicalWoKey(r.wo_number);
+        const key = canonicalWoKey(typeof r === 'string' ? r : r?.canonical_wo ?? '');
         if (key) existingSet.add(key);
       });
     }
@@ -1479,23 +1562,34 @@ class ProductionImportStore implements ImportPersistenceStore {
   async getAuthUsersAndContractors(): Promise<{ users: any[]; contractors: any[] }> {
     const client = this.getRequiredClient();
     const [uRes, cRes] = await Promise.all([
-      client.from('users').select('id, name, role, contractor, contractor_id, area, phone, active, is_deleted').eq('is_deleted', false),
+      client
+        .from('users')
+        .select('id, name, role, contractor, contractor_id, area, phone, active, is_deleted, is_archived, account_status')
+        .eq('is_deleted', false),
       client.from('contractors').select('id, name, code, leader_id, leader_name, active, is_archived')
     ]);
     if (uRes.error) throw this.wrapDbError(uRes.error, 'users', 'getAuthUsersAndContractors');
     if (cRes.error) throw this.wrapDbError(cRes.error, 'contractors', 'getAuthUsersAndContractors');
 
-    const users = (uRes.data || []).map((u: any) => ({
-      id: u.id,
-      name: u.name,
-      role: u.role,
-      contractor: u.contractor,
-      contractorId: u.contractor_id,
-      area: u.area,
-      phone: u.phone,
-      active: u.active !== false,
-      isDeleted: Boolean(u.is_deleted)
-    }));
+    const users = (uRes.data || []).map((u: any) => {
+      const accountStatus = String(u.account_status || '').trim().toLowerCase();
+      const isArchived = Boolean(u.is_archived);
+      const isDeleted = Boolean(u.is_deleted);
+      const isActive = u.active !== false && !isDeleted && !isArchived && (!accountStatus || accountStatus === 'active');
+      return {
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        contractor: u.contractor,
+        contractorId: u.contractor_id,
+        area: u.area,
+        phone: u.phone,
+        active: isActive,
+        isDeleted,
+        isArchived,
+        accountStatus: accountStatus || 'active'
+      };
+    });
     const contractors = (cRes.data || []).map((c: any) => ({
       id: c.id,
       name: c.name,
@@ -1520,6 +1614,13 @@ class ProductionImportStore implements ImportPersistenceStore {
     }
     if (existing.status === 'completed') {
       return existing;
+    }
+    if (existing.status === 'staging' && existing.stagedRows < Math.max(existing.totalRows, 1)) {
+      throw new ImportServiceError(
+        `Staging belum lengkap (${existing.stagedRows}/${existing.totalRows} baris).`,
+        'IMPORT_STAGING_INCOMPLETE',
+        409
+      );
     }
 
     const { data, error } = await client
@@ -1712,6 +1813,7 @@ export class EnterpriseImportEngine {
       autoRegisterContractors?: boolean;
       batchSize?: number;
       totalRows: number;
+      clientRequestId?: string;
     },
     user: ImportOperatorUser
   ): Promise<ImportJobSummary> {
@@ -1727,8 +1829,29 @@ export class EnterpriseImportEngine {
       );
     }
 
+    const templateType = String(params.templateType || 'CUSTOM').trim().toUpperCase();
+    if (!ALLOWED_IMPORT_TEMPLATE_TYPES.has(templateType)) {
+      throw new ImportServiceError(
+        `Template type "${templateType}" tidak dikenali.`,
+        'INVALID_TEMPLATE_TYPE',
+        400
+      );
+    }
+
+    const clientRequestId =
+      typeof params.clientRequestId === 'string' && params.clientRequestId.trim()
+        ? params.clientRequestId.trim().slice(0, 120)
+        : undefined;
+
     if (this.store.ensureSchemaReady) {
       await this.store.ensureSchemaReady();
+    }
+
+    if (clientRequestId && this.store.findJobByClientRequestId) {
+      const existingByReq = await this.store.findJobByClientRequestId(clientRequestId);
+      if (existingByReq) {
+        return existingByReq;
+      }
     }
 
     const batchSize = clampBatchSize(params.batchSize);
@@ -1738,10 +1861,10 @@ export class EnterpriseImportEngine {
 
     const job: ImportJobSummary = enrichJobFlags({
       id: jobId,
-      importName: (params.importName || params.sourceFile || `Import ${now.slice(0, 10)}`).trim(),
-      sourceFile: (params.sourceFile || 'import_data.xlsx').trim(),
-      sourceFormat: (params.sourceFormat || 'xlsx').trim().toLowerCase(),
-      templateType: (params.templateType || 'CUSTOM') as ImportTemplateType,
+      importName: (params.importName || params.sourceFile || `Import ${now.slice(0, 10)}`).trim().slice(0, 255),
+      sourceFile: (params.sourceFile || 'import_data.xlsx').trim().slice(0, 255),
+      sourceFormat: (params.sourceFormat || 'xlsx').trim().toLowerCase().slice(0, 32),
+      templateType: templateType as ImportTemplateType,
       duplicatePolicy: params.duplicatePolicy === 'update_allowed' ? 'update_allowed' : 'skip',
       autoRegisterContractors: params.autoRegisterContractors !== false,
       batchSize,
@@ -1767,7 +1890,7 @@ export class EnterpriseImportEngine {
       cancelledAt: null
     });
 
-    await this.store.createJob(job);
+    await this.store.createJob(job, { clientRequestId });
 
     const batches: ImportBatchSummary[] = [];
     for (let b = 1; b <= totalBatches; b++) {
@@ -1823,6 +1946,13 @@ export class EnterpriseImportEngine {
     if (job.status === 'cancelled') {
       throw new ImportServiceError('Import job telah dibatalkan dan tidak dapat menerima data staging.', 'IMPORT_JOB_CANCELLED', 409);
     }
+    if (job.status !== 'staging') {
+      throw new ImportServiceError(
+        `Import job berstatus "${job.status}" dan tidak lagi menerima data staging.`,
+        'INVALID_JOB_STATE',
+        409
+      );
+    }
     if (!Array.isArray(rows) || rows.length === 0) {
       throw new ImportServiceError('Payload rows staging tidak boleh kosong.', 'INVALID_ROWS', 400);
     }
@@ -1830,6 +1960,16 @@ export class EnterpriseImportEngine {
       throw new ImportServiceError(
         `Maksimal ${MAX_STAGE_CHUNK_ROWS} baris per request staging untuk mencegah payload overflow.`,
         'STAGE_CHUNK_TOO_LARGE',
+        400
+      );
+    }
+    if (
+      opts?.startRowNumber !== undefined &&
+      (!Number.isInteger(opts.startRowNumber) || opts.startRowNumber < 1 || opts.startRowNumber > job.totalRows)
+    ) {
+      throw new ImportServiceError(
+        `startRowNumber harus bilangan bulat antara 1 dan ${job.totalRows}.`,
+        'INVALID_ROW_NUMBER',
         400
       );
     }
@@ -1854,21 +1994,54 @@ export class EnterpriseImportEngine {
     const now = new Date().toISOString();
 
     const stagedBatch: InternalStagingRow[] = [];
+    const stagedRowNumbers: number[] = [];
     const validationErrorsToRecord: ImportRowErrorRecord[] = [];
     let validCount = 0;
     let invalidCount = 0;
     let duplicateCount = 0;
 
+    const isInvalidScalarType = (val: unknown) =>
+      val !== undefined &&
+      val !== null &&
+      typeof val !== 'string' &&
+      typeof val !== 'number';
+
     for (let i = 0; i < rows.length; i++) {
       const input = rows[i] || {};
-      let rowNum = Number(input.rowNumber);
-      if (!Number.isFinite(rowNum) || rowNum < 1) {
-        rowNum = baseStart + i;
+      if (Buffer.byteLength(JSON.stringify(input), 'utf8') > MAX_STAGING_ROW_BYTES) {
+        throw new ImportServiceError(
+          `Ukuran payload baris staging ke-${i + 1} melebihi batas aman 64KB.`,
+          'PAYLOAD_TOO_LARGE',
+          413
+        );
       }
-      while (existingRowNums.has(rowNum)) {
-        rowNum++;
+
+      let rowNum: number;
+      if (input.rowNumber !== undefined) {
+        const parsedRn = Number(input.rowNumber);
+        if (!Number.isInteger(parsedRn) || parsedRn < 1 || parsedRn > job.totalRows) {
+          throw new ImportServiceError(
+            `Nomor baris staging (${input.rowNumber}) harus antara 1 dan ${job.totalRows}.`,
+            'INVALID_ROW_NUMBER',
+            400
+          );
+        }
+        rowNum = parsedRn;
+      } else {
+        rowNum = baseStart + i;
+        while (existingRowNums.has(rowNum)) {
+          rowNum++;
+        }
+        if (rowNum > job.totalRows) {
+          throw new ImportServiceError(
+            `Nomor baris staging (${rowNum}) melebihi totalRows (${job.totalRows}).`,
+            'INVALID_ROW_NUMBER',
+            400
+          );
+        }
       }
       existingRowNums.add(rowNum);
+      stagedRowNumbers.push(rowNum);
 
       const batchNumber = Math.min(job.totalBatches, Math.max(1, Math.ceil(rowNum / job.batchSize)));
       const rawPayload = input.raw && typeof input.raw === 'object' ? { ...input.raw } : { ...input };
@@ -1884,8 +2057,35 @@ export class EnterpriseImportEngine {
       let validationStatus: InternalStagingRow['validationStatus'] = 'valid';
       let processingStatus: InternalStagingRow['processingStatus'] = 'pending';
 
+      // 0. Scalar type & length sanity check on core text/date fields
+      const scalarFieldsToCheck: Array<[string, unknown, number]> = [
+        ['woNumber', rawWoVal, 120],
+        ['customerName', mappedSrc.customerName, 300],
+        ['customerPhone', mappedSrc.customerPhone, 100],
+        ['contractorName', mappedSrc.contractorName ?? mappedSrc.contactorName, 250],
+        ['area', mappedSrc.area, 250],
+        ['slotTime', mappedSrc.slotTime, 120],
+        ['appointmentDate', mappedSrc.appointmentDate, 100]
+      ];
+      for (const [fieldName, fieldVal, maxLen] of scalarFieldsToCheck) {
+        if (isInvalidScalarType(fieldVal)) {
+          validationStatus = 'invalid';
+          processingStatus = 'failed';
+          errCode = 'INVALID_FIELD_TYPE';
+          errMsg = `Field "${fieldName}" harus berupa teks/angka, bukan objek atau boolean.`;
+          break;
+        }
+        if (fieldVal !== undefined && fieldVal !== null && String(fieldVal).length > maxLen) {
+          validationStatus = 'invalid';
+          processingStatus = 'failed';
+          errCode = 'FIELD_TOO_LONG';
+          errMsg = `Field "${fieldName}" melebihi batas panjang ${maxLen} karakter.`;
+          break;
+        }
+      }
+
       // 1. WO Number check
-      if (!normWo || normWo.length < 3 || !/^[A-Z0-9._-]+$/i.test(normWo)) {
+      if (!errCode && (!normWo || normWo.length < 3 || !/^[A-Z0-9._-]+$/i.test(normWo))) {
         validationStatus = 'invalid';
         processingStatus = 'failed';
         errCode = !normWo ? 'MISSING_WO_NUMBER' : 'INVALID_WO_NUMBER';
@@ -1942,8 +2142,12 @@ export class EnterpriseImportEngine {
       }
 
       // 4. Contractor & Area check in strict mode
-      const contractorVal = String(mappedSrc.contractorName || mappedSrc.contactorName || '').trim();
-      const areaVal = String(mappedSrc.area || '').trim();
+      const contractorVal = isInvalidScalarType(mappedSrc.contractorName ?? mappedSrc.contactorName)
+        ? ''
+        : String(mappedSrc.contractorName || mappedSrc.contactorName || '').trim();
+      const areaVal = isInvalidScalarType(mappedSrc.area)
+        ? ''
+        : String(mappedSrc.area || '').trim();
       if (!errCode && strictMode) {
         if (!contractorVal) {
           validationStatus = 'invalid';
@@ -1976,29 +2180,37 @@ export class EnterpriseImportEngine {
         }
       }
 
+      const resolvedUnmappedHeaders: string[] = Array.isArray(mappedSrc.unmappedHeaders)
+        ? mappedSrc.unmappedHeaders.map((h: any) => String(h)).filter(Boolean)
+        : Array.isArray(input.unmappedHeaders)
+        ? input.unmappedHeaders.map((h: any) => String(h)).filter(Boolean)
+        : [];
+      const baseAdditionalFields: Record<string, any> =
+        mappedSrc.additionalFields && typeof mappedSrc.additionalFields === 'object'
+          ? { ...mappedSrc.additionalFields }
+          : input.additionalFields && typeof input.additionalFields === 'object'
+          ? { ...input.additionalFields }
+          : {};
+      for (const uh of resolvedUnmappedHeaders) {
+        if (!(uh in baseAdditionalFields) && Object.prototype.hasOwnProperty.call(rawPayload, uh)) {
+          baseAdditionalFields[uh] = rawPayload[uh];
+        }
+      }
+
       const normalizedPayload: Record<string, any> = {
         ...mappedSrc,
         woNumber: normWo || woStr,
         workOrderNumber: normWo || woStr,
-        idCustomer: String(rawCustId ?? '').trim() || undefined,
-        customerId: String(rawCustId ?? '').trim() || undefined,
+        idCustomer: isInvalidScalarType(rawCustId) ? undefined : String(rawCustId ?? '').trim() || undefined,
+        customerId: isInvalidScalarType(rawCustId) ? undefined : String(rawCustId ?? '').trim() || undefined,
         contractorName: contractorVal || undefined,
         contactorName: contractorVal || undefined,
         area: areaVal || undefined,
         appointmentDate: normalizedDate || undefined,
         fileName: mappedSrc.fileName || job.sourceFile,
         importDate: mappedSrc.importDate || new Date().toISOString().slice(0, 10),
-        additionalFields:
-          mappedSrc.additionalFields && typeof mappedSrc.additionalFields === 'object'
-            ? mappedSrc.additionalFields
-            : input.additionalFields && typeof input.additionalFields === 'object'
-            ? input.additionalFields
-            : {},
-        unmappedHeaders: Array.isArray(mappedSrc.unmappedHeaders)
-          ? mappedSrc.unmappedHeaders
-          : Array.isArray(input.unmappedHeaders)
-          ? input.unmappedHeaders
-          : []
+        additionalFields: baseAdditionalFields,
+        unmappedHeaders: resolvedUnmappedHeaders
       };
 
       if (validationStatus === 'valid') validCount++;
@@ -2049,6 +2261,9 @@ export class EnterpriseImportEngine {
     }
 
     await this.store.upsertStagingRows(stagedBatch);
+    if (this.store.clearRowErrorsForRows && stagedRowNumbers.length > 0) {
+      await this.store.clearRowErrorsForRows(jobId, stagedRowNumbers);
+    }
     if (validationErrorsToRecord.length > 0) {
       await this.store.appendRowErrors(validationErrorsToRecord);
     }
@@ -2083,6 +2298,10 @@ export class EnterpriseImportEngine {
     processedBatch: ImportBatchSummary | null;
     done: boolean;
   }> {
+    if (opts?.batchNumber !== undefined && (!Number.isInteger(opts.batchNumber) || opts.batchNumber < 1)) {
+      throw new ImportServiceError('Nomor batch harus bilangan bulat positif (>= 1).', 'INVALID_BATCH_NUMBER', 400);
+    }
+
     const workerId = makeId('worker');
     const claim = await this.store.claimNextBatch({
       jobId,
@@ -2096,12 +2315,26 @@ export class EnterpriseImportEngine {
       if (claim.reason === 'JOB_NOT_FOUND' || !claim.job) {
         throw new ImportServiceError(`Import job "${jobId}" tidak ditemukan.`, 'IMPORT_JOB_NOT_FOUND', 404);
       }
+      if (claim.reason === 'STAGING_INCOMPLETE') {
+        throw new ImportServiceError(
+          `Staging belum lengkap (${claim.job.stagedRows}/${claim.job.totalRows} baris).`,
+          'IMPORT_STAGING_INCOMPLETE',
+          409
+        );
+      }
       if (claim.reason === 'BATCH_LOCKED_BY_ANOTHER_WORKER') {
         throw new ImportServiceError(
           'Batch impor sedang dikunci dan diproses oleh instance worker lain. Silakan coba lagi sesaat.',
           'BATCH_LOCK_CONTENTION',
           409,
           true
+        );
+      }
+      if (opts?.batchNumber !== undefined && opts.batchNumber > claim.job.totalBatches) {
+        throw new ImportServiceError(
+          `Batch #${opts.batchNumber} di luar jangkauan job (total ${claim.job.totalBatches} batch).`,
+          'INVALID_BATCH_NUMBER',
+          400
         );
       }
       return {

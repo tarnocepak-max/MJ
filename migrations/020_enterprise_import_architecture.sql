@@ -1,39 +1,48 @@
 -- ==============================================================================
--- Migration 020: Enterprise Asynchronous Batch Import Architecture
--- Target: PostgreSQL / Supabase
+-- Migration 020: Enterprise Asynchronous Batch Import Architecture (REVISED)
+-- Target: PostgreSQL / Supabase (Production Compatibility Audited)
 --
--- Additive, Idempotent & Non-Destructive:
---   - Creates/aligns import_jobs, import_batches, import_staging_rows,
---     import_row_errors, and import_history tables with strict constraints,
---     indexes, distributed batch lock columns, and Row Level Security.
---   - Implements self-contained updated_at trigger function
---     public.morajaws_import_set_updated_at() without modifying unrelated functions.
---   - Implements non-recursive SECURITY DEFINER RBAC helper aligned with
---     actual public.users + public.roles + public.app_settings ('role_permissions').
---   - Preserves import_history permanently on job deletion (ON DELETE SET NULL +
---     immutable original_job_id reference).
---   - Implements PostgreSQL transactional RPCs with FOR UPDATE SKIP LOCKED
---     distributed batch claiming, lock expiration recovery, atomic work_orders +
---     staging + batch + job + history commit, atomic cancel, and atomic retry.
---   - Explicitly isolates table/function privileges separately from RLS policies.
---   - NEVER drops, truncates, recreates, or deletes public.work_orders records.
+-- Verified Production Compatibility:
+--   - public.users.id is TEXT (NOT UUID); created_by_id & imported_by_id are TEXT.
+--   - public.users.auth_user_id does NOT exist; MoraJaws uses internal Custom
+--     Authentication (public.auth_sessions) via Express + service_role.
+--   - Zero UUID casts on TEXT user IDs and zero references to users.auth_user_id.
+--   - Reuses existing public.morajaws_set_updated_at() trigger function without
+--     altering unrelated functions (with safe fallback only if unavailable).
+--   - Preserves public.work_orders & uq_work_orders_wo_number_normalized
+--     (lower(regexp_replace(btrim(wo_number), '\s+', '', 'g'))).
+--   - Zero hard-coded production WO IDs; never overwrites soft-deleted or
+--     archived work_orders even under duplicate_policy = 'update_allowed'.
+--   - Preserves import_history permanently on import_jobs deletion via
+--     ON DELETE SET NULL + original_job_id preservation trigger.
+--   - Database-backed concurrency control via FOR UPDATE SKIP LOCKED + lease TTL
+--     and single-transaction ACID commit/fail/cancel/retry RPCs.
+--   - Deny-by-default RLS & privileges: service_role only for Express backend;
+--     PUBLIC, anon, and authenticated receive zero direct table/RPC access.
+--   - Non-destructive & idempotent: NEVER drops, truncates, or bulk-modifies
+--     existing production work_orders data.
 -- ==============================================================================
 
 BEGIN;
 
 -- ------------------------------------------------------------------------------
--- 0. Self-contained updated_at trigger function (does not alter unrelated funcs)
+-- 0. Verify or safely provision updated_at trigger support (non-destructive)
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.morajaws_import_set_updated_at()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SET search_path = public, pg_temp
-AS $$
+DO $$
 BEGIN
-  NEW.updated_at := NOW();
-  RETURN NEW;
-END;
-$$;
+  IF to_regprocedure('public.morajaws_set_updated_at()') IS NULL THEN
+    CREATE OR REPLACE FUNCTION public.morajaws_import_set_updated_at()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    SET search_path = public, pg_temp
+    AS $fn$
+    BEGIN
+      NEW.updated_at := NOW();
+      RETURN NEW;
+    END;
+    $fn$;
+  END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 1. import_jobs: Master tracking record per asynchronous import job
@@ -71,7 +80,8 @@ CREATE TABLE IF NOT EXISTS public.import_jobs (
       'cancelled'
     )),
   error_summary TEXT,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(metadata) = 'object'),
   created_by TEXT NOT NULL,
   created_by_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -87,10 +97,23 @@ CREATE INDEX IF NOT EXISTS idx_import_jobs_status_created
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created_by_created
   ON public.import_jobs (created_by_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_import_jobs_client_request_id
+  ON public.import_jobs ((metadata->>'clientRequestId'))
+  WHERE metadata ? 'clientRequestId';
+
 DROP TRIGGER IF EXISTS trg_import_jobs_updated_at ON public.import_jobs;
-CREATE TRIGGER trg_import_jobs_updated_at
-  BEFORE UPDATE ON public.import_jobs
-  FOR EACH ROW EXECUTE FUNCTION public.morajaws_import_set_updated_at();
+DO $$
+BEGIN
+  IF to_regprocedure('public.morajaws_set_updated_at()') IS NOT NULL THEN
+    CREATE TRIGGER trg_import_jobs_updated_at
+      BEFORE UPDATE ON public.import_jobs
+      FOR EACH ROW EXECUTE FUNCTION public.morajaws_set_updated_at();
+  ELSE
+    CREATE TRIGGER trg_import_jobs_updated_at
+      BEFORE UPDATE ON public.import_jobs
+      FOR EACH ROW EXECUTE FUNCTION public.morajaws_import_set_updated_at();
+  END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 2. import_batches: Idempotent chunk units with distributed PostgreSQL locking
@@ -147,9 +170,18 @@ CREATE INDEX IF NOT EXISTS idx_import_batches_claim
   ON public.import_batches (job_id, status, lock_expires_at, batch_number);
 
 DROP TRIGGER IF EXISTS trg_import_batches_updated_at ON public.import_batches;
-CREATE TRIGGER trg_import_batches_updated_at
-  BEFORE UPDATE ON public.import_batches
-  FOR EACH ROW EXECUTE FUNCTION public.morajaws_import_set_updated_at();
+DO $$
+BEGIN
+  IF to_regprocedure('public.morajaws_set_updated_at()') IS NOT NULL THEN
+    CREATE TRIGGER trg_import_batches_updated_at
+      BEFORE UPDATE ON public.import_batches
+      FOR EACH ROW EXECUTE FUNCTION public.morajaws_set_updated_at();
+  ELSE
+    CREATE TRIGGER trg_import_batches_updated_at
+      BEFORE UPDATE ON public.import_batches
+      FOR EACH ROW EXECUTE FUNCTION public.morajaws_import_set_updated_at();
+  END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 3. import_staging_rows: Staging buffer preserving raw + normalized payloads
@@ -160,8 +192,10 @@ CREATE TABLE IF NOT EXISTS public.import_staging_rows (
   batch_number INTEGER,
   row_number INTEGER NOT NULL CHECK (row_number >= 1),
   wo_number TEXT,
-  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-  normalized_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(raw_payload) = 'object'),
+  normalized_payload JSONB NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(normalized_payload) = 'object'),
   validation_status TEXT NOT NULL DEFAULT 'pending'
     CHECK (validation_status IN ('pending', 'valid', 'invalid', 'duplicate')),
   processing_status TEXT NOT NULL DEFAULT 'pending'
@@ -182,6 +216,10 @@ CREATE INDEX IF NOT EXISTS idx_import_staging_job_validation
 CREATE INDEX IF NOT EXISTS idx_import_staging_wo_number
   ON public.import_staging_rows (job_id, wo_number);
 
+CREATE INDEX IF NOT EXISTS idx_import_staging_job_canon_wo
+  ON public.import_staging_rows (job_id, lower(regexp_replace(btrim(wo_number), '\s+', '', 'g')))
+  WHERE wo_number IS NOT NULL AND btrim(wo_number) <> '';
+
 -- ------------------------------------------------------------------------------
 -- 4. import_row_errors: Structured downloadable error diagnostics
 -- ------------------------------------------------------------------------------
@@ -193,7 +231,8 @@ CREATE TABLE IF NOT EXISTS public.import_row_errors (
   wo_number TEXT,
   error_code TEXT NOT NULL,
   error_message TEXT NOT NULL,
-  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(raw_payload) = 'object'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -211,16 +250,16 @@ CREATE TABLE IF NOT EXISTS public.import_history (
   source_file TEXT,
   imported_by TEXT NOT NULL,
   imported_by_id TEXT,
-  total_rows INTEGER NOT NULL DEFAULT 0,
-  success_count INTEGER NOT NULL DEFAULT 0,
-  duplicate_count INTEGER NOT NULL DEFAULT 0,
-  failed_count INTEGER NOT NULL DEFAULT 0,
+  total_rows INTEGER NOT NULL DEFAULT 0 CHECK (total_rows >= 0),
+  success_count INTEGER NOT NULL DEFAULT 0 CHECK (success_count >= 0),
+  duplicate_count INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_count >= 0),
+  failed_count INTEGER NOT NULL DEFAULT 0 CHECK (failed_count >= 0),
   status TEXT NOT NULL DEFAULT 'completed',
   duration_ms INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Idempotent repair if earlier draft applied NOT NULL + ON DELETE CASCADE on job_id
+-- Idempotent repair if an earlier draft created CASCADE or NOT NULL on job_id
 DO $$
 DECLARE
   v_fk_name TEXT;
@@ -238,7 +277,6 @@ BEGIN
     ALTER TABLE public.import_history ALTER COLUMN job_id DROP NOT NULL;
   END IF;
 
-  -- Drop any existing CASCADE FK on import_history.job_id and replace with ON DELETE SET NULL
   FOR v_fk_name IN
     SELECT c.conname
     FROM pg_constraint c
@@ -276,7 +314,8 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  IF NEW.original_job_id IS NULL OR btrim(NEW.original_job_id) = '' THEN
+  IF (NEW.original_job_id IS NULL OR btrim(NEW.original_job_id) = '')
+     AND NEW.job_id IS NOT NULL AND btrim(NEW.job_id) <> '' THEN
     NEW.original_job_id := NEW.job_id;
   END IF;
   RETURN NEW;
@@ -295,114 +334,32 @@ CREATE INDEX IF NOT EXISTS idx_import_history_original_job_id
   ON public.import_history (original_job_id);
 
 -- ------------------------------------------------------------------------------
--- 6. Non-Recursive RBAC Authorization Helper for Import RLS Policies
---    Reads actual public.users schema (handling optional auth_user_id safely)
---    and actual import_data permission model:
---      1. super_admin -> authorized when active = true AND is_deleted = false
---      2. dispatch -> authorized when active = true AND is_deleted = false AND
---         'import_data' is present in:
---           - app_settings(setting_key='role_permissions').setting_value->'dispatch' (if array), else
---           - roles(code='dispatch').permissions (if array)
+-- 6. Database-Level Duplicate Lookup & Transactional Batch RPCs
+--    All RPCs are SECURITY DEFINER, restricted strictly to service_role.
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.morajaws_can_access_imports(p_auth_uid UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
+
+-- 6a. Normalized WO duplicate check aligned 1:1 with uq_work_orders_wo_number_normalized
+CREATE OR REPLACE FUNCTION public.morajaws_find_existing_wo_numbers(p_wo_numbers TEXT[])
+RETURNS TABLE (canonical_wo TEXT)
+LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 STABLE
 AS $$
-DECLARE
-  v_has_auth_user_id BOOLEAN := FALSE;
-  v_user_role TEXT;
-  v_user_active BOOLEAN;
-  v_user_deleted BOOLEAN;
-  v_role_perms JSONB;
-  v_dispatch_override JSONB;
-BEGIN
-  IF p_auth_uid IS NULL THEN
-    RETURN FALSE;
-  END IF;
-
-  SELECT EXISTS (
-    SELECT 1
-    FROM pg_attribute
-    WHERE attrelid = 'public.users'::regclass
-      AND attname = 'auth_user_id'
-      AND NOT attisdropped
-  ) INTO v_has_auth_user_id;
-
-  IF v_has_auth_user_id THEN
-    EXECUTE
-      'SELECT u.role, COALESCE(u.active, true), COALESCE(u.is_deleted, false)
-       FROM public.users u
-       WHERE (u.auth_user_id = $1 OR u.id = $1::text)
-         AND COALESCE(u.active, true) = true
-         AND COALESCE(u.is_deleted, false) = false
-       LIMIT 1'
-    INTO v_user_role, v_user_active, v_user_deleted
-    USING p_auth_uid;
-  ELSE
-    EXECUTE
-      'SELECT u.role, COALESCE(u.active, true), COALESCE(u.is_deleted, false)
-       FROM public.users u
-       WHERE u.id = $1::text
-         AND COALESCE(u.active, true) = true
-         AND COALESCE(u.is_deleted, false) = false
-       LIMIT 1'
-    INTO v_user_role, v_user_active, v_user_deleted
-    USING p_auth_uid;
-  END IF;
-
-  IF v_user_role IS NULL OR v_user_active IS NOT TRUE OR v_user_deleted IS TRUE THEN
-    RETURN FALSE;
-  END IF;
-
-  IF v_user_role = 'super_admin' THEN
-    RETURN TRUE;
-  END IF;
-
-  IF v_user_role = 'dispatch' THEN
-    -- Check centralized dynamic RBAC override first (app_settings.setting_key = 'role_permissions')
-    IF to_regclass('public.app_settings') IS NOT NULL THEN
-      SELECT s.setting_value->'dispatch'
-      INTO v_dispatch_override
-      FROM public.app_settings s
-      WHERE s.setting_key = 'role_permissions'
-        AND jsonb_typeof(s.setting_value) = 'object'
-      LIMIT 1;
-
-      IF v_dispatch_override IS NOT NULL AND jsonb_typeof(v_dispatch_override) = 'array' THEN
-        RETURN v_dispatch_override ? 'import_data';
-      END IF;
-    END IF;
-
-    -- Fallback to public.roles.permissions for code = 'dispatch'
-    IF to_regclass('public.roles') IS NOT NULL THEN
-      SELECT r.permissions
-      INTO v_role_perms
-      FROM public.roles r
-      WHERE r.code = 'dispatch'
-        AND jsonb_typeof(r.permissions) = 'array'
-      LIMIT 1;
-
-      IF v_role_perms IS NOT NULL THEN
-        RETURN v_role_perms ? 'import_data';
-      END IF;
-    END IF;
-
-    RETURN FALSE;
-  END IF;
-
-  RETURN FALSE;
-END;
+  WITH normalized_inputs AS (
+    SELECT DISTINCT lower(regexp_replace(btrim(x), '\s+', '', 'g')) AS canon
+    FROM unnest(COALESCE(p_wo_numbers, ARRAY[]::TEXT[])) AS x
+    WHERE x IS NOT NULL AND btrim(x) <> ''
+  )
+  SELECT DISTINCT lower(regexp_replace(btrim(w.wo_number), '\s+', '', 'g')) AS canonical_wo
+  FROM public.work_orders w
+  JOIN normalized_inputs ni
+    ON lower(regexp_replace(btrim(w.wo_number), '\s+', '', 'g')) = ni.canon
+  WHERE w.wo_number IS NOT NULL
+    AND btrim(w.wo_number) <> '';
 $$;
 
--- ------------------------------------------------------------------------------
--- 7. Database-Level Concurrency Control & Atomic Transactional Batch RPCs
---    Eliminates reliance on Node.js in-memory locks across Vercel instances.
--- ------------------------------------------------------------------------------
-
--- 7a. Atomic sync of staged count + automatic staging -> queued transition
+-- 6b. Atomic sync of staged count + staging -> queued transition when complete
 CREATE OR REPLACE FUNCTION public.morajaws_sync_staged_count(p_job_id TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -445,7 +402,7 @@ BEGIN
 END;
 $$;
 
--- 7b. Atomic batch claim with FOR UPDATE SKIP LOCKED + stale lock TTL recovery
+-- 6c. Atomic batch claim with FOR UPDATE SKIP LOCKED + stale lock TTL recovery
 CREATE OR REPLACE FUNCTION public.morajaws_claim_import_batch(
   p_job_id TEXT,
   p_worker_id TEXT,
@@ -488,6 +445,10 @@ BEGIN
 
   IF v_job.status = 'completed' THEN
     RETURN jsonb_build_object('claimed', FALSE, 'reason', 'JOB_ALREADY_COMPLETED', 'job', to_jsonb(v_job));
+  END IF;
+
+  IF v_job.status = 'staging' AND v_job.staged_rows < GREATEST(v_job.total_rows, 1) THEN
+    RETURN jsonb_build_object('claimed', FALSE, 'reason', 'STAGING_INCOMPLETE', 'job', to_jsonb(v_job));
   END IF;
 
   SELECT * INTO v_batch
@@ -554,11 +515,13 @@ BEGIN
 END;
 $$;
 
--- 7c. Atomic commit of a claimed batch:
---     Verifies lock ownership + non-cancelled job, writes public.work_orders,
---     updates import_staging_rows, inserts import_row_errors, completes & unlocks
---     import_batches, recomputes import_jobs counters, and upserts import_history
---     within ONE PostgreSQL transaction.
+-- 6d. Atomic commit of a claimed batch:
+--     - Verifies lock ownership & non-cancelled job.
+--     - Checks existing public.work_orders via normalized index expression.
+--     - NEVER overwrites deleted/archived existing WOs, and under 'skip' never
+--       modifies any existing production WO.
+--     - Updates import_staging_rows, import_row_errors, import_batches,
+--       import_jobs, and import_history within ONE ACID transaction.
 CREATE OR REPLACE FUNCTION public.morajaws_commit_import_batch_atomic(
   p_job_id TEXT,
   p_batch_number INTEGER,
@@ -614,7 +577,12 @@ DECLARE
   v_history_written BOOLEAN := FALSE;
   v_has_more_pending BOOLEAN := FALSE;
   v_duration_job_ms INTEGER;
+  v_dup_policy TEXT := COALESCE(NULLIF(btrim(p_duplicate_policy), ''), 'skip');
 BEGIN
+  IF v_dup_policy NOT IN ('skip', 'update_allowed') THEN
+    RAISE EXCEPTION 'INVALID_DUPLICATE_POLICY: %', COALESCE(p_duplicate_policy, '<NULL>');
+  END IF;
+
   SELECT * INTO v_job
   FROM public.import_jobs
   WHERE id = p_job_id
@@ -646,13 +614,15 @@ BEGIN
     RAISE EXCEPTION 'IMPORT_BATCH_LOCK_LOST: Lock batch #% dipegang worker lain atau sudah kadaluarsa.', p_batch_number;
   END IF;
 
-  -- Process each prepared WO record inside single ACID transaction
   IF p_wo_rows IS NOT NULL AND jsonb_typeof(p_wo_rows) = 'array' THEN
     FOR v_row IN SELECT * FROM jsonb_array_elements(p_wo_rows)
     LOOP
       v_wo_num := upper(regexp_replace(btrim(COALESCE(v_row->>'wo_number', v_row->>'work_order_number', '')), '\s+', '', 'g'));
       v_canon_wo := lower(v_wo_num);
-      v_wo_id := COALESCE(NULLIF(btrim(v_row->>'id'), ''), 'wo_' || floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint::text || '_' || substr(md5(random()::text || clock_timestamp()::text), 1, 6));
+      v_wo_id := COALESCE(
+        NULLIF(btrim(v_row->>'id'), ''),
+        'wo_' || floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint::text || '_' || substr(md5(random()::text || clock_timestamp()::text), 1, 6)
+      );
 
       IF v_wo_num = '' OR v_canon_wo = '' THEN
         v_failed_rows := v_failed_rows || jsonb_build_array(
@@ -661,14 +631,7 @@ BEGIN
         CONTINUE;
       END IF;
 
-      -- Guard protected historical production WO records
-      IF v_wo_id IN ('wo_1793825457141_u4bnht', 'wo_imp_1793825458959_4i4f1h', 'wo_imp_1793825458959_262dei')
-         OR v_wo_num IN ('WO-EXPRESS-TEST-1793825456810', 'WO-DUP-TEST-1793825458804', 'WO-DUP-TEST-1793825458804-UNIQUE') THEN
-        v_dup_wos := array_append(v_dup_wos, v_wo_num);
-        CONTINUE;
-      END IF;
-
-      SELECT id, payload
+      SELECT id, payload, is_deleted, is_archived
       INTO v_existing_wo
       FROM public.work_orders
       WHERE lower(regexp_replace(btrim(wo_number), '\s+', '', 'g')) = v_canon_wo
@@ -676,12 +639,13 @@ BEGIN
       FOR UPDATE;
 
       IF FOUND THEN
-        IF v_existing_wo.id IN ('wo_1793825457141_u4bnht', 'wo_imp_1793825458959_4i4f1h', 'wo_imp_1793825458959_262dei') THEN
+        -- Never overwrite soft-deleted or archived production records
+        IF COALESCE(v_existing_wo.is_deleted, FALSE) OR COALESCE(v_existing_wo.is_archived, FALSE) THEN
           v_dup_wos := array_append(v_dup_wos, v_wo_num);
           CONTINUE;
         END IF;
 
-        IF p_duplicate_policy = 'update_allowed' THEN
+        IF v_dup_policy = 'update_allowed' THEN
           BEGIN
             UPDATE public.work_orders
             SET
@@ -714,9 +678,13 @@ BEGIN
           EXCEPTION WHEN OTHERS THEN
             v_row_err_code := COALESCE(SQLSTATE, 'DB_UPDATE_ERROR');
             v_row_err_msg := SQLERRM;
-            v_failed_rows := v_failed_rows || jsonb_build_array(
-              jsonb_build_object('woNumber', v_wo_num, 'errorCode', v_row_err_code, 'errorMessage', v_row_err_msg)
-            );
+            IF v_row_err_msg ILIKE '%PROTECTED_RECORD_MUTATION_FORBIDDEN%' THEN
+              v_dup_wos := array_append(v_dup_wos, v_wo_num);
+            ELSE
+              v_failed_rows := v_failed_rows || jsonb_build_array(
+                jsonb_build_object('woNumber', v_wo_num, 'errorCode', v_row_err_code, 'errorMessage', v_row_err_msg)
+              );
+            END IF;
           END;
         ELSE
           v_dup_wos := array_append(v_dup_wos, v_wo_num);
@@ -724,7 +692,7 @@ BEGIN
         CONTINUE;
       END IF;
 
-      -- Insert new Work Order
+      -- Insert new Work Order (uses only verified baseline public.work_orders columns)
       v_payload := CASE WHEN jsonb_typeof(v_row->'payload') = 'object' THEN v_row->'payload' ELSE '{}'::jsonb END;
       BEGIN
         INSERT INTO public.work_orders (
@@ -893,12 +861,12 @@ BEGIN
     FOR UPDATE
   LOOP
     v_canon_wo := lower(regexp_replace(btrim(COALESCE(v_sr.wo_number, '')), '\s+', '', 'g'));
-    IF EXISTS (SELECT 1 FROM unnest(v_inserted_wos) AS x WHERE lower(x) = v_canon_wo)
-       OR EXISTS (SELECT 1 FROM unnest(v_updated_wos) AS x WHERE lower(x) = v_canon_wo) THEN
+    IF EXISTS (SELECT 1 FROM unnest(v_inserted_wos) AS x WHERE lower(regexp_replace(btrim(x), '\s+', '', 'g')) = v_canon_wo)
+       OR EXISTS (SELECT 1 FROM unnest(v_updated_wos) AS x WHERE lower(regexp_replace(btrim(x), '\s+', '', 'g')) = v_canon_wo) THEN
       UPDATE public.import_staging_rows
       SET processing_status = 'succeeded', error_code = NULL, error_message = NULL, processed_at = v_now
       WHERE id = v_sr.id;
-    ELSIF EXISTS (SELECT 1 FROM unnest(v_dup_wos) AS x WHERE lower(x) = v_canon_wo) THEN
+    ELSIF EXISTS (SELECT 1 FROM unnest(v_dup_wos) AS x WHERE lower(regexp_replace(btrim(x), '\s+', '', 'g')) = v_canon_wo) THEN
       UPDATE public.import_staging_rows
       SET
         processing_status = 'duplicate_skipped',
@@ -923,7 +891,7 @@ BEGIN
     ELSE
       SELECT elem INTO v_fail_info
       FROM jsonb_array_elements(v_failed_rows) AS elem
-      WHERE lower(COALESCE(elem->>'woNumber', '')) = v_canon_wo
+      WHERE lower(regexp_replace(btrim(COALESCE(elem->>'woNumber', '')), '\s+', '', 'g')) = v_canon_wo
       LIMIT 1;
 
       v_row_err_code := COALESCE(NULLIF(v_fail_info->>'errorCode', ''), 'COMMIT_FAILED');
@@ -953,7 +921,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Compute batch summary from authoritative batch staging rows
   SELECT
     COUNT(*)::INTEGER,
     COUNT(*) FILTER (WHERE validation_status = 'duplicate')::INTEGER,
@@ -985,7 +952,6 @@ BEGIN
   WHERE id = v_batch.id
   RETURNING * INTO v_batch;
 
-  -- Recompute authoritative job counters inside same transaction
   SELECT
     COUNT(*) FILTER (WHERE status = 'completed')::INTEGER,
     COUNT(*) FILTER (WHERE status = 'failed')::INTEGER,
@@ -1092,7 +1058,7 @@ BEGIN
 END;
 $$;
 
--- 7d. Atomic batch failure release (if worker crashes/fails before commit RPC)
+-- 6e. Atomic batch failure release with strict lock ownership check
 CREATE OR REPLACE FUNCTION public.morajaws_fail_claimed_batch_atomic(
   p_job_id TEXT,
   p_batch_number INTEGER,
@@ -1141,8 +1107,12 @@ BEGIN
     RAISE EXCEPTION 'IMPORT_BATCH_NOT_FOUND: % #%', p_job_id, p_batch_number;
   END IF;
 
-  IF v_batch.locked_by IS DISTINCT FROM p_worker_id AND v_batch.status = 'completed' THEN
+  IF v_batch.status = 'completed' THEN
     RETURN jsonb_build_object('job', to_jsonb(v_job), 'batch', to_jsonb(v_batch));
+  END IF;
+
+  IF v_batch.status <> 'processing' OR v_batch.locked_by IS DISTINCT FROM p_worker_id THEN
+    RAISE EXCEPTION 'IMPORT_BATCH_LOCK_LOST: Lock batch #% dipegang worker lain atau sudah dilepaskan.', p_batch_number;
   END IF;
 
   UPDATE public.import_staging_rows
@@ -1269,7 +1239,7 @@ BEGIN
 END;
 $$;
 
--- 7e. Atomic cancellation serialized with any active batch commit
+-- 6f. Atomic cancellation serialized with any active batch commit
 CREATE OR REPLACE FUNCTION public.morajaws_cancel_import_job_atomic(
   p_job_id TEXT,
   p_cancelled_by TEXT DEFAULT 'System',
@@ -1298,7 +1268,6 @@ BEGIN
     RETURN to_jsonb(v_job);
   END IF;
 
-  -- Lock all pending/processing batches before marking cancelled
   PERFORM 1
   FROM public.import_batches
   WHERE job_id = p_job_id AND status IN ('pending', 'processing')
@@ -1359,7 +1328,7 @@ BEGIN
 END;
 $$;
 
--- 7f. Atomic retry of ONLY failed batches (never replays completed batches)
+-- 6g. Atomic retry of ONLY failed batches (never replays completed batches)
 CREATE OR REPLACE FUNCTION public.morajaws_retry_import_job_atomic(p_job_id TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -1432,10 +1401,10 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 8. Row Level Security (RLS)
---    Trusted Express backend uses service_role; direct authenticated access is
---    strictly limited via non-recursive morajaws_can_access_imports(auth.uid()).
---    Unauthorized roles (leader, installer, anon) receive zero staging/job access.
+-- 7. Row Level Security (RLS) — Custom Authentication + Express service_role
+--    MoraJaws authenticates users via internal Custom Auth (public.auth_sessions)
+--    in the Express backend, which queries Supabase via SUPABASE_SERVICE_ROLE_KEY.
+--    Direct anon and authenticated browser access is strictly denied.
 -- ------------------------------------------------------------------------------
 ALTER TABLE public.import_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.import_batches ENABLE ROW LEVEL SECURITY;
@@ -1443,6 +1412,11 @@ ALTER TABLE public.import_staging_rows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.import_row_errors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.import_history ENABLE ROW LEVEL SECURITY;
 
+-- Any pre-existing database functions (such as unrelated or draft helpers)
+-- are intentionally preserved untouched; Migration 020 neither drops nor
+-- references legacy UUID/auth_user_id helpers.
+
+-- Service-role operational policies (Express Backend Proxy only)
 DROP POLICY IF EXISTS import_jobs_service_all ON public.import_jobs;
 CREATE POLICY import_jobs_service_all ON public.import_jobs
   FOR ALL TO service_role USING (true) WITH CHECK (true);
@@ -1460,58 +1434,18 @@ CREATE POLICY import_row_errors_service_all ON public.import_row_errors
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS import_history_service_all ON public.import_history;
-CREATE POLICY import_history_service_all ON public.import_history
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-
--- Drop legacy recursive policy names if previously created
-DROP POLICY IF EXISTS import_jobs_superadmin_all ON public.import_jobs;
-DROP POLICY IF EXISTS import_batches_superadmin_all ON public.import_batches;
-DROP POLICY IF EXISTS import_staging_rows_superadmin_all ON public.import_staging_rows;
-DROP POLICY IF EXISTS import_row_errors_superadmin_all ON public.import_row_errors;
-DROP POLICY IF EXISTS import_history_superadmin_all ON public.import_history;
-
-DROP POLICY IF EXISTS import_jobs_authorized_all ON public.import_jobs;
-CREATE POLICY import_jobs_authorized_all ON public.import_jobs
-  FOR ALL TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()))
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_batches_authorized_all ON public.import_batches;
-CREATE POLICY import_batches_authorized_all ON public.import_batches
-  FOR ALL TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()))
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_staging_rows_authorized_all ON public.import_staging_rows;
-CREATE POLICY import_staging_rows_authorized_all ON public.import_staging_rows
-  FOR ALL TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()))
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_row_errors_authorized_all ON public.import_row_errors;
-CREATE POLICY import_row_errors_authorized_all ON public.import_row_errors
-  FOR ALL TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()))
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_history_authorized_select ON public.import_history;
-CREATE POLICY import_history_authorized_select ON public.import_history
-  FOR SELECT TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_history_authorized_insert ON public.import_history;
-CREATE POLICY import_history_authorized_insert ON public.import_history
-  FOR INSERT TO authenticated
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
-
-DROP POLICY IF EXISTS import_history_authorized_update ON public.import_history;
-CREATE POLICY import_history_authorized_update ON public.import_history
-  FOR UPDATE TO authenticated
-  USING (public.morajaws_can_access_imports(auth.uid()))
-  WITH CHECK (public.morajaws_can_access_imports(auth.uid()));
+DROP POLICY IF EXISTS import_history_service_select ON public.import_history;
+DROP POLICY IF EXISTS import_history_service_insert ON public.import_history;
+DROP POLICY IF EXISTS import_history_service_update ON public.import_history;
+CREATE POLICY import_history_service_select ON public.import_history
+  FOR SELECT TO service_role USING (true);
+CREATE POLICY import_history_service_insert ON public.import_history
+  FOR INSERT TO service_role WITH CHECK (true);
+CREATE POLICY import_history_service_update ON public.import_history
+  FOR UPDATE TO service_role USING (true) WITH CHECK (true);
 
 -- ------------------------------------------------------------------------------
--- 9. Explicit Table & Function Privilege Hardening (Separate from RLS)
+-- 8. Explicit Table & Function Privilege Hardening (Separate from RLS)
 -- ------------------------------------------------------------------------------
 REVOKE ALL ON TABLE
   public.import_jobs,
@@ -1528,21 +1462,19 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.import_row_errors
 TO service_role;
 
--- Protect import_history against accidental DELETE even via authenticated role
+-- import_history preserves ledger: grant SELECT/INSERT/UPDATE only (no DELETE grant)
 GRANT SELECT, INSERT, UPDATE ON TABLE public.import_history TO service_role;
 
-GRANT SELECT, INSERT, UPDATE ON TABLE
-  public.import_jobs,
-  public.import_batches,
-  public.import_staging_rows,
-  public.import_row_errors,
-  public.import_history
-TO authenticated;
+-- Restrict all Migration 020 functions strictly to service_role
+DO $$
+BEGIN
+  IF to_regprocedure('public.morajaws_import_set_updated_at()') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.morajaws_import_set_updated_at() FROM PUBLIC, anon, authenticated;
+  END IF;
+END $$;
 
--- Restrict transactional batch/concurrency RPC execution strictly to service_role
-REVOKE ALL ON FUNCTION public.morajaws_import_set_updated_at() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.morajaws_import_history_preserve_job_ref() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.morajaws_can_access_imports(UUID) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.morajaws_find_existing_wo_numbers(TEXT[]) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.morajaws_sync_staged_count(TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.morajaws_claim_import_batch(TEXT, TEXT, INTEGER, BOOLEAN, INTEGER) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.morajaws_commit_import_batch_atomic(TEXT, INTEGER, TEXT, JSONB, TEXT, INTEGER, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
@@ -1550,7 +1482,7 @@ REVOKE ALL ON FUNCTION public.morajaws_fail_claimed_batch_atomic(TEXT, INTEGER, 
 REVOKE ALL ON FUNCTION public.morajaws_cancel_import_job_atomic(TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.morajaws_retry_import_job_atomic(TEXT) FROM PUBLIC, anon, authenticated;
 
-GRANT EXECUTE ON FUNCTION public.morajaws_can_access_imports(UUID) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.morajaws_find_existing_wo_numbers(TEXT[]) TO service_role;
 GRANT EXECUTE ON FUNCTION public.morajaws_sync_staged_count(TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.morajaws_claim_import_batch(TEXT, TEXT, INTEGER, BOOLEAN, INTEGER) TO service_role;
 GRANT EXECUTE ON FUNCTION public.morajaws_commit_import_batch_atomic(TEXT, INTEGER, TEXT, JSONB, TEXT, INTEGER, TEXT, TEXT) TO service_role;
@@ -1560,22 +1492,5 @@ GRANT EXECUTE ON FUNCTION public.morajaws_retry_import_job_atomic(TEXT) TO servi
 
 COMMIT;
 
--- ==============================================================================
--- NON-DESTRUCTIVE ROLLBACK REFERENCE (Manual DBA use only if reverting Phase 020)
--- ==============================================================================
--- BEGIN;
--- DROP FUNCTION IF EXISTS public.morajaws_retry_import_job_atomic(TEXT);
--- DROP FUNCTION IF EXISTS public.morajaws_cancel_import_job_atomic(TEXT, TEXT, TEXT);
--- DROP FUNCTION IF EXISTS public.morajaws_fail_claimed_batch_atomic(TEXT, INTEGER, TEXT, TEXT, INTEGER);
--- DROP FUNCTION IF EXISTS public.morajaws_commit_import_batch_atomic(TEXT, INTEGER, TEXT, JSONB, TEXT, INTEGER, TEXT, TEXT);
--- DROP FUNCTION IF EXISTS public.morajaws_claim_import_batch(TEXT, TEXT, INTEGER, BOOLEAN, INTEGER);
--- DROP FUNCTION IF EXISTS public.morajaws_sync_staged_count(TEXT);
--- DROP FUNCTION IF EXISTS public.morajaws_can_access_imports(UUID);
--- DROP TABLE IF EXISTS public.import_history;
--- DROP TABLE IF EXISTS public.import_row_errors;
--- DROP TABLE IF EXISTS public.import_staging_rows;
--- DROP TABLE IF EXISTS public.import_batches;
--- DROP TABLE IF EXISTS public.import_jobs;
--- DROP FUNCTION IF EXISTS public.morajaws_import_history_preserve_job_ref();
--- DROP FUNCTION IF EXISTS public.morajaws_import_set_updated_at();
--- COMMIT;
+-- Note: Migration 020 is strictly additive and forward-only. No destructive
+-- DROP TABLE / TRUNCATE rollback statements are included to protect data.

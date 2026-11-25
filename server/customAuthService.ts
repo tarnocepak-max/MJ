@@ -725,7 +725,7 @@ export async function verifyAccessToken(
     };
   }
 
-  // Check user active and soft-deleted status
+  // Check user active, archived, accountStatus, and soft-deleted status
   if (authoritativeUser.isDeleted) {
     matchedSession.revokedAt = new Date().toISOString();
     return {
@@ -734,11 +734,17 @@ export async function verifyAccessToken(
     };
   }
 
-  if (!authoritativeUser.active) {
+  const normalizedAccStatus = String((authoritativeUser as any).accountStatus || '').trim().toLowerCase();
+  const isAccountActive =
+    authoritativeUser.active !== false &&
+    !(authoritativeUser as any).isArchived &&
+    (!normalizedAccStatus || normalizedAccStatus === 'active');
+
+  if (!isAccountActive) {
     matchedSession.revokedAt = new Date().toISOString();
     return {
       success: false,
-      error: { code: 'ACCOUNT_DISABLED', message: 'Akun Anda sedang dinonaktifkan oleh Administrator.' }
+      error: { code: 'ACCOUNT_DISABLED', message: 'Akun Anda sedang dinonaktifkan atau diarsipkan oleh Administrator.' }
     };
   }
 
@@ -922,10 +928,11 @@ export async function rotateRefreshToken(
     user = db.users.find((u: any) => u.id === matchedRt!.userId) || null;
   }
 
-  if (!user || user.isDeleted || !user.active) {
+  const rtAccStatus = String((user as any)?.accountStatus || '').trim().toLowerCase();
+  if (!user || user.isDeleted || !user.active || (user as any).isArchived || (rtAccStatus && rtAccStatus !== 'active')) {
     return {
       success: false,
-      error: { code: 'ACCOUNT_DISABLED', message: 'Akun Anda telah dinonaktifkan atau dihapus.' }
+      error: { code: 'ACCOUNT_DISABLED', message: 'Akun Anda telah dinonaktifkan, diarsipkan, atau dihapus.' }
     };
   }
 
