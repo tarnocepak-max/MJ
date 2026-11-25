@@ -1,0 +1,1118 @@
+Bertindak sebagai Senior Full-Stack Engineer, Enterprise UI/UX Architect, React Developer, Backend Integration Engineer, dan Database Integration Specialist.
+Tugas utama adalah mengimplementasikan desain frontend MoraJaws berdasarkan:
+Screenshot desain visual dari Stitch AI sebagai acuan utama tampilan.
+Source code HTML hasil Stitch AI sebagai referensi struktur layout, komponen, warna, tipografi, spacing, dan visual hierarchy.
+Repository MoraJaws yang sudah berjalan sebagai sumber utama arsitektur, AppFlow, backend, API, database, autentikasi, dan seluruh business logic.
+Hasil akhir harus berupa halaman frontend MoraJaws yang benar-benar terintegrasi dengan sistem produksi, bukan sekadar HTML statis atau prototype dengan data dummy.
+
+Code html:
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-fixed-dim": "#93ccff", "outline-variant": "#bfc7d2", "secondary-fixed": "#dbe1ff", "primary-fixed": "#cce5ff", "secondary": "#545d7c", "on-error": "#ffffff", "on-primary-fixed-variant": "#004b73", "surface-container": "#e7eeff", "error-container": "#ffdad6", "secondary-fixed-dim": "#bdc5e9", "on-tertiary-container": "#fffbff", "on-primary-container": "#fdfcff", "tertiary": "#825100", "surface": "#f9f9ff", "on-surface-variant": "#3f4850", "surface-container-low": "#f0f3ff", "tertiary-container": "#a36700", "surface-container-high": "#dee8ff", "surface-bright": "#f9f9ff", "inverse-primary": "#93ccff", "surface-container-highest": "#d8e3fb", "tertiary-fixed-dim": "#ffb95f", "outline": "#707881", "on-background": "#111c2d", "inverse-on-surface": "#ecf1ff", "on-secondary": "#ffffff", "on-primary": "#ffffff", "secondary-container": "#d0d9fd", "primary": "#006194", "on-error-container": "#93000a", "error": "#ba1a1a", "surface-container-lowest": "#ffffff", "on-tertiary-fixed-variant": "#653e00", "primary-container": "#007bb9", "on-secondary-container": "#555e7d", "on-tertiary": "#ffffff", "tertiary-fixed": "#ffddb8", "surface-dim": "#cfdaf2", "background": "#f9f9ff", "on-secondary-fixed-variant": "#3d4664", "on-primary-fixed": "#001d31", "surface-variant": "#d8e3fb", "on-surface": "#111c2d", "on-secondary-fixed": "#111a36", "on-tertiary-fixed": "#2a1700", "inverse-surface": "#263143", "surface-tint": "#006398" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-sm": "0.75rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "margin-sm": "0.75rem", "space-xs": "0.25rem", "margin": "1rem", "space-lg": "1rem", "gutter": "1rem", "space-md": "0.75rem" }, "fontFamily": { "headline-md": ["Plus Jakarta Sans"], "label-lg": ["Inter"], "label-md": ["Inter"], "label-sm": ["Inter"], "body-lg": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-md": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "label-sm": ["10px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-sm": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }] } } } };</script><style>@layer base{html,body{margin:0;padding:0;min-height:100%;}.pb-safe{padding-bottom:max(env(safe-area-inset-bottom,0px),0.5rem);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased min-h-screen flex flex-col justify-between selection:bg-primary selection:text-on-primary"><header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="max-w-md mx-auto"><div class="h-6 px-4 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span>09:41</span><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span><span class="material-symbols-outlined text-[14px]">wifi</span><span class="material-symbols-outlined text-[14px]">battery_full</span></div></div><div class="h-16 px-space-md flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm"><button aria-label="Open enterprise navigation drawer" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container active:scale-95 transition-all"><span class="material-symbols-outlined text-[24px]">menu</span></button><div class="flex items-center gap-space-xs"><img alt="MoraJaws Brand Icon" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrCAAPBropBoCInZGvuD3UyHLqrwJn4XBJ4Z7uKXzJ8OXWwfP3Hha_TfsQqB_RqbuH6yCsr1aobHZPQH8efpLAfoM0Mn9Drv0Gr4P4IIe_aPKTs3-pI5yXEGizn-btgT-8aDa1YAMbP2hmHUG8kYWKYP77GDYBT1fmjPO5k9UBlT68cdVqRK9WaQ2qwnj9aIfNg83wp4V4q9LlrjzZvdfs9k9EUf0Pe5hKNPC6Tc4d4"/><div class="flex flex-col"><div class="flex items-center gap-1.5"><span class="font-headline-sm text-headline-sm text-on-surface leading-none">MoraJaws Ops</span></div><span class="font-label-sm text-label-sm text-primary leading-tight font-semibold">Field Engineer / Dispatch</span></div></div></div><div class="flex items-center gap-1"><button aria-label="Search telemetry and work orders" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"><span class="material-symbols-outlined text-[22px]">search</span></button><button aria-label="Notifications" class="relative w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-1"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="px-space-md pb-space-xs flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-primary text-[16px]">terminal</span><h1 class="font-label-md text-label-md text-on-surface font-semibold">Work Orders</h1></div><div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span><span>SYNCED</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full max-w-md mx-auto bg-surface pt-24 pb-24 px-space-md"><div class="flex flex-col w-full pb-16">
+<!-- Operational Sub-Header & Live Metric Summary -->
+<section class="flex flex-col gap-space-sm mb-space-md">
+<div class="flex items-center justify-between">
+<div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface tracking-tight">Daftar Work Order</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">SLA Real-time &amp; Monitoring Lapangan</p>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container shadow-sm">
+<span class="w-2 h-2 rounded-full bg-error animate-ping"></span>
+<span class="font-label-sm text-label-sm font-semibold tracking-wide">42 WO • 8 Perlu Aksi</span>
+</div>
+</div>
+<!-- Quick Segmented Status Filter Pills (Horizontal Scroll) -->
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 -mx-space-md px-space-md">
+<button class="shrink-0 px-3.5 py-2 rounded-full bg-inverse-surface text-inverse-on-surface font-label-md text-label-md shadow-sm transition-transform active:scale-95 flex items-center gap-1.5">
+<span>Semua</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface/20 text-[11px] font-bold">42</span>
+</button>
+<button class="shrink-0 px-3.5 py-2 rounded-full bg-error-container text-on-error-container font-label-md text-label-md transition-transform active:scale-95 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span>SLA Kritis</span>
+<span class="px-1.5 py-0.5 rounded-full bg-error/20 text-[11px] font-bold">3</span>
+</button>
+<button class="shrink-0 px-3.5 py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md transition-transform active:scale-95 flex items-center gap-1.5">
+<span>Dalam Pengerjaan</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container-highest text-[11px] font-bold">12</span>
+</button>
+<button class="shrink-0 px-3.5 py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md transition-transform active:scale-95 flex items-center gap-1.5">
+<span>Menunggu Vendor</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container-highest text-[11px] font-bold">8</span>
+</button>
+<button class="shrink-0 px-3.5 py-2 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md transition-transform active:scale-95 flex items-center gap-1.5">
+<span>Selesai</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container-highest text-[11px] font-bold">19</span>
+</button>
+</div>
+<!-- Search Bar & Drawer Trigger Controls -->
+<div class="flex items-center gap-2 mt-1">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-12 pl-10 pr-3 rounded-xl bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-md text-body-md shadow-sm focus:outline-none focus:bg-surface-container-low transition-all" placeholder="Cari no. WO, pelanggan, lokasi, teknisi..." type="text"/>
+</div>
+<button aria-label="Filter Lanjutan" class="h-12 w-12 shrink-0 rounded-xl bg-surface-container-low text-on-surface-variant flex items-center justify-center shadow-sm active:scale-95 hover:bg-surface-container transition-all" id="btn-filter-trigger">
+<span class="material-symbols-outlined text-[22px]">tune</span>
+</button>
+<div class="relative">
+<select aria-label="Urutkan Work Order" class="h-12 pl-3 pr-8 rounded-xl bg-surface-container-low text-on-surface font-label-md text-label-md appearance-none shadow-sm focus:outline-none cursor-pointer">
+<option>Terbaru</option>
+<option selected="">SLA Terdekat</option>
+<option>Prioritas (P1-P4)</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">expand_more</span>
+</div>
+</div>
+</section>
+<!-- Work Order Feed: Card Stack -->
+<div class="flex flex-col gap-space-md">
+<!-- Card 1: Critical P1 / Sedang Dikerjakan -->
+<article class="bg-surface-container-lowest rounded-xl shadow-md p-space-md flex flex-col gap-space-sm relative overflow-hidden">
+<!-- Top Accent Bar: High contrast urgency cue without standard borders -->
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-error"></div>
+<!-- Header: ID + Priority + SLA Timer -->
+<div class="flex items-center justify-between gap-2 pt-1">
+<div class="flex items-center gap-1.5">
+<button class="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-bold tracking-wider active:scale-95 transition-transform" onclick="navigator.clipboard.writeText('WO-2025-0891'); alert('Nomor WO berhasil disalin!');" type="button">
+<span>WO-2025-0891</span>
+<span class="material-symbols-outlined text-[14px] text-primary">content_copy</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap justify-end">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold">
+            P1 CRITICAL
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error text-on-error font-label-sm text-label-sm font-bold shadow-sm">
+<span class="material-symbols-outlined text-[13px] animate-spin">timelapse</span>
+<span>⏱ 42m tersisa</span>
+</span>
+</div>
+</div>
+<!-- Service Title -->
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold leading-snug">
+          Penggantian Router Core Enterprise &amp; SFP Module
+        </h3>
+</div>
+<!-- Client & Precise Location -->
+<div class="flex items-start gap-2 p-2.5 rounded-lg bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">location_on</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Bank Mandiri Menara Thamrin</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Lt. 14, Data Center Room B, Jakarta Pusat</span>
+</div>
+</div>
+<!-- Assigned Personnel & Live Status -->
+<div class="flex items-center justify-between gap-2 py-1">
+<div class="flex items-center gap-2 min-w-0">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">engineering</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-label-sm text-label-sm text-outline">Teknisi Bertugas</span>
+<span class="font-label-md text-label-md text-on-surface font-medium truncate">Kenji Tanaka &amp; Ahmad Rizky</span>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-semibold">
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+<span>Sedang Dikerjakan</span>
+</div>
+</div>
+<!-- Telemetry Metadata Chips -->
+<div class="flex flex-wrap gap-1.5 pt-1">
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+          SLA: 4 Jam
+        </span>
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+          Kategori: Network Outage
+        </span>
+<span class="px-2 py-1 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-mono">
+          Tiket: #TK-99201
+        </span>
+</div>
+<!-- Action Buttons (Thumb Zone Optimized) -->
+<div class="grid grid-cols-2 gap-2 pt-2">
+<button class="h-12 w-full rounded-xl bg-surface-container-high text-on-surface font-label-lg text-label-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>Lihat Detail</span>
+</button>
+<button class="h-12 w-full rounded-xl bg-primary text-on-primary font-label-lg text-label-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span>Update Cepat</span>
+</button>
+</div>
+</article>
+<!-- Card 2: High P2 / Menunggu Vendor & Suku Cadang -->
+<article class="bg-surface-container-lowest rounded-xl shadow-md p-space-md flex flex-col gap-space-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-tertiary"></div>
+<!-- Header: ID + Priority + SLA Timer -->
+<div class="flex items-center justify-between gap-2 pt-1">
+<button class="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-bold tracking-wider active:scale-95 transition-transform" onclick="navigator.clipboard.writeText('WO-2025-0888'); alert('Nomor WO berhasil disalin!');" type="button">
+<span>WO-2025-0888</span>
+<span class="material-symbols-outlined text-[14px] text-primary">content_copy</span>
+</button>
+<div class="flex items-center gap-1.5 flex-wrap justify-end">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold">
+            P2 HIGH
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[13px]">schedule</span>
+<span>⏱ 3j 15m tersisa</span>
+</span>
+</div>
+</div>
+<!-- Service Title -->
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold leading-snug">
+          Inspeksi Fiber Optic Backhaul &amp; Patching
+        </h3>
+</div>
+<!-- Client & Location -->
+<div class="flex items-start gap-2 p-2.5 rounded-lg bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">warehouse</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">PT Indofood CBP</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Cibitung Distribution Hub, Gudang Logistik 3</span>
+</div>
+</div>
+<!-- Assigned & Status -->
+<div class="flex items-center justify-between gap-2 py-1">
+<div class="flex items-center gap-2 min-w-0">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">group_work</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-label-sm text-label-sm text-outline">Penyedia Jasa</span>
+<span class="font-label-md text-label-md text-on-surface font-medium truncate">Mora Fiber Team C</span>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">inventory_2</span>
+<span>Menunggu Vendor</span>
+</div>
+</div>
+<!-- Metadata -->
+<div class="flex flex-wrap gap-1.5 pt-1">
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+          SLA: 8 Jam
+        </span>
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+          Suku Cadang: SFP+ 10G LR
+        </span>
+<span class="px-2 py-1 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-mono">
+          Tiket: #TK-99182
+        </span>
+</div>
+<!-- Single Primary Action -->
+<div class="pt-2">
+<button class="h-12 w-full rounded-xl bg-surface-container-high text-on-surface font-label-lg text-label-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>Lihat Detail Work Order</span>
+</button>
+</div>
+</article>
+<!-- Card 3: Medium P3 / Dijadwalkan -->
+<article class="bg-surface-container-lowest rounded-xl shadow-md p-space-md flex flex-col gap-space-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-secondary"></div>
+<!-- Header: ID + Priority + Scheduled Time -->
+<div class="flex items-center justify-between gap-2 pt-1">
+<button class="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-bold tracking-wider active:scale-95 transition-transform" onclick="navigator.clipboard.writeText('WO-2025-0879'); alert('Nomor WO berhasil disalin!');" type="button">
+<span>WO-2025-0879</span>
+<span class="material-symbols-outlined text-[14px] text-primary">content_copy</span>
+</button>
+<div class="flex items-center gap-1.5 flex-wrap justify-end">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">
+            P3 MEDIUM
+          </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[13px]">calendar_today</span>
+<span>Besok, 09:00 WIB</span>
+</span>
+</div>
+</div>
+<!-- Service Title -->
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold leading-snug">
+          Maintenance Rutin Server Rack &amp; PDU UPS
+        </h3>
+</div>
+<!-- Client & Location -->
+<div class="flex items-start gap-2 p-2.5 rounded-lg bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">apartment</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Unilever Head Office</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">BSD Green Office Park, Tower C, Lt. 5</span>
+</div>
+</div>
+<!-- Assigned & Status -->
+<div class="flex items-center justify-between gap-2 py-1">
+<div class="flex items-center gap-2 min-w-0">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">build</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-label-sm text-label-sm text-outline">Teknisi Internal</span>
+<span class="font-label-md text-label-md text-on-surface font-medium truncate">Mora Ops Team Jakarta Barat</span>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">event_upcoming</span>
+<span>Dijadwalkan</span>
+</div>
+</div>
+<!-- Metadata -->
+<div class="flex flex-wrap gap-1.5 pt-1">
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">
+          Siklus: Preventif Q1
+        </span>
+<span class="px-2 py-1 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-mono">
+          Tiket: #TK-99150
+        </span>
+</div>
+<!-- Action -->
+<div class="pt-2">
+<button class="h-12 w-full rounded-xl bg-surface-container-high text-on-surface font-label-lg text-label-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>Lihat Detail Work Order</span>
+</button>
+</div>
+</article>
+</div>
+<!-- Operational Bottom Floating Action Cluster (One-Hand Ergonomic) -->
+<div class="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2.5">
+<button aria-label="Scan QR Barcode Work Order" class="h-12 w-12 rounded-full bg-inverse-surface text-inverse-on-surface flex items-center justify-center shadow-lg active:scale-90 transition-transform" onclick="alert('Membuka Pemindai Barcode / QR Cepat...');" type="button">
+<span class="material-symbols-outlined text-[22px]">qr_code_scanner</span>
+</button>
+<button aria-label="Buat Work Order Baru" class="h-14 px-4 rounded-full bg-primary text-on-primary font-label-lg text-label-lg flex items-center gap-2 shadow-xl active:scale-95 transition-transform" onclick="alert('Navigasi ke Form Tiket / Work Order Baru...');" type="button">
+<span class="material-symbols-outlined text-[24px]">add</span>
+<span class="font-bold">Buat WO Baru</span>
+</button>
+</div>
+<!-- Quick Filter Modal / Bottom Sheet -->
+<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex-col justify-end transition-opacity" id="filter-sheet">
+<div class="bg-surface-container-lowest rounded-t-2xl p-space-md flex flex-col gap-space-md max-w-md mx-auto w-full shadow-2xl max-h-[751px] overflow-y-auto">
+<div class="flex items-center justify-between pb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">filter_list</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Filter Work Order</h3>
+</div>
+<button class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant active:scale-95" id="btn-close-filter">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Severity Filter -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Tingkat Prioritas (Severity)</span>
+<div class="grid grid-cols-2 gap-2">
+<label class="flex items-center gap-2 p-3 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary rounded" type="checkbox"/>
+<span>P1 - Critical</span>
+</label>
+<label class="flex items-center gap-2 p-3 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary rounded" type="checkbox"/>
+<span>P2 - High</span>
+</label>
+<label class="flex items-center gap-2 p-3 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary rounded" type="checkbox"/>
+<span>P3 - Medium</span>
+</label>
+<label class="flex items-center gap-2 p-3 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md cursor-pointer">
+<input class="w-4 h-4 accent-primary rounded" type="checkbox"/>
+<span>P4 - Low / Normal</span>
+</label>
+</div>
+</div>
+<!-- Client Tier -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Klasifikasi Klien (Tier)</span>
+<div class="flex gap-2">
+<button class="flex-1 py-2 rounded-lg bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-semibold" type="button">Tier 1 Platinum</button>
+<button class="flex-1 py-2 rounded-lg bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium" type="button">Tier 2 Gold</button>
+<button class="flex-1 py-2 rounded-lg bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium" type="button">Standard</button>
+</div>
+</div>
+<!-- SLA Status -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Status Pelanggaran SLA</span>
+<div class="flex flex-col gap-1.5">
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<input checked="" class="accent-primary" name="sla_filter" type="radio"/>
+<span>Semua Status SLA</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low text-error font-body-sm text-body-sm font-semibold">
+<input class="accent-error" name="sla_filter" type="radio"/>
+<span>Mendekati Breach (&lt; 1 Jam)</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<input class="accent-primary" name="sla_filter" type="radio"/>
+<span>SLA Aman</span>
+</label>
+</div>
+</div>
+<!-- Confirm / Reset Actions -->
+<div class="grid grid-cols-2 gap-2 pt-2 pb-safe">
+<button class="h-12 rounded-xl bg-surface-container-high text-on-surface font-label-lg text-label-lg active:scale-95 transition-transform" id="btn-reset-filter">
+          Reset Filter
+        </button>
+<button class="h-12 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg active:scale-95 transition-transform shadow-md" id="btn-apply-filter">
+          Terapkan (42)
+        </button>
+</div>
+</div>
+</div>
+<script>
+    // Bottom Sheet interactive trigger for field technician efficiency
+    const filterTrigger = document.getElementById('btn-filter-trigger');
+    const filterSheet = document.getElementById('filter-sheet');
+    const closeFilter = document.getElementById('btn-close-filter');
+    const applyFilter = document.getElementById('btn-apply-filter');
+    const resetFilter = document.getElementById('btn-reset-filter');
+
+    if (filterTrigger && filterSheet) {
+      filterTrigger.addEventListener('click', () => {
+        filterSheet.classList.remove('hidden');
+        filterSheet.classList.add('flex');
+      });
+
+      const dismissModal = () => {
+        filterSheet.classList.add('hidden');
+        filterSheet.classList.remove('flex');
+      };
+
+      if (closeFilter) closeFilter.addEventListener('click', dismissModal);
+      if (applyFilter) applyFilter.addEventListener('click', dismissModal);
+      if (resetFilter) resetFilter.addEventListener('click', dismissModal);
+    }
+  </script>
+</div></main><nav class="fixed bottom-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-safe" data-active-classes="text-primary font-bold"><div class="max-w-md mx-auto h-16 px-space-sm flex items-center justify-around"><a class="flex-1 flex flex-col items-center justify-center h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[22px]">space_dashboard</span><span class="font-label-sm text-label-sm mt-0.5">Dashboard</span></a><a aria-current="page" class="flex-1 flex flex-col items-center justify-center h-full min-h-[44px] transition-colors text-primary font-bold" data-path="work-orders" href="#"><span class="material-symbols-outlined text-[22px]">assignment</span><span class="font-label-sm text-label-sm mt-0.5">Orders</span></a><a class="flex-1 flex flex-col items-center justify-center h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="dispatch-map" href="#"><span class="material-symbols-outlined text-[22px]">share_location</span><span class="font-label-sm text-label-sm mt-0.5">Dispatch</span></a><a class="flex-1 flex flex-col items-center justify-center h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="asset-management" href="#"><span class="material-symbols-outlined text-[22px]">inventory_2</span><span class="font-label-sm text-label-sm mt-0.5">Assets</span></a><a class="flex-1 flex flex-col items-center justify-center h-full min-h-[44px] text-on-surface-variant hover:text-on-surface transition-colors" data-path="livechat-operations" href="#"><span class="material-symbols-outlined text-[22px]">forum</span><span class="font-label-sm text-label-sm mt-0.5">LiveChat</span></a></div></nav></body></html>
+
+Code html:
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-fixed-dim": "#93ccff", "outline-variant": "#bfc7d2", "secondary-fixed": "#dbe1ff", "primary-fixed": "#cce5ff", "secondary": "#545d7c", "on-error": "#ffffff", "on-primary-fixed-variant": "#004b73", "surface-container": "#e7eeff", "error-container": "#ffdad6", "secondary-fixed-dim": "#bdc5e9", "on-tertiary-container": "#fffbff", "on-primary-container": "#fdfcff", "tertiary": "#825100", "surface": "#f9f9ff", "on-surface-variant": "#3f4850", "surface-container-low": "#f0f3ff", "tertiary-container": "#a36700", "surface-container-high": "#dee8ff", "surface-bright": "#f9f9ff", "inverse-primary": "#93ccff", "surface-container-highest": "#d8e3fb", "tertiary-fixed-dim": "#ffb95f", "outline": "#707881", "on-background": "#111c2d", "inverse-on-surface": "#ecf1ff", "on-secondary": "#ffffff", "on-primary": "#ffffff", "secondary-container": "#d0d9fd", "primary": "#006194", "on-error-container": "#93000a", "error": "#ba1a1a", "surface-container-lowest": "#ffffff", "on-tertiary-fixed-variant": "#653e00", "primary-container": "#007bb9", "on-secondary-container": "#555e7d", "on-tertiary": "#ffffff", "tertiary-fixed": "#ffddb8", "surface-dim": "#cfdaf2", "background": "#f9f9ff", "on-secondary-fixed-variant": "#3d4664", "on-primary-fixed": "#001d31", "surface-variant": "#d8e3fb", "on-surface": "#111c2d", "on-secondary-fixed": "#111a36", "on-tertiary-fixed": "#2a1700", "inverse-surface": "#263143", "surface-tint": "#006398" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-sm": "0.75rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "margin-sm": "0.75rem", "space-xs": "0.25rem", "margin": "1rem", "space-lg": "1rem", "gutter": "1rem", "space-md": "0.75rem" }, "fontFamily": { "headline-md": ["Plus Jakarta Sans"], "label-lg": ["Inter"], "label-md": ["Inter"], "label-sm": ["Inter"], "body-lg": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-md": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "label-sm": ["10px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-sm": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }] } } } };</script><style>@layer base{html,body{margin:0;padding:0;min-height:100%;}.pb-safe{padding-bottom:max(env(safe-area-inset-bottom,0px),1rem);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased min-h-screen flex flex-col justify-between selection:bg-primary selection:text-on-primary"><header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="max-w-md mx-auto"><div class="h-6 px-4 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span>09:41</span><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span><span class="material-symbols-outlined text-[14px]">wifi</span><span class="material-symbols-outlined text-[14px]">battery_full</span></div></div><div class="h-16 px-space-md flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm"><button aria-label="Go back" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container active:scale-95 transition-all" onclick="history.back()"><span class="material-symbols-outlined text-[22px]">arrow_back</span></button><div class="flex items-center gap-space-xs"><img alt="MoraJaws Brand Icon" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrCAAPBropBoCInZGvuD3UyHLqrwJn4XBJ4Z7uKXzJ8OXWwfP3Hha_TfsQqB_RqbuH6yCsr1aobHZPQH8efpLAfoM0Mn9Drv0Gr4P4IIe_aPKTs3-pI5yXEGizn-btgT-8aDa1YAMbP2hmHUG8kYWKYP77GDYBT1fmjPO5k9UBlT68cdVqRK9WaQ2qwnj9aIfNg83wp4V4q9LlrjzZvdfs9k9EUf0Pe5hKNPC6Tc4d4"/><div class="flex flex-col"><h1 class="font-headline-sm text-headline-sm text-on-surface font-semibold leading-tight">Work Order Details</h1><span class="font-label-sm text-label-sm text-on-surface-variant">Task Focus View</span></div></div></div><div class="flex items-center gap-1"><button aria-label="Context actions" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"><span class="material-symbols-outlined text-[20px]">more_vert</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-1"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="flex-1 flex flex-col relative w-full max-w-md mx-auto bg-surface pt-20 pb-safe px-space-md"><div class="flex flex-col w-full pb-28 space-y-space-md">
+<!-- Top Navigation Context Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-space-sm min-w-0">
+<a aria-label="Kembali ke Daftar WO" class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all" href="javascript:history.back()">
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+</a>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface truncate">WO-2025-0891</span>
+<span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-1.5 py-0.5 rounded-full">P1-CRIT</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Incident Response Field Ops</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button aria-label="Salin atau Bagikan Work Order" class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all" onclick="navigator.clipboard ? navigator.clipboard.writeText('WO-2025-0891') : null; showToast('ID WO berhasil disalin')">
+<span class="material-symbols-outlined text-[20px]">share</span>
+</button>
+<a aria-label="Hubungi Dispatcher Pusat" class="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center hover:bg-secondary-fixed active:scale-95 transition-all" href="tel:+6221500999">
+<span class="material-symbols-outlined text-[20px]">headset_mic</span>
+</a>
+</div>
+</div>
+<!-- SLA & Status Hero Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm space-y-space-md">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="inline-flex items-center gap-2 bg-primary-fixed text-on-primary-fixed px-3 py-1.5 rounded-full">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+</span>
+<span class="font-label-md text-label-md font-semibold tracking-wide uppercase">Dalam Pengerjaan</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">Target Resolusi</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">15:30 WIB</span>
+</div>
+</div>
+<!-- Urgency SLA Warning Card -->
+<div class="bg-tertiary-fixed text-on-tertiary-fixed p-space-md rounded-lg flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md font-bold">SLA Response Critical</span>
+<span class="font-label-md text-label-md font-bold bg-tertiary/20 px-2 py-0.5 rounded">42m Tersisa</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-tertiary-fixed-variant truncate">Batas eskalasi Tier 3: 15:30 WIB (Toleransi 10%)</p>
+</div>
+</div>
+<!-- Lifecycle Stepper (Horizontal Compact Scroll) -->
+<div class="pt-2">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">Tahapan Eksekusi (4/6)</span>
+<span class="font-label-sm text-label-sm text-primary font-semibold">66% Complete</span>
+</div>
+<div class="overflow-x-auto no-scrollbar pb-1">
+<div class="flex items-start min-w-[560px] gap-2">
+<!-- Step 1 Done -->
+<div class="flex-1 flex flex-col items-center text-center relative">
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">Diterbitkan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">10:15</span>
+</div>
+<div class="w-6 h-0.5 bg-primary mt-3.5"></div>
+<!-- Step 2 Done -->
+<div class="flex-1 flex flex-col items-center text-center relative">
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">Assignment</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">10:30</span>
+</div>
+<div class="w-6 h-0.5 bg-primary mt-3.5"></div>
+<!-- Step 3 Done -->
+<div class="flex-1 flex flex-col items-center text-center relative">
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">Di Lokasi</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">11:10</span>
+</div>
+<div class="w-6 h-0.5 bg-primary mt-3.5"></div>
+<!-- Step 4 Active -->
+<div class="flex-1 flex flex-col items-center text-center relative">
+<div class="w-7 h-7 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center mb-1 shadow-md">
+<span class="material-symbols-outlined text-[16px] animate-spin">build</span>
+</div>
+<span class="font-label-sm text-label-sm font-bold text-primary">Troubleshoot</span>
+<span class="font-body-sm text-body-sm font-semibold text-primary">Sekarang</span>
+</div>
+<div class="w-6 h-0.5 bg-surface-container-highest mt-3.5"></div>
+<!-- Step 5 Pending -->
+<div class="flex-1 flex flex-col items-center text-center relative opacity-50">
+<div class="w-7 h-7 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center mb-1">
+<span class="font-label-sm text-label-sm">5</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Uji Coba</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Pending</span>
+</div>
+<div class="w-6 h-0.5 bg-surface-container-highest mt-3.5"></div>
+<!-- Step 6 Pending -->
+<div class="flex-1 flex flex-col items-center text-center relative opacity-50">
+<div class="w-7 h-7 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center mb-1">
+<span class="material-symbols-outlined text-[16px]">done_all</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">Sign-off</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Pending</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section A: Rincian Pelanggan & Lokasi -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-center justify-between pb-1">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">domain</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Pelanggan &amp; Lokasi</h2>
+</div>
+<span class="bg-surface-container-high text-primary font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">Tier 1</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-space-md space-y-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Perusahaan Klien</span>
+<p class="font-label-lg text-label-lg font-bold text-on-surface">PT Bank Mandiri (Persero) Tbk</p>
+<div class="flex items-start gap-1.5 pt-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">location_on</span>
+<p class="font-body-sm text-body-sm leading-relaxed text-on-surface">Menara Mandiri Thamrin, Lt. 14 Server Room B, Jl. MH Thamrin No. 5, Jakarta Pusat</p>
+</div>
+</div>
+<!-- On-site PIC Contact Card -->
+<div class="bg-surface-container-low rounded-lg p-space-md flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold">
+            HY
+          </div>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block">PIC On-Site Server Room</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Bpk. Haryanto</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">+62 811-2345-6789</span>
+</div>
+<div class="grid grid-cols-2 gap-2 pt-1">
+<a class="h-11 rounded-lg bg-surface-container-highest text-on-surface flex items-center justify-center gap-1.5 font-label-md text-label-md font-semibold active:scale-98 transition-all" href="tel:+6281123456789">
+<span class="material-symbols-outlined text-[18px] text-primary">call</span>
+          Panggil PIC
+        </a>
+<a class="h-11 rounded-lg bg-surface-container-highest text-on-surface flex items-center justify-center gap-1.5 font-label-md text-label-md font-semibold active:scale-98 transition-all" href="https://wa.me/6281123456789" target="_blank">
+<span class="material-symbols-outlined text-[18px] text-primary">chat</span>
+          WhatsApp
+        </a>
+</div>
+</div>
+<!-- Navigation Map Launch -->
+<div class="relative w-full h-28 rounded-lg overflow-hidden flex items-end p-space-sm shadow-sm" data-alt="Satellite and aerial GPS routing view around Menara Mandiri Thamrin Jakarta showing modern urban highrises and road traffic networks in cool blueprint and steel blue tone palette." data-location="Menara Mandiri Thamrin, Jakarta Pusat" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD7PnCXxSxdRfDumckYinp-OxhmR1C4uvN-OWhxsQRfliNuSD3v14DezstDcC1h3QKdb-M51X6j-CNJcLcUW8NoruPdXykqoFOaofuFB6uw9m5eQuzkjVjUAuEaUdlSn47Pz6vCBYAld-3MPFDSGT_XFA4FQzZzYnNiBgE3AvvVM7XVjMYGddVREeWXK-PTUqXnHxUa4apwkrZat2JLZmD6QDvwRT_YkmN1pvwVBcg')">
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-inverse-surface/40 to-transparent"></div>
+<div class="relative z-10 flex items-center justify-between w-full">
+<div class="text-inverse-on-surface">
+<span class="font-label-sm text-label-sm opacity-90 block">Navigasi Rute Cepat</span>
+<span class="font-label-md text-label-md font-bold">Menara Mandiri Thamrin</span>
+</div>
+<a class="h-9 px-3 rounded-lg bg-primary text-on-primary flex items-center gap-1 font-label-sm text-label-sm font-bold shadow-md active:scale-95 transition-all" href="https://maps.google.com/?q=Menara+Mandiri+Thamrin+Jakarta" target="_blank">
+<span class="material-symbols-outlined text-[16px]">navigation</span>
+          Google Maps
+        </a>
+</div>
+</div>
+</div>
+<!-- Section B: Deskripsi Masalah & Ruang Lingkup -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-center gap-2 pb-1">
+<div class="w-8 h-8 rounded-lg bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Deskripsi &amp; Ruang Lingkup</h2>
+</div>
+<div class="space-y-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Gejala Masalah Terdeteksi</span>
+<div class="bg-surface-container-low rounded-lg p-space-md">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed">
+          Core Switch Catalyst 9500 port <code class="bg-surface-container px-1 py-0.5 rounded font-bold text-primary">GigabitEthernet 1/0/24</code> mengalami flapping terus-menerus &amp; indikasi kegagalan pada modul <strong class="text-on-surface font-semibold">SFP Transceiver Rx Optical Power Loss</strong>.
+        </p>
+</div>
+</div>
+<div class="space-y-space-xs pt-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Instruksi Kerja Standar (SOP)</span>
+<div class="bg-surface-container-low rounded-lg p-space-md space-y-2">
+<div class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-label-sm text-label-sm font-bold shrink-0 mt-0.5">1</span>
+<p class="font-body-sm text-body-sm text-on-surface">Ganti unit sparepart <strong class="font-semibold">SFP Module 10G-SR</strong> dengan nomor serial baru.</p>
+</div>
+<div class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-label-sm text-label-sm font-bold shrink-0 mt-0.5">2</span>
+<p class="font-body-sm text-body-sm text-on-surface">Verifikasi redaman laser level optical power meter (Target: -2.5 dBm s/d -6.0 dBm).</p>
+</div>
+<div class="flex items-start gap-2">
+<span class="w-5 h-5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-label-sm text-label-sm font-bold shrink-0 mt-0.5">3</span>
+<p class="font-body-sm text-body-sm text-on-surface">Running 1000-packet ping test continuous ke Gateway <code class="bg-surface-container px-1 py-0.5 rounded text-on-surface font-semibold">10.200.1.1</code> (0% packet loss).</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Section C: Assignment & Tim Lapangan -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-center justify-between pb-1">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">group</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Tim Teknisi Lapangan</h2>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 Personil Aktif</span>
+</div>
+<div class="grid grid-cols-1 gap-2">
+<!-- Lead Engineer Card -->
+<div class="bg-surface-container-low rounded-lg p-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">
+            KT
+          </div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Kenji Tanaka</span>
+<span class="bg-primary text-on-primary font-label-sm text-label-sm px-1.5 py-0.2 rounded font-semibold">Lead FE</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">ID: EMP-4482 • CCNA R&amp;S</span>
+</div>
+</div>
+<a aria-label="Telepon Kenji Tanaka" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" href="tel:+6281299887766">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Assistant Engineer Card -->
+<div class="bg-surface-container-low rounded-lg p-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">
+            AR
+          </div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Ahmad Rizky</span>
+<span class="bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm px-1.5 py-0.2 rounded font-semibold">Asisten</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">ID: EMP-5519 • Fiber Specialist</span>
+</div>
+</div>
+<a aria-label="Telepon Ahmad Rizky" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high" href="tel:+6281311223344">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+</div>
+<!-- Vendor Partner Information -->
+<div class="bg-surface-container-low rounded-lg p-space-sm px-space-md flex items-center justify-between text-on-surface-variant">
+<span class="font-label-sm text-label-sm">Mitra Vendor Pengadaan:</span>
+<span class="font-label-sm text-label-sm font-bold text-on-surface">PT Mora Solusi Teknologi</span>
+</div>
+</div>
+<!-- Section D: Log Aktivitas & Catatan Riwayat Lapangan -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
+<div class="flex items-center justify-between pb-1">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">history_edu</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Riwayat Log Lapangan</h2>
+</div>
+<button class="font-label-sm text-label-sm text-primary font-bold flex items-center gap-0.5" onclick="document.getElementById('bottom-sheet-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+        Tambah
+      </button>
+</div>
+<div class="relative pl-5 space-y-space-md before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-container-high">
+<!-- Item Log 1 -->
+<div class="relative flex flex-col gap-1">
+<div class="absolute -left-[17px] top-1 w-3 h-3 rounded-full bg-primary"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md font-bold text-on-surface">Kenji Tanaka (Lead FE)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">11:45 WIB</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface bg-surface-container-low p-space-sm rounded-lg">
+          “Akses DC Mandiri Lt.14 telah disetujui security. Memulai isolasi kabel patch cord FO port 24 dan inspeksi end-face connector mikroskop optik.”
+        </p>
+</div>
+<!-- Item Log 2 -->
+<div class="relative flex flex-col gap-1">
+<div class="absolute -left-[17px] top-1 w-3 h-3 rounded-full bg-surface-container-highest"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md font-bold text-on-surface">Kenji Tanaka (Lead FE)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">11:25 WIB</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface bg-surface-container-low p-space-sm rounded-lg">
+          “Tiba di lobby Menara Mandiri, sedang proses registrasi pengunjung dan menukar kartu identitas di pos satpam gate barat.”
+        </p>
+</div>
+</div>
+</div>
+<!-- Interactive Modal Bottom Sheet (Triggered by Update Status button) -->
+<div class="hidden fixed inset-0 z-50 flex items-end justify-center bg-inverse-surface/60 backdrop-blur-sm transition-opacity" id="bottom-sheet-modal">
+<div class="w-full max-w-md bg-surface-container-lowest rounded-t-2xl p-space-lg shadow-xl space-y-space-md">
+<div class="w-12 h-1.5 rounded-full bg-surface-container-highest mx-auto"></div>
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Update Log &amp; Progress</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Kirimkan catatan terkini langsung ke dispatcher pusat</p>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant" onclick="document.getElementById('bottom-sheet-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-space-sm">
+<label class="block font-label-sm text-label-sm font-bold text-on-surface-variant uppercase">Status Saat Ini</label>
+<select class="w-full h-12 px-3 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md focus:outline-none" id="modal-status-select">
+<option selected="" value="4">4. Troubleshooting / Pengerjaan</option>
+<option value="5">5. Uji Coba &amp; Testing Konektivitas</option>
+<option value="6">6. Siap Sign-off Pelanggan</option>
+</select>
+</div>
+<div class="space-y-space-sm">
+<label class="block font-label-sm text-label-sm font-bold text-on-surface-variant uppercase">Catatan Aktivitas Lapangan</label>
+<textarea class="w-full p-3 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm focus:outline-none placeholder:text-on-surface-variant" id="modal-log-input" placeholder="Tuliskan temuan teknis, nomor seri part pengganti, atau kendala..." rows="3"></textarea>
+</div>
+<div class="grid grid-cols-2 gap-space-sm pt-2">
+<button class="h-12 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold active:scale-95 transition-all" onclick="document.getElementById('bottom-sheet-modal').classList.add('hidden')">
+          Batal
+        </button>
+<button class="h-12 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 transition-all shadow-md" onclick="submitFieldLog()">
+<span class="material-symbols-outlined text-[18px]">send</span>
+          Simpan Log
+        </button>
+</div>
+</div>
+</div>
+<!-- Fixed Sticky Bottom Ergonomic Action Bar (Android Single Hand Optimized) -->
+<div class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-md pb-safe">
+<div class="max-w-md mx-auto p-space-md space-y-2">
+<!-- Quick Primary & Photo Action Row -->
+<div class="flex items-center gap-space-sm">
+<!-- Primary Blue Button with Lightning -->
+<button class="flex-1 h-12 rounded-lg bg-primary text-on-primary flex items-center justify-center gap-2 font-label-lg text-label-lg font-bold shadow-md hover:bg-primary-container active:scale-95 transition-all" onclick="document.getElementById('bottom-sheet-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+<span>Update Status / Log</span>
+</button>
+<!-- Secondary Upload Camera Action Button -->
+<button aria-label="Ambil Foto Bukti Kerusakan atau Selesai" class="w-12 h-12 rounded-lg bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-surface-container active:scale-95 transition-all" onclick="triggerPhotoUpload()">
+<span class="material-symbols-outlined text-[22px] text-primary">photo_camera</span>
+</button>
+<!-- Danger / Escalation Options Dropdown Button -->
+<div class="relative">
+<button aria-label="Menu Tindakan Khusus &amp; Eskalasi" class="w-12 h-12 rounded-lg bg-error-container text-on-error-container flex items-center justify-center active:scale-95 transition-all" id="escalate-btn" onclick="toggleEscalationMenu()">
+<span class="material-symbols-outlined text-[22px]">more_vert</span>
+</button>
+<!-- Dropdown Popup -->
+<div class="hidden absolute bottom-14 right-0 w-52 bg-surface-container-lowest rounded-xl shadow-xl p-1.5 space-y-1 z-50" id="escalation-dropdown">
+<button class="w-full px-3 py-2.5 rounded-lg text-left text-on-surface hover:bg-surface-container flex items-center gap-2 font-label-sm text-label-sm" onclick="handleHoldWorkOrder()">
+<span class="material-symbols-outlined text-[18px] text-tertiary">pause_circle</span>
+              Tunda Pengerjaan (Hold)
+            </button>
+<button class="w-full px-3 py-2.5 rounded-lg text-left text-error hover:bg-error-container flex items-center gap-2 font-label-sm text-label-sm font-semibold" onclick="handleEscalateTier3()">
+<span class="material-symbols-outlined text-[18px]">emergency</span>
+              Eskalasi ke Tier 3 / NOC
+            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Feedback Toast -->
+<div class="hidden fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full font-label-md text-label-md shadow-lg flex items-center gap-2" id="action-toast">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">check_circle</span>
+<span id="toast-text">Pembaruan berhasil dikirim</span>
+</div>
+<input accept="image/*" capture="environment" class="hidden" id="camera-file-input" onchange="handlePhotoCaptured(this)" type="file"/>
+</div>
+<script>
+  function showToast(message) {
+    const toast = document.getElementById('action-toast');
+    const toastText = document.getElementById('toast-text');
+    if (toast && toastText) {
+      toastText.innerText = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 2500);
+    }
+  }
+
+  function toggleEscalationMenu() {
+    const dropdown = document.getElementById('escalation-dropdown');
+    if (dropdown) {
+      dropdown.classList.toggle('hidden');
+    }
+  }
+
+  function submitFieldLog() {
+    const input = document.getElementById('modal-log-input');
+    const modal = document.getElementById('bottom-sheet-modal');
+    if (input && input.value.trim().length > 0) {
+      showToast('Log lapangan berhasil tersimpan & terkirim ke NOC');
+      input.value = '';
+    } else {
+      showToast('Status WO telah diperbarui');
+    }
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function triggerPhotoUpload() {
+    const fileInput = document.getElementById('camera-file-input');
+    if (fileInput) fileInput.click();
+  }
+
+  function handlePhotoCaptured(input) {
+    if (input.files && input.files[0]) {
+      showToast('Foto bukti (' + input.files[0].name.substring(0, 15) + '...) berhasil diunggah');
+    }
+  }
+
+  function handleHoldWorkOrder() {
+    toggleEscalationMenu();
+    showToast('Permintaan Tunda (Hold) diteruskan ke Dispatcher');
+  }
+
+  function handleEscalateTier3() {
+    toggleEscalationMenu();
+    showToast('Tiket darurat dieskalasi ke Level 3 Core Engineer');
+  }
+
+  // Close escalation dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const btn = document.getElementById('escalate-btn');
+    const dropdown = document.getElementById('escalation-dropdown');
+    if (dropdown && !dropdown.classList.contains('hidden') && btn && !btn.contains(e.target)) {
+      dropdown.classList.add('hidden');
+    }
+  });
+</script></main></body></html>
+
+Code html:
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-fixed-dim": "#93ccff", "outline-variant": "#bfc7d2", "secondary-fixed": "#dbe1ff", "primary-fixed": "#cce5ff", "secondary": "#545d7c", "on-error": "#ffffff", "on-primary-fixed-variant": "#004b73", "surface-container": "#e7eeff", "error-container": "#ffdad6", "secondary-fixed-dim": "#bdc5e9", "on-tertiary-container": "#fffbff", "on-primary-container": "#fdfcff", "tertiary": "#825100", "surface": "#f9f9ff", "on-surface-variant": "#3f4850", "surface-container-low": "#f0f3ff", "tertiary-container": "#a36700", "surface-container-high": "#dee8ff", "surface-bright": "#f9f9ff", "inverse-primary": "#93ccff", "surface-container-highest": "#d8e3fb", "tertiary-fixed-dim": "#ffb95f", "outline": "#707881", "on-background": "#111c2d", "inverse-on-surface": "#ecf1ff", "on-secondary": "#ffffff", "on-primary": "#ffffff", "secondary-container": "#d0d9fd", "primary": "#006194", "on-error-container": "#93000a", "error": "#ba1a1a", "surface-container-lowest": "#ffffff", "on-tertiary-fixed-variant": "#653e00", "primary-container": "#007bb9", "on-secondary-container": "#555e7d", "on-tertiary": "#ffffff", "tertiary-fixed": "#ffddb8", "surface-dim": "#cfdaf2", "background": "#f9f9ff", "on-secondary-fixed-variant": "#3d4664", "on-primary-fixed": "#001d31", "surface-variant": "#d8e3fb", "on-surface": "#111c2d", "on-secondary-fixed": "#111a36", "on-tertiary-fixed": "#2a1700", "inverse-surface": "#263143", "surface-tint": "#006398" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-sm": "0.75rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "margin-sm": "0.75rem", "space-xs": "0.25rem", "margin": "1rem", "space-lg": "1rem", "gutter": "1rem", "space-md": "0.75rem" }, "fontFamily": { "headline-md": ["Plus Jakarta Sans"], "label-lg": ["Inter"], "label-md": ["Inter"], "label-sm": ["Inter"], "body-lg": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-md": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "label-sm": ["10px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-sm": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }] } } } };</script><style>@layer base{html,body{margin:0;padding:0;min-height:100%;}.pb-safe{padding-bottom:max(env(safe-area-inset-bottom,0px),1rem);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased min-h-screen flex flex-col justify-between selection:bg-primary selection:text-on-primary"><header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="max-w-md mx-auto"><div class="h-6 px-4 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span>09:41</span><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">signal_cellular_alt</span><span class="material-symbols-outlined text-[14px]">wifi</span><span class="material-symbols-outlined text-[14px]">battery_full</span></div></div><div class="h-16 px-space-md flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm"><button aria-label="Go back" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container active:scale-95 transition-all" onclick="history.back()"><span class="material-symbols-outlined text-[22px]">arrow_back</span></button><div class="flex items-center gap-space-xs"><img alt="MoraJaws Brand Icon" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrCAAPBropBoCInZGvuD3UyHLqrwJn4XBJ4Z7uKXzJ8OXWwfP3Hha_TfsQqB_RqbuH6yCsr1aobHZPQH8efpLAfoM0Mn9Drv0Gr4P4IIe_aPKTs3-pI5yXEGizn-btgT-8aDa1YAMbP2hmHUG8kYWKYP77GDYBT1fmjPO5k9UBlT68cdVqRK9WaQ2qwnj9aIfNg83wp4V4q9LlrjzZvdfs9k9EUf0Pe5hKNPC6Tc4d4"/><div class="flex flex-col"><h1 class="font-headline-sm text-headline-sm text-on-surface font-semibold leading-tight">Work Order Details</h1><span class="font-label-sm text-label-sm text-on-surface-variant">Task Focus View</span></div></div></div><div class="flex items-center gap-1"><button aria-label="Context actions" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all"><span class="material-symbols-outlined text-[20px]">more_vert</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-1"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="flex-1 flex flex-col relative w-full max-w-md mx-auto bg-surface pt-20 pb-safe px-space-md"><div class="flex flex-col w-full relative">
+<!-- Dimmed Contextual Background (WO Detail Overview Layer) -->
+<div aria-hidden="true" class="flex flex-col w-full opacity-35 pointer-events-none select-none pb-12">
+<div class="bg-surface-container-low rounded-xl p-space-md shadow-sm mb-space-md">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">WO-2025-0891</span>
+<span class="bg-error-container text-on-error-container font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span> Critical Incident
+        </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Flapping Uplink Core DC Mandiri</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Bank Mandiri Plaza Thamrin Lt. 7 Server Room, Jakarta Pusat</p>
+<div class="grid grid-cols-2 gap-space-sm mt-space-md">
+<div class="bg-surface-container-lowest p-space-sm rounded-lg shadow-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">SLA Countdown</span>
+<span class="font-label-lg text-label-lg text-error font-bold flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[16px]">timer</span> 00h 42m tersisa
+          </span>
+</div>
+<div class="bg-surface-container-lowest p-space-sm rounded-lg shadow-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">PIC Morajaws</span>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[16px] text-primary">engineering</span> Dimas Aditya
+          </span>
+</div>
+</div>
+</div>
+<!-- Background Step Timeline (Dimmed) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center">3</span>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Dalam Pengerjaan</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Tahap 3 dari 5</span>
+</div>
+</div>
+<!-- Elevation Layer 3: Native Android Eksekusi Status Bottom Sheet Modal -->
+<section class="fixed inset-x-0 bottom-0 z-50 flex flex-col max-w-md mx-auto bg-surface-container-lowest rounded-t-[28px] shadow-[0_-10px_35px_rgba(17,28,45,0.24)] max-h-[777px] overflow-hidden transition-all duration-300">
+<!-- Drag Pull Handle & Sheet Header -->
+<header class="sticky top-0 z-20 bg-surface-container-lowest pt-3 pb-3 px-space-md flex flex-col items-center">
+<div aria-hidden="true" class="w-12 h-1.5 rounded-full bg-outline-variant/70 mb-3"></div>
+<div class="flex items-center justify-between w-full">
+<div class="flex flex-col min-w-0 pr-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">alt_route</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">Update Status Work Order</h2>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate mt-0.5">WO-2025-0891 • Bank Mandiri Thamrin</p>
+</div>
+<button aria-label="Tutup form update" class="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Sheet Form Body -->
+<div class="flex-1 overflow-y-auto px-space-md pb-6 space-y-space-xl">
+<!-- Field 1: Status Transition Radio Group (Touch-Friendly 48px) -->
+<fieldset class="flex flex-col gap-space-sm pt-1">
+<legend class="font-label-md text-label-md font-semibold text-on-surface mb-1 flex items-center justify-between w-full">
+<span>Pilih Status Eksekusi Lapangan <span class="text-error">*</span></span>
+<span class="font-label-sm text-label-sm text-primary font-bold bg-primary-fixed/60 px-2 py-0.5 rounded-full">Wajib Diisi</span>
+</legend>
+<!-- Option A: Current Active -->
+<label class="relative flex items-center justify-between min-h-[52px] p-space-sm px-space-md rounded-xl bg-surface-container-low cursor-pointer transition-all active:scale-[0.99]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">sync</span>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-semibold text-on-surface">Dalam Pengerjaan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Teknisi aktif menangani perbaikan fisik</span>
+</div>
+</div>
+<input class="w-5 h-5 accent-primary cursor-pointer" name="wo_status" type="radio" value="in_progress"/>
+</label>
+<!-- Option B: Next Recommended (Testing & Validasi) -->
+<label class="relative flex items-center justify-between min-h-[52px] p-space-sm px-space-md rounded-xl bg-surface-container-high cursor-pointer shadow-sm transition-all active:scale-[0.99]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container text-[20px]">network_check</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">Testing &amp; Validasi Jaringan</span>
+<span class="bg-primary text-on-primary font-label-sm text-label-sm px-2 py-0.5 rounded-full">Rekomendasi</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Uji traffic, latency, stabilitas routing</span>
+</div>
+</div>
+<input checked="" class="w-5 h-5 accent-primary cursor-pointer" name="wo_status" type="radio" value="testing"/>
+</label>
+<!-- Option C: Selesai / Tanda Tangan -->
+<label class="relative flex items-center justify-between min-h-[52px] p-space-sm px-space-md rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all active:scale-[0.99]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-container text-[20px]">draw</span>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-semibold text-on-surface">Pekerjaan Selesai (Sign-off)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Membutuhkan paraf &amp; tanda tangan PIC DC</span>
+</div>
+</div>
+<input class="w-5 h-5 accent-primary cursor-pointer" name="wo_status" type="radio" value="completed"/>
+</label>
+<!-- Option D: Hold / Alert State -->
+<label class="relative flex items-center justify-between min-h-[52px] p-space-sm px-space-md rounded-xl bg-error-container/40 hover:bg-error-container/60 cursor-pointer transition-all active:scale-[0.99]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error text-[20px]">pause_circle</span>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-semibold text-on-error-container">Tunda / Hold Sementara</span>
+<span class="font-body-sm text-body-sm text-on-error-container/80">Kendala izin gedung atau stok modul SFP</span>
+</div>
+</div>
+<input class="w-5 h-5 accent-error cursor-pointer" name="wo_status" type="radio" value="hold"/>
+</label>
+</fieldset>
+<!-- Field 2: Status Progress Note & RCA -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center justify-between" for="technician_notes">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">description</span>
+            Catatan Progres Lapangan &amp; RCA
+          </span>
+<span class="text-error font-label-sm text-label-sm">*</span>
+</label>
+<div class="relative bg-surface-container-low rounded-xl p-space-sm focus-within:bg-surface-container transition-colors">
+<textarea class="w-full bg-transparent font-body-sm text-body-sm text-on-surface focus:outline-none resize-none leading-relaxed" id="technician_notes" placeholder="Tuliskan temuan fisik, nomor serial modul ganti, hasil ping..." rows="4">Modul SFP 10G-SR telah diganti dengan part serial SN-998812. Port stabil, latency 1ms, packet loss 0% selama 15 menit load testing.</textarea>
+<div class="flex items-center justify-between mt-2 pt-2 text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[14px]">verified</span> Terverifikasi telemetry internal
+            </span>
+<span>128 / 500</span>
+</div>
+</div>
+</div>
+<!-- Field 3: Evidence Upload (Lampiran Bukti Kerja) -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">perm_media</span>
+            Lampiran Bukti Kerja Lapangan (2/5)
+          </label>
+<span class="font-label-sm text-label-sm text-outline">Maks 10MB</span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<!-- Thumbnail 1: Foto Rack & SFP -->
+<div class="relative bg-surface-container rounded-xl overflow-hidden shadow-sm group">
+<img class="w-full h-24 object-cover" data-alt="Close up sharp technical view of enterprise network rack showing replacement 10G optical SFP transceiver plugged into switch port with glowing teal status LEDs in Jakarta bank datacenter" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBe-HLONq2Wjq65kIpWwNBCZtHuTGifyF7OTLVaPsKaexCKTTS__M6Mb9jpgYeECMI67fpDkwFIt01lxtvcfMeU6aJpY7AKaWSXiQfc42RuOmrGDr6JK7dp_MlEnWLq2T1OMx_HaniZ7-o2M-36UZOD375Rb3dUQUznbv_NfglQdnqVMAQ6RJ53mLPEej5-J9Db1a65BPVkvSqoXljojTMus3JBloZA9H5yHpkiYVk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/85 via-inverse-surface/20 to-transparent flex flex-col justify-between p-2">
+<button aria-label="Hapus foto 1" class="self-end w-7 h-7 bg-inverse-surface/70 rounded-full flex items-center justify-center text-inverse-on-surface" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-inverse-on-surface font-semibold truncate">1. Rack &amp; SFP Terpasang</span>
+<span class="font-label-sm text-label-sm text-outline-variant">SN-998812 • 2.4 MB</span>
+</div>
+</div>
+</div>
+<!-- Thumbnail 2: Screenshot Terminal Ping Test -->
+<div class="relative bg-surface-container rounded-xl overflow-hidden shadow-sm group">
+<img class="w-full h-24 object-cover" data-alt="High contrast terminal command line screenshot showing packet ping diagnostic test with zero packet loss and 1 millisecond response time in dark mode enterprise network monitoring software" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcMw__jULjYBVZSyMtnvMQs8KHW-UT1c8RXyIEcgKjArpjLhTmMMXjnZeSKTc1uKi6dC3VNvzYlvh5tpfXGBPY4sQ27mXUbtXltr8sca6OnZ3u7bKjHFyxZioWvDcrb9W5SPMLI_kEym4iEsYRE7KS6UaJc0omrlfMvRVnr4XrOVZ0vlHoKSJhZDwhsRmztkwibAUjNTsH2OAOo9eysaD60LwHuUFEuqfhZooZaLM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/85 via-inverse-surface/20 to-transparent flex flex-col justify-between p-2">
+<button aria-label="Hapus foto 2" class="self-end w-7 h-7 bg-inverse-surface/70 rounded-full flex items-center justify-center text-inverse-on-surface" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-inverse-on-surface font-semibold truncate">2. Terminal Ping Test</span>
+<span class="font-label-sm text-label-sm text-outline-variant">15 min log • 640 KB</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Add Photo / Document Dashed Button (48px Touch Area) -->
+<button class="w-full min-h-[48px] rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition-all" type="button">
+<span class="material-symbols-outlined text-[20px]">add_a_photo</span>
+<span>+ Ambil Foto / Dokumen Tambahan</span>
+</button>
+</div>
+<!-- Field 4: Digital Customer PIC Sign-Off Box -->
+<div class="flex flex-col gap-2 bg-surface-container-low p-space-md rounded-xl">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">draw</span>
+            Tanda Tangan Digital PIC On-Site
+          </label>
+<button class="font-label-sm text-label-sm text-error hover:underline flex items-center gap-1 font-semibold min-h-[32px]" id="btn-reset-signature" type="button">
+<span class="material-symbols-outlined text-[14px]">restart_alt</span> Reset
+          </button>
+</div>
+<!-- Signature Canvas Display Area -->
+<div class="relative w-full h-28 bg-surface-container-lowest rounded-xl flex items-center justify-center overflow-hidden shadow-inner cursor-crosshair">
+<!-- Ambient SVG Signature Stroke Preview -->
+<svg class="w-4/5 h-20 text-on-surface" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 260 70">
+<path d="M12 48 C 22 20, 28 8, 38 18 C 48 28, 32 60, 48 52 C 60 45, 78 30, 95 38 C 112 46, 120 58, 140 42 C 160 26, 168 18, 178 34 C 188 50, 196 56, 215 40 C 230 28, 245 22, 252 26"></path>
+<path class="text-outline-variant" d="M30 58 L 240 56" stroke-dasharray="4 4" stroke-width="1"></path>
+</svg>
+<div class="absolute bottom-1.5 right-3 text-outline-variant font-label-sm text-label-sm select-none">
+            Digital PIC Certified
+          </div>
+</div>
+<!-- PIC Name & Role Field -->
+<div class="flex flex-col gap-1 mt-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="pic_name">Nama &amp; Jabatan Penandatangan</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-outline">badge</span>
+<input class="w-full min-h-[44px] pl-9 pr-3 rounded-lg bg-surface-container-lowest font-body-sm text-body-sm text-on-surface focus:outline-none shadow-sm" id="pic_name" type="text" value="Haryanto (IT DC Supervisor Mandiri)"/>
+</div>
+</div>
+</div>
+<!-- Field 5: Auto-dispatch Email Notification Checkbox -->
+<label class="flex items-start gap-3 p-space-sm rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input checked="" class="mt-0.5 w-5 h-5 rounded accent-primary cursor-pointer" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Kirim salinan laporan otomatis</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Laporan PDF komprehensif dikirim langsung ke PIC &amp; Dispatcher MoraJaws</span>
+</div>
+</label>
+</div>
+<!-- Ergonomic Sticky Action Bottom Bar (48px Touch Targets) -->
+<div class="sticky bottom-0 z-30 bg-surface-container-lowest/95 backdrop-blur-md px-space-md py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex flex-col gap-2">
+<!-- Primary Full Width Execution Button -->
+<button class="w-full min-h-[48px] h-12 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all" id="btn-submit-wo" type="button">
+<span class="material-symbols-outlined text-[20px]">task_alt</span>
+<span>Simpan &amp; Perbarui Status</span>
+</button>
+<!-- Secondary Return Button -->
+<button class="w-full min-h-[44px] h-11 rounded-xl bg-surface-container text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-semibold flex items-center justify-center active:scale-[0.98] transition-all" type="button">
+        Batal / Kembali ke Work Order
+      </button>
+</div>
+</section>
+</div>
+<script>
+  (function () {
+    const btnSubmit = document.getElementById('btn-submit-wo');
+    const btnReset = document.getElementById('btn-reset-signature');
+    const picInput = document.getElementById('pic_name');
+
+    if (btnReset && picInput) {
+      btnReset.addEventListener('click', function () {
+        picInput.value = '';
+        picInput.focus();
+      });
+    }
+
+    if (btnSubmit) {
+      btnSubmit.addEventListener('click', function () {
+        const originalContent = btnSubmit.innerHTML;
+        btnSubmit.innerHTML = `
+          <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+          <span>Memperbarui Status...</span>
+        `;
+        btnSubmit.classList.add('opacity-90', 'pointer-events-none');
+
+        setTimeout(() => {
+          btnSubmit.innerHTML = `
+            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+            <span>Status Berhasil Diperbarui!</span>
+          `;
+          setTimeout(() => {
+            btnSubmit.innerHTML = originalContent;
+            btnSubmit.classList.remove('opacity-90', 'pointer-events-none');
+          }, 1800);
+        }, 1000);
+      });
+    }
+  })();
+</script></main></body></html>

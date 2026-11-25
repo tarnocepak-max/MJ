@@ -96,7 +96,7 @@ export interface LocalStoreBridge {
     details: string,
     user?: any,
     extra?: any
-  ) => Promise<void>;
+  ) => Promise<any>;
   broadcastSupabaseChange: (table: string, event: string, payload: any) => void;
   revokeUserSessions: (userId: string) => void;
   isSupabaseMode: () => boolean;
@@ -778,28 +778,140 @@ export async function getCategoryCountsSummary(
   return summary;
 }
 
+function sanitizeTextQuery(v: unknown, maxLen = 120): string {
+  return String(v ?? '').trim().slice(0, maxLen);
+}
+
+function sanitizeDateOnly(v: unknown): string {
+  const s = String(v ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return '';
+  }
+  return s;
+}
+
+function escapePostgrestIlike(input: string): string {
+  return input.replace(/[\\%_]/g, '\\$&');
+}
+
+function quotePostgrestFilterVal(input: string): string {
+  const escaped = input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `"${escaped}"`;
+}
+
+export function compareDatesNullsLast(
+  aRaw: unknown,
+  bRaw: unknown,
+  dir: 'asc' | 'desc',
+  aTieRaw?: unknown,
+  bTieRaw?: unknown,
+  aId?: string,
+  bId?: string
+): number {
+  const norm = (val: unknown): string | null => {
+    const s = String(val ?? '').trim();
+    if (!s) return null;
+    const prefix = s.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(prefix)) return prefix;
+    const parsed = Date.parse(s);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+    return null;
+  };
+  const da = norm(aRaw);
+  const db = norm(bRaw);
+  if (da === null && db !== null) return 1; // NULLS LAST
+  if (da !== null && db === null) return -1; // NULLS LAST
+  if (da !== null && db !== null && da !== db) {
+    const cmp = da < db ? -1 : 1;
+    return dir === 'asc' ? cmp : -cmp;
+  }
+  const ta = Date.parse(String(aTieRaw || '')) || 0;
+  const tb = Date.parse(String(bTieRaw || '')) || 0;
+  if (ta !== tb) return tb - ta;
+  return String(aId || '').localeCompare(String(bId || ''));
+}
+
+export interface ListDeletionItemsParams {
+  actorRole: string;
+  category: DeletionCategory;
+  subEntity?: DeletionSubEntity;
+  mode?: DeletionMode;
+  search?: string;
+  woNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  contractor?: string;
+  area?: string;
+  assignmentStatus?: string;
+  appointmentDate?: string;
+  appointmentDateFrom?: string;
+  appointmentDateTo?: string;
+  recordIdQuery?: string;
+  summaryQuery?: string;
+  actorQuery?: string;
+  status?: string;
+  deletionStatus?: 'all' | 'active' | 'soft_deleted';
+  sortBy?: 'default' | 'appointment_date' | 'created_at';
+  sortDir?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}
+
+function mapPgWorkOrderToRow(rawRow: any) {
+  const t = postgresRowToTicket(rawRow);
+  return {
+    id: t.id,
+    category: 'work_orders' as const,
+    woNumber: t.woNumber,
+    customerId: t.idCustomer || t.customerId || '',
+    customerName: t.customerName || '',
+    appointmentDate: t.appointmentDate || '',
+    contractor: t.contactorName || t.contractorName || '',
+    area: t.area || '',
+    installerName: t.installerName || '',
+    assignmentStatus: t.installerName ? `Assigned (${t.installerName})` : (t.statusWOInstaller || 'Unassigned'),
+    statusWOAgent: t.statusWOAgent || '',
+    statusWOInstaller: t.statusWOInstaller || '',
+    isArchived: Boolean(t.isArchived),
+    isDeleted: Boolean(t.isDeleted),
+    deletedAt: t.deletedAt || null,
+    deletedBy: t.deletedBy || null,
+    deletionReason: t.deletionReason || null,
+    isProtected: isProtectedWorkOrder(t),
+    deletionStatus: t.isDeleted ? 'SOFT_DELETED' : t.isArchived ? 'ARCHIVED' : 'ACTIVE',
+    updatedAt: t.updatedAt || rawRow.updated_at || null,
+    createdAt: t.createdAt || rawRow.created_at || null,
+    rawDetail: sanitizeDeletionPayload(t)
+  };
+}
+
 export async function listDeletionItems(
   bridge: LocalStoreBridge,
-  params: {
-    actorRole: string;
-    category: DeletionCategory;
-    subEntity?: DeletionSubEntity;
-    mode?: DeletionMode;
-    search?: string;
-    contractor?: string;
-    area?: string;
-    appointmentDate?: string;
-    status?: string;
-    deletionStatus?: 'all' | 'active' | 'soft_deleted';
-    page?: number;
-    pageSize?: number;
-  }
+  params: ListDeletionItemsParams
 ) {
   const page = Math.max(1, Number(params.page || 1));
   const pageSize = Math.min(100, Math.max(5, Number(params.pageSize || 25)));
-  const search = String(params.search || '').trim().toLowerCase();
+  const search = sanitizeTextQuery(params.search).toLowerCase();
+  const woNumberQ = sanitizeTextQuery(params.woNumber);
+  const customerIdQ = sanitizeTextQuery(params.customerId);
+  const customerNameQ = sanitizeTextQuery(params.customerName);
+  const recordIdQ = sanitizeTextQuery(params.recordIdQuery);
+  const summaryQ = sanitizeTextQuery(params.summaryQuery);
+  const actorQ = sanitizeTextQuery(params.actorQuery);
+  const contractorQ = sanitizeTextQuery(params.contractor);
+  const areaQ = sanitizeTextQuery(params.area);
+  const assignmentStatusQ = sanitizeTextQuery(params.assignmentStatus);
+  const exactDateQ = sanitizeDateOnly(params.appointmentDate);
+  const dateFromQ = sanitizeDateOnly(params.appointmentDateFrom);
+  const dateToQ = sanitizeDateOnly(params.appointmentDateTo);
+  const sortBy = params.sortBy === 'appointment_date' || params.sortBy === 'created_at' ? params.sortBy : 'default';
+  const sortDir: 'asc' | 'desc' = params.sortDir === 'asc' ? 'asc' : 'desc';
   const mode = params.mode || 'soft_delete';
-  const deletionStatusFilter = params.deletionStatus || (mode === 'restore' ? 'soft_deleted' : mode === 'soft_delete' ? 'active' : 'all');
+  const deletionStatusFilter =
+    params.deletionStatus || (mode === 'restore' ? 'soft_deleted' : mode === 'soft_delete' ? 'active' : 'all');
 
   if (!isCategoryAllowedForRole(params.actorRole, params.category, params.subEntity)) {
     throw Object.assign(new Error('Role Anda tidak diizinkan mengakses kategori penghapusan ini.'), {
@@ -813,152 +925,293 @@ export async function listDeletionItems(
   if (bridge.isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
+      // Server-side PostgreSQL filtering, sorting (NULLS LAST), and pagination BEFORE slicing
       if (params.category === 'work_orders') {
-        const { data, error } = await client
-          .from('work_orders')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(2000);
+        const buildWoQuery = (targetPage: number) => {
+          let q = client.from('work_orders').select('*', { count: 'exact' });
+          if (deletionStatusFilter === 'active') q = q.eq('is_deleted', false);
+          else if (deletionStatusFilter === 'soft_deleted') q = q.eq('is_deleted', true);
+
+          if (woNumberQ) {
+            const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(woNumberQ)}%`);
+            q = q.or(`wo_number.ilike.${pat},work_order_number.ilike.${pat}`);
+          }
+          if (customerIdQ) {
+            const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(customerIdQ)}%`);
+            q = q.or(`customer_id.ilike.${pat},id_customer.ilike.${pat}`);
+          }
+          if (customerNameQ) {
+            q = q.ilike('customer_name', `%${escapePostgrestIlike(customerNameQ)}%`);
+          }
+          if (contractorQ && contractorQ !== 'all') {
+            const val = quotePostgrestFilterVal(escapePostgrestIlike(contractorQ));
+            q = q.or(`contactor_name.ilike.${val},contractor_name.ilike.${val}`);
+          }
+          if (areaQ && areaQ !== 'all') {
+            q = q.ilike('area', escapePostgrestIlike(areaQ));
+          }
+          if (exactDateQ) {
+            q = q.eq('appointment_date', exactDateQ);
+          } else {
+            if (dateFromQ) q = q.gte('appointment_date', dateFromQ);
+            if (dateToQ) q = q.lte('appointment_date', dateToQ);
+          }
+          if (assignmentStatusQ && assignmentStatusQ !== 'all') {
+            const lowerAssign = assignmentStatusQ.toLowerCase();
+            if (lowerAssign === 'assigned') {
+              q = q.not('installer_name', 'is', null).neq('installer_name', '');
+            } else if (lowerAssign === 'unassigned') {
+              q = q.or('installer_name.is.null,installer_name.eq.');
+            } else {
+              q = q.ilike('status_wo_installer', `%${escapePostgrestIlike(assignmentStatusQ)}%`);
+            }
+          }
+          if (params.status && params.status !== 'all') {
+            const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(params.status)}%`);
+            q = q.or(`status_wo_installer.ilike.${pat},status_wo_agent.ilike.${pat}`);
+          }
+          if (search) {
+            const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
+            q = q.or(
+              `id.ilike.${pat},wo_number.ilike.${pat},customer_id.ilike.${pat},customer_name.ilike.${pat},contactor_name.ilike.${pat},area.ilike.${pat},installer_name.ilike.${pat}`
+            );
+          }
+
+          if (sortBy === 'appointment_date') {
+            q = q
+              .order('appointment_date', { ascending: sortDir === 'asc', nullsFirst: false })
+              .order('updated_at', { ascending: false })
+              .order('id', { ascending: true });
+          } else {
+            q = q.order('updated_at', { ascending: false }).order('id', { ascending: true });
+          }
+
+          const from = (targetPage - 1) * pageSize;
+          const to = from + pageSize - 1;
+          return q.range(from, to);
+        };
+
+        let { data, count, error } = await buildWoQuery(page);
         if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
-        rows = (data || []).map(postgresRowToTicket).map((t: any) => ({
-          id: t.id,
-          category: 'work_orders',
-          woNumber: t.woNumber,
-          customerId: t.idCustomer || t.customerId || '',
-          customerName: t.customerName || '',
-          appointmentDate: t.appointmentDate || '',
-          contractor: t.contactorName || t.contractorName || '',
-          area: t.area || '',
-          installerName: t.installerName || '',
-          assignmentStatus: t.installerName ? `Assigned (${t.installerName})` : (t.statusWOInstaller || 'Unassigned'),
-          statusWOAgent: t.statusWOAgent || '',
-          statusWOInstaller: t.statusWOInstaller || '',
-          isArchived: Boolean(t.isArchived),
-          isDeleted: Boolean(t.isDeleted),
-          deletedAt: t.deletedAt || null,
-          deletedBy: t.deletedBy || null,
-          deletionReason: t.deletionReason || null,
-          isProtected: isProtectedWorkOrder(t),
-          deletionStatus: t.isDeleted ? 'SOFT_DELETED' : t.isArchived ? 'ARCHIVED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(t)
-        }));
-      } else if (params.category === 'assignment_history') {
-        const { data } = await client.from('assignment_history').select('*').order('assigned_at', { ascending: false }).limit(1000);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'assignment_history',
-          woNumber: r.wo_number || '',
-          workOrderId: r.work_order_id || '',
-          installerName: r.installer_name || '',
-          assignedBy: r.assigned_by || '',
-          contractor: r.contractor_name || '',
-          area: r.area || '',
-          reason: r.reason || '',
-          createdAt: r.assigned_at || r.created_at,
-          isDeleted: Boolean(r.is_deleted),
-          deletedAt: r.deleted_at || null,
-          deletedBy: r.deleted_by || null,
-          deletionReason: r.deletion_reason || null,
-          deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
-      } else if (params.category === 'technical_reports') {
-        const { data } = await client.from('technical_reports').select('*').order('submitted_at', { ascending: false }).limit(1000);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'technical_reports',
-          woNumber: r.wo_number || '',
-          workOrderId: r.work_order_id || r.ticket_id || '',
-          installerName: r.installer_name || '',
-          statusInstaller: r.status_installer || '',
-          notes: r.notes || '',
-          createdAt: r.submitted_at || r.created_at,
-          isDeleted: Boolean(r.is_deleted),
-          deletedAt: r.deleted_at || null,
-          deletedBy: r.deleted_by || null,
-          deletionReason: r.deletion_reason || null,
-          deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
-      } else if (params.category === 'ticket_messages') {
-        const { data } = await client.from('ticket_messages').select('*').order('created_at', { ascending: false }).limit(1000);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'ticket_messages',
-          woNumber: r.wo_number || '',
-          ticketId: r.ticket_id || '',
-          senderName: r.sender_name || '',
-          senderRole: r.sender_role || '',
-          message: r.message || '',
-          createdAt: r.created_at,
-          isDeleted: Boolean(r.is_deleted),
-          deletedAt: r.deleted_at || null,
-          deletedBy: r.deleted_by || null,
-          deletionReason: r.deletion_reason || null,
-          deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
-      } else if (params.category === 'attachments') {
-        const { data } = await client.from('attachments').select('*').order('uploaded_at', { ascending: false }).limit(1000);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'attachments',
-          woNumber: r.wo_number || '',
-          workOrderId: r.work_order_id || r.ticket_id || '',
-          fileName: r.file_name || '',
-          fileType: r.file_type || '',
-          fileSize: r.file_size || 0,
-          storageProvider: r.storage_provider || '',
-          storagePath: r.storage_path || '',
-          senderName: r.sender_name || '',
-          createdAt: r.uploaded_at,
-          isDeleted: Boolean(r.is_deleted),
-          deletedAt: r.deleted_at || null,
-          deletedBy: r.deleted_by || null,
-          deletionReason: r.deletion_reason || null,
-          deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
-      } else if (params.category === 'import_history') {
-        const { data } = await client.from('import_history').select('*').order('created_at', { ascending: false }).limit(1000);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'import_history',
-          jobId: r.job_id || r.original_job_id || '',
-          importName: r.import_name || '',
-          sourceFile: r.source_file || '',
-          importedBy: r.imported_by || '',
-          totalRows: r.total_rows || 0,
-          successCount: r.success_count || 0,
-          duplicateCount: r.duplicate_count || 0,
-          failedCount: r.failed_count || 0,
-          status: r.status || '',
-          createdAt: r.created_at,
-          isDeleted: Boolean(r.is_deleted),
-          deletedAt: r.deleted_at || null,
-          deletedBy: r.deleted_by || null,
-          deletionReason: r.deletion_reason || null,
-          deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
-      } else if (params.category === 'import_staging') {
-        const { data } = await client.from('import_jobs').select('*').order('created_at', { ascending: false }).limit(500);
-        rows = (data || []).map((r: any) => ({
-          id: r.id,
-          category: 'import_staging',
-          importName: r.import_name || '',
-          sourceFile: r.source_file || '',
-          status: r.status || '',
-          totalRows: r.total_rows || 0,
-          stagedRows: r.staged_rows || 0,
-          processedRows: r.processed_rows || 0,
-          createdBy: r.created_by || '',
-          createdAt: r.created_at,
-          isLockedActive: ['staging', 'queued', 'processing'].includes(String(r.status || '').toLowerCase()),
-          isDeleted: false,
-          deletionStatus: ['staging', 'queued', 'processing'].includes(String(r.status || '').toLowerCase()) ? 'LOCKED_ACTIVE' : 'STAGED',
-          rawDetail: sanitizeDeletionPayload(r)
-        }));
+
+        const total = Number(count ?? (data ? data.length : 0));
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        let safePage = Math.min(page, totalPages);
+        if (safePage < page && total > 0) {
+          const retryRes = await buildWoQuery(safePage);
+          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          data = retryRes.data;
+        } else if (total === 0) {
+          safePage = 1;
+        }
+
+        return {
+          items: (data || []).map(mapPgWorkOrderToRow),
+          total,
+          page: safePage,
+          pageSize,
+          totalPages
+        };
+      } else if (
+        params.category === 'assignment_history' ||
+        params.category === 'technical_reports' ||
+        params.category === 'ticket_messages' ||
+        params.category === 'attachments' ||
+        params.category === 'import_history' ||
+        params.category === 'import_staging'
+      ) {
+        const tableCfg: Record<
+          string,
+          { table: string; dateCol: string; idCol: string; summaryCol: string; actorCol: string; hasIsDeleted: boolean; hasWo: boolean }
+        > = {
+          assignment_history: { table: 'assignment_history', dateCol: 'assigned_at', idCol: 'id', summaryCol: 'installer_name', actorCol: 'assigned_by', hasIsDeleted: true, hasWo: true },
+          technical_reports: { table: 'technical_reports', dateCol: 'submitted_at', idCol: 'id', summaryCol: 'notes', actorCol: 'installer_name', hasIsDeleted: true, hasWo: true },
+          ticket_messages: { table: 'ticket_messages', dateCol: 'created_at', idCol: 'id', summaryCol: 'message', actorCol: 'sender_name', hasIsDeleted: true, hasWo: true },
+          attachments: { table: 'attachments', dateCol: 'uploaded_at', idCol: 'id', summaryCol: 'file_name', actorCol: 'sender_name', hasIsDeleted: true, hasWo: true },
+          import_history: { table: 'import_history', dateCol: 'created_at', idCol: 'id', summaryCol: 'source_file', actorCol: 'imported_by', hasIsDeleted: true, hasWo: false },
+          import_staging: { table: 'import_jobs', dateCol: 'created_at', idCol: 'id', summaryCol: 'source_file', actorCol: 'created_by', hasIsDeleted: false, hasWo: false }
+        };
+        const cfg = tableCfg[params.category];
+
+        const buildCatQuery = (targetPage: number) => {
+          let q = client.from(cfg.table).select('*', { count: 'exact' });
+          if (cfg.hasIsDeleted) {
+            if (deletionStatusFilter === 'active') q = q.eq('is_deleted', false);
+            else if (deletionStatusFilter === 'soft_deleted') q = q.eq('is_deleted', true);
+          }
+          if (recordIdQ) {
+            q = q.ilike(cfg.idCol, `%${escapePostgrestIlike(recordIdQ)}%`);
+          }
+          if (woNumberQ) {
+            const pat = `%${escapePostgrestIlike(woNumberQ)}%`;
+            if (cfg.hasWo) q = q.ilike('wo_number', pat);
+            else q = q.ilike('import_name', pat);
+          }
+          if (summaryQ) {
+            q = q.ilike(cfg.summaryCol, `%${escapePostgrestIlike(summaryQ)}%`);
+          }
+          if (actorQ) {
+            q = q.ilike(cfg.actorCol, `%${escapePostgrestIlike(actorQ)}%`);
+          }
+          if (exactDateQ) {
+            q = q.gte(cfg.dateCol, `${exactDateQ}T00:00:00.000Z`).lte(cfg.dateCol, `${exactDateQ}T23:59:59.999Z`);
+          } else {
+            if (dateFromQ) q = q.gte(cfg.dateCol, `${dateFromQ}T00:00:00.000Z`);
+            if (dateToQ) q = q.lte(cfg.dateCol, `${dateToQ}T23:59:59.999Z`);
+          }
+          if (search) {
+            const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
+            const ors = [`${cfg.idCol}.ilike.${pat}`, `${cfg.summaryCol}.ilike.${pat}`, `${cfg.actorCol}.ilike.${pat}`];
+            if (cfg.hasWo) ors.push(`wo_number.ilike.${pat}`);
+            q = q.or(ors.join(','));
+          }
+
+          q = q
+            .order(cfg.dateCol, { ascending: sortBy === 'created_at' ? sortDir === 'asc' : false, nullsFirst: false })
+            .order('id', { ascending: true });
+
+          const from = (targetPage - 1) * pageSize;
+          return q.range(from, from + pageSize - 1);
+        };
+
+        let { data, count, error } = await buildCatQuery(page);
+        if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
+        const total = Number(count ?? (data ? data.length : 0));
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        let safePage = Math.min(page, totalPages);
+        if (safePage < page && total > 0) {
+          const retryRes = await buildCatQuery(safePage);
+          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          data = retryRes.data;
+        } else if (total === 0) {
+          safePage = 1;
+        }
+
+        const mapped = (data || []).map((r: any) => {
+          if (params.category === 'assignment_history') {
+            return {
+              id: r.id,
+              category: 'assignment_history',
+              woNumber: r.wo_number || '',
+              workOrderId: r.work_order_id || '',
+              installerName: r.installer_name || '',
+              assignedBy: r.assigned_by || '',
+              contractor: r.contractor_name || '',
+              area: r.area || '',
+              reason: r.reason || '',
+              createdAt: r.assigned_at || r.created_at,
+              isDeleted: Boolean(r.is_deleted),
+              deletedAt: r.deleted_at || null,
+              deletedBy: r.deleted_by || null,
+              deletionReason: r.deletion_reason || null,
+              deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
+              rawDetail: sanitizeDeletionPayload(r)
+            };
+          }
+          if (params.category === 'technical_reports') {
+            return {
+              id: r.id,
+              category: 'technical_reports',
+              woNumber: r.wo_number || '',
+              workOrderId: r.work_order_id || r.ticket_id || '',
+              installerName: r.installer_name || '',
+              statusInstaller: r.status_installer || '',
+              notes: r.notes || '',
+              createdAt: r.submitted_at || r.created_at,
+              isDeleted: Boolean(r.is_deleted),
+              deletedAt: r.deleted_at || null,
+              deletedBy: r.deleted_by || null,
+              deletionReason: r.deletion_reason || null,
+              deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
+              rawDetail: sanitizeDeletionPayload(r)
+            };
+          }
+          if (params.category === 'ticket_messages') {
+            return {
+              id: r.id,
+              category: 'ticket_messages',
+              woNumber: r.wo_number || '',
+              ticketId: r.ticket_id || '',
+              senderName: r.sender_name || '',
+              senderRole: r.sender_role || '',
+              message: r.message || '',
+              createdAt: r.created_at,
+              isDeleted: Boolean(r.is_deleted),
+              deletedAt: r.deleted_at || null,
+              deletedBy: r.deleted_by || null,
+              deletionReason: r.deletion_reason || null,
+              deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
+              rawDetail: sanitizeDeletionPayload(r)
+            };
+          }
+          if (params.category === 'attachments') {
+            return {
+              id: r.id,
+              category: 'attachments',
+              woNumber: r.wo_number || '',
+              workOrderId: r.work_order_id || r.ticket_id || '',
+              fileName: r.file_name || '',
+              fileType: r.file_type || '',
+              fileSize: r.file_size || 0,
+              storageProvider: r.storage_provider || '',
+              storagePath: r.storage_path || '',
+              senderName: r.sender_name || '',
+              createdAt: r.uploaded_at,
+              isDeleted: Boolean(r.is_deleted),
+              deletedAt: r.deleted_at || null,
+              deletedBy: r.deleted_by || null,
+              deletionReason: r.deletion_reason || null,
+              deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
+              rawDetail: sanitizeDeletionPayload(r)
+            };
+          }
+          if (params.category === 'import_history') {
+            return {
+              id: r.id,
+              category: 'import_history',
+              jobId: r.job_id || r.original_job_id || '',
+              importName: r.import_name || '',
+              sourceFile: r.source_file || '',
+              importedBy: r.imported_by || '',
+              totalRows: r.total_rows || 0,
+              successCount: r.success_count || 0,
+              duplicateCount: r.duplicate_count || 0,
+              failedCount: r.failed_count || 0,
+              status: r.status || '',
+              createdAt: r.created_at,
+              isDeleted: Boolean(r.is_deleted),
+              deletedAt: r.deleted_at || null,
+              deletedBy: r.deleted_by || null,
+              deletionReason: r.deletion_reason || null,
+              deletionStatus: r.is_deleted ? 'SOFT_DELETED' : 'ACTIVE',
+              rawDetail: sanitizeDeletionPayload(r)
+            };
+          }
+          return {
+            id: r.id,
+            category: 'import_staging',
+            importName: r.import_name || '',
+            sourceFile: r.source_file || '',
+            status: r.status || '',
+            totalRows: r.total_rows || 0,
+            stagedRows: r.staged_rows || 0,
+            processedRows: r.processed_rows || 0,
+            createdBy: r.created_by || '',
+            createdAt: r.created_at,
+            isLockedActive: ['staging', 'queued', 'processing'].includes(String(r.status || '').toLowerCase()),
+            isDeleted: false,
+            deletionStatus: ['staging', 'queued', 'processing'].includes(String(r.status || '').toLowerCase()) ? 'LOCKED_ACTIVE' : 'STAGED',
+            rawDetail: sanitizeDeletionPayload(r)
+          };
+        });
+
+        return {
+          items: mapped,
+          total,
+          page: safePage,
+          pageSize,
+          totalPages
+        };
       } else if (params.category === 'other_data') {
         const sub = params.subEntity || 'all';
         const items: any[] = [];
@@ -975,6 +1228,7 @@ export async function listDeletionItems(
               contractor: u.contractor_name || '',
               area: u.area || '',
               active: Boolean(u.active),
+              createdAt: u.created_at || null,
               isDeleted: Boolean(u.is_deleted),
               deletedAt: u.deleted_at || null,
               deletedBy: u.deleted_by || null,
@@ -993,6 +1247,7 @@ export async function listDeletionItems(
               subEntity: 'contractors',
               label: c.name,
               identifier: c.code || c.id,
+              createdAt: c.created_at || null,
               isDeleted: Boolean(c.is_deleted),
               deletedAt: c.deleted_at || null,
               deletedBy: c.deleted_by || null,
@@ -1011,6 +1266,7 @@ export async function listDeletionItems(
               subEntity: 'coverage_areas',
               label: a.name,
               identifier: a.id,
+              createdAt: a.created_at || null,
               isDeleted: Boolean(a.is_deleted),
               deletedAt: a.deleted_at || null,
               deletedBy: a.deleted_by || null,
@@ -1029,6 +1285,7 @@ export async function listDeletionItems(
               subEntity: 'wa_templates',
               label: t.name,
               identifier: t.category || t.id,
+              createdAt: t.created_at || null,
               isDeleted: Boolean(t.is_deleted),
               deletedAt: t.deleted_at || null,
               deletedBy: t.deleted_by || null,
@@ -1064,6 +1321,8 @@ export async function listDeletionItems(
         deletionReason: t.deletionReason || null,
         isProtected: isProtectedWorkOrder(t),
         deletionStatus: t.isDeleted ? 'SOFT_DELETED' : t.isArchived ? 'ARCHIVED' : 'ACTIVE',
+        updatedAt: t.updatedAt || t.createdAt || null,
+        createdAt: t.createdAt || null,
         rawDetail: sanitizeDeletionPayload(t)
       }));
     } else if (params.category === 'assignment_history') {
@@ -1192,6 +1451,7 @@ export async function listDeletionItems(
             contractor: u.contractor || '',
             area: u.area || '',
             active: u.active !== false,
+            createdAt: u.createdAt || null,
             isDeleted: Boolean(u.isDeleted),
             deletedAt: u.deletedAt || null,
             deletedBy: u.deletedBy || null,
@@ -1209,6 +1469,7 @@ export async function listDeletionItems(
             subEntity: 'contractors',
             label: c.name,
             identifier: c.code || c.id,
+            createdAt: c.createdAt || null,
             isDeleted: Boolean(c.isDeleted),
             deletedAt: c.deletedAt || null,
             deletedBy: c.deletedBy || null,
@@ -1226,6 +1487,7 @@ export async function listDeletionItems(
             subEntity: 'coverage_areas',
             label: a.name,
             identifier: a.id,
+            createdAt: a.createdAt || null,
             isDeleted: Boolean(a.isDeleted),
             deletedAt: a.deletedAt || null,
             deletedBy: a.deletedBy || null,
@@ -1243,6 +1505,7 @@ export async function listDeletionItems(
             subEntity: 'wa_templates',
             label: t.name,
             identifier: t.category || t.id,
+            createdAt: t.createdAt || null,
             isDeleted: Boolean(t.isDeleted),
             deletedAt: t.deletedAt || null,
             deletedBy: t.deletedBy || null,
@@ -1280,20 +1543,64 @@ export async function listDeletionItems(
     }
   }
 
-  // Filter rows
+  // Filter rows (Local JSON / test store & multi-table other_data)
   const filtered = rows.filter(r => {
     if (deletionStatusFilter === 'active' && r.isDeleted) return false;
     if (deletionStatusFilter === 'soft_deleted' && !r.isDeleted) return false;
 
-    if (params.contractor && params.contractor !== 'all') {
-      if (!String(r.contractor || '').toLowerCase().includes(params.contractor.toLowerCase())) return false;
+    if (woNumberQ) {
+      const woHay = String(r.woNumber || r.importName || '').toLowerCase();
+      if (!woHay.includes(woNumberQ.toLowerCase())) return false;
     }
-    if (params.area && params.area !== 'all') {
-      if (!String(r.area || '').toLowerCase().includes(params.area.toLowerCase())) return false;
+    if (customerIdQ) {
+      if (!String(r.customerId || '').toLowerCase().includes(customerIdQ.toLowerCase())) return false;
     }
-    if (params.appointmentDate) {
-      const d = String(r.appointmentDate || '').slice(0, 10);
-      if (d !== params.appointmentDate) return false;
+    if (customerNameQ) {
+      if (!String(r.customerName || '').toLowerCase().includes(customerNameQ.toLowerCase())) return false;
+    }
+    if (recordIdQ) {
+      if (!String(r.id || '').toLowerCase().includes(recordIdQ.toLowerCase())) return false;
+    }
+    if (summaryQ) {
+      const sumHay = [r.label, r.fileName, r.importName, r.sourceFile, r.message, r.notes, r.installerName]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!sumHay.includes(summaryQ.toLowerCase())) return false;
+    }
+    if (actorQ) {
+      const actHay = [r.senderName, r.importedBy, r.assignedBy, r.createdBy, r.role]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (!actHay.includes(actorQ.toLowerCase())) return false;
+    }
+    if (contractorQ && contractorQ !== 'all') {
+      if (String(r.contractor || '').trim().toLowerCase() !== contractorQ.trim().toLowerCase()) return false;
+    }
+    if (areaQ && areaQ !== 'all') {
+      if (String(r.area || '').trim().toLowerCase() !== areaQ.trim().toLowerCase()) return false;
+    }
+    if (assignmentStatusQ && assignmentStatusQ !== 'all') {
+      const lowerAssign = assignmentStatusQ.toLowerCase();
+      const hasInstaller = Boolean(String(r.installerName || '').trim());
+      if (lowerAssign === 'assigned') {
+        if (!hasInstaller) return false;
+      } else if (lowerAssign === 'unassigned') {
+        if (hasInstaller) return false;
+      } else {
+        const sVal = String(r.statusWOInstaller || r.assignmentStatus || '').toLowerCase();
+        if (!sVal.includes(lowerAssign)) return false;
+      }
+    }
+    if (exactDateQ) {
+      const d = String((params.category === 'work_orders' ? r.appointmentDate : r.createdAt) || '').slice(0, 10);
+      if (d !== exactDateQ) return false;
+    } else if (dateFromQ || dateToQ) {
+      const d = String((params.category === 'work_orders' ? r.appointmentDate : r.createdAt) || '').slice(0, 10);
+      if (!d) return false;
+      if (dateFromQ && d < dateFromQ) return false;
+      if (dateToQ && d > dateToQ) return false;
     }
     if (params.status && params.status !== 'all') {
       const sTarget = params.status.toLowerCase();
@@ -1327,10 +1634,24 @@ export async function listDeletionItems(
     return true;
   });
 
-  const total = filtered.length;
+  // Sort before pagination (NULLS LAST for appointment_date & created_at)
+  const sorted = filtered.slice().sort((a, b) => {
+    if (sortBy === 'appointment_date') {
+      return compareDatesNullsLast(a.appointmentDate, b.appointmentDate, sortDir, a.updatedAt || a.createdAt, b.updatedAt || b.createdAt, a.id, b.id);
+    }
+    if (sortBy === 'created_at') {
+      return compareDatesNullsLast(a.createdAt, b.createdAt, sortDir, a.updatedAt, b.updatedAt, a.id, b.id);
+    }
+    const ta = Date.parse(String(a.updatedAt || a.createdAt || '')) || 0;
+    const tb = Date.parse(String(b.updatedAt || b.createdAt || '')) || 0;
+    if (ta !== tb) return tb - ta;
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+
+  const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const items = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const items = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return {
     items,
@@ -1341,34 +1662,134 @@ export async function listDeletionItems(
   };
 }
 
+export async function getDeletionFacets(
+  bridge: LocalStoreBridge,
+  actorRole: string,
+  category: DeletionCategory
+): Promise<{
+  contractors: string[];
+  areas: string[];
+  assignmentStatuses: string[];
+}> {
+  if (!isCategoryAllowedForRole(actorRole, category)) {
+    return { contractors: [], areas: [], assignmentStatuses: [] };
+  }
+  const contractorSet = new Set<string>();
+  const areaSet = new Set<string>();
+  const statusSet = new Set<string>(['Assigned', 'Unassigned']);
+
+  if (bridge.isSupabaseMode()) {
+    const client = getSupabaseBackendClient();
+    if (client && category === 'work_orders') {
+      try {
+        const [cRes, aRes, woSampleRes] = await Promise.all([
+          client.from('contractors').select('name').limit(300),
+          client.from('coverage_areas').select('name').limit(300),
+          client.from('work_orders').select('contactor_name, contractor_name, area, status_wo_installer').limit(1000)
+        ]);
+        for (const r of cRes.data || []) {
+          const n = String(r?.name || '').trim();
+          if (n) contractorSet.add(n);
+        }
+        for (const r of aRes.data || []) {
+          const n = String(r?.name || '').trim();
+          if (n) areaSet.add(n);
+        }
+        for (const r of woSampleRes.data || []) {
+          const c = String(r?.contactor_name || r?.contractor_name || '').trim();
+          if (c) contractorSet.add(c);
+          const a = String(r?.area || '').trim();
+          if (a) areaSet.add(a);
+          const s = String(r?.status_wo_installer || '').trim();
+          if (s) statusSet.add(s);
+        }
+      } catch {
+        // return collected facets cleanly
+      }
+    }
+  } else {
+    ensureLocalCollections(bridge.db);
+    for (const c of bridge.db.contractors || []) {
+      const n = String(c?.name || '').trim();
+      if (n) contractorSet.add(n);
+    }
+    for (const a of bridge.db.coverageAreas || []) {
+      const n = String(a?.name || '').trim();
+      if (n) areaSet.add(n);
+    }
+    for (const t of bridge.db.tickets || []) {
+      const c = String(t?.contactorName || t?.contractorName || '').trim();
+      if (c) contractorSet.add(c);
+      const a = String(t?.area || '').trim();
+      if (a) areaSet.add(a);
+      const s = String(t?.statusWOInstaller || '').trim();
+      if (s) statusSet.add(s);
+    }
+  }
+
+  return {
+    contractors: Array.from(contractorSet).sort((a, b) => a.localeCompare(b)),
+    areas: Array.from(areaSet).sort((a, b) => a.localeCompare(b)),
+    assignmentStatuses: Array.from(statusSet).sort((a, b) => a.localeCompare(b))
+  };
+}
+
+export async function inspectWoDependenciesBatch(
+  bridge: LocalStoreBridge,
+  woIds: string[]
+): Promise<{
+  items: WoDependencySummary[];
+  blockedCount: number;
+  eligibleCount: number;
+}> {
+  const uniqueIds = Array.from(new Set(woIds.map(x => String(x || '').trim()).filter(Boolean))).slice(0, 100);
+  const items = await Promise.all(uniqueIds.map(id => inspectWoDependencies(bridge, id)));
+  const blockedCount = items.filter(d => !d.found || !d.canPermanentDelete).length;
+  const eligibleCount = items.filter(d => d.found && d.canPermanentDelete).length;
+  return { items, blockedCount, eligibleCount };
+}
+
 export async function listDeletionHistory(
   bridge: LocalStoreBridge,
   params: {
     search?: string;
+    txIdQuery?: string;
+    woOrRecordQuery?: string;
+    reasonQuery?: string;
     category?: string;
     deletionType?: string;
     actor?: string;
     status?: string;
     dateFrom?: string;
     dateTo?: string;
+    sortDir?: 'asc' | 'desc';
     page?: number;
     pageSize?: number;
   }
 ) {
   const page = Math.max(1, Number(params.page || 1));
   const pageSize = Math.min(100, Math.max(5, Number(params.pageSize || 25)));
-  const search = String(params.search || '').trim().toLowerCase();
+  const search = sanitizeTextQuery(params.search).toLowerCase();
+  const txIdQ = sanitizeTextQuery(params.txIdQuery).toLowerCase();
+  const woOrRecordQ = sanitizeTextQuery(params.woOrRecordQuery).toLowerCase();
+  const reasonQ = sanitizeTextQuery(params.reasonQuery).toLowerCase();
+  const actorQ = sanitizeTextQuery(params.actor);
+  const dateFromQ = sanitizeDateOnly(params.dateFrom);
+  const dateToQ = sanitizeDateOnly(params.dateTo);
+  const sortDir: 'asc' | 'desc' = params.sortDir === 'asc' ? 'asc' : 'desc';
 
   let logs: DeletionLogRecord[] = [];
   if (bridge.isSupabaseMode()) {
     const client = getSupabaseBackendClient();
     if (client) {
       try {
-        const { data, error } = await client
-          .from('deletion_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(2000);
+        let q = client.from('deletion_logs').select('*');
+        if (params.category && params.category !== 'all') q = q.eq('category', params.category);
+        if (params.deletionType && params.deletionType !== 'all') q = q.eq('deletion_type', params.deletionType);
+        if (params.status && params.status !== 'all') q = q.eq('status', params.status);
+        if (dateFromQ) q = q.gte('created_at', `${dateFromQ}T00:00:00.000Z`);
+        if (dateToQ) q = q.lte('created_at', `${dateToQ}T23:59:59.999Z`);
+        const { data, error } = await q.order('created_at', { ascending: sortDir === 'asc' }).limit(2000);
         if (!error && Array.isArray(data)) {
           logs = data.map((r: any) => ({
             id: r.id,
@@ -1407,16 +1828,28 @@ export async function listDeletionHistory(
     if (params.category && params.category !== 'all' && l.category !== params.category) return false;
     if (params.deletionType && params.deletionType !== 'all' && l.deletionType !== params.deletionType) return false;
     if (params.status && params.status !== 'all' && l.status !== params.status) return false;
-    if (params.actor && params.actor !== 'all') {
-      if (!String(l.actorName || '').toLowerCase().includes(params.actor.toLowerCase())) return false;
+    if (actorQ && actorQ !== 'all') {
+      const actHay = `${l.actorName || ''} ${l.actorRole || ''}`.toLowerCase();
+      if (!actHay.includes(actorQ.toLowerCase())) return false;
     }
-    if (params.dateFrom) {
-      const d = String(l.createdAt || '').slice(0, 10);
-      if (d < params.dateFrom) return false;
+    if (txIdQ) {
+      if (!String(l.transactionId || '').toLowerCase().includes(txIdQ)) return false;
     }
-    if (params.dateTo) {
+    if (woOrRecordQ) {
+      const hay = `${l.woNumber || ''} ${l.recordId || ''}`.toLowerCase();
+      if (!hay.includes(woOrRecordQ)) return false;
+    }
+    if (reasonQ) {
+      const hay = `${l.reason || ''} ${l.errorMessage || ''}`.toLowerCase();
+      if (!hay.includes(reasonQ)) return false;
+    }
+    if (dateFromQ) {
       const d = String(l.createdAt || '').slice(0, 10);
-      if (d > params.dateTo) return false;
+      if (!d || d < dateFromQ) return false;
+    }
+    if (dateToQ) {
+      const d = String(l.createdAt || '').slice(0, 10);
+      if (!d || d > dateToQ) return false;
     }
     if (search) {
       const hay = [l.transactionId, l.recordId, l.woNumber, l.actorName, l.actorRole, l.reason, l.errorMessage, l.sourceTable]
@@ -1428,11 +1861,15 @@ export async function listDeletionHistory(
     return true;
   });
 
-  const total = filtered.length;
+  const sorted = filtered.slice().sort((a, b) => compareDatesNullsLast(a.createdAt, b.createdAt, sortDir, a.createdAt, b.createdAt, a.id, b.id));
+
+  const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
+  const pageItems = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
   return {
-    items: filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
+    logs: pageItems,
+    items: pageItems,
     total,
     page: safePage,
     pageSize,
@@ -2484,6 +2921,167 @@ export async function executePermanentDelete(
   } finally {
     releaseRecordLock(lockKey, txId);
   }
+}
+
+export async function executePermanentDeleteBatch(
+  bridge: LocalStoreBridge,
+  actor: DeletionActor,
+  targets: DeletionTargetInput[],
+  confirmText: string,
+  reason: string
+): Promise<{
+  success: boolean;
+  transactionId: string;
+  code?: string;
+  error?: string;
+  succeeded: any[];
+  failed: Array<{ recordId: string; category: string; code: string; error: string }>;
+}> {
+  const batchTxId = makeTxId('tx_pdb');
+  if (actor.role !== 'super_admin') {
+    for (const t of targets.slice(0, 20)) {
+      await recordDeletionLog(bridge, {
+        transactionId: batchTxId,
+        deletionType: 'permanent_delete',
+        category: t.category,
+        sourceTable: resolveSourceTable(t.category, t.subEntity),
+        recordId: t.recordId,
+        actorUserId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        reason: String(reason || ''),
+        relatedCounts: {},
+        status: 'rejected',
+        errorMessage: 'FORBIDDEN_ROLE: Permanent delete batch hanya untuk Superadmin.'
+      });
+    }
+    return {
+      success: false,
+      transactionId: batchTxId,
+      code: 'FORBIDDEN_ROLE',
+      error: 'Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi HANYA untuk Superadmin.',
+      succeeded: [],
+      failed: targets.map(t => ({
+        recordId: t.recordId,
+        category: t.category,
+        code: 'FORBIDDEN_ROLE',
+        error: 'Hanya Superadmin yang dapat melakukan Permanent Delete.'
+      }))
+    };
+  }
+
+  const dedupedTargets: DeletionTargetInput[] = [];
+  const seen = new Set<string>();
+  for (const t of targets) {
+    const key = `${t.category}:${t.subEntity || 'main'}:${t.recordId}`;
+    if (!seen.has(key) && String(t.recordId || '').trim()) {
+      seen.add(key);
+      dedupedTargets.push(t);
+    }
+  }
+
+  if (dedupedTargets.length === 0) {
+    return {
+      success: false,
+      transactionId: batchTxId,
+      code: 'INVALID_TARGETS',
+      error: 'Pilih minimal satu record valid untuk dihapus permanen.',
+      succeeded: [],
+      failed: []
+    };
+  }
+
+  const cleanReason = String(reason || '').trim();
+  if (cleanReason.length < 5) {
+    return {
+      success: false,
+      transactionId: batchTxId,
+      code: 'INVALID_REASON',
+      error: 'Alasan penghapusan permanen wajib diisi minimal 5 karakter.',
+      succeeded: [],
+      failed: []
+    };
+  }
+
+  if (dedupedTargets.length === 1) {
+    const single = dedupedTargets[0];
+    const res = await executePermanentDelete(bridge, actor, single, confirmText, cleanReason);
+    if (!res.success) {
+      return {
+        success: false,
+        transactionId: res.transactionId || batchTxId,
+        code: res.code,
+        error: res.error,
+        succeeded: [],
+        failed: [
+          {
+            recordId: single.recordId,
+            category: single.category,
+            code: res.code || 'PERMANENT_DELETE_REJECTED',
+            error: res.error || 'Hapus permanen ditolak.'
+          }
+        ]
+      };
+    }
+    return {
+      success: true,
+      transactionId: res.transactionId || batchTxId,
+      succeeded: [res.data],
+      failed: []
+    };
+  }
+
+  const expectedBatchPhrase = `HAPUS PERMANEN ${dedupedTargets.length} DATA`;
+  if (String(confirmText || '').trim().toUpperCase() !== expectedBatchPhrase) {
+    return {
+      success: false,
+      transactionId: batchTxId,
+      code: 'CONFIRMATION_MISMATCH',
+      error: `Konfirmasi batch tidak cocok. Harap ketik persis "${expectedBatchPhrase}".`,
+      succeeded: [],
+      failed: []
+    };
+  }
+
+  const succeeded: any[] = [];
+  const failed: Array<{ recordId: string; category: string; code: string; error: string }> = [];
+
+  for (const target of dedupedTargets) {
+    let singleConfirm = target.recordId;
+    if (target.category === 'work_orders') {
+      const deps = await inspectWoDependencies(bridge, target.recordId);
+      if (!deps.found) {
+        failed.push({
+          recordId: target.recordId,
+          category: target.category,
+          code: 'NOT_FOUND',
+          error: `Work Order "${target.recordId}" tidak ditemukan.`
+        });
+        continue;
+      }
+      singleConfirm = deps.woNumber || deps.id;
+    }
+    const res = await executePermanentDelete(bridge, actor, target, singleConfirm, cleanReason);
+    if (res.success) {
+      succeeded.push(res.data || { deletedId: target.recordId });
+    } else {
+      failed.push({
+        recordId: target.recordId,
+        category: target.category,
+        code: res.code || 'PERMANENT_DELETE_REJECTED',
+        error: res.error || 'Gagal melakukan hapus permanen.'
+      });
+    }
+  }
+
+  return {
+    success: failed.length === 0 && succeeded.length > 0,
+    transactionId: batchTxId,
+    code: failed.length > 0 && succeeded.length === 0 ? failed[0].code : undefined,
+    error: failed.length > 0 && succeeded.length === 0 ? failed[0].error : undefined,
+    succeeded,
+    failed
+  };
 }
 
 export async function executeRestoreBatch(

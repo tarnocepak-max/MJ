@@ -245,11 +245,14 @@ import {
 import {
   ALL_DELETION_CATEGORIES,
   getCategoryCountsSummary,
+  getDeletionFacets,
   listDeletionItems,
   listDeletionHistory,
   inspectWoDependencies,
+  inspectWoDependenciesBatch,
   executeSoftDeleteBatch,
   executePermanentDelete,
+  executePermanentDeleteBatch,
   executeRestoreBatch,
   isCategoryAllowedForRole,
   recordDeletionLog,
@@ -18659,6 +18662,19 @@ export async function createExpressApp(options?: {
     }
   });
 
+  app.get('/api/deletion/facets', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const category = String(req.query.category || 'work_orders') as DeletionCategory;
+      if (!isValidCategory(category)) {
+        return res.status(400).json({ success: false, code: 'INVALID_CATEGORY', error: `Kategori "${category}" tidak dikenal.` });
+      }
+      const facets = await getDeletionFacets(deletionStoreBridge, req.user!.role, category);
+      return res.json({ success: true, facets });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat opsi dropdown filter.' });
+    }
+  });
+
   app.get('/api/deletion/items', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const category = String(req.query.category || 'work_orders') as DeletionCategory;
@@ -18667,6 +18683,9 @@ export async function createExpressApp(options?: {
       }
       const subEntity = String(req.query.subEntity || 'all') as DeletionSubEntity;
       const mode = String(req.query.mode || 'soft_delete') as DeletionMode;
+      const rawSortBy = String(req.query.sortBy || 'default');
+      const sortBy = rawSortBy === 'appointment_date' || rawSortBy === 'created_at' ? rawSortBy : 'default';
+      const sortDir = String(req.query.sortDir || 'desc') === 'asc' ? 'asc' : 'desc';
 
       const result = await listDeletionItems(deletionStoreBridge, {
         actorRole: req.user!.role,
@@ -18674,11 +18693,22 @@ export async function createExpressApp(options?: {
         subEntity,
         mode,
         search: String(req.query.search || ''),
+        woNumber: String(req.query.woNumber || ''),
+        customerId: String(req.query.customerId || ''),
+        customerName: String(req.query.customerName || ''),
         contractor: String(req.query.contractor || 'all'),
         area: String(req.query.area || 'all'),
+        assignmentStatus: String(req.query.assignmentStatus || 'all'),
         appointmentDate: String(req.query.appointmentDate || ''),
+        appointmentDateFrom: String(req.query.appointmentDateFrom || ''),
+        appointmentDateTo: String(req.query.appointmentDateTo || ''),
+        recordIdQuery: String(req.query.recordIdQuery || ''),
+        summaryQuery: String(req.query.summaryQuery || ''),
+        actorQuery: String(req.query.actorQuery || ''),
         status: String(req.query.status || 'all'),
         deletionStatus: (req.query.deletionStatus as any) || undefined,
+        sortBy,
+        sortDir,
         page: Number(req.query.page || 1),
         pageSize: Number(req.query.pageSize || 25)
       });
@@ -18690,6 +18720,57 @@ export async function createExpressApp(options?: {
         code: err?.code || 'LIST_DELETION_ITEMS_FAILED',
         error: err?.message || 'Gagal mengambil daftar data.'
       });
+    }
+  });
+
+  app.post('/api/deletion/dependencies/batch', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { category, recordIds } = req.body || {};
+      const cat = String(category || 'work_orders') as DeletionCategory;
+      if (!isValidCategory(cat)) {
+        return res.status(400).json({ success: false, code: 'INVALID_CATEGORY', error: 'Kategori tidak valid.' });
+      }
+      if (!isCategoryAllowedForRole(req.user!.role, cat)) {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_CATEGORY', error: 'Role Anda tidak berwenang memeriksa dependensi kategori ini.' });
+      }
+      const ids = Array.isArray(recordIds) ? recordIds.map((x: any) => String(x || '').trim()).filter(Boolean) : [];
+      if (ids.length === 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_PARAMS', error: 'Daftar recordIds kosong.' });
+      }
+      if (cat === 'work_orders') {
+        const batch = await inspectWoDependenciesBatch(deletionStoreBridge, ids);
+        return res.json({ success: true, ...batch });
+      }
+      return res.json({
+        success: true,
+        items: ids.map(id => ({
+          found: true,
+          id,
+          woNumber: '',
+          isDeleted: false,
+          isArchived: false,
+          isProtected: false,
+          activeImportLock: false,
+          counts: {
+            assignment_history: 0,
+            ticket_messages: 0,
+            technical_reports: 0,
+            attachments: 0,
+            wo_progress_report_history: 0,
+            wo_distribution_logs: 0,
+            wo_kendala_reports: 0,
+            wo_photo_evidence: 0
+          },
+          blockingTotal: 0,
+          canSoftDelete: cat !== 'import_staging',
+          canPermanentDelete: req.user!.role === 'super_admin',
+          blockingReasons: []
+        })),
+        blockedCount: 0,
+        eligibleCount: ids.length
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memeriksa dependensi batch.' });
     }
   });
 
@@ -18879,6 +18960,90 @@ export async function createExpressApp(options?: {
     }
   });
 
+  app.post('/api/deletion/permanent-delete-batch', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        logServerAudit(
+          'Access Denied (Permanent Delete Batch Superadmin Only)',
+          'rbac',
+          req.originalUrl,
+          `User ${req.user.name} (${req.user.role}) ditolak melakukan Permanent Delete Batch.`,
+          req.user
+        );
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          error: 'Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.'
+        });
+      }
+
+      const { category, subEntity, recordIds, targets, confirmText, reason } = req.body || {};
+      let resolvedTargets: DeletionTargetInput[] = [];
+      if (Array.isArray(targets) && targets.length > 0) {
+        resolvedTargets = targets
+          .filter((t: any) => t && isValidCategory(String(t.category || '')) && String(t.recordId || '').trim())
+          .map((t: any) => ({
+            category: t.category as DeletionCategory,
+            recordId: String(t.recordId).trim(),
+            subEntity: t.subEntity as DeletionSubEntity | undefined
+          }));
+      } else if (isValidCategory(String(category || '')) && Array.isArray(recordIds) && recordIds.length > 0) {
+        resolvedTargets = recordIds
+          .map((id: any) => String(id || '').trim())
+          .filter(Boolean)
+          .map(id => ({
+            category: category as DeletionCategory,
+            recordId: id,
+            subEntity: subEntity as DeletionSubEntity | undefined
+          }));
+      }
+
+      if (resolvedTargets.length === 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_TARGETS', error: 'Pilih minimal satu record valid untuk dihapus permanen.' });
+      }
+
+      const result = await executePermanentDeleteBatch(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        resolvedTargets,
+        String(confirmText || ''),
+        String(reason || '')
+      );
+
+      if (!result.success && result.succeeded.length === 0) {
+        const firstCode = result.code || result.failed[0]?.code || 'PERMANENT_DELETE_REJECTED';
+        const status =
+          firstCode === 'FORBIDDEN_ROLE' || firstCode === 'PROTECTED_RECORD'
+            ? 403
+            : firstCode === 'NOT_FOUND'
+            ? 404
+            : firstCode === 'HAS_BLOCKING_RELATIONS' || firstCode === 'CONCURRENT_DELETION_LOCKED' || firstCode === 'ACTIVE_IMPORT_IN_PROGRESS'
+            ? 409
+            : firstCode === 'TRANSACTION_ROLLED_BACK'
+            ? 500
+            : 400;
+        return res.status(status).json(result);
+      }
+
+      return res.json({
+        ...result,
+        message:
+          result.failed.length > 0
+            ? `Hapus permanen selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} ditolak/gagal.`
+            : `Berhasil menghapus permanen ${result.succeeded.length} data secara atomik.`
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        code: 'PERMANENT_DELETE_BATCH_ERROR',
+        error: err?.message || 'Gagal melakukan hapus permanen batch.'
+      });
+    }
+  });
+
   app.post('/api/deletion/restore', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user) {
@@ -18953,14 +19118,19 @@ export async function createExpressApp(options?: {
 
   app.get('/api/deletion/history', requireAuth, requireDeletionPortalAccess, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const sortDir = String(req.query.sortDir || 'desc') === 'asc' ? 'asc' : 'desc';
       const result = await listDeletionHistory(deletionStoreBridge, {
         search: String(req.query.search || ''),
+        txIdQuery: String(req.query.txIdQuery || ''),
+        woOrRecordQuery: String(req.query.woOrRecordQuery || ''),
+        reasonQuery: String(req.query.reasonQuery || ''),
         category: String(req.query.category || 'all'),
         deletionType: String(req.query.deletionType || 'all'),
         actor: String(req.query.actor || 'all'),
         status: String(req.query.status || 'all'),
         dateFrom: String(req.query.dateFrom || ''),
         dateTo: String(req.query.dateTo || ''),
+        sortDir,
         page: Number(req.query.page || 1),
         pageSize: Number(req.query.pageSize || 25)
       });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -9,23 +9,48 @@ import {
   DeletionNavContext,
   CategoryCountsSummaryMap,
   DeletionItemRow,
+  DeletionFacets,
   WoDependencySummary,
   DeletionLogRecord,
   fetchDeletionCategoriesSummary,
+  fetchDeletionFacets,
   fetchDeletionItems,
   inspectRecordDependencies,
+  inspectBatchDependencies,
   executeCentralizedSoftDelete,
   executeCentralizedPermanentDelete,
+  executeCentralizedPermanentDeleteBatch,
   executeCentralizedRestore,
   fetchDeletionHistory
 } from '../../services/deletionManagementService';
+import {
+  DeletionHeaderFilters,
+  DeletionHistoryHeaderFilters,
+  DeletionSortState,
+  countActiveDeletionFilters,
+  countActiveHistoryFilters,
+  createInitialDeletionFilters,
+  createInitialHistoryFilters,
+  cycleAppointmentDateSort,
+  cycleCreatedAtSort,
+  doesPermanentConfirmMatch,
+  getDefaultDeletionStatusForTab,
+  isRowSelectableForTab,
+  reconcileSelectionWithVisibleRows,
+  resolveExpectedPermanentConfirmText
+} from '../../utils/deletionTableHelpers';
+import {
+  HeaderSearchPopover,
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  CategoryOptionItem
+} from './DeletionTableHeaderControls';
 import {
   Trash2,
   ShieldAlert,
   ShieldCheck,
   RotateCcw,
   History,
-  Search,
   RefreshCw,
   Eye,
   AlertTriangle,
@@ -42,7 +67,8 @@ import {
   FolderCog,
   ChevronLeft,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 type ActiveTabMode = DeletionMode | 'history';
@@ -141,14 +167,19 @@ const DELETION_CATEGORIES: CategoryMeta[] = [
   }
 ];
 
-const SUB_ENTITY_OPTIONS: Array<{ id: DeletionSubEntity; label: string }> = [
-  { id: 'all', label: 'Semua Sub-Entitas' },
-  { id: 'users', label: 'Akun Pengguna (Users)' },
-  { id: 'contractors', label: 'Kontraktor / Vendor' },
-  { id: 'coverage_areas', label: 'Coverage Area' },
-  { id: 'wa_templates', label: 'Template WhatsApp' },
-  { id: 'droplist_items', label: 'Item Droplist' },
-  { id: 'chat_categories', label: 'Kategori LiveChat' }
+const SUB_ENTITY_OPTIONS: CategoryOptionItem[] = [
+  { value: 'users', label: 'Akun Pengguna (Users)' },
+  { value: 'contractors', label: 'Kontraktor / Vendor' },
+  { value: 'coverage_areas', label: 'Coverage Area' },
+  { value: 'wa_templates', label: 'Template WhatsApp' },
+  { value: 'droplist_items', label: 'Item Droplist' },
+  { value: 'chat_categories', label: 'Kategori LiveChat' }
+];
+
+const DELETION_STATUS_OPTIONS: CategoryOptionItem[] = [
+  { value: 'active', label: 'Aktif' },
+  { value: 'soft_deleted', label: 'Soft Deleted' },
+  { value: 'all', label: 'Semua Status' }
 ];
 
 interface DataDeletionManagementViewProps {
@@ -189,50 +220,38 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     if (!isSuperAdmin && reqCat !== 'work_orders') return 'work_orders';
     return reqCat;
   });
-  const [selectedSubEntity, setSelectedSubEntity] = useState<DeletionSubEntity>(
-    initialContext?.subEntity || 'all'
-  );
 
-  // Sync deep-link context when triggered externally
-  useEffect(() => {
-    if (!initialContext) return;
-    if (initialContext.category && (isSuperAdmin || initialContext.category === 'work_orders')) {
-      setSelectedCategory(initialContext.category);
-    }
-    if (initialContext.subEntity) {
-      setSelectedSubEntity(initialContext.subEntity);
-    }
-    if (initialContext.mode) {
-      if (isSuperAdmin || initialContext.mode === 'soft_delete') {
-        setActiveTab(initialContext.mode);
-      }
-    }
-    if (typeof initialContext.search === 'string') {
-      setSearch(initialContext.search);
-    }
-    setPage(1);
-    setSelectedIds([]);
-  }, [initialContext, isSuperAdmin]);
+  const operationalMode: DeletionMode = activeTab === 'history' ? 'soft_delete' : activeTab;
 
-  // Ensure import_staging switches away from unsupported soft_delete/restore tab
-  useEffect(() => {
-    if (selectedCategory === 'import_staging' && (activeTab === 'soft_delete' || activeTab === 'restore')) {
-      setActiveTab('permanent_delete');
-    }
-  }, [selectedCategory, activeTab]);
-
-  // Filters & Pagination
-  const [search, setSearch] = useState(initialContext?.search || '');
-  const [debouncedSearch, setDebouncedSearch] = useState(initialContext?.search || '');
-  const [contractorFilter, setContractorFilter] = useState('all');
-  const [areaFilter, setAreaFilter] = useState('all');
-  const [appointmentDateFilter, setAppointmentDateFilter] = useState('');
-  const [deletionStatusFilter, setDeletionStatusFilter] = useState<'all' | 'active' | 'soft_deleted'>('active');
+  // Header-embedded filter & sort state (zero external filter panels)
+  const [filters, setFilters] = useState<DeletionHeaderFilters>(() => ({
+    ...createInitialDeletionFilters(
+      initialContext?.mode && (isSuperAdmin || initialContext.mode === 'soft_delete')
+        ? initialContext.mode
+        : 'soft_delete',
+      initialContext?.search || ''
+    ),
+    subEntity: initialContext?.subEntity || 'all'
+  }));
+  const [debouncedFilters, setDebouncedFilters] = useState<DeletionHeaderFilters>(filters);
+  const [sortState, setSortState] = useState<DeletionSortState>({ by: 'default', dir: 'desc' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  // History header-embedded filters
+  const [historyFilters, setHistoryFilters] = useState<DeletionHistoryHeaderFilters>(() =>
+    createInitialHistoryFilters()
+  );
+  const [debouncedHistoryFilters, setDebouncedHistoryFilters] = useState<DeletionHistoryHeaderFilters>(historyFilters);
+  const [historyPage, setHistoryPage] = useState(1);
+
   // Data state
   const [summary, setSummary] = useState<CategoryCountsSummaryMap | null>(null);
+  const [facets, setFacets] = useState<DeletionFacets>({
+    contractors: [],
+    areas: [],
+    assignmentStatuses: ['Assigned', 'Unassigned']
+  });
   const [items, setItems] = useState<DeletionItemRow[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -240,20 +259,13 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // History filters & data
+  // History data state
   const [historyLogs, setHistoryLogs] = useState<DeletionLogRecord[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historySearch, setHistorySearch] = useState('');
-  const [historyCategoryFilter, setHistoryCategoryFilter] = useState('all');
-  const [historyTypeFilter, setHistoryTypeFilter] = useState('all');
-  const [historyStatusFilter, setHistoryStatusFilter] = useState('all');
-  const [historyDateFrom, setHistoryDateFrom] = useState('');
-  const [historyDateTo, setHistoryDateTo] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Modals: Detail, Action Confirmation (Soft Delete / Permanent Delete / Restore)
+  // Detail & Action Confirmation Modals
   const [detailItem, setDetailItem] = useState<DeletionItemRow | null>(null);
   const [detailDeps, setDetailDeps] = useState<WoDependencySummary | null>(null);
   const [isLoadingDetailDeps, setIsLoadingDetailDeps] = useState(false);
@@ -265,32 +277,105 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   }>({ open: false, mode: 'soft_delete', targets: [] });
   const [actionReason, setActionReason] = useState('');
   const [permanentConfirmText, setPermanentConfirmText] = useState('');
-  const [actionDeps, setActionDeps] = useState<WoDependencySummary | null>(null);
+  const [actionBatchDeps, setActionBatchDeps] = useState<{
+    items: WoDependencySummary[];
+    blockedCount: number;
+    eligibleCount: number;
+  } | null>(null);
   const [isLoadingActionDeps, setIsLoadingActionDeps] = useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [actionProgressText, setActionProgressText] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Debounce search input
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 250);
-    return () => window.clearTimeout(t);
-  }, [search]);
+  const itemsReqSeq = useRef(0);
 
-  // Adjust default deletionStatus filter per tab
+  // Sync deep-link context when triggered externally
   useEffect(() => {
-    if (activeTab === 'soft_delete') {
-      setDeletionStatusFilter('active');
-    } else if (activeTab === 'restore') {
-      setDeletionStatusFilter('soft_deleted');
-    } else if (activeTab === 'permanent_delete') {
-      setDeletionStatusFilter('all');
+    if (!initialContext) return;
+    if (initialContext.category && (isSuperAdmin || initialContext.category === 'work_orders')) {
+      setSelectedCategory(initialContext.category);
+    }
+    const nextMode: DeletionMode =
+      initialContext.mode && (isSuperAdmin || initialContext.mode === 'soft_delete')
+        ? initialContext.mode
+        : 'soft_delete';
+    if (initialContext.mode) {
+      setActiveTab(nextMode);
+    }
+    setFilters(prev => ({
+      ...prev,
+      subEntity: initialContext.subEntity || prev.subEntity,
+      woNumber: typeof initialContext.search === 'string' ? initialContext.search : prev.woNumber,
+      deletionStatus: getDefaultDeletionStatusForTab(nextMode)
+    }));
+    setPage(1);
+    setSelectedIds([]);
+  }, [initialContext, isSuperAdmin]);
+
+  // Ensure import_staging switches away from unsupported soft_delete/restore tab
+  useEffect(() => {
+    if (selectedCategory === 'import_staging' && (activeTab === 'soft_delete' || activeTab === 'restore')) {
+      setActiveTab('permanent_delete');
+    }
+  }, [selectedCategory, activeTab]);
+
+  // Debounce operational table header filters (250ms for text inputs)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [filters]);
+
+  // Debounce history table header filters (250ms)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedHistoryFilters(historyFilters);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [historyFilters]);
+
+  const updateFilter = useCallback(<K extends keyof DeletionHeaderFilters>(key: K, val: DeletionHeaderFilters[K]) => {
+    setFilters(prev => ({ ...prev, [key]: val }));
+    setPage(1);
+  }, []);
+
+  const updateHistoryFilter = useCallback(
+    <K extends keyof DeletionHistoryHeaderFilters>(key: K, val: DeletionHistoryHeaderFilters[K]) => {
+      setHistoryFilters(prev => ({ ...prev, [key]: val }));
+      setHistoryPage(1);
+    },
+    []
+  );
+
+  const handleTabChange = (nextTab: ActiveTabMode) => {
+    setActiveTab(nextTab);
+    if (nextTab !== 'history') {
+      setFilters(prev => ({
+        ...prev,
+        deletionStatus: getDefaultDeletionStatusForTab(nextTab)
+      }));
     }
     setSelectedIds([]);
     setPage(1);
-  }, [activeTab]);
+    setHistoryPage(1);
+  };
+
+  const handleResetAllFilters = () => {
+    const nextFilters = createInitialDeletionFilters(operationalMode);
+    setFilters(nextFilters);
+    setDebouncedFilters(nextFilters);
+    setSortState({ by: 'default', dir: 'desc' });
+    setPage(1);
+    setSelectedIds([]);
+  };
+
+  const handleResetHistoryFilters = () => {
+    const next = createInitialHistoryFilters();
+    setHistoryFilters(next);
+    setDebouncedHistoryFilters(next);
+    setHistoryPage(1);
+  };
 
   const loadSummary = useCallback(async () => {
     if (!hasAccess) return;
@@ -300,63 +385,85 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     }
   }, [hasAccess]);
 
+  const loadFacets = useCallback(async () => {
+    if (!hasAccess || selectedCategory !== 'work_orders') return;
+    const res = await fetchDeletionFacets('work_orders');
+    if (res.success && res.facets) {
+      setFacets(res.facets);
+    }
+  }, [hasAccess, selectedCategory]);
+
   const loadItems = useCallback(async () => {
     if (!hasAccess || activeTab === 'history') return;
+    const seq = ++itemsReqSeq.current;
     setIsLoading(true);
     setLoadError(null);
     try {
       const res = await fetchDeletionItems({
         category: selectedCategory,
-        subEntity: selectedCategory === 'other_data' ? selectedSubEntity : undefined,
+        subEntity: selectedCategory === 'other_data' ? debouncedFilters.subEntity : undefined,
         mode: activeTab,
-        search: debouncedSearch,
-        contractor: contractorFilter,
-        area: areaFilter,
-        appointmentDate: appointmentDateFilter,
-        deletionStatus: deletionStatusFilter,
+        woNumber: debouncedFilters.woNumber,
+        customerId: debouncedFilters.customerId,
+        customerName: debouncedFilters.customerName,
+        contractor: debouncedFilters.contractor,
+        area: debouncedFilters.area,
+        assignmentStatus: debouncedFilters.assignmentStatus,
+        appointmentDate: debouncedFilters.appointmentDate,
+        appointmentDateFrom: debouncedFilters.appointmentDateFrom,
+        appointmentDateTo: debouncedFilters.appointmentDateTo,
+        recordIdQuery: debouncedFilters.recordIdQuery,
+        summaryQuery: debouncedFilters.summaryQuery,
+        actorQuery: debouncedFilters.actorQuery,
+        deletionStatus: debouncedFilters.deletionStatus,
+        sortBy: sortState.by,
+        sortDir: sortState.dir,
         page,
         pageSize
       });
+      if (seq !== itemsReqSeq.current) return;
       if (!res.success) {
         setLoadError(res.error || 'Gagal memuat daftar data.');
         setItems([]);
         setTotalItems(0);
         setTotalPages(1);
+        setSelectedIds([]);
       } else {
-        setItems(res.items || []);
+        const nextItems = res.items || [];
+        setItems(nextItems);
         setTotalItems(res.total || 0);
         setTotalPages(res.totalPages || 1);
+        if (res.page && res.page !== page) {
+          setPage(res.page);
+        }
+        // Reconcile selection so rows hidden by filters/page can never stay selected
+        setSelectedIds(prev => reconcileSelectionWithVisibleRows(prev, nextItems, activeTab, isSuperAdmin));
       }
     } catch (err: any) {
+      if (seq !== itemsReqSeq.current) return;
       setLoadError(err?.message || 'Gagal menghubungi server.');
     } finally {
-      setIsLoading(false);
+      if (seq === itemsReqSeq.current) {
+        setIsLoading(false);
+      }
     }
-  }, [
-    hasAccess,
-    activeTab,
-    selectedCategory,
-    selectedSubEntity,
-    debouncedSearch,
-    contractorFilter,
-    areaFilter,
-    appointmentDateFilter,
-    deletionStatusFilter,
-    page,
-    pageSize
-  ]);
+  }, [hasAccess, activeTab, selectedCategory, debouncedFilters, sortState, page, pageSize, isSuperAdmin]);
 
   const loadHistory = useCallback(async () => {
     if (!hasAccess || activeTab !== 'history') return;
     setIsLoadingHistory(true);
     try {
       const res = await fetchDeletionHistory({
-        search: historySearch,
-        category: historyCategoryFilter,
-        deletionType: historyTypeFilter,
-        status: historyStatusFilter,
-        dateFrom: historyDateFrom,
-        dateTo: historyDateTo,
+        txIdQuery: debouncedHistoryFilters.txIdQuery,
+        woOrRecordQuery: debouncedHistoryFilters.woOrRecordQuery,
+        actor: debouncedHistoryFilters.actor || 'all',
+        reasonQuery: debouncedHistoryFilters.reasonQuery,
+        category: debouncedHistoryFilters.category,
+        deletionType: debouncedHistoryFilters.deletionType,
+        status: debouncedHistoryFilters.status,
+        dateFrom: debouncedHistoryFilters.dateFrom,
+        dateTo: debouncedHistoryFilters.dateTo,
+        sortDir: debouncedHistoryFilters.sortDir,
         page: historyPage,
         pageSize: 25
       });
@@ -370,22 +477,15 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [
-    hasAccess,
-    activeTab,
-    historySearch,
-    historyCategoryFilter,
-    historyTypeFilter,
-    historyStatusFilter,
-    historyDateFrom,
-    historyDateTo,
-    historyPage,
-    toast
-  ]);
+  }, [hasAccess, activeTab, debouncedHistoryFilters, historyPage, toast]);
 
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    void loadFacets();
+  }, [loadFacets]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -394,6 +494,36 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       void loadItems();
     }
   }, [activeTab, loadItems, loadHistory]);
+
+  // Merged category dropdown options from real DB facets + AppContext master data
+  const contractorOptions: CategoryOptionItem[] = useMemo(() => {
+    const set = new Set<string>(facets.contractors || []);
+    for (const c of contractors || []) {
+      const n = String(c?.name || '').trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map(name => ({ value: name, label: name }));
+  }, [facets.contractors, contractors]);
+
+  const areaOptions: CategoryOptionItem[] = useMemo(() => {
+    const set = new Set<string>(facets.areas || []);
+    for (const a of coverageAreas || []) {
+      const n = String(a?.name || '').trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map(name => ({ value: name, label: name }));
+  }, [facets.areas, coverageAreas]);
+
+  const assignmentStatusOptions: CategoryOptionItem[] = useMemo(() => {
+    const set = new Set<string>(facets.assignmentStatuses || ['Assigned', 'Unassigned']);
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map(s => ({ value: s, label: s }));
+  }, [facets.assignmentStatuses]);
 
   const handleOpenDetail = async (row: DeletionItemRow) => {
     setDetailItem(row);
@@ -413,25 +543,63 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
 
   const handleOpenActionModal = async (mode: DeletionMode, targets: DeletionItemRow[]) => {
     if (targets.length === 0) return;
+    if ((mode === 'permanent_delete' || mode === 'restore') && !isSuperAdmin) return;
+
     setActionModal({ open: true, mode, targets });
     setActionReason(mode === 'restore' ? 'Pemulihan data melalui Data Deletion Management' : '');
     setPermanentConfirmText('');
     setActionError(null);
-    setActionDeps(null);
+    setActionProgressText(null);
+    setActionBatchDeps(null);
 
-    if (targets.length === 1 && targets[0].category === 'work_orders') {
+    if (targets[0].category === 'work_orders') {
       setIsLoadingActionDeps(true);
       try {
-        const res = await inspectRecordDependencies('work_orders', targets[0].id);
-        if (res.success && res.dependencies) {
-          setActionDeps(res.dependencies);
-        } else if (res.error) {
-          setActionError(res.error);
+        if (targets.length === 1) {
+          const res = await inspectRecordDependencies('work_orders', targets[0].id);
+          if (res.success && res.dependencies) {
+            setActionBatchDeps({
+              items: [res.dependencies],
+              blockedCount: res.dependencies.canPermanentDelete ? 0 : 1,
+              eligibleCount: res.dependencies.canPermanentDelete ? 1 : 0
+            });
+          } else if (res.error) {
+            setActionError(res.error);
+          }
+        } else {
+          const res = await inspectBatchDependencies(
+            'work_orders',
+            targets.map(t => t.id)
+          );
+          if (res.success) {
+            setActionBatchDeps({
+              items: res.items,
+              blockedCount: res.blockedCount,
+              eligibleCount: res.eligibleCount
+            });
+          } else if (res.error) {
+            setActionError(res.error);
+          }
         }
       } finally {
         setIsLoadingActionDeps(false);
       }
     }
+  };
+
+  const handleExcludeBlockedFromModal = () => {
+    if (!actionBatchDeps) return;
+    const eligibleIds = new Set(actionBatchDeps.items.filter(d => d.found && d.canPermanentDelete).map(d => d.id));
+    const nextTargets = actionModal.targets.filter(t => eligibleIds.has(t.id));
+    const nextDeps = actionBatchDeps.items.filter(d => eligibleIds.has(d.id));
+    setActionModal(prev => ({ ...prev, targets: nextTargets }));
+    setActionBatchDeps({
+      items: nextDeps,
+      blockedCount: 0,
+      eligibleCount: nextDeps.length
+    });
+    setPermanentConfirmText('');
+    setActionError(null);
   };
 
   const handleConfirmAction = async () => {
@@ -446,28 +614,31 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     }
 
     if (mode === 'permanent_delete') {
-      if (targets.length !== 1) {
-        setActionError('Hapus permanen hanya boleh dieksekusi satu record per transaksi.');
+      if (!isSuperAdmin) {
+        setActionError('Akses Ditolak: Hapus permanen hanya untuk Superadmin.');
         return;
       }
-      const t = targets[0];
-      const expectedText = t.category === 'work_orders' ? String(t.woNumber || t.id) : String(t.id);
-      if (t.category === 'work_orders') {
-        if (permanentConfirmText.trim().toUpperCase() !== expectedText.trim().toUpperCase()) {
-          setActionError(`Ketik persis WO Number "${expectedText}" untuk melanjutkan hapus permanen.`);
-          return;
-        }
-      } else if (!permanentConfirmText.trim()) {
-        setActionError(`Ketik persis ID "${expectedText}" untuk konfirmasi hapus permanen.`);
+      if (actionBatchDeps && actionBatchDeps.blockedCount > 0) {
+        setActionError('Terdapat record dengan relasi historis aktif (Zero-Cascade). Keluarkan item terblokir atau gunakan Soft Delete.');
         return;
-      } else if (permanentConfirmText.trim() !== expectedText.trim() && permanentConfirmText.trim() !== String(t.label || '').trim()) {
-        setActionError(`Konfirmasi teks tidak cocok. Ketik "${expectedText}".`);
+      }
+      const expectedText = resolveExpectedPermanentConfirmText(targets);
+      if (!doesPermanentConfirmMatch(targets, permanentConfirmText)) {
+        setActionError(`Konfirmasi teks tidak cocok. Harap ketik persis "${expectedText}".`);
         return;
       }
     }
 
     setIsSubmittingAction(true);
     setActionError(null);
+    setActionProgressText(
+      mode === 'permanent_delete'
+        ? `Memproses hapus permanen ${targets.length} data secara atomik...`
+        : mode === 'restore'
+        ? `Memulihkan ${targets.length} data...`
+        : `Memproses soft delete ${targets.length} data...`
+    );
+
     try {
       if (mode === 'soft_delete') {
         const res = await executeCentralizedSoftDelete({
@@ -494,19 +665,46 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
           );
         }
       } else if (mode === 'permanent_delete') {
-        const t = targets[0];
-        const res = await executeCentralizedPermanentDelete({
-          category: t.category,
-          subEntity: t.subEntity,
-          recordId: t.id,
-          confirmText: permanentConfirmText.trim(),
-          reason: cleanReason
-        });
-        if (!res.success) {
-          setActionError(res.error || 'Hapus permanen ditolak oleh server.');
-          return;
+        if (targets.length === 1) {
+          const t = targets[0];
+          const res = await executeCentralizedPermanentDelete({
+            category: t.category,
+            subEntity: t.subEntity,
+            recordId: t.id,
+            confirmText: permanentConfirmText.trim(),
+            reason: cleanReason
+          });
+          if (!res.success) {
+            setActionError(res.error || 'Hapus permanen ditolak oleh server.');
+            return;
+          }
+          toast.success(res.message || 'Data berhasil dihapus permanen.', 'Hapus Permanen Berhasil');
+        } else {
+          const res = await executeCentralizedPermanentDeleteBatch({
+            targets: targets.map(t => ({
+              category: t.category,
+              recordId: t.id,
+              subEntity: t.subEntity
+            })),
+            confirmText: permanentConfirmText.trim(),
+            reason: cleanReason
+          });
+          if (!res.success && (!res.succeeded || res.succeeded.length === 0)) {
+            setActionError(res.error || 'Hapus permanen batch ditolak oleh server.');
+            return;
+          }
+          if (res.failed && res.failed.length > 0) {
+            toast.warning(
+              `Hapus permanen selesai parsial: ${res.succeeded?.length || 0} berhasil, ${res.failed.length} gagal (${res.failed[0].error}).`,
+              'Hapus Permanen Parsial'
+            );
+          } else {
+            toast.success(
+              res.message || `Berhasil menghapus permanen ${targets.length} data.`,
+              'Hapus Permanen Berhasil'
+            );
+          }
         }
-        toast.success(res.message || 'Data berhasil dihapus permanen.', 'Hapus Permanen Berhasil');
       } else if (mode === 'restore') {
         const res = await executeCentralizedRestore({
           targets: targets.map(t => ({
@@ -536,7 +734,6 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       setActionModal({ open: false, mode: 'soft_delete', targets: [] });
       setSelectedIds([]);
       await Promise.all([loadSummary(), loadItems()]);
-      // Synchronize global AppContext state with authoritative database
       await Promise.allSettled([
         refreshDatabaseData(),
         refreshActiveTickets(),
@@ -546,6 +743,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       setActionError(err?.message || 'Terjadi kesalahan saat memproses permintaan.');
     } finally {
       setIsSubmittingAction(false);
+      setActionProgressText(null);
     }
   };
 
@@ -553,14 +751,10 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   };
 
-  const selectableItems = useMemo(() => {
-    return items.filter(item => {
-      if (item.isProtected || item.isLockedActive) return false;
-      if (activeTab === 'soft_delete') return !item.isDeleted;
-      if (activeTab === 'restore') return item.isDeleted;
-      return false;
-    });
-  }, [items, activeTab]);
+  const selectableItems = useMemo(
+    () => items.filter(item => isRowSelectableForTab(item, operationalMode, isSuperAdmin)),
+    [items, operationalMode, isSuperAdmin]
+  );
 
   const allSelectableChecked =
     selectableItems.length > 0 && selectableItems.every(item => selectedIds.includes(item.id));
@@ -576,6 +770,16 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const selectedRows = useMemo(
     () => items.filter(i => selectedIds.includes(i.id)),
     [items, selectedIds]
+  );
+
+  const activeFilterCount = useMemo(
+    () => countActiveDeletionFilters(filters, sortState, operationalMode),
+    [filters, sortState, operationalMode]
+  );
+
+  const activeHistoryFilterCount = useMemo(
+    () => countActiveHistoryFilters(historyFilters),
+    [historyFilters]
   );
 
   if (!hasAccess) {
@@ -633,21 +837,21 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     );
   };
 
+  const singleActionDeps = actionBatchDeps?.items.length === 1 ? actionBatchDeps.items[0] : null;
+  const expectedPermanentPhrase = resolveExpectedPermanentConfirmText(actionModal.targets);
+
   return (
-    <div className="space-y-5" data-testid="data-deletion-management-view">
-      {/* Header Banner */}
-      <div className="p-5 rounded-2xl bg-gradient-to-br from-[#F3F8FC] via-[#EAE8FF] to-[#D8F0F0] border border-[#C5BEEF] text-[#26394E] shadow-md dark:from-[#160D29] dark:via-[#27104A] dark:to-[#1A0D36] dark:border-[#4A2580] dark:text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4" data-testid="data-deletion-management-view">
+      {/* Compact Header Banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#F3F8FC] via-[#EAE8FF] to-[#D8F0F0] border border-[#C5BEEF] text-[#26394E] shadow-md dark:from-[#160D29] dark:via-[#27104A] dark:to-[#1A0D36] dark:border-[#4A2580] dark:text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E] dark:border-[#7135B5]/60 dark:text-[#E8DDFF] text-[10.5px] font-extrabold uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/85 border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E] dark:border-[#7135B5]/60 dark:text-[#E8DDFF] text-[10.5px] font-extrabold uppercase tracking-wider mb-1.5">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Database Application · Centralized Deletion Control</span>
+            <span>Database Application · Data Deletion</span>
           </div>
-          <h2 className="text-xl font-display font-black tracking-tight text-[#26394E] dark:text-white">
+          <h2 className="text-lg sm:text-xl font-display font-black tracking-tight text-[#26394E] dark:text-white">
             Database Deletion Management
           </h2>
-          <p className="text-xs text-[#52647A] dark:text-[#D9CCF2] mt-1 max-w-2xl">
-            Pusat kendali tunggal untuk Soft Delete, Hapus Permanen (Superadmin), Pemulihan Data (Restore), pemeriksaan dependensi FK, dan Audit Log Penghapusan.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -655,18 +859,19 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
             type="button"
             onClick={() => {
               void loadSummary();
+              void loadFacets();
               if (activeTab === 'history') void loadHistory();
               else void loadItems();
             }}
             disabled={isLoading || isLoadingHistory}
-            className="btn-3d-lilac px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="btn-3d-lilac px-3.5 py-2 min-h-[36px] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${(isLoading || isLoadingHistory) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingHistory ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <span className="px-3 py-1.5 rounded-xl bg-white/90 border border-[#C5BEEF] text-[#5145A6] dark:bg-[#35105E] dark:border-[#7135B5]/60 dark:text-[#E8DDFF] text-xs font-bold flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4" />
-            <span>{isSuperAdmin ? 'Superadmin (Full Control)' : 'Dispatch (WO Soft Delete)'}</span>
+            <span>{isSuperAdmin ? 'Superadmin' : 'Dispatch (WO Soft Delete)'}</span>
           </span>
         </div>
       </div>
@@ -674,30 +879,10 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       {/* 4 Main Operational Tabs */}
       <div className="mj-tactile-tab-bar p-1.5 rounded-2xl flex items-center gap-1.5 overflow-x-auto no-scrollbar" role="tablist">
         {[
-          {
-            id: 'soft_delete' as ActiveTabMode,
-            label: 'Soft Delete',
-            icon: Trash2,
-            visible: true
-          },
-          {
-            id: 'permanent_delete' as ActiveTabMode,
-            label: 'Permanent Delete',
-            icon: ShieldAlert,
-            visible: isSuperAdmin
-          },
-          {
-            id: 'restore' as ActiveTabMode,
-            label: 'Restore',
-            icon: RotateCcw,
-            visible: isSuperAdmin
-          },
-          {
-            id: 'history' as ActiveTabMode,
-            label: 'Deletion History',
-            icon: History,
-            visible: true
-          }
+          { id: 'soft_delete' as ActiveTabMode, label: 'Soft Delete', icon: Trash2, visible: true },
+          { id: 'permanent_delete' as ActiveTabMode, label: 'Permanent Delete', icon: ShieldAlert, visible: isSuperAdmin },
+          { id: 'restore' as ActiveTabMode, label: 'Restore', icon: RotateCcw, visible: isSuperAdmin },
+          { id: 'history' as ActiveTabMode, label: 'Deletion History', icon: History, visible: true }
         ]
           .filter(t => t.visible)
           .map(tab => {
@@ -710,7 +895,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                 role="tab"
                 aria-selected={isActive}
                 data-testid={`deletion-tab-${tab.id}`}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
                   isActive
                     ? tab.id === 'permanent_delete'
@@ -728,9 +913,9 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
           })}
       </div>
 
-      {/* Category Selector (shown for Soft Delete, Permanent Delete, Restore) */}
+      {/* Category Selector */}
       {activeTab !== 'history' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           {visibleCategories.map(cat => {
             const Icon = cat.icon;
             const isSelected = selectedCategory === cat.id;
@@ -749,7 +934,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                   setSelectedIds([]);
                   setPage(1);
                 }}
-                className={`p-3 rounded-2xl text-left transition-all cursor-pointer border flex flex-col justify-between gap-2 ${
+                className={`p-2.5 rounded-2xl text-left transition-all cursor-pointer border flex flex-col justify-between gap-1.5 ${
                   isSelected
                     ? 'bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#5B289B] dark:to-[#35105E] text-white border-[#5145A6] dark:border-[#9353D3] shadow-md'
                     : 'card-3d-lavender text-[#26394E] dark:text-white border-[#DDE6F0] dark:border-[#35105E] hover:border-[#6657C8]/60'
@@ -781,175 +966,17 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
 
       {/* TAB CONTENT: OPERATIONAL LIST (SOFT DELETE / PERMANENT DELETE / RESTORE) */}
       {activeTab !== 'history' && (
-        <div className="space-y-4">
-          {/* Safety Notice for Permanent Delete */}
+        <div className="space-y-3">
           {activeTab === 'permanent_delete' && (
-            <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5">
+            <div className="p-3 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5">
               <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               <div>
-                <strong>Kebijakan Zero-Cascade &amp; Perlindungan Data Historis:</strong> Hapus permanen pada Work Order
-                <strong> otomatis DITOLAK</strong> apabila masih terdapat relasi di <code>assignment_history</code>,{' '}
-                <code>ticket_messages</code>, <code>technical_reports</code>, atau <code>attachments</code>. Gunakan{' '}
-                <strong>Soft Delete</strong> untuk penghapusan operasional sehari-hari.
+                <strong>Zero-Cascade Policy:</strong> Hapus permanen WO <strong>ditolak otomatis</strong> apabila masih memiliki relasi di{' '}
+                <code>assignment_history</code>, <code>ticket_messages</code>, <code>technical_reports</code>, atau <code>attachments</code>.
               </div>
             </div>
           )}
 
-          {/* Search & Filters Card */}
-          <div className="card-3d-lavender p-4 rounded-2xl space-y-3 text-xs">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex items-center gap-2 flex-1 min-w-[220px]">
-                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] shrink-0" />
-                <input
-                  type="text"
-                  data-testid="deletion-search-input"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder={
-                    selectedCategory === 'work_orders'
-                      ? 'Cari WO Number, Customer ID, Nama Pelanggan, Kontraktor, Area...'
-                      : `Cari data pada ${activeCategoryMeta.label}...`
-                  }
-                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white"
-                />
-              </div>
-
-              {selectedCategory === 'other_data' && (
-                <select
-                  value={selectedSubEntity}
-                  onChange={e => {
-                    setSelectedSubEntity(e.target.value as DeletionSubEntity);
-                    setPage(1);
-                    setSelectedIds([]);
-                  }}
-                  className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-                >
-                  {SUB_ENTITY_OPTIONS.map(opt => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {selectedCategory === 'work_orders' && (
-                <>
-                  <input
-                    type="date"
-                    value={appointmentDateFilter}
-                    onChange={e => {
-                      setAppointmentDateFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    title="Filter Appointment Date"
-                    className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-                  />
-                  <select
-                    value={contractorFilter}
-                    onChange={e => {
-                      setContractorFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-                  >
-                    <option value="all">Semua Kontraktor</option>
-                    {contractors.map((c, idx) => (
-                      <option key={`del-con-${c.id || c.name}-${idx}`} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={areaFilter}
-                    onChange={e => {
-                      setAreaFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-                  >
-                    <option value="all">Semua Area</option>
-                    {coverageAreas.map((a, idx) => (
-                      <option key={`del-area-${a.id || a.name}-${idx}`} value={a.name}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              <select
-                value={deletionStatusFilter}
-                onChange={e => {
-                  setDeletionStatusFilter(e.target.value as 'all' | 'active' | 'soft_deleted');
-                  setPage(1);
-                }}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-              >
-                <option value="active">Status: Aktif</option>
-                <option value="soft_deleted">Status: Soft Deleted</option>
-                <option value="all">Status: Semua</option>
-              </select>
-
-              {(search || contractorFilter !== 'all' || areaFilter !== 'all' || appointmentDateFilter) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch('');
-                    setDebouncedSearch('');
-                    setContractorFilter('all');
-                    setAreaFilter('all');
-                    setAppointmentDateFilter('');
-                    setPage(1);
-                  }}
-                  className="btn-3d-lilac px-3 py-2 rounded-xl font-bold cursor-pointer"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-
-            {/* Bulk Action Bar */}
-            {selectedRows.length > 0 && (activeTab === 'soft_delete' || activeTab === 'restore') && (
-              <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2">
-                <span className="font-bold text-[#5145A6] dark:text-[#E8DDFF]">
-                  {selectedRows.length} data dipilih pada kategori {activeCategoryMeta.shortLabel}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIds([])}
-                    className="btn-3d-lilac px-3 py-1.5 rounded-xl font-bold cursor-pointer"
-                  >
-                    Batal Pilih
-                  </button>
-                  {activeTab === 'soft_delete' && (
-                    <button
-                      type="button"
-                      data-testid="bulk-soft-delete-btn"
-                      onClick={() => void handleOpenActionModal('soft_delete', selectedRows)}
-                      className="btn-3d-crimson px-3.5 py-1.5 rounded-xl text-white font-bold flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Soft Delete ({selectedRows.length})</span>
-                    </button>
-                  )}
-                  {activeTab === 'restore' && isSuperAdmin && (
-                    <button
-                      type="button"
-                      data-testid="bulk-restore-btn"
-                      onClick={() => void handleOpenActionModal('restore', selectedRows)}
-                      className="btn-3d-emerald px-3.5 py-1.5 rounded-xl text-white font-bold flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Pulihkan ({selectedRows.length})</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Error Notice */}
           {loadError && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -957,44 +984,303 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
             </div>
           )}
 
-          {/* Data Table */}
+          {/* Data Table Card — Zero Separate Filter Card; Header Controls Embedded in <thead> */}
           <div className="card-3d-lavender rounded-2xl overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-[#EDF3F8]/90 dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#D8B4FE] text-[11px] uppercase tracking-wider font-extrabold">
-                    {(activeTab === 'soft_delete' || activeTab === 'restore') && (
-                      <th className="py-3 px-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={allSelectableChecked}
-                          onChange={toggleSelectAll}
-                          disabled={selectableItems.length === 0}
-                          aria-label="Pilih semua baris"
-                          className="rounded border-[#C5BEEF] text-[#6657C8] cursor-pointer"
-                        />
-                      </th>
+            {/* Compact Table Header Strip: Contextual Selection Actions + Reset Search */}
+            <div className="px-3.5 py-2.5 bg-[#F3F8FC]/95 dark:bg-[#1E1038] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-extrabold text-[#26394E] dark:text-white">
+                  {activeCategoryMeta.label}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2D1852] border border-[#DDE6F0] dark:border-[#4A2580] text-[10.5px] font-mono font-bold text-[#52647A] dark:text-[#D8B4FE]">
+                  {totalItems} record
+                </span>
+
+                {/* Contextual Action Toolbar: Shown ONLY when 1+ rows checked */}
+                {selectedRows.length > 0 && (
+                  <div
+                    data-testid="contextual-selection-toolbar"
+                    className="flex flex-wrap items-center gap-1.5 pl-2 ml-1 border-l border-[#C5BEEF] dark:border-[#4A2580]"
+                  >
+                    <span className="px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#4A2580] text-[#5145A6] dark:text-white font-extrabold text-[11px]">
+                      {selectedRows.length} dipilih
+                    </span>
+
+                    {activeTab === 'soft_delete' && activeCategoryMeta.supportsSoftDelete && (
+                      <button
+                        type="button"
+                        data-testid="bulk-soft-delete-btn"
+                        onClick={() => void handleOpenActionModal('soft_delete', selectedRows)}
+                        className="btn-3d-crimson px-3 py-1.5 min-h-[32px] rounded-xl text-white font-bold text-[11px] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Soft Delete Selected</span>
+                      </button>
                     )}
+
+                    {isSuperAdmin && activeCategoryMeta.supportsPermanentDelete && (
+                      <button
+                        type="button"
+                        data-testid="bulk-permanent-delete-btn"
+                        onClick={() => void handleOpenActionModal('permanent_delete', selectedRows)}
+                        className={`${
+                          activeTab === 'permanent_delete'
+                            ? 'btn-3d-crimson text-white'
+                            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-950/70 dark:hover:bg-rose-900 dark:text-rose-200 dark:border-rose-700'
+                        } px-3 py-1.5 min-h-[32px] rounded-xl font-bold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors`}
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Permanent Delete Selected</span>
+                      </button>
+                    )}
+
+                    {activeTab === 'restore' && isSuperAdmin && activeCategoryMeta.supportsRestore && (
+                      <button
+                        type="button"
+                        data-testid="bulk-restore-btn"
+                        onClick={() => void handleOpenActionModal('restore', selectedRows)}
+                        className="btn-3d-emerald px-3 py-1.5 min-h-[32px] rounded-xl text-white font-bold text-[11px] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restore Selected</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      data-testid="clear-selection-btn"
+                      onClick={() => setSelectedIds([])}
+                      className="btn-3d-lilac px-2.5 py-1.5 min-h-[32px] rounded-xl font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Clear Selection</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                data-testid="reset-table-search-btn"
+                onClick={handleResetAllFilters}
+                disabled={activeFilterCount === 0}
+                aria-label="Reset Search dan Sorting"
+                title="Reset seluruh pencarian, filter kolom, dan sorting"
+                className={`px-2.5 py-1.5 min-h-[32px] rounded-xl font-bold text-[11px] inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                  activeFilterCount > 0
+                    ? 'bg-white border-[#C5BEEF] text-[#5145A6] hover:bg-[#EAE8FF] dark:bg-[#35105E] dark:border-[#7135B5] dark:text-white shadow-xs'
+                    : 'bg-white/50 border-[#E2E8F0] text-[#94A3B8] dark:bg-[#160D29]/50 dark:border-[#2D1852] dark:text-[#6D5A99] opacity-70 cursor-default'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Search</span>
+                {activeFilterCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[#6657C8] text-white dark:bg-[#38BDF8] dark:text-[#0F172A] text-[10px] font-mono">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[11.5px]" data-testid="deletion-items-table">
+                <thead>
+                  <tr className="bg-[#EDF3F8]/95 dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#D8B4FE] text-[10.5px] uppercase tracking-tight font-extrabold">
+                    <th className="py-2.5 pl-2.5 pr-1.5 w-8">
+                      <input
+                        type="checkbox"
+                        data-testid="deletion-select-all-checkbox"
+                        checked={allSelectableChecked}
+                        onChange={toggleSelectAll}
+                        disabled={selectableItems.length === 0}
+                        aria-label="Pilih semua baris di halaman ini"
+                        className="rounded border-[#C5BEEF] text-[#6657C8] cursor-pointer disabled:opacity-40"
+                      />
+                    </th>
                     {selectedCategory === 'work_orders' ? (
                       <>
-                        <th className="py-3 px-3">WO Number</th>
-                        <th className="py-3 px-3">Customer ID</th>
-                        <th className="py-3 px-3">Customer Name</th>
-                        <th className="py-3 px-3">Appointment Date</th>
-                        <th className="py-3 px-3">Contractor</th>
-                        <th className="py-3 px-3">Area</th>
-                        <th className="py-3 px-3">Assignment Status</th>
-                        <th className="py-3 px-3">Deletion Status</th>
-                        <th className="py-3 px-3 text-right">Action</th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="WO Number"
+                            value={filters.woNumber}
+                            onChange={val => updateFilter('woNumber', val)}
+                            placeholder="Cari WO Number..."
+                            testId="hdr-wo-number"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="Customer ID"
+                            value={filters.customerId}
+                            onChange={val => updateFilter('customerId', val)}
+                            placeholder="Cari Customer ID..."
+                            testId="hdr-customer-id"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="Customer Name"
+                            value={filters.customerName}
+                            onChange={val => updateFilter('customerName', val)}
+                            placeholder="Cari nama pelanggan..."
+                            testId="hdr-customer-name"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderDateSortFilterPopover
+                            label="Appointment Date"
+                            sortActive={sortState.by === 'appointment_date'}
+                            sortDir={sortState.dir}
+                            onCycleSort={() => {
+                              setSortState(prev => cycleAppointmentDateSort(prev));
+                              setPage(1);
+                            }}
+                            exactDate={filters.appointmentDate}
+                            dateFrom={filters.appointmentDateFrom}
+                            dateTo={filters.appointmentDateTo}
+                            onChangeDates={next => {
+                              setFilters(prev => ({
+                                ...prev,
+                                appointmentDate: next.exactDate,
+                                appointmentDateFrom: next.dateFrom,
+                                appointmentDateTo: next.dateTo
+                              }));
+                              setPage(1);
+                            }}
+                            supportsExactDate={true}
+                            testId="hdr-appointment-date"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderCategoryDropdown
+                            label="Contractor"
+                            value={filters.contractor}
+                            allLabel="Semua Kontraktor"
+                            options={contractorOptions}
+                            onChange={val => updateFilter('contractor', val)}
+                            testId="hdr-contractor"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderCategoryDropdown
+                            label="Area"
+                            value={filters.area}
+                            allLabel="Semua Area"
+                            options={areaOptions}
+                            onChange={val => updateFilter('area', val)}
+                            testId="hdr-area"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderCategoryDropdown
+                            label="Assignment"
+                            value={filters.assignmentStatus}
+                            allLabel="Semua Status"
+                            options={assignmentStatusOptions}
+                            onChange={val => updateFilter('assignmentStatus', val)}
+                            testId="hdr-assignment-status"
+                          />
+                        </th>
+                        <th className="py-2.5 px-1.5 whitespace-nowrap">
+                          <HeaderCategoryDropdown
+                            label="Status"
+                            value={filters.deletionStatus}
+                            defaultValue={getDefaultDeletionStatusForTab(operationalMode)}
+                            options={DELETION_STATUS_OPTIONS}
+                            onChange={val => updateFilter('deletionStatus', val as 'all' | 'active' | 'soft_deleted')}
+                            testId="hdr-deletion-status"
+                          />
+                        </th>
+                        <th className="py-2.5 pl-1.5 pr-2.5 text-right whitespace-nowrap w-11">Detail</th>
                       </>
                     ) : (
                       <>
-                        <th className="py-3 px-3">ID / Referensi</th>
-                        <th className="py-3 px-3">WO / Sub-Entitas</th>
-                        <th className="py-3 px-3">Ringkasan Data</th>
-                        <th className="py-3 px-3">Tanggal / Aktor</th>
-                        <th className="py-3 px-3">Deletion Status</th>
-                        <th className="py-3 px-3 text-right">Action</th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="ID / Referensi"
+                            value={filters.recordIdQuery}
+                            onChange={val => updateFilter('recordIdQuery', val)}
+                            placeholder="Cari ID / referensi..."
+                            testId="hdr-record-id"
+                          />
+                        </th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          {selectedCategory === 'other_data' ? (
+                            <HeaderCategoryDropdown
+                              label="Sub-Entitas"
+                              value={filters.subEntity}
+                              allLabel="Semua Sub-Entitas"
+                              options={SUB_ENTITY_OPTIONS}
+                              onChange={val => {
+                                updateFilter('subEntity', val as DeletionSubEntity);
+                                setSelectedIds([]);
+                              }}
+                              testId="hdr-sub-entity"
+                            />
+                          ) : (
+                            <HeaderSearchPopover
+                              label="WO / Nama"
+                              value={filters.woNumber}
+                              onChange={val => updateFilter('woNumber', val)}
+                              placeholder="Cari WO / Import..."
+                              testId="hdr-nonwo-wo"
+                            />
+                          )}
+                        </th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="Ringkasan Data"
+                            value={filters.summaryQuery}
+                            onChange={val => updateFilter('summaryQuery', val)}
+                            placeholder="Cari ringkasan / file..."
+                            testId="hdr-summary"
+                          />
+                        </th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          <HeaderSearchPopover
+                            label="Aktor"
+                            value={filters.actorQuery}
+                            onChange={val => updateFilter('actorQuery', val)}
+                            placeholder="Cari aktor / pengirim..."
+                            testId="hdr-actor"
+                          />
+                        </th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          <HeaderDateSortFilterPopover
+                            label="Tanggal"
+                            sortActive={sortState.by === 'created_at'}
+                            sortDir={sortState.dir}
+                            onCycleSort={() => {
+                              setSortState(prev => cycleCreatedAtSort(prev));
+                              setPage(1);
+                            }}
+                            exactDate={filters.appointmentDate}
+                            dateFrom={filters.appointmentDateFrom}
+                            dateTo={filters.appointmentDateTo}
+                            onChangeDates={next => {
+                              setFilters(prev => ({
+                                ...prev,
+                                appointmentDate: next.exactDate,
+                                appointmentDateFrom: next.dateFrom,
+                                appointmentDateTo: next.dateTo
+                              }));
+                              setPage(1);
+                            }}
+                            supportsExactDate={true}
+                            testId="hdr-created-at"
+                          />
+                        </th>
+                        <th className="py-3 px-3 whitespace-nowrap">
+                          <HeaderCategoryDropdown
+                            label="Deletion Status"
+                            value={filters.deletionStatus}
+                            defaultValue={getDefaultDeletionStatusForTab(operationalMode)}
+                            options={DELETION_STATUS_OPTIONS}
+                            onChange={val => updateFilter('deletionStatus', val as 'all' | 'active' | 'soft_deleted')}
+                            testId="hdr-deletion-status"
+                          />
+                        </th>
+                        <th className="py-3 px-3 text-right whitespace-nowrap">Detail</th>
                       </>
                     )}
                   </tr>
@@ -1017,62 +1303,60 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                     </tr>
                   ) : (
                     items.map(row => {
-                      const canSelect =
-                        !row.isProtected &&
-                        !row.isLockedActive &&
-                        ((activeTab === 'soft_delete' && !row.isDeleted) ||
-                          (activeTab === 'restore' && row.isDeleted));
+                      const canSelect = isRowSelectableForTab(row, operationalMode, isSuperAdmin);
                       const isChecked = selectedIds.includes(row.id);
 
                       return (
                         <tr
                           key={`${row.category}-${row.subEntity || 'main'}-${row.id}`}
-                          className="bg-white/80 dark:bg-[#160D29]/60 hover:bg-[#F3F8FC] dark:hover:bg-[#27104A]/70 transition-colors"
+                          className={`transition-colors ${
+                            isChecked
+                              ? 'bg-[#EAE8FF]/70 dark:bg-[#2F1859]/80'
+                              : 'bg-white/80 dark:bg-[#160D29]/60 hover:bg-[#F3F8FC] dark:hover:bg-[#27104A]/70'
+                          }`}
                         >
-                          {(activeTab === 'soft_delete' || activeTab === 'restore') && (
-                            <td className="py-3 px-3">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={!canSelect}
-                                onChange={() => toggleSelectId(row.id)}
-                                aria-label={`Pilih ${row.woNumber || row.id}`}
-                                className="rounded border-[#C5BEEF] text-[#6657C8] cursor-pointer disabled:opacity-40"
-                              />
-                            </td>
-                          )}
+                          <td className="py-2.5 pl-2.5 pr-1.5">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={!canSelect}
+                              onChange={() => toggleSelectId(row.id)}
+                              aria-label={`Pilih ${row.woNumber || row.label || row.id}`}
+                              className="rounded border-[#C5BEEF] text-[#6657C8] cursor-pointer disabled:opacity-40"
+                            />
+                          </td>
 
                           {selectedCategory === 'work_orders' ? (
                             <>
-                              <td className="py-3 px-3 font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] whitespace-nowrap">
+                              <td className="py-2.5 px-1.5 font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] whitespace-nowrap">
                                 {row.woNumber || row.id}
                               </td>
-                              <td className="py-3 px-3 font-mono text-[#26394E] dark:text-[#E8DDFF] whitespace-nowrap">
+                              <td className="py-2.5 px-1.5 font-mono text-[#26394E] dark:text-[#E8DDFF] whitespace-nowrap">
                                 {row.customerId || '-'}
                               </td>
-                              <td className="py-3 px-3 font-semibold text-[#26394E] dark:text-white max-w-[180px] truncate">
+                              <td className="py-2.5 px-1.5 font-semibold text-[#26394E] dark:text-white max-w-[130px] truncate" title={row.customerName || '-'}>
                                 {row.customerName || '-'}
                               </td>
-                              <td className="py-3 px-3 font-mono whitespace-nowrap text-[#26394E] dark:text-[#D9CCF2]">
+                              <td className="py-2.5 px-1.5 font-mono whitespace-nowrap text-[#26394E] dark:text-[#D9CCF2]">
                                 {row.appointmentDate || '-'}
                               </td>
-                              <td className="py-3 px-3 text-[#26394E] dark:text-[#D9CCF2] max-w-[150px] truncate">
+                              <td className="py-2.5 px-1.5 text-[#26394E] dark:text-[#D9CCF2] max-w-[115px] truncate" title={row.contractor || '-'}>
                                 {row.contractor || '-'}
                               </td>
-                              <td className="py-3 px-3 text-[#26394E] dark:text-[#D9CCF2] whitespace-nowrap">
+                              <td className="py-2.5 px-1.5 text-[#26394E] dark:text-[#D9CCF2] max-w-[95px] truncate" title={row.area || '-'}>
                                 {row.area || '-'}
                               </td>
-                              <td className="py-3 px-3 text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap">
+                              <td className="py-2.5 px-1.5 text-[#52647A] dark:text-[#CEC0E8] max-w-[100px] truncate" title={row.assignmentStatus || 'Unassigned'}>
                                 {row.assignmentStatus || 'Unassigned'}
                               </td>
-                              <td className="py-3 px-3 whitespace-nowrap">{renderStatusBadge(row)}</td>
+                              <td className="py-2.5 px-1.5 whitespace-nowrap">{renderStatusBadge(row)}</td>
                             </>
                           ) : (
                             <>
-                              <td className="py-3 px-3 font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] max-w-[160px] truncate">
+                              <td className="py-2.5 px-2 font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] max-w-[150px] truncate">
                                 {row.id}
                               </td>
-                              <td className="py-3 px-3 whitespace-nowrap">
+                              <td className="py-2.5 px-2 whitespace-nowrap">
                                 {row.woNumber ? (
                                   <span className="font-mono font-semibold text-[#26394E] dark:text-white">{row.woNumber}</span>
                                 ) : (
@@ -1081,7 +1365,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 px-3 max-w-[260px] truncate text-[#26394E] dark:text-[#E8DDFF]">
+                              <td className="py-2.5 px-2 max-w-[220px] truncate text-[#26394E] dark:text-[#E8DDFF]">
                                 {row.label ||
                                   row.fileName ||
                                   row.importName ||
@@ -1091,64 +1375,27 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                                   row.installerName ||
                                   '-'}
                               </td>
-                              <td className="py-3 px-3 text-[#52647A] dark:text-[#A78BFA] whitespace-nowrap">
-                                <div>{row.senderName || row.importedBy || row.assignedBy || row.role || '-'}</div>
-                                {row.createdAt && (
-                                  <div className="text-[10px] font-mono">
-                                    {new Date(row.createdAt).toLocaleString('id-ID')}
-                                  </div>
-                                )}
+                              <td className="py-2.5 px-2 text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap">
+                                {row.senderName || row.importedBy || row.assignedBy || row.role || '-'}
                               </td>
-                              <td className="py-3 px-3 whitespace-nowrap">{renderStatusBadge(row)}</td>
+                              <td className="py-2.5 px-2 text-[#52647A] dark:text-[#A78BFA] whitespace-nowrap font-mono text-[11px]">
+                                {row.createdAt ? new Date(row.createdAt).toLocaleString('id-ID') : '-'}
+                              </td>
+                              <td className="py-2.5 px-2 whitespace-nowrap">{renderStatusBadge(row)}</td>
                             </>
                           )}
 
-                          <td className="py-3 px-3 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => void handleOpenDetail(row)}
-                                className="btn-3d-lilac p-1.5 min-h-[32px] rounded-lg cursor-pointer"
-                                title="Detail & Dependensi"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-
-                              {activeTab === 'soft_delete' && !row.isDeleted && activeCategoryMeta.supportsSoftDelete && (
-                                <button
-                                  type="button"
-                                  disabled={Boolean(row.isProtected || row.isLockedActive)}
-                                  onClick={() => void handleOpenActionModal('soft_delete', [row])}
-                                  className="btn-3d-crimson px-2.5 py-1.5 min-h-[32px] rounded-lg text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-40"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>Soft Delete</span>
-                                </button>
-                              )}
-
-                              {activeTab === 'permanent_delete' && isSuperAdmin && (
-                                <button
-                                  type="button"
-                                  disabled={Boolean(row.isProtected || row.isLockedActive)}
-                                  onClick={() => void handleOpenActionModal('permanent_delete', [row])}
-                                  className="btn-3d-crimson px-2.5 py-1.5 min-h-[32px] rounded-lg text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-40"
-                                >
-                                  <ShieldAlert className="w-3 h-3" />
-                                  <span>Hapus Permanen</span>
-                                </button>
-                              )}
-
-                              {activeTab === 'restore' && isSuperAdmin && row.isDeleted && activeCategoryMeta.supportsRestore && (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleOpenActionModal('restore', [row])}
-                                  className="btn-3d-emerald px-2.5 py-1.5 min-h-[32px] rounded-lg text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                                >
-                                  <RotateCcw className="w-3 h-3" />
-                                  <span>Restore</span>
-                                </button>
-                              )}
-                            </div>
+                          {/* Detail Inspect Only — Zero Per-Row Delete Buttons */}
+                          <td className="py-2.5 pl-1.5 pr-2.5 text-right whitespace-nowrap w-11">
+                            <button
+                              type="button"
+                              onClick={() => void handleOpenDetail(row)}
+                              aria-label={`Detail ${row.woNumber || row.label || row.id}`}
+                              title="Detail & Dependensi"
+                              className="btn-3d-lilac p-1.5 min-h-[30px] rounded-lg inline-flex items-center justify-center cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1165,6 +1412,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
               </div>
               <div className="flex items-center gap-2">
                 <select
+                  aria-label="Jumlah baris per halaman"
                   value={pageSize}
                   onChange={e => {
                     setPageSize(Number(e.target.value));
@@ -1200,102 +1448,137 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
         </div>
       )}
 
-      {/* TAB CONTENT: DELETION HISTORY */}
+      {/* TAB CONTENT: DELETION HISTORY — Header Controls Embedded in <thead> */}
       {activeTab === 'history' && (
-        <div className="space-y-4">
-          <div className="card-3d-lavender p-4 rounded-2xl flex flex-wrap items-center gap-2.5 text-xs">
-            <div className="flex items-center gap-2 flex-1 min-w-[220px]">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] shrink-0" />
-              <input
-                type="text"
-                value={historySearch}
-                onChange={e => {
-                  setHistorySearch(e.target.value);
-                  setHistoryPage(1);
-                }}
-                placeholder="Cari WO Number, Record ID, Aktor, Alasan, Transaction ID..."
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white"
-              />
+        <div className="space-y-3">
+          <div className="card-3d-lavender rounded-2xl overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
+            <div className="px-3.5 py-2.5 bg-[#F3F8FC]/95 dark:bg-[#1E1038] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-[#26394E] dark:text-white">Audit Log Penghapusan</span>
+                <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2D1852] border border-[#DDE6F0] dark:border-[#4A2580] text-[10.5px] font-mono font-bold text-[#52647A] dark:text-[#D8B4FE]">
+                  {historyTotal} log
+                </span>
+              </div>
+
+              <button
+                type="button"
+                data-testid="reset-history-search-btn"
+                onClick={handleResetHistoryFilters}
+                disabled={activeHistoryFilterCount === 0}
+                aria-label="Reset Search Deletion History"
+                className={`px-2.5 py-1.5 min-h-[32px] rounded-xl font-bold text-[11px] inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                  activeHistoryFilterCount > 0
+                    ? 'bg-white border-[#C5BEEF] text-[#5145A6] hover:bg-[#EAE8FF] dark:bg-[#35105E] dark:border-[#7135B5] dark:text-white shadow-xs'
+                    : 'bg-white/50 border-[#E2E8F0] text-[#94A3B8] dark:bg-[#160D29]/50 dark:border-[#2D1852] dark:text-[#6D5A99] opacity-70 cursor-default'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Search</span>
+                {activeHistoryFilterCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[#6657C8] text-white dark:bg-[#38BDF8] dark:text-[#0F172A] text-[10px] font-mono">
+                    {activeHistoryFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
 
-            <select
-              value={historyCategoryFilter}
-              onChange={e => {
-                setHistoryCategoryFilter(e.target.value);
-                setHistoryPage(1);
-              }}
-              className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-            >
-              <option value="all">Semua Kategori</option>
-              {DELETION_CATEGORIES.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.shortLabel}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={historyTypeFilter}
-              onChange={e => {
-                setHistoryTypeFilter(e.target.value);
-                setHistoryPage(1);
-              }}
-              className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-            >
-              <option value="all">Semua Tipe Aksi</option>
-              <option value="soft_delete">Soft Delete</option>
-              <option value="permanent_delete">Permanent Delete</option>
-              <option value="restore">Restore</option>
-            </select>
-
-            <select
-              value={historyStatusFilter}
-              onChange={e => {
-                setHistoryStatusFilter(e.target.value);
-                setHistoryPage(1);
-              }}
-              className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-            >
-              <option value="all">Semua Status</option>
-              <option value="success">Success</option>
-              <option value="rejected">Rejected</option>
-              <option value="failed">Failed</option>
-            </select>
-
-            <input
-              type="date"
-              value={historyDateFrom}
-              onChange={e => {
-                setHistoryDateFrom(e.target.value);
-                setHistoryPage(1);
-              }}
-              title="Dari tanggal"
-              className="tactile-debossed-input px-2.5 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-            />
-            <input
-              type="date"
-              value={historyDateTo}
-              onChange={e => {
-                setHistoryDateTo(e.target.value);
-                setHistoryPage(1);
-              }}
-              title="Sampai tanggal"
-              className="tactile-debossed-input px-2.5 py-2 rounded-xl text-[#26394E] dark:text-white font-semibold"
-            />
-          </div>
-
-          <div className="card-3d-lavender rounded-2xl overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-[11.5px]" data-testid="deletion-history-table">
                 <thead>
-                  <tr className="bg-[#EDF3F8]/90 dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#D8B4FE] text-[11px] uppercase tracking-wider font-extrabold">
-                    <th className="py-3 px-3">Waktu &amp; Tx ID</th>
-                    <th className="py-3 px-3">Tipe</th>
-                    <th className="py-3 px-3">Kategori / Tabel</th>
-                    <th className="py-3 px-3">WO / Record ID</th>
-                    <th className="py-3 px-3">Eksekutor</th>
-                    <th className="py-3 px-3">Alasan &amp; Catatan</th>
-                    <th className="py-3 px-3">Status</th>
+                  <tr className="bg-[#EDF3F8]/95 dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#D8B4FE] text-[10.5px] uppercase tracking-tight font-extrabold">
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        <HeaderDateSortFilterPopover
+                          label="Waktu"
+                          sortActive={historyFilters.sortDir !== 'desc'}
+                          sortDir={historyFilters.sortDir}
+                          onCycleSort={() => {
+                            updateHistoryFilter('sortDir', historyFilters.sortDir === 'desc' ? 'asc' : 'desc');
+                          }}
+                          exactDate=""
+                          dateFrom={historyFilters.dateFrom}
+                          dateTo={historyFilters.dateTo}
+                          onChangeDates={next => {
+                            setHistoryFilters(prev => ({ ...prev, dateFrom: next.dateFrom, dateTo: next.dateTo }));
+                            setHistoryPage(1);
+                          }}
+                          supportsExactDate={false}
+                          testId="hist-date"
+                        />
+                        <HeaderSearchPopover
+                          label="Tx"
+                          value={historyFilters.txIdQuery}
+                          onChange={val => updateHistoryFilter('txIdQuery', val)}
+                          placeholder="Cari Transaction ID..."
+                          testId="hist-tx"
+                        />
+                      </div>
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderCategoryDropdown
+                        label="Tipe"
+                        value={historyFilters.deletionType}
+                        allLabel="Semua Tipe"
+                        options={[
+                          { value: 'soft_delete', label: 'Soft Delete' },
+                          { value: 'permanent_delete', label: 'Permanent Delete' },
+                          { value: 'restore', label: 'Restore' }
+                        ]}
+                        onChange={val => updateHistoryFilter('deletionType', val)}
+                        testId="hist-type"
+                      />
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderCategoryDropdown
+                        label="Kategori"
+                        value={historyFilters.category}
+                        allLabel="Semua Kategori"
+                        options={DELETION_CATEGORIES.map(c => ({ value: c.id, label: c.shortLabel }))}
+                        onChange={val => updateHistoryFilter('category', val)}
+                        testId="hist-category"
+                      />
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderSearchPopover
+                        label="WO / Record ID"
+                        value={historyFilters.woOrRecordQuery}
+                        onChange={val => updateHistoryFilter('woOrRecordQuery', val)}
+                        placeholder="Cari WO / Record ID..."
+                        testId="hist-record"
+                      />
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderSearchPopover
+                        label="Eksekutor"
+                        value={historyFilters.actor}
+                        onChange={val => updateHistoryFilter('actor', val)}
+                        placeholder="Cari nama / role..."
+                        testId="hist-actor"
+                      />
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderSearchPopover
+                        label="Alasan & Catatan"
+                        value={historyFilters.reasonQuery}
+                        onChange={val => updateHistoryFilter('reasonQuery', val)}
+                        placeholder="Cari alasan / error..."
+                        testId="hist-reason"
+                      />
+                    </th>
+                    <th className="py-3 px-3 whitespace-nowrap">
+                      <HeaderCategoryDropdown
+                        label="Status"
+                        value={historyFilters.status}
+                        allLabel="Semua Status"
+                        options={[
+                          { value: 'success', label: 'Success' },
+                          { value: 'rejected', label: 'Rejected' },
+                          { value: 'failed', label: 'Failed' }
+                        ]}
+                        onChange={val => updateHistoryFilter('status', val)}
+                        testId="hist-status"
+                      />
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1852]">
@@ -1383,6 +1666,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                   disabled={historyPage <= 1}
                   onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
                   className="btn-3d-lilac p-1.5 rounded-lg disabled:opacity-40 cursor-pointer"
+                  aria-label="Halaman log sebelumnya"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -1391,6 +1675,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                   disabled={historyPage >= historyTotalPages}
                   onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
                   className="btn-3d-lilac p-1.5 rounded-lg disabled:opacity-40 cursor-pointer"
+                  aria-label="Halaman log berikutnya"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1487,7 +1772,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
         )}
       </ResponsiveModal>
 
-      {/* CONFIRMATION MODAL: SOFT DELETE / PERMANENT DELETE / RESTORE */}
+      {/* CONFIRMATION MODAL: SOFT DELETE / PERMANENT DELETE (SINGLE & BATCH) / RESTORE */}
       <ResponsiveModal
         isOpen={actionModal.open}
         onClose={() => !isSubmittingAction && setActionModal({ open: false, mode: 'soft_delete', targets: [] })}
@@ -1526,7 +1811,8 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
               disabled={
                 isSubmittingAction ||
                 isLoadingActionDeps ||
-                (actionModal.mode === 'permanent_delete' && Boolean(actionDeps && !actionDeps.canPermanentDelete))
+                actionModal.targets.length === 0 ||
+                (actionModal.mode === 'permanent_delete' && Boolean(actionBatchDeps && actionBatchDeps.blockedCount > 0))
               }
               onClick={() => void handleConfirmAction()}
               className={`px-4 py-2 min-h-[38px] rounded-xl text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
@@ -1539,56 +1825,102 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                   <span>Memproses...</span>
                 </>
               ) : actionModal.mode === 'permanent_delete' ? (
-                <span>Eksekusi Hapus Permanen</span>
+                <span>Eksekusi Hapus Permanen ({actionModal.targets.length})</span>
               ) : actionModal.mode === 'restore' ? (
                 <span>Pulihkan Data Sekarang</span>
               ) : (
-                <span>Konfirmasi Soft Delete</span>
+                <span>Konfirmasi Soft Delete ({actionModal.targets.length})</span>
               )}
             </button>
           </>
         }
       >
         <div className="space-y-4 text-xs">
-          {/* Selected summary */}
-          <div className="p-3 rounded-xl bg-[#F3F8FC] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1 max-h-32 overflow-y-auto">
-            {actionModal.targets.map(t => (
-              <div key={t.id} className="flex items-center justify-between gap-2">
-                <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
-                  {t.woNumber || t.label || t.id}
-                </span>
-                <span className="text-[11px] text-[#52647A] dark:text-[#A78BFA] truncate">
-                  {t.customerName || t.subEntity || t.category}
-                </span>
-              </div>
-            ))}
+          {/* Selected items preview */}
+          <div className="p-3 rounded-xl bg-[#F3F8FC] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1 max-h-36 overflow-y-auto">
+            {actionModal.targets.map(t => {
+              const dep = actionBatchDeps?.items.find(d => d.id === t.id);
+              const isBlocked = actionModal.mode === 'permanent_delete' && dep && !dep.canPermanentDelete;
+              return (
+                <div key={t.id} className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
+                    {t.woNumber || t.label || t.id}
+                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[11px] text-[#52647A] dark:text-[#A78BFA] truncate">
+                      {t.customerName || t.subEntity || t.category}
+                    </span>
+                    {dep && actionModal.mode === 'permanent_delete' && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                          isBlocked
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                        }`}
+                      >
+                        {isBlocked ? `Blok (${dep.blockingTotal} relasi)` : 'Aman'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* WO Dependency Inspection Block */}
-          {actionModal.targets.length === 1 && actionModal.targets[0].category === 'work_orders' && (
+          {/* WO Dependency Inspection Block (Single & Multi-Select) */}
+          {actionModal.targets.length > 0 && actionModal.targets[0].category === 'work_orders' && (
             <div className="p-3.5 rounded-xl bg-[#EAE8FF]/60 dark:bg-[#22123F] border border-[#C5BEEF] dark:border-[#4A2580] space-y-2">
               <div className="font-bold text-[#5145A6] dark:text-[#E8DDFF] flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>Pemeriksaan Dependensi Relasi WO</span>
+                <span>Pemeriksaan Dependensi Relasi WO ({actionModal.targets.length} item)</span>
               </div>
               {isLoadingActionDeps ? (
-                <div className="text-[#52647A] dark:text-[#CEC0E8]">Memeriksa assignment_history, ticket_messages, technical_reports, attachments...</div>
-              ) : actionDeps ? (
+                <div className="text-[#52647A] dark:text-[#CEC0E8]">
+                  Memeriksa assignment_history, ticket_messages, technical_reports, attachments...
+                </div>
+              ) : singleActionDeps ? (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-                    <div>assignment_history: <strong>{actionDeps.counts.assignment_history}</strong></div>
-                    <div>ticket_messages: <strong>{actionDeps.counts.ticket_messages}</strong></div>
-                    <div>technical_reports: <strong>{actionDeps.counts.technical_reports}</strong></div>
-                    <div>attachments: <strong>{actionDeps.counts.attachments}</strong></div>
+                    <div>assignment_history: <strong>{singleActionDeps.counts.assignment_history}</strong></div>
+                    <div>ticket_messages: <strong>{singleActionDeps.counts.ticket_messages}</strong></div>
+                    <div>technical_reports: <strong>{singleActionDeps.counts.technical_reports}</strong></div>
+                    <div>attachments: <strong>{singleActionDeps.counts.attachments}</strong></div>
                   </div>
                   {actionModal.mode === 'soft_delete' && (
                     <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
                       Soft delete aman: seluruh histori assignment, LiveChat, laporan teknisi, dan lampiran tetap terjaga di database.
                     </div>
                   )}
-                  {actionModal.mode === 'permanent_delete' && !actionDeps.canPermanentDelete && (
+                  {actionModal.mode === 'permanent_delete' && !singleActionDeps.canPermanentDelete && (
                     <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-[11px]">
-                      <strong>DITOLAK (Zero-Cascade):</strong> {actionDeps.blockingReasons.join(' ')}
+                      <strong>DITOLAK (Zero-Cascade):</strong> {singleActionDeps.blockingReasons.join(' ')}
+                    </div>
+                  )}
+                </div>
+              ) : actionBatchDeps ? (
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-3 font-mono">
+                    <span className="text-emerald-700 dark:text-emerald-300">
+                      Siap hapus permanen: <strong>{actionBatchDeps.eligibleCount}</strong>
+                    </span>
+                    <span className="text-rose-700 dark:text-rose-300">
+                      Diblokir relasi FK: <strong>{actionBatchDeps.blockedCount}</strong>
+                    </span>
+                  </div>
+                  {actionModal.mode === 'permanent_delete' && actionBatchDeps.blockedCount > 0 && (
+                    <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 space-y-2">
+                      <div>
+                        <strong>DITOLAK (Zero-Cascade):</strong> {actionBatchDeps.blockedCount} WO masih memiliki data historis atau dilindungi. Gunakan Soft Delete atau keluarkan item terblokir sebelum eksekusi.
+                      </div>
+                      {actionBatchDeps.eligibleCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleExcludeBlockedFromModal}
+                          className="btn-3d-lilac px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer"
+                        >
+                          Keluarkan {actionBatchDeps.blockedCount} data terblokir
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1598,12 +1930,17 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
 
           {/* Reason Input */}
           <div>
-            <label className="block font-bold text-[#26394E] dark:text-[#E8DDFF] mb-1">
+            <label
+              htmlFor="deletion-reason-textarea"
+              className="block font-bold text-[#26394E] dark:text-[#E8DDFF] mb-1"
+            >
               Alasan {actionModal.mode === 'restore' ? 'Pemulihan (Opsional)' : 'Penghapusan (Wajib min. 5 karakter)'}
             </label>
             <textarea
+              id="deletion-reason-textarea"
               rows={2}
               data-testid="deletion-reason-input"
+              disabled={isSubmittingAction}
               value={actionReason}
               onChange={e => setActionReason(e.target.value)}
               placeholder="Contoh: Duplikasi impor WO atau permintaan koreksi operasional..."
@@ -1611,26 +1948,36 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
             />
           </div>
 
-          {/* Exact WO Number / ID Confirmation for Permanent Delete */}
-          {actionModal.mode === 'permanent_delete' && actionModal.targets.length === 1 && (
+          {/* Exact Confirmation Text for Permanent Delete (Single or Multi) */}
+          {actionModal.mode === 'permanent_delete' && actionModal.targets.length > 0 && (
             <div>
-              <label className="block font-bold text-rose-700 dark:text-rose-300 mb-1">
+              <label
+                htmlFor="permanent-confirm-input"
+                className="block font-bold text-rose-700 dark:text-rose-300 mb-1"
+              >
                 Ketik persis{' '}
                 <code className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 font-mono">
-                  {actionModal.targets[0].category === 'work_orders'
-                    ? actionModal.targets[0].woNumber || actionModal.targets[0].id
-                    : actionModal.targets[0].id}
+                  {expectedPermanentPhrase}
                 </code>{' '}
                 untuk konfirmasi hapus permanen:
               </label>
               <input
+                id="permanent-confirm-input"
                 type="text"
                 data-testid="permanent-confirm-input"
+                disabled={isSubmittingAction}
                 value={permanentConfirmText}
                 onChange={e => setPermanentConfirmText(e.target.value)}
-                placeholder="Ketik konfirmasi persis..."
+                placeholder={`Ketik "${expectedPermanentPhrase}"...`}
                 className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-mono"
               />
+            </div>
+          )}
+
+          {actionProgressText && (
+            <div className="p-2.5 rounded-xl bg-[#EAE8FF] dark:bg-[#2A174B] border border-[#C5BEEF] dark:border-[#5B289B] text-[#5145A6] dark:text-[#E8DDFF] text-[11px] font-semibold flex items-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span>{actionProgressText}</span>
             </div>
           )}
 

@@ -1,0 +1,890 @@
+Bertindak sebagai Senior Full-Stack Engineer, Enterprise UI/UX Architect, React Developer, Backend Integration Engineer, dan Database Integration Specialist.
+Tugas utama adalah mengimplementasikan desain frontend MoraJaws berdasarkan:
+Screenshot desain visual dari Stitch AI sebagai acuan utama tampilan.
+Source code HTML hasil Stitch AI sebagai referensi struktur layout, komponen, warna, tipografi, spacing, dan visual hierarchy.
+Repository MoraJaws yang sudah berjalan sebagai sumber utama arsitektur, AppFlow, backend, API, database, autentikasi, dan seluruh business logic.
+Hasil akhir harus berupa halaman frontend MoraJaws yang benar-benar terintegrasi dengan sistem produksi, bukan sekadar HTML statis atau prototype dengan data dummy.
+
+CODE HTML : 
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=Courier+Prime:wght@600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+@layer base {
+  html, body { margin:0; padding:0; }
+  body { overscroll-behavior:none; }
+  main > :first-child { margin-top:0!important; }
+  main > :last-child { margin-bottom:0!important; }
+}
+::-webkit-scrollbar { display:none; }
+
+/* -------------------------------------------------------------
+   MoraJaws 3D Tactile UI & Kinetic Feedback Engine
+   ------------------------------------------------------------- */
+.tactile-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Tier 03: Success Emerald Specular 3D Button */
+.btn-tactile-emerald {
+  background: linear-gradient(180deg, #10B981 0%, #059669 100%);
+  color: #ffffff;
+  border: 1px solid #34D399;
+  border-bottom: 4px solid #064E3B;
+  box-shadow: 0 4px 6px -1px rgba(6, 78, 59, 0.35), 0 2px 4px -2px rgba(6, 78, 59, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(0);
+}
+.btn-tactile-emerald:hover {
+  filter: brightness(1.06);
+  border-bottom-width: 4px;
+}
+.btn-tactile-emerald:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Tier 04: Destructive Crimson Obsidian 3D Button */
+.btn-tactile-crimson {
+  background: linear-gradient(180deg, #EF4444 0%, #DC2626 100%);
+  color: #ffffff;
+  border: 1px solid #F87171;
+  border-bottom: 4px solid #93000A;
+  box-shadow: 0 4px 6px -1px rgba(147, 0, 10, 0.35), 0 2px 4px -2px rgba(147, 0, 10, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(0);
+}
+.btn-tactile-crimson:hover {
+  filter: brightness(1.06);
+  border-bottom-width: 4px;
+}
+.btn-tactile-crimson:active {
+  transform: translateY(3px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(147, 0, 10, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Tier 01: Imperial Violet Primary 3D Button */
+.btn-tactile-primary {
+  background: linear-gradient(180deg, #7135B5 0%, #5B35B1 100%);
+  color: #ffffff;
+  border: 1px solid #A78BFA;
+  border-bottom: 3.5px solid #35105E;
+  box-shadow: 0 4px 6px -1px rgba(53, 16, 94, 0.3), 0 2px 4px -1px rgba(53, 16, 94, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(0);
+}
+.btn-tactile-primary:hover {
+  filter: brightness(1.08);
+}
+.btn-tactile-primary:active {
+  transform: translateY(2.5px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(53, 16, 94, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Secondary Lilac Ceramic 3D Button */
+.btn-tactile-ceramic {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8F1FF 100%);
+  color: #35105E;
+  border: 1px solid #E2D4F0;
+  border-bottom: 3px solid #CEC3D4;
+  box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.08), inset 0 1px 0 #FFFFFF;
+  transform: translateY(0);
+}
+.btn-tactile-ceramic:hover {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F1E5FF 100%);
+  border-color: #D8B4FE;
+  border-bottom-color: #A78BFA;
+}
+.btn-tactile-ceramic:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Tactile Micro Key / Square Icon Button */
+.tactile-micro-key {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F5F1FF 100%);
+  color: #494453;
+  border: 1px solid #D8CCF3;
+  border-bottom: 2.5px solid #CEC3D4;
+  box-shadow: 0 2px 3px rgba(53, 16, 94, 0.06), inset 0 1px 0 #FFFFFF;
+  transform: translateY(0);
+  transition: all 0.1s ease;
+}
+.tactile-micro-key:hover {
+  color: #7135B5;
+  border-color: #A78BFA;
+  border-bottom-color: #7135B5;
+  filter: brightness(1.02);
+}
+.tactile-micro-key:active {
+  transform: translateY(1.5px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Tactile Pill / Chip Button */
+.tactile-chip {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8F1FF 100%);
+  border: 1px solid #E2D4F0;
+  border-bottom: 2px solid #CEC3D4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 #FFFFFF;
+  transition: all 0.1s ease;
+  transform: translateY(0);
+}
+.tactile-chip:hover {
+  border-color: #A78BFA;
+  color: #5B35B1;
+  background: linear-gradient(180deg, #FFFFFF 0%, #EDE4FF 100%);
+}
+.tactile-chip:active {
+  transform: translateY(1.5px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+.tactile-chip-active {
+  background: linear-gradient(180deg, #5B35B1 0%, #35105E 100%);
+  color: #FFFFFF !important;
+  border: 1px solid #7135B5;
+  border-bottom: 2.5px solid #160D29;
+  box-shadow: 0 2px 4px rgba(53, 16, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* WhatsApp Elevated 3D Pill */
+.btn-tactile-wa {
+  background: linear-gradient(180deg, #25D366 0%, #1EAE54 100%);
+  color: #ffffff;
+  border: 1px solid #4ADE80;
+  border-bottom: 3px solid #14532D;
+  box-shadow: 0 3px 5px -1px rgba(20, 83, 45, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(0);
+}
+.btn-tactile-wa:hover {
+  filter: brightness(1.08);
+}
+.btn-tactile-wa:active {
+  transform: translateY(2px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 2px rgba(20, 83, 45, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+</style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "error-container": "#ffdad6", "inverse-surface": "#342d42", "secondary-fixed": "#e9ddff", "surface-container-highest": "#eaddfa", "light-canvas": "#F7F6FA", "light-canvas-tinted": "#F5F1FF", "on-primary-container": "#ccb7ff", "on-primary-fixed-variant": "#522aa7", "background": "#fef7ff", "tertiary-container": "#583ba6", "on-secondary-fixed-variant": "#4b4162", "on-tertiary-container": "#cab8ff", "primary": "#431599", "tertiary-fixed": "#e8ddff", "on-secondary-container": "#665b7e", "surface-container": "#f4eaff", "on-primary": "#ffffff", "border-subtle": "#E9E5F0", "on-error": "#ffffff", "status-success": "#16A36A", "surface-white": "#FFFFFF", "on-background": "#1f182c", "primary-container": "#5b35b1", "inverse-on-surface": "#f7edff", "status-danger": "#DC4C5A", "on-primary-fixed": "#22005c", "error": "#ba1a1a", "surface-tint": "#6a46c1", "lilac-accent": "#A78BFA", "surface-variant": "#eaddfa", "primary-fixed-dim": "#d0bcff", "on-error-container": "#93000a", "secondary-fixed-dim": "#cec0e8", "surface-container-lowest": "#ffffff", "on-tertiary-fixed": "#21005e", "secondary": "#63597b", "tertiary-fixed-dim": "#cebdff", "surface-bright": "#fef7ff", "tertiary": "#40208d", "brand-gloss-purple": "#7135B5", "surface-dim": "#e1d5f1", "inverse-primary": "#d0bcff", "soft-lilac": "#E9D5FF", "border-lilac": "#D8CCF3", "outline-variant": "#cbc3d5", "on-secondary-fixed": "#1f1634", "text-muted": "#8B8495", "on-surface-variant": "#494453", "text-secondary": "#766B83", "text-primary": "#211A2E", "surface-container-low": "#f9f0ff", "on-surface": "#1f182c", "brand-deep-purple": "#35105E", "secondary-container": "#e4d6ff", "primary-fixed": "#e9ddff", "outline": "#7a7484", "brand-dark-purple": "#160D29", "surface": "#fef7ff", "lilac-glow": "#D8B4FE", "on-secondary": "#ffffff", "status-warning": "#E59A27", "on-tertiary": "#ffffff", "on-tertiary-fixed-variant": "#4f319c", "status-info": "#3977C9", "surface-container-high": "#f0e3ff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-md": "0.75rem", "gutter": "1rem", "space-lg": "1rem", "gutter-desktop": "1.5rem", "margin-desktop": "2rem", "space-xs": "0.25rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "margin": "1rem" }, "fontFamily": { "headline-md": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "kpi-metric-mobile": ["Plus Jakarta Sans"], "code-mono": ["Courier Prime"], "label-nav": ["Inter"], "display-brand": ["Plus Jakarta Sans"], "body-compact": ["Inter"], "kpi-metric": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-base": ["Inter"], "label-caps": ["Inter"] }, "fontSize": { "headline-md": ["18px", { "lineHeight": "26px", "fontWeight": "700" }], "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "700" }], "kpi-metric-mobile": ["20px", { "lineHeight": "26px", "fontWeight": "700" }], "code-mono": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "label-nav": ["10px", { "lineHeight": "12px", "fontWeight": "600" }], "display-brand": ["28px", { "lineHeight": "34px", "fontWeight": "800" }], "body-compact": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "kpi-metric": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "700" }], "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "label-caps": ["11px", { "lineHeight": "14px", "fontWeight": "700" }] } } } };</script></head><body class="bg-light-canvas font-body-base text-body-base text-text-primary antialiased selection:bg-lilac-glow selection:text-brand-dark-purple"><aside class="fixed left-0 top-0 h-screen w-64 bg-brand-dark-purple text-surface-white z-50 flex flex-col shadow-[0_1px_8px_rgba(0,0,0,0.04)] overflow-y-auto"><div class="flex items-center gap-space-sm px-space-lg py-space-lg bg-brand-dark-purple sticky top-0 z-10"><img alt="MoraJaws Brand Emblem" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrBLQIAfX6KYZJV599ARI5zFVwHhay4vKnd7lTuobH64I6a2xay8A3uX_uoCMuQHMmmEb4yq50IiKIZcYnaN7KVS35ROVMUteri80FHgnUr0Od3R9b4UZNNFmsrPxodnFP1wqDfLppH5qLK54BTc8QXi5azWnWdghllmEQBQr96GR39o5vBTaGHa62Q-dWbo4AzGqVaOaWeOZLXMW3b2pDuaeYGoYm04FNbSLfaPUTMs"/><div class="flex flex-col min-w-0"><span class="font-headline-md text-headline-md leading-none text-surface-white tracking-tight truncate">MoraJaws</span><span class="font-label-nav text-label-nav text-lilac-accent uppercase tracking-wider mt-space-xs truncate">Work Order Management</span></div></div><nav class="flex-1 px-space-md py-space-sm space-y-space-xs" data-active-classes="bg-brand-gloss-purple text-surface-white font-bold rounded-lg shadow-sm"><div class="px-space-sm py-space-xs font-label-caps text-label-caps text-text-muted uppercase tracking-wider">Operations Core</div><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="dashboard-monitoring" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">dashboard</span><span class="font-body-compact text-body-compact font-medium truncate">Dashboard Monitoring</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="ticket-myrepublic" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">confirmation_number</span><span class="font-body-compact text-body-compact font-medium truncate">Ticket MyRepublic</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="report-data-wo" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">bar_chart</span><span class="font-body-compact text-body-compact font-medium truncate">Report Data WO</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="import-data-wo" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">cloud_upload</span><span class="font-body-compact text-body-compact font-medium truncate">Import Data WO</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="contact-centre" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">forum</span><span class="font-body-compact text-body-compact font-medium truncate">Contact Centre</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="schedule" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">calendar_today</span><span class="font-body-compact text-body-compact font-medium truncate">Schedule</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all" data-path="management-user" href="#"><span class="material-symbols-outlined text-space-lg text-lilac-accent">group</span><span class="font-body-compact text-body-compact font-medium truncate">Management User</span></a><div class="pt-space-md"><details class="group" open=""><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">domain</span><span class="font-body-compact text-body-compact font-semibold">Contractor &amp; Area</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="assign-wo" href="#">Assign WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="dashboard-progress-wo" href="#">Dashboard Progress WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="rekap-total-wo" href="#">Rekap Total WO</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="basecamp" href="#">Basecamp</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="kuota" href="#">Kuota</a></div></details></div><div class="pt-space-xs"><details class="group"><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">engineering</span><span class="font-body-compact text-body-compact font-semibold">Installer</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="pendaftaran-teknisi" href="#">Pendaftaran Teknisi</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="report-installer" href="#">Report Installer</a></div></details></div><div class="pt-space-xs"><details class="group"><summary class="flex items-center justify-between px-space-sm py-space-sm rounded-lg cursor-pointer text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white transition-all list-none"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-space-lg text-lilac-accent">tune</span><span class="font-body-compact text-body-compact font-semibold">Menu Tambahan</span></div><span class="material-symbols-outlined text-space-md transition-transform group-open:rotate-180">expand_more</span></summary><div class="pl-space-xl pr-space-xs py-space-xs space-y-space-xs"><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="setup-terpusat-morajaws" href="#">Setup Terpusat MoraJaws</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="konfigurasi-menu" href="#">Konfigurasi Menu</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="role-permission" href="#">Role &amp; Permission</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="audit-trail-log" href="#">Audit Trail Log</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="riwayat-sesi-login" href="#">Riwayat Sesi Login</a><a class="block px-space-sm py-space-xs rounded-lg text-secondary-fixed-dim hover:bg-brand-deep-purple hover:text-surface-white font-body-compact text-body-compact transition-all" data-path="kesehatan-sistem" href="#">Kesehatan Sistem</a></div></details></div></nav><div class="p-space-md bg-brand-deep-purple/40"><div class="flex items-center justify-between p-space-sm rounded-lg bg-brand-dark-purple/60 text-secondary-fixed-dim"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-status-success animate-pulse"></span><span class="font-label-caps text-label-caps">Cluster: JKT-01</span></div><span class="font-code-mono text-code-mono text-lilac-accent">v4.18</span></div></div></aside><div class="pl-64 min-h-screen flex flex-col bg-light-canvas"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-white/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><button class="p-space-xs rounded-lg text-text-secondary hover:bg-surface-container hover:text-text-primary transition-colors" type="button"><span class="material-symbols-outlined">menu_open</span></button><nav class="hidden xl:flex items-center gap-space-xs font-body-compact text-body-compact text-text-muted truncate"><span class="hover:text-text-primary cursor-pointer">MoraJaws</span><span>/</span><span class="hover:text-text-primary cursor-pointer">Work Order Management</span><span>/</span><span class="text-brand-deep-purple font-semibold">Ticket MyRepublic</span></nav><div class="hidden sm:flex items-center gap-space-xs px-space-sm py-space-xs bg-light-canvas-tinted rounded-full text-brand-deep-purple"><span class="material-symbols-outlined text-space-lg text-brand-gloss-purple">event</span><span class="font-label-caps text-label-caps whitespace-nowrap">Appointment: Hari Ini (todayWIB) - 15 Nov 2026</span></div></div><div class="flex-1 max-w-md mx-space-md hidden lg:block"><div class="relative flex items-center w-full"><span class="material-symbols-outlined absolute left-space-sm text-text-muted text-space-lg pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-space-xs bg-light-canvas rounded-lg font-body-compact text-body-compact text-text-primary placeholder:text-text-muted focus:outline-none focus:bg-surface-white focus:ring-1 focus:ring-lilac-accent" placeholder="Quick Cross-Date Search..." type="text"/><div class="absolute right-space-sm px-space-xs py-0.5 rounded bg-surface-container font-code-mono text-code-mono text-text-secondary pointer-events-none">Ctrl+K</div></div></div><div class="flex items-center gap-space-sm"><div class="hidden md:flex items-center gap-space-xs"><div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-status-success/10 text-status-success font-label-caps text-label-caps"><span class="w-1.5 h-1.5 rounded-full bg-status-success animate-ping"></span><span>● Online</span><span class="text-text-secondary font-medium ml-space-xs">0 Pending</span></div><div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-primary-container/10 text-brand-gloss-purple font-label-caps text-label-caps"><span class="material-symbols-outlined text-space-md">cloud_done</span><span>Cloud Live (SAVED)</span></div></div><div class="hidden 2xl:flex items-center gap-space-xs"><button class="tactile-btn btn-tactile-primary px-space-sm py-1.5 rounded-lg text-surface-white font-label-caps text-label-caps gap-1" type="button"><span class="material-symbols-outlined text-space-md">bolt</span><span>Form Sameday Express</span></button><button class="tactile-btn btn-tactile-ceramic px-space-sm py-1.5 rounded-lg text-brand-deep-purple font-label-caps text-label-caps gap-1" type="button"><span class="material-symbols-outlined text-space-md">sync</span><span>Sync Cloud</span></button></div><button class="relative p-space-xs rounded-lg text-text-secondary hover:bg-surface-container hover:text-text-primary transition-colors" type="button"><span class="material-symbols-outlined">notifications</span><span class="absolute top-1 right-1 w-4 h-4 bg-status-danger text-surface-white rounded-full font-label-nav text-label-nav flex items-center justify-center font-bold">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGqfmM9VR29MR-LJYBWJjibWsukPBNebdsdGrDZNh6yNGcA5DynsQjtbwonAiekRTiZrgk1NU-plsmowB7kN_8X-DJdVwZEajyNDSaddDo_iZhE7G2hlU4O4k9a-qpo2wEIWF0hxI43UwJsdIeEqg5cVLgIpXLFcerIeMSc8-uZLRwNB7d3LEPHv3w4ACwKN5KtIC6nZSDm8MQJ1KK8i_-CPrlLhSaf8uwzSKSr7o"/><span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-status-success rounded-full ring-2 ring-surface-white"></span></div><div class="hidden xl:flex flex-col text-left"><span class="font-body-compact text-body-compact font-bold text-text-primary leading-tight truncate">Sari Wulandari</span><span class="font-label-nav text-label-nav text-text-secondary leading-tight truncate">Dispatch Lead</span></div><span class="material-symbols-outlined text-text-secondary text-space-md hidden xl:block">arrow_drop_down</span></div></div></header><main class="w-full pt-16 bg-light-canvas flex-1"><div class="flex flex-col w-full relative">
+<!-- Backstage Underlay: MoraJaws Work Orders Table Simulator -->
+<div aria-hidden="true" class="w-full px-space-xl py-space-lg select-none opacity-40 filter blur-[2px] pointer-events-none">
+<div class="flex items-center justify-between pb-space-md mb-space-md">
+<div>
+<div class="font-headline-lg text-headline-lg text-brand-dark-purple">Work Order Dispatch Console</div>
+<div class="font-body-compact text-body-compact text-text-muted">Regional Cluster: Jabodetabek Selatan | Sesi Aktif: Dispatch Lead</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="h-9 px-space-md bg-surface-white rounded-lg shadow-sm flex items-center gap-space-xs font-body-compact text-body-compact">Filter Area (JKT-SEL)</div>
+<div class="h-9 px-space-md bg-brand-deep-purple text-surface-white rounded-lg flex items-center gap-space-xs font-body-compact text-body-compact">+ Create Ticket</div>
+</div>
+</div>
+<div class="bg-surface-white rounded-xl shadow-sm p-space-md space-y-space-sm">
+<div class="h-10 bg-surface-container rounded-lg w-full"></div>
+<div class="h-12 bg-surface-container-low rounded-lg w-full"></div>
+<div class="h-12 bg-surface-container-low rounded-lg w-full"></div>
+<div class="h-12 bg-surface-container-low rounded-lg w-full"></div>
+<div class="h-12 bg-surface-container-low rounded-lg w-full"></div>
+<div class="h-12 bg-surface-container-low rounded-lg w-full"></div>
+</div>
+</div>
+<!-- Modal Screen Overlay Backing -->
+<div class="fixed inset-0 z-50 flex items-start justify-center p-space-sm sm:p-space-lg md:p-space-xl overflow-y-auto bg-brand-dark-purple/60 backdrop-blur-sm transition-opacity duration-200" id="mora-ticket-modal-overlay">
+<!-- Comprehensive Enterprise TicketDetailModal Canvas -->
+<div aria-labelledby="modal-ticket-title" aria-modal="true" class="relative w-full max-w-7xl my-auto bg-surface-white rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100" role="dialog">
+<!-- TOP STATUS & SYSTEM STRIP -->
+<div class="w-full bg-light-canvas-tinted px-space-lg py-space-xs flex flex-wrap items-center justify-between text-text-secondary gap-space-xs border-b border-border-subtle">
+<div class="flex items-center gap-space-md font-body-compact text-body-compact">
+<div class="flex items-center gap-space-xs">
+<span class="w-2 h-2 rounded-full bg-status-success animate-pulse"></span>
+<span class="font-code-mono text-code-mono font-bold text-brand-dark-purple">POSTGRES: REPLICA-01 SYNCED</span>
+</div>
+<span class="text-text-muted">|</span>
+<span class="font-label-caps text-label-caps uppercase text-text-muted">Cluster: JKT-SEL-MELATI</span>
+<span class="text-text-muted">|</span>
+<span class="font-label-caps text-label-caps text-brand-gloss-purple">SLA Commitment: 120 Min (Remaining: Completed)</span>
+</div>
+<div class="flex items-center gap-space-sm text-text-muted font-body-compact text-body-compact">
+<span class="material-symbols-outlined text-space-md">lock</span>
+<span>Encrypted Session (ID: #DISP-99214-SARI)</span>
+</div>
+</div>
+<!-- MODAL HEADER -->
+<div class="bg-surface-white px-space-lg py-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md border-b border-border-subtle">
+<!-- Title & 4-Dimension Operational Badges -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex flex-wrap items-center gap-space-sm">
+<div class="flex items-center gap-space-xs bg-light-canvas px-space-sm py-1 rounded-lg border border-border-lilac shadow-inner">
+<span class="font-headline-md text-headline-md font-bold text-brand-deep-purple tracking-tight" id="modal-ticket-title">WO20267399330</span>
+<!-- Tactile Copy WO Button -->
+<button class="tactile-btn tactile-micro-key p-1 rounded-md text-text-secondary hover:text-brand-gloss-purple" onclick="navigator.clipboard.writeText('WO20267399330')" title="Copy Work Order Number" type="button">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</div>
+<span class="px-space-sm py-1 rounded-full bg-brand-deep-purple text-surface-white font-label-caps text-label-caps tracking-wider uppercase font-bold flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">bolt</span> SAMEDAY
+            </span>
+<span class="px-space-sm py-1 rounded-full bg-surface-container text-brand-deep-purple font-code-mono text-code-mono font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-status-success">verified</span> CUST-ID: 7399330
+            </span>
+<div class="hidden sm:flex items-center font-headline-md text-headline-md text-text-primary font-bold pl-space-xs">
+<span class="text-text-muted font-normal mr-1">/</span> Haji Sulaiman
+            </div>
+</div>
+<!-- 4 Strictly Independent Status Dimension Badges -->
+<div class="flex flex-wrap items-center gap-space-xs pt-1">
+<!-- 1. Agent Workflow -->
+<div class="flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-status-info/10 text-status-info font-label-caps text-label-caps uppercase tracking-wide font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-status-info"></span>
+<span>1. Agent: Assigned</span>
+</div>
+<!-- 2. Installer Field Stage -->
+<div class="flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-status-success/10 text-status-success font-label-caps text-label-caps uppercase tracking-wide font-bold">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+<span>2. Installer: Completed</span>
+</div>
+<!-- 3. WhatsApp Customer Engagement -->
+<div class="flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-status-success/15 text-status-success font-label-caps text-label-caps uppercase tracking-wide font-bold">
+<span class="material-symbols-outlined text-[13px]">chat</span>
+<span>3. WA: Confirmed</span>
+</div>
+<!-- 4. Governance Dispatch Approval (Pulsing Amber Alert) -->
+<div class="flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-status-warning/15 text-status-warning font-label-caps text-label-caps uppercase tracking-wider font-extrabold animate-pulse">
+<span class="w-2 h-2 rounded-full bg-status-warning"></span>
+<span>4. Butuh Approval Dispatch</span>
+</div>
+</div>
+</div>
+<!-- Header Action Utilities (Upgraded with 3D Tactile Buttons) -->
+<div class="flex items-center gap-space-xs self-end lg:self-center">
+<!-- 3D Segmented / Switch WO Selector -->
+<div class="relative inline-block text-left">
+<button class="tactile-btn btn-tactile-ceramic px-space-sm py-1.5 rounded-lg text-text-primary font-body-compact text-body-compact font-bold gap-1" type="button">
+<span class="material-symbols-outlined text-space-md text-brand-gloss-purple">toggle_on</span>
+<span>Status WO</span>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">expand_more</span>
+</button>
+</div>
+<!-- Edit Button 3D -->
+<button class="tactile-btn btn-tactile-ceramic px-space-sm py-1.5 rounded-lg text-text-primary font-body-compact text-body-compact font-semibold gap-1" type="button">
+<span class="material-symbols-outlined text-space-md text-brand-gloss-purple">edit_note</span>
+<span>Edit</span>
+</button>
+<!-- Arsipkan / Close Ticket 3D Button -->
+<button class="tactile-btn btn-tactile-ceramic px-space-sm py-1.5 rounded-lg text-text-primary font-body-compact text-body-compact font-semibold gap-1" type="button">
+<span class="material-symbols-outlined text-space-md text-text-secondary">archive</span>
+<span>Arsipkan</span>
+</button>
+<!-- Close [X] 3D Micro Key Button -->
+<button class="tactile-btn tactile-micro-key w-9 h-9 ml-space-xs rounded-xl flex items-center justify-center text-text-secondary hover:text-status-danger" title="Close Modal (Esc)" type="button">
+<span class="material-symbols-outlined text-space-lg">close</span>
+</button>
+</div>
+</div>
+<!-- SCROLLABLE INTERACTIVE BODY STAGE -->
+<div class="flex-1 overflow-y-auto max-h-[calc(90vh-140px)] bg-light-canvas p-space-md sm:p-space-lg space-y-space-lg">
+<!-- ============================================================== -->
+<!-- ZONE 1: TOP URGENT DISPATCH APPROVAL & VERIFIKASI HUB           -->
+<!-- ============================================================== -->
+<section class="bg-surface-white rounded-xl shadow-md p-space-lg relative overflow-hidden border border-border-subtle">
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-status-warning via-brand-gloss-purple to-status-success"></div>
+<!-- Banner Header & Metadata -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between pb-space-md mb-space-md gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-status-warning/15 flex items-center justify-center text-status-warning flex-shrink-0">
+<span class="material-symbols-outlined text-headline-lg">verified_user</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Verifikasi Hasil Pengerjaan Teknisi Lapangan</span>
+<span class="px-space-xs py-0.5 rounded bg-status-warning/20 text-status-warning font-label-caps text-label-caps uppercase">SOP Level 1 Check</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-secondary flex flex-wrap items-center gap-x-space-md gap-y-0.5 mt-0.5">
+<span>Teknisi: <strong class="text-text-primary font-semibold">Andi Saputra</strong> (PT Mitra Jaringan Solusi)</span>
+<span>•</span>
+<span>Waktu Selesai: <strong class="text-text-primary font-semibold">10:42 WIB</strong></span>
+<span>•</span>
+<span>Total Durasi: <strong class="text-brand-gloss-purple font-bold">1j 28m</strong> <span class="text-text-muted">(Start: 09:14 WIB)</span></span>
+</div>
+</div>
+</div>
+<!-- Live Verification Pill Indicator -->
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-light-canvas-tinted rounded-xl shadow-sm border border-border-lilac">
+<span class="material-symbols-outlined text-brand-gloss-purple">speed</span>
+<div class="flex flex-col text-right">
+<span class="font-label-caps text-label-caps uppercase text-text-muted">Threshold Validasi</span>
+<span class="font-code-mono text-code-mono text-status-success font-bold">AUTOMATION PASS (4/4)</span>
+</div>
+</div>
+</div>
+<!-- Metric Highlights Grid (4 Precision Cards) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md mb-space-lg">
+<!-- 1. Redaman OPM -->
+<div class="bg-light-canvas rounded-xl p-space-md flex flex-col justify-between hover:bg-surface-white hover:shadow-md transition-all border border-border-subtle">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-text-muted">Redaman OPM ONT</span>
+<span class="px-space-xs py-0.5 rounded-full bg-status-success/15 text-status-success font-label-caps text-label-caps font-bold">PASS &lt; -24 dBm</span>
+</div>
+<div class="flex items-baseline gap-space-xs">
+<span class="font-kpi-metric text-kpi-metric text-status-success font-bold tracking-tight">-18.50</span>
+<span class="font-body-compact text-body-compact text-text-secondary font-medium">dBm</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-secondary mt-space-xs truncate">
+                Diukur pada port ONT pelanggan
+              </div>
+</div>
+<!-- 2. SN ONT / Modem -->
+<div class="bg-light-canvas rounded-xl p-space-md flex flex-col justify-between hover:bg-surface-white hover:shadow-md transition-all border border-border-subtle">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-text-muted">SN ONT / Modem</span>
+<span class="material-symbols-outlined text-status-success text-space-lg">check_circle</span>
+</div>
+<div class="font-code-mono text-headline-md text-brand-deep-purple font-bold tracking-wider truncate">
+                ZTEG-C882194
+              </div>
+<div class="font-body-compact text-body-compact text-status-success font-medium mt-space-xs truncate">
+                ✓ Terdaftar di OLT JKT-MEL-01
+              </div>
+</div>
+<!-- 3. Dropcore & FAT Port -->
+<div class="bg-light-canvas rounded-xl p-space-md flex flex-col justify-between hover:bg-surface-white hover:shadow-md transition-all border border-border-subtle">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-text-muted">Dropcore &amp; FAT</span>
+<span class="font-code-mono text-label-caps text-brand-gloss-purple font-bold">Port #04</span>
+</div>
+<div class="flex items-baseline gap-space-xs">
+<span class="font-kpi-metric text-kpi-metric text-brand-dark-purple font-bold">115</span>
+<span class="font-body-compact text-body-compact text-text-secondary font-medium">Meter</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-secondary mt-space-xs truncate">
+                FAT Melati-02 (Redaman -17.2 dBm)
+              </div>
+</div>
+<!-- 4. Status Laporan 3-Tingkat Teknisi -->
+<div class="bg-light-canvas rounded-xl p-space-md flex flex-col justify-between hover:bg-surface-white hover:shadow-md transition-all border border-border-subtle">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-text-muted">Laporan 3-Tingkat</span>
+<span class="material-symbols-outlined text-brand-gloss-purple text-space-md">account_tree</span>
+</div>
+<div class="font-body-compact text-body-compact font-bold text-status-success truncate">
+                L1: Completed
+              </div>
+<div class="font-body-compact text-body-compact text-text-secondary mt-space-xs leading-snug truncate">
+                L2: Instalasi Baru Sukses<br/>
+<span class="text-text-muted text-[11px] truncate">L3: Normal / Sesuai Standar MyRep</span>
+</div>
+</div>
+</div>
+<!-- Bukti Dokumentasi Fisik 4 Titik Wajib (Gallery with 3D Photo Action Keys) -->
+<div class="mb-space-lg">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-space-md text-brand-gloss-purple">photo_camera</span>
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Bukti Dokumentasi Fisik (4 Titik Wajib SOP)</span>
+</div>
+<span class="font-label-caps text-label-caps uppercase font-bold text-status-success">100% Terunggah (Valid Geo-tagging &amp; EXIF)</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-space-md">
+<!-- Item 1: Foto OPM -->
+<div class="group relative rounded-xl overflow-hidden bg-light-canvas shadow-sm hover:shadow-md transition-all border border-border-subtle">
+<div class="w-full h-32 bg-cover bg-center overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Close up photograph of a professional handheld optical power meter OPM display glowing with green backlight showing -18.50 dBm reading on fiber optic cable, telecommunications field audit setting, clean crisp enterprise aesthetic, violet and metallic accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0L-49dLmqBrW72mS7sM0yUuXSFr1DhrtDd6uuCccn4wGNskWj7LuKPOwPjJjfA-lC862rKFReykjiorVEzJBrFxx0zR4CsToVKRP8jDkXp0ljgtTzGJHtp_11S3zrRBqK1IVf3f7BqEGsDG6I2wDOeK9xyDKnX2tNi_aMpEms7GItuENH0zyxiRgnfm0XaM-Y9NJGxS7i4OB0mVjkE8fqU7cLWqbqMJCULGIpEv4"/>
+<button class="tactile-btn tactile-micro-key absolute top-2 right-2 w-8 h-8 rounded-lg !bg-brand-dark-purple/90 !text-surface-white !border-white/20 !border-b-[2px] !border-b-black opacity-0 group-hover:opacity-100 transition-opacity" title="Lihat Foto Resolusi Tinggi / Zoom Bukti" type="button">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+</div>
+<div class="p-space-xs bg-surface-white flex items-center justify-between">
+<div class="min-w-0 pr-1">
+<div class="font-body-compact text-body-compact font-bold text-text-primary truncate">1. Display OPM ONT</div>
+<div class="font-code-mono text-[11px] text-status-success truncate">-18.50 dBm PASS</div>
+</div>
+<button class="tactile-btn tactile-chip text-[10px] px-1.5 py-0.5 rounded text-brand-deep-purple font-semibold" title="Zoom Bukti">Zoom</button>
+</div>
+</div>
+<!-- Item 2: Foto Barcode ONT -->
+<div class="group relative rounded-xl overflow-hidden bg-light-canvas shadow-sm hover:shadow-md transition-all border border-border-subtle">
+<div class="w-full h-32 bg-cover bg-center overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Clear high resolution shot of a white fiber optic ONT router rear label showing barcode serial number ZTEG-C882194 and MAC address sticker, mounted neatly on residential wall, studio lighting quality for equipment inspection" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATnjHI9XCqAUp0C5_hqTcklfB6Z2biYvvxbkQhNqRbuztuzi2eCkv5leTuofBd-SepcYWYNpZrkK_xLuabW2zEWyQOJDSCpoj8Ly_hQPi12AvJQkGuoW0WNlc-pVzWQQA4SdBqYqjpOwW-HkJAU-lR_3NwyrGbQZeyiWOHvKxtsIjnwISGpBDn1cIZ8Sta8HIQMppOGM6qInFdolZYabzLbBD9cGGz8YF7BZtHEGs"/>
+<button class="tactile-btn tactile-micro-key absolute top-2 right-2 w-8 h-8 rounded-lg !bg-brand-dark-purple/90 !text-surface-white !border-white/20 !border-b-[2px] !border-b-black opacity-0 group-hover:opacity-100 transition-opacity" title="Lihat Foto Resolusi Tinggi / Zoom Bukti" type="button">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+</div>
+<div class="p-space-xs bg-surface-white flex items-center justify-between">
+<div class="min-w-0 pr-1">
+<div class="font-body-compact text-body-compact font-bold text-text-primary truncate">2. Barcode &amp; MAC ONT</div>
+<div class="font-code-mono text-[11px] text-text-secondary truncate">SN: ZTEG-C882194</div>
+</div>
+<button class="tactile-btn tactile-chip text-[10px] px-1.5 py-0.5 rounded text-brand-deep-purple font-semibold" title="Zoom Bukti">Zoom</button>
+</div>
+</div>
+<!-- Item 3: Foto FAT Port Tag -->
+<div class="group relative rounded-xl overflow-hidden bg-light-canvas shadow-sm hover:shadow-md transition-all border border-border-subtle">
+<div class="w-full h-32 bg-cover bg-center overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Outdoor telecommunications fiber access terminal FAT box on utility pole opened showing clean cable management, patch cords neatly routed, dropcore labeled Port 04 Melati-02, bright daylight clear industrial field photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0wktEGTAs4OaZ_fti-eY6hw41d4m5v-emWh3LSgYGYtAFBn14vRiFDDFSD1ve9WOpAYassCLg8wGxAkt30uSV1BmM2AmkydEyImOBtcimfFHYRRwspMJP69gtnWmEONQh6cZz5el6uX6XSNDdh2m6XPGeENSuhojUgtZ-7-DNR8Wi8n93Ye3Za5ojUglUTtauMaFB6jy4erxdleGUG74F7WhFF_ixGrZvOb6OZXw"/>
+<button class="tactile-btn tactile-micro-key absolute top-2 right-2 w-8 h-8 rounded-lg !bg-brand-dark-purple/90 !text-surface-white !border-white/20 !border-b-[2px] !border-b-black opacity-0 group-hover:opacity-100 transition-opacity" title="Lihat Foto Resolusi Tinggi / Zoom Bukti" type="button">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+</div>
+<div class="p-space-xs bg-surface-white flex items-center justify-between">
+<div class="min-w-0 pr-1">
+<div class="font-body-compact text-body-compact font-bold text-text-primary truncate">3. FAT Port &amp; Tag</div>
+<div class="font-code-mono text-[11px] text-brand-gloss-purple truncate">Port 04 / FAT Melati-02</div>
+</div>
+<button class="tactile-btn tactile-chip text-[10px] px-1.5 py-0.5 rounded text-brand-deep-purple font-semibold" title="Zoom Bukti">Zoom</button>
+</div>
+</div>
+<!-- Item 4: Foto Rumah & ONT Selesai -->
+<div class="group relative rounded-xl overflow-hidden bg-light-canvas shadow-sm hover:shadow-md transition-all border border-border-subtle">
+<div class="w-full h-32 bg-cover bg-center overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Interior living room setting with installed telecommunications ONT WiFi router neatly placed on modern wooden desk with active green LED indicators, customer home environment in Jakarta Indonesia, bright clean warm interior lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTNXSJL9lzPR6bWxcw4diAqSj9OsGzR5EwG-Uv523sFrvdyHLxuwObcPea9hv1eXaOnbAKLllRI7KWlcdFilpkA6qDGQlsJGI5mLOGl-eRspG7_00J42dZf4jI81eXHTN3bkE7u4kUM4GNyaEDjJ1LX_kXiDQHPqlaDzXd7bfxAcs2ROAqIIULsk8QbLMMSkeja0SHLkBvoMEhwti_unOdKNgqgvbo9pFJULHmitI"/>
+<button class="tactile-btn tactile-micro-key absolute top-2 right-2 w-8 h-8 rounded-lg !bg-brand-dark-purple/90 !text-surface-white !border-white/20 !border-b-[2px] !border-b-black opacity-0 group-hover:opacity-100 transition-opacity" title="Lihat Foto Resolusi Tinggi / Zoom Bukti" type="button">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+</div>
+<div class="p-space-xs bg-surface-white flex items-center justify-between">
+<div class="min-w-0 pr-1">
+<div class="font-body-compact text-body-compact font-bold text-text-primary truncate">4. Unit Aktif di Rumah</div>
+<div class="font-code-mono text-[11px] text-status-success truncate">Koneksi Aktif / Rapih</div>
+</div>
+<button class="tactile-btn tactile-chip text-[10px] px-1.5 py-0.5 rounded text-brand-deep-purple font-semibold" title="Zoom Bukti">Zoom</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Dispatcher Verification Catatan & 3D Tactile Decision Control Block -->
+<div class="bg-light-canvas-tinted rounded-xl p-space-md border border-border-lilac">
+<div class="flex flex-col lg:flex-row gap-space-md items-start lg:items-end">
+<div class="flex-1 w-full space-y-space-xs">
+<div class="flex items-center justify-between flex-wrap gap-1">
+<label class="font-headline-md text-[14px] text-brand-dark-purple font-bold flex items-center gap-1" for="dispatcher-review-note">
+<span>Catatan Pemeriksaan Dispatcher</span>
+<span class="text-status-danger">*</span>
+<span class="font-body-compact text-body-compact text-text-muted font-normal">(Wajib jika meminta revisi/tolak)</span>
+</label>
+<!-- Quick SOP FTTH Template Chips (Upgraded to 3D Tactile Micro Chips) -->
+<div class="flex items-center gap-1 flex-wrap">
+<span class="font-label-caps text-label-caps text-text-muted">Template Cepat:</span>
+<button class="tactile-btn tactile-chip px-2 py-0.5 rounded text-brand-deep-purple font-label-caps text-label-caps" onclick="document.getElementById('dispatcher-review-note').value = 'Redaman optik sangat baik (-18.5 dBm), foto bukti lengkap dan sesuai SOP. Disetujui.'" type="button">Acc Redaman Normal</button>
+<button class="tactile-btn tactile-chip px-2 py-0.5 rounded text-brand-deep-purple font-label-caps text-label-caps" onclick="document.getElementById('dispatcher-review-note').value = 'Foto barcode ONT buram, harap unggah ulang foto yang menampilkan SN dan MAC jelas.'" type="button">Kirim Ulang Foto</button>
+<button class="tactile-btn tactile-chip px-2 py-0.5 rounded text-brand-deep-purple font-label-caps text-label-caps" onclick="document.getElementById('dispatcher-review-note').value = 'SOP pemasangan lengkap, kordinat check-in akurat, konfigurasi PPPoE online.'" type="button">SOP Lengkap</button>
+</div>
+</div>
+<textarea class="w-full p-space-sm bg-surface-white rounded-lg font-body-base text-body-base text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-gloss-purple shadow-sm transition-all border border-border-lilac" id="dispatcher-review-note" placeholder="Tuliskan catatan verifikasi hasil teknisi di sini..." rows="2"></textarea>
+</div>
+<!-- Main Approval Action CTAs (Upgraded with Tactile Extrusion & Kinetic Compression) -->
+<div class="flex flex-wrap sm:flex-nowrap items-center gap-space-sm w-full lg:w-auto">
+<!-- Tier 04 Destructive Crimson Obsidian 3D Button -->
+<button class="tactile-btn btn-tactile-crimson flex-1 lg:flex-initial px-space-md py-2.5 rounded-xl font-body-compact text-body-compact font-bold gap-1.5" type="button">
+<span class="material-symbols-outlined text-space-md">cancel</span>
+<span>Tolak / Minta Revisi</span>
+</button>
+<!-- Secondary Lilac Ceramic 3D Button: Simpan Draf -->
+<button class="tactile-btn btn-tactile-ceramic flex-1 lg:flex-initial px-space-md py-2.5 rounded-xl font-body-compact text-body-compact font-bold gap-1.5" type="button">
+<span class="material-symbols-outlined text-space-md text-brand-gloss-purple">save</span>
+<span>Simpan Draf</span>
+</button>
+<!-- Tier 03 Success Emerald Specular 3D Button -->
+<button class="tactile-btn btn-tactile-emerald flex-1 lg:flex-initial px-space-lg py-2.5 rounded-xl font-headline-md text-[14px] font-bold gap-2 tracking-wide" type="button">
+<span class="material-symbols-outlined text-space-lg">check_circle</span>
+<span>Setujui &amp; Selesaikan WO</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- ============================================================== -->
+<!-- ZONE 2: 2-COLUMN MAIN ARCHITECTURE                             -->
+<!-- ============================================================== -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- ============================================================ -->
+<!-- LEFT COLUMN (60%): CUSTOMER, SCHEDULE & 46-CANONICAL SPECS   -->
+<!-- ============================================================ -->
+<div class="lg:col-span-7 space-y-space-lg">
+<!-- Card 1: Data Pelanggan & Alamat Koordinat -->
+<div class="bg-surface-white rounded-xl shadow-sm p-space-lg space-y-space-md border border-border-subtle">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-brand-gloss-purple">person_pin</span>
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Identitas Pelanggan &amp; Lokasi Pemasangan</span>
+</div>
+<span class="font-label-caps text-label-caps uppercase text-status-success font-bold bg-status-success/10 px-space-xs py-0.5 rounded">Verified Customer</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+<div class="space-y-space-xs">
+<div class="font-label-caps text-label-caps uppercase text-text-muted">Nama Pelanggan</div>
+<div class="font-headline-md text-headline-md text-text-primary">Haji Sulaiman</div>
+<div class="font-code-mono text-body-compact text-text-secondary">ID: 7399330 / Cust-Ref: MYR-992182</div>
+</div>
+<div class="space-y-space-xs">
+<div class="font-label-caps text-label-caps uppercase text-text-muted">Kontak Cepat Lapangan</div>
+<div class="font-headline-md text-[16px] text-text-primary font-bold">0812-9988-3344</div>
+<!-- 3D Tactile WhatsApp and Phone Action Buttons -->
+<div class="flex items-center gap-space-xs pt-1">
+<a class="tactile-btn btn-tactile-wa px-space-sm py-1.5 rounded-lg font-label-caps text-label-caps font-bold gap-1" href="https://wa.me/6281299883344" target="_blank">
+<span class="material-symbols-outlined text-[14px]">chat</span>
+<span>WhatsApp WA.ME</span>
+</a>
+<a class="tactile-btn btn-tactile-ceramic px-space-sm py-1.5 rounded-lg font-label-caps text-label-caps font-bold text-text-primary gap-1" href="tel:081299883344">
+<span class="material-symbols-outlined text-[14px] text-brand-gloss-purple">call</span>
+<span>Telepon</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Address & Geo Location -->
+<div class="p-space-md bg-light-canvas rounded-xl space-y-space-xs border border-border-subtle">
+<div class="flex items-start justify-between gap-space-sm">
+<div>
+<div class="font-label-caps text-label-caps uppercase text-text-muted">Alamat Instalasi Terdaftar</div>
+<div class="font-body-base text-body-base text-text-primary font-medium mt-0.5">
+                      Jl. Kenanga No. 12, Cluster Melati Residence, Blok C-04, RT 05 / RW 03, Cilandak Barat, Kota Jakarta Selatan, DKI Jakarta 12430
+                    </div>
+</div>
+<a class="tactile-btn btn-tactile-ceramic flex-shrink-0 px-space-sm py-1.5 rounded-lg font-body-compact text-body-compact font-bold text-brand-deep-purple gap-1" href="https://maps.google.com" target="_blank">
+<span class="material-symbols-outlined text-space-md text-brand-gloss-purple">near_me</span>
+<span>Buka Maps</span>
+</a>
+</div>
+<div class="flex items-center gap-space-md pt-space-xs font-code-mono text-body-compact text-text-secondary">
+<span>LAT: -6.292839</span>
+<span>•</span>
+<span>LONG: 106.801294</span>
+<span>•</span>
+<span class="text-status-success font-bold">Akurasi GPS Teknisi: 4m</span>
+</div>
+</div>
+</div>
+<!-- Card 2: Jadwal, Slot Waktu & Penugasan Kontraktor -->
+<div class="bg-surface-white rounded-xl shadow-sm p-space-lg space-y-space-md border border-border-subtle">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-brand-gloss-purple">calendar_month</span>
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Jadwal &amp; Penugasan Kontraktor</span>
+</div>
+<span class="font-label-caps text-label-caps uppercase bg-soft-lilac/50 text-brand-deep-purple px-space-xs py-0.5 rounded font-bold">Appointment Valid</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+<div class="p-space-sm bg-light-canvas rounded-lg border border-border-subtle">
+<span class="font-label-caps text-label-caps uppercase text-text-muted">Tanggal Janji Temu</span>
+<div class="font-headline-md text-[15px] text-text-primary font-bold mt-0.5">15 Nov 2026</div>
+<span class="font-body-compact text-[11px] text-brand-gloss-purple font-semibold">todayWIB (Sameday)</span>
+</div>
+<div class="p-space-sm bg-light-canvas rounded-lg border border-border-subtle">
+<span class="font-label-caps text-label-caps uppercase text-text-muted">Slot Waktu Pelanggan</span>
+<div class="font-headline-md text-[15px] text-text-primary font-bold mt-0.5">09:00 - 11:00 WIB</div>
+<span class="font-body-compact text-[11px] text-text-secondary">Slot 1 (Pagi)</span>
+</div>
+<div class="p-space-sm bg-light-canvas rounded-lg border border-border-subtle">
+<span class="font-label-caps text-label-caps uppercase text-text-muted">Mitra Pelaksana</span>
+<div class="font-headline-md text-[15px] text-text-primary font-bold mt-0.5 truncate">PT Mitra Jaringan</div>
+<span class="font-body-compact text-[11px] text-text-secondary">Vendor ID: MJ-04</span>
+</div>
+</div>
+<!-- Hierarchy Field Assignment -->
+<div class="flex flex-col sm:flex-row items-center justify-between p-space-sm bg-light-canvas-tinted rounded-xl gap-space-sm border border-border-lilac">
+<div class="flex items-center gap-space-sm w-full sm:w-auto">
+<div class="w-8 h-8 rounded-full bg-brand-deep-purple text-surface-white flex items-center justify-center font-bold text-body-compact shadow-sm">BS</div>
+<div>
+<div class="font-label-caps text-[10px] uppercase text-text-muted">Koordinator Lapangan (Korlap)</div>
+<div class="font-body-compact text-body-compact font-bold text-text-primary">Budi Santoso (0811-7788-990)</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-muted rotate-90 sm:rotate-0">arrow_forward</span>
+<div class="flex items-center gap-space-sm w-full sm:w-auto">
+<div class="w-8 h-8 rounded-full bg-brand-gloss-purple text-surface-white flex items-center justify-center font-bold text-body-compact shadow-sm">AS</div>
+<div>
+<div class="font-label-caps text-[10px] uppercase text-text-muted">Teknisi Eksekutor</div>
+<div class="font-body-compact text-body-compact font-bold text-text-primary">Andi Saputra (ID: TEK-302)</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Rincian Teknis Work Order (Canonical Fields Grid) -->
+<div class="bg-surface-white rounded-xl shadow-sm p-space-lg space-y-space-md border border-border-subtle">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-brand-gloss-purple">settings_ethernet</span>
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Spesifikasi Teknis FTTH (Data Valid)</span>
+</div>
+<span class="font-code-mono text-[11px] text-text-muted">46-Field Schema Compliant</span>
+</div>
+<!-- Canonical Grid: Populated Values Only, Clean Layout -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">Paket Internet</span>
+<span class="font-body-compact text-body-compact font-bold text-text-primary">100M Fiber Reguler</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">FDT Code</span>
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">FDT-JS-015</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">FAT Code</span>
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">FAT-JS-015-02</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">FAT Port</span>
+<span class="font-code-mono text-body-compact font-bold text-status-success">Port 04</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">OLT Name</span>
+<span class="font-code-mono text-body-compact font-semibold text-text-primary">OLT-JKT-MEL-01</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">VLAN ID</span>
+<span class="font-code-mono text-body-compact font-bold text-brand-gloss-purple">1024</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">PPPoE Account</span>
+<span class="font-code-mono text-[11px] font-semibold text-text-primary truncate block" title="user_7399330@myrep">user_7399330@myrep</span>
+</div>
+<div class="p-space-xs rounded-lg bg-light-canvas border border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted block">Waktu Import WO</span>
+<span class="font-code-mono text-[11px] text-text-secondary">2026-11-15 06:30</span>
+</div>
+</div>
+</div>
+<!-- Card 4: Audit Trail, Reassignment & Log Tiket -->
+<div class="bg-surface-white rounded-xl shadow-sm p-space-lg space-y-space-md border border-border-subtle">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-brand-gloss-purple">history</span>
+<span class="font-headline-md text-headline-md text-brand-dark-purple">Riwayat Transaksi &amp; Log Perubahan Tiket</span>
+</div>
+<span class="font-label-caps text-label-caps text-text-muted">Total: 6 Event</span>
+</div>
+<!-- Vertical Audit Timeline -->
+<div class="relative pl-6 space-y-space-md before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border-subtle">
+<!-- Event 1 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-status-info ring-4 ring-surface-white"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">07:15 WIB</span>
+<span class="font-label-caps text-[10px] text-text-muted">System Batch</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary">
+                    Imported via <span class="font-code-mono text-[11px] text-brand-gloss-purple">TextToTableImporter</span> by Dispatcher <strong class="text-text-primary">Sari Wulandari</strong>.
+                  </div>
+</div>
+<!-- Event 2 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-surface-tint ring-4 ring-surface-white"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">07:30 WIB</span>
+<span class="font-label-caps text-[10px] text-text-muted">Auto Dispatch</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary">
+                    Auto-assigned to partner vendor <strong class="text-text-primary">PT Mitra Jaringan Solusi</strong> (Cluster Match).
+                  </div>
+</div>
+<!-- Event 3 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-brand-deep-purple ring-4 ring-surface-white"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">08:00 WIB</span>
+<span class="font-label-caps text-[10px] text-text-muted">Korlap Action</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary">
+                    Assigned to Teknisi <strong class="text-text-primary">Andi Saputra</strong> by Korlap <strong class="text-text-primary">Budi Santoso</strong>.
+                  </div>
+</div>
+<!-- Event 4 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-brand-gloss-purple ring-4 ring-surface-white"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">09:14 WIB</span>
+<span class="font-label-caps text-[10px] text-text-muted">Field Start</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary">
+                    Teknisi klik tombol <strong class="text-brand-gloss-purple">"Mulai Kerjakan"</strong> (workStartedAt registered in GPS radius).
+                  </div>
+</div>
+<!-- Event 5 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-status-success ring-4 ring-surface-white"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-brand-deep-purple">09:18 WIB</span>
+<span class="font-label-caps text-[10px] text-status-success font-bold">SOP Check-in</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary">
+                    Teknisi Check-in LiveChat kategori <span class="px-1.5 py-0.5 rounded bg-status-info/10 text-status-info font-bold font-code-mono text-[11px]">PROGRESS</span> (Wajib SOP dipenuhi).
+                  </div>
+</div>
+<!-- Event 6 -->
+<div class="relative">
+<span class="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full bg-status-warning ring-4 ring-surface-white animate-pulse"></span>
+<div class="flex items-center justify-between">
+<span class="font-code-mono text-body-compact font-bold text-status-warning">10:42 WIB</span>
+<span class="font-label-caps text-[10px] text-status-warning font-bold">Awaiting Action</span>
+</div>
+<div class="font-body-compact text-body-compact text-text-primary font-semibold">
+                    Teknisi submit Laporan 3-Tingkat (status berpindah ke: <span class="text-status-warning font-bold uppercase">BUTUH APPROVAL</span>).
+                  </div>
+</div>
+</div>
+</div>
+</div>
+<!-- ============================================================ -->
+<!-- RIGHT COLUMN (40%): REAL-TIME LIVECHAT PER TIKET             -->
+<!-- ============================================================ -->
+<div class="lg:col-span-5 flex flex-col h-[760px] bg-surface-white rounded-xl shadow-sm overflow-hidden sticky top-4 border border-border-subtle">
+<!-- Chat Header -->
+<div class="p-space-md bg-brand-dark-purple text-surface-white flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-brand-deep-purple flex items-center justify-center text-lilac-accent shadow-inner">
+<span class="material-symbols-outlined text-space-lg">forum</span>
+</div>
+<div>
+<div class="font-headline-md text-[15px] font-bold text-surface-white flex items-center gap-space-xs">
+<span>Ticket LiveChat</span>
+<span class="w-2 h-2 rounded-full bg-status-success"></span>
+</div>
+<div class="font-body-compact text-[11px] text-lilac-accent">
+                    Dedicated Thread • WO20267399330
+                  </div>
+</div>
+</div>
+<!-- Active Chat Filter Category Tag -->
+<div class="px-space-sm py-1 rounded-full bg-brand-deep-purple/80 text-surface-white font-label-caps text-[10px] uppercase font-bold flex items-center gap-1 border border-lilac-accent/30 shadow-sm">
+<span class="material-symbols-outlined text-[12px] text-status-success">check</span>
+<span>Check-in Valid ✓</span>
+</div>
+</div>
+<!-- Mandatory SOP Badge Reminder -->
+<div class="px-space-md py-space-xs bg-light-canvas-tinted flex items-center justify-between text-brand-dark-purple border-b border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-secondary">SOP: Wajib update minimal 2x saat di lokasi</span>
+<span class="font-code-mono text-[11px] text-status-success font-bold">2/2 Terpenuhi</span>
+</div>
+<!-- Message Scroll Stream -->
+<div class="flex-1 overflow-y-auto p-space-md space-y-space-md bg-light-canvas">
+<!-- Message 1: Teknisi Andi -->
+<div class="flex flex-col items-start max-w-[88%] space-y-1">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-compact text-body-compact font-bold text-text-primary">Andi Saputra</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container text-brand-deep-purple font-label-caps text-[10px] font-bold">TEKNISI</span>
+<span class="font-code-mono text-[11px] text-text-muted">09:18 WIB</span>
+</div>
+<div class="p-space-sm bg-surface-white rounded-2xl rounded-tl-sm shadow-sm space-y-space-xs border border-border-subtle">
+<span class="inline-block px-1.5 py-0.5 rounded bg-status-info/15 text-status-info font-label-caps text-[10px] font-bold">PROGRESS</span>
+<p class="font-body-compact text-body-compact text-text-primary leading-relaxed">
+                    Check-in lokasi pelanggan, mulai penarikan dropcore dari FAT 02. Redaman awal FAT -17.2 dBm.
+                  </p>
+<!-- Inline photo preview with 3D trigger -->
+<div class="pt-1">
+<div class="rounded-lg overflow-hidden h-20 w-36 bg-light-canvas relative group cursor-pointer shadow-sm border border-border-subtle">
+<img class="w-full h-full object-cover" data-alt="Field technician photograph of fiber access terminal box port measurement tool during morning installation check in Jakarta residential suburb" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgxaMwsTP10NNHxI-hlzv0r70kwduDRL5IHbFgJao9gVwSsGSkucb9v-W-uKPoJeG5zaTy00DJh0z32Cj4_4Bco61BNsGHzF1-vL4age1pxCJjphtQtMiha_v99Fwc6dEFfGZA2wqF5IiHaiawKVOs8TlGB6z981_m9U7P3HMPO8qhozDRvcGDuuhJ653wrA6t7R-Vq4KTamIrUHUc3GpCsyZ0AdiNo_OnUDKhstA"/>
+<span class="absolute bottom-1 right-1 px-1 bg-brand-dark-purple/80 text-surface-white rounded font-code-mono text-[9px]">ODP_Check.jpg</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Message 2: Dispatcher Sari (Me / Internal Dispatch) -->
+<div class="flex flex-col items-end max-w-[88%] ml-auto space-y-1">
+<div class="flex items-center gap-space-xs">
+<span class="font-code-mono text-[11px] text-text-muted">09:22 WIB</span>
+<span class="px-1.5 py-0.2 rounded bg-soft-lilac text-brand-deep-purple font-label-caps text-[10px] font-bold">DISPATCH</span>
+<span class="font-body-compact text-body-compact font-bold text-text-primary">Sari Wulandari</span>
+</div>
+<div class="p-space-sm bg-brand-gloss-purple text-surface-white rounded-2xl rounded-tr-sm shadow-sm space-y-space-xs border border-lilac-accent/30">
+<span class="inline-block px-1.5 py-0.5 rounded bg-surface-white/20 text-surface-white font-label-caps text-[10px] font-bold">RESPONSE</span>
+<p class="font-body-compact text-body-compact leading-relaxed text-surface-white">
+                    Diterima Andi. Hati-hati crossing jalan raya, pastikan clamp terpasang kuat sesuai instruksi RW setempat.
+                  </p>
+</div>
+</div>
+<!-- Message 3: Korlap Budi (Support Notification) -->
+<div class="flex flex-col items-start max-w-[88%] space-y-1">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-compact text-body-compact font-bold text-text-primary">Budi Santoso</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-high text-brand-deep-purple font-label-caps text-[10px] font-bold">KORLAP</span>
+<span class="font-code-mono text-[11px] text-text-muted">09:45 WIB</span>
+</div>
+<div class="p-space-sm bg-surface-white rounded-2xl rounded-tl-sm shadow-sm space-y-space-xs border border-border-subtle">
+<p class="font-body-compact text-body-compact text-text-primary leading-relaxed">
+                    Dropcore tambahan 15 meter sudah dicatat di log pemakaian material Mitra. Lanjut terminasi ONT.
+                  </p>
+</div>
+</div>
+<!-- Message 4: Final Submission from Teknisi -->
+<div class="flex flex-col items-start max-w-[88%] space-y-1">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-compact text-body-compact font-bold text-text-primary">Andi Saputra</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container text-brand-deep-purple font-label-caps text-[10px] font-bold">TEKNISI</span>
+<span class="font-code-mono text-[11px] text-text-muted">10:40 WIB</span>
+</div>
+<div class="p-space-sm bg-surface-white rounded-2xl rounded-tl-sm shadow-sm space-y-space-xs border border-border-subtle">
+<span class="inline-block px-1.5 py-0.5 rounded bg-status-success/15 text-status-success font-label-caps text-[10px] font-bold">COMPLETION</span>
+<p class="font-body-compact text-body-compact text-text-primary leading-relaxed">
+                    Instalasi selesai, ONT aktif internet lancar, redaman ONT -18.5 dBm. Mengajukan approval dispatcher sekarang.
+                  </p>
+<div class="pt-1">
+<div class="rounded-lg overflow-hidden h-20 w-36 bg-light-canvas relative group cursor-pointer shadow-sm border border-border-subtle">
+<img class="w-full h-full object-cover" data-alt="Smartphone screenshot showing internet speedtest result measuring 98 Mbps download and 95 Mbps upload with low ping on telecom test server" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs5HpWQ5KzRtT0m7yJChI6o5ODP_ieuWYeDjMsRpT6uSKyb8QYv4NbMhN4OZM6QGR0LSBktdqObkqxjcqSyAeP5-_n1Sfv72pZHp5h_TqRHzSqix5l-UaP1AajeqGpDHuLzqVRjdyfH7jCGFqihuLCPPx9EDojymN3Og8d-rUS329F1gUwSe0147Du0qq_n8G48uPy7071xKKjBJ6DhD4uMQr950lE0eZ1gIdgv4o"/>
+<span class="absolute bottom-1 right-1 px-1 bg-brand-dark-purple/80 text-surface-white rounded font-code-mono text-[9px]">Speedtest.jpg</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Mandatory Category Selector Bar (Upgraded to 3D Tactile Segmented Chips) -->
+<div class="px-space-md py-space-xs bg-surface-white flex items-center justify-between gap-space-xs border-t border-b border-border-subtle">
+<span class="font-label-caps text-[10px] uppercase text-text-muted">Kategori Pesan:</span>
+<div class="flex items-center gap-1.5">
+<button class="tactile-btn tactile-chip tactile-chip-active px-2.5 py-0.5 rounded-full font-label-caps text-[10px] font-bold" type="button">PROGRESS</button>
+<button class="tactile-btn tactile-chip px-2.5 py-0.5 rounded-full text-text-secondary font-label-caps text-[10px] font-semibold" type="button">ISSUE</button>
+<button class="tactile-btn tactile-chip px-2.5 py-0.5 rounded-full text-text-secondary font-label-caps text-[10px] font-semibold" type="button">REQUEST</button>
+<button class="tactile-btn tactile-chip px-2.5 py-0.5 rounded-full text-text-secondary font-label-caps text-[10px] font-semibold" type="button">GENERAL</button>
+</div>
+</div>
+<!-- Message Input Form (Upgraded 3D Micro Keys & Send Button) -->
+<div class="p-space-md bg-surface-white">
+<div class="flex items-center gap-space-xs bg-light-canvas rounded-xl p-1.5 shadow-inner border border-border-lilac">
+<!-- 3D Tactile Micro Key: Attachment/Camera -->
+<button class="tactile-btn tactile-micro-key w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" title="Unggah Lampiran/Foto Lapangan" type="button">
+<span class="material-symbols-outlined text-[20px]">photo_camera</span>
+</button>
+<input class="flex-1 bg-transparent px-3 py-1 font-body-compact text-body-compact text-text-primary placeholder:text-text-muted focus:outline-none" placeholder="Tulis instruksi internal tiket..." type="text"/>
+<!-- Tier 01 Imperial Violet Primary 3D Button: Send -->
+<button class="tactile-btn btn-tactile-primary w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" title="Kirim Pesan" type="button">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ============================================================== -->
+<!-- MODAL FOOTER                                                   -->
+<!-- ============================================================== -->
+<div class="bg-surface-white px-space-lg py-space-md flex flex-col sm:flex-row items-center justify-between gap-space-md border-t border-border-subtle">
+<!-- System Telemetry Sync Status -->
+<div class="flex items-center gap-space-xs font-body-compact text-body-compact text-text-secondary">
+<span class="w-2 h-2 rounded-full bg-status-success animate-pulse"></span>
+<span>Sync Status: <strong class="text-text-primary font-medium">Terhubung ke Supabase PostgreSQL via Express Proxy</strong></span>
+<span class="text-text-muted">• Terakhir sinkronisasi: 2 detik lalu</span>
+</div>
+<!-- Terminal Actions (Upgraded with 3D Secondary Tactile Buttons) -->
+<div class="flex items-center gap-space-sm w-full sm:w-auto justify-end">
+<button class="tactile-btn btn-tactile-ceramic px-space-md py-2.5 rounded-xl font-body-compact text-body-compact font-bold text-text-primary" type="button">
+            Tutup Modal
+          </button>
+<!-- Secondary Lilac Ceramic 3D Button: Cetak Berita Acara -->
+<button class="tactile-btn btn-tactile-primary px-space-md py-2.5 rounded-xl text-surface-white font-body-compact text-body-compact font-bold gap-1.5 shadow-md" type="button">
+<span class="material-symbols-outlined text-space-md">print</span>
+<span>Cetak Berita Acara (BA)</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

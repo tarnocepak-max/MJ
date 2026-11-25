@@ -1,0 +1,837 @@
+MORAJAWS — STITCH DESIGN IMPLEMENTATION
+
+Saya akan memberikan beberapa lampiran:
+
+- Foto/screenshot Stitch AI: referensi visual desain yang wajib diikuti.
+- Kode HTML Stitch AI: referensi struktur layout, komponen UI, CSS, warna, typography, dan interaksi visual.
+- Source code MoraJaws: aplikasi utama yang harus dimodifikasi.
+
+TUGAS UTAMA
+
+Implementasikan desain dari foto dan kode HTML Stitch AI ke dalam source code MoraJaws yang sudah ada.
+
+Gunakan HTML Stitch hanya sebagai referensi desain. Jangan mengganti arsitektur atau menjadikan HTML Stitch sebagai aplikasi baru.
+
+PRIORITAS IMPLEMENTASI
+
+1. Leader.
+2. Installer.
+3. Setelah kedua role selesai dan mendapat persetujuan, lanjutkan ke role lainnya.
+
+ATURAN IMPLEMENTASI
+
+- Pertahankan React, TypeScript, Vite, dan struktur project yang sudah digunakan.
+- Adaptasikan HTML, CSS, dan komponen Stitch ke teknologi yang digunakan MoraJaws.
+- Gunakan kembali komponen, fungsi, hooks, routes, dan state management yang sudah tersedia.
+- Pertahankan seluruh workflow dan business logic.
+- Pertahankan integrasi Supabase, API, authentication, session, dan RBAC.
+- Jangan mengubah database, struktur tabel, atau backend.
+- Jangan menghapus fitur lama.
+- Jangan mengganti fungsi tombol dengan interaksi palsu.
+- Pastikan setiap tombol tetap menjalankan fungsi aslinya.
+- Menu dan action button harus mengikuti hak akses role masing-masing.
+- Gunakan desain tombol 3D dengan gradient, highlight, bevel, shadow, hover, dan pressed state.
+- Pertahankan warna identitas MoraJaws: Dark Purple, Lilac, dan Maroon.
+- Pastikan tampilan responsif untuk desktop dan mobile.
+
+WORKFLOW PENGERJAAN
+
+1. Audit source code MoraJaws.
+2. Analisis foto dan HTML Stitch AI.
+3. Cocokkan setiap desain dengan halaman dan komponen yang sudah tersedia.
+4. Buat implementation plan.
+5. Implementasikan desain ke source code asli.
+6. Pastikan seluruh fungsi dan workflow lama tetap berjalan.
+7. Jalankan build dan type-check.
+8. Perbaiki seluruh error yang muncul akibat implementasi.
+
+OUTPUT
+
+Berikan:
+
+- Ringkasan perubahan desain.
+- Daftar file yang dimodifikasi.
+- Daftar komponen yang digunakan kembali.
+- Hasil build dan type-check yang sebenarnya.
+- Daftar fitur yang sudah diuji.
+- Catatan jika ada desain yang tidak dapat diterapkan tanpa mengubah workflow.
+
+PENTING: HTML Stitch adalah REFERENSI DESAIN, sedangkan source code MoraJaws adalah SUMBER APLIKASI UTAMA. Jangan membangun ulang aplikasi dari nol. Jangan mengubah workflow, business logic, maupun hak akses.
+Mulai dari audit dan implementation plan, kemudian implementasikan secara bertahap.
+
+CODE HTML : 
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.gstatic.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary-container":"#dec0ff","on-primary":"#ffffff","inverse-on-surface":"#f5eeff","on-error":"#ffffff","on-tertiary-fixed":"#2c0051","on-surface":"#1f1638","secondary-container":"#a380fe","tertiary-container":"#7b1eca","on-tertiary-container":"#e1bfff","error":"#ba1a1a","secondary":"#6a46c1","on-secondary-fixed":"#22005c","secondary-fixed-dim":"#d0bcff","tertiary-fixed-dim":"#ddb7ff","outline":"#7d7484","surface-container-low":"#f8f1ff","on-primary-fixed-variant":"#6020a4","background":"#fdf7ff","on-tertiary":"#ffffff","outline-variant":"#cec3d4","primary-fixed":"#eedbff","on-secondary-fixed-variant":"#522aa7","on-error-container":"#93000a","error-container":"#ffdad6","surface-container-lowest":"#ffffff","inverse-primary":"#dab9ff","surface":"#fdf7ff","tertiary":"#5e00a2","on-surface-variant":"#4b4452","surface-container":"#f3eaff","on-tertiary-fixed-variant":"#6900b3","on-primary-fixed":"#2a0053","surface-variant":"#e8ddff","on-secondary-container":"#38008d","tertiary-fixed":"#f0dbff","secondary-fixed":"#e9ddff","inverse-surface":"#342b4e","surface-dim":"#e1d4ff","surface-container-highest":"#e8ddff","surface-bright":"#fdf7ff","primary-fixed-dim":"#dab9ff","primary":"#58149c","on-background":"#1f1638","surface-tint":"#793ebe","on-secondary":"#ffffff","surface-container-high":"#eee4ff","primary-container":"#7135b5"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xs":"0.25rem","gutter-lg":"1.5rem","gutter":"1.25rem","space-xl":"2.25rem","margin-md":"1.5rem","margin":"1rem","space-md":"1rem","space-sm":"0.5rem","space-lg":"1.5rem","margin-lg":"2rem"},"fontFamily":{"display-lg":["Plus Jakarta Sans"],"title-md":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"title-lg":["Inter"],"label-md":["Inter"],"headline-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"body-sm":["Inter"],"display-lg-mobile":["Plus Jakarta Sans"]},"fontSize":{"display-lg":["3.5rem",{"lineHeight":"4rem","letterSpacing":"-0.03em","fontWeight":"700"}],"title-md":["1rem",{"lineHeight":"1.5rem","fontWeight":"600"}],"headline-lg-mobile":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.015em","fontWeight":"600"}],"title-lg":["1.125rem",{"lineHeight":"1.625rem","letterSpacing":"-0.01em","fontWeight":"600"}],"label-md":["0.8125rem",{"lineHeight":"1.125rem","letterSpacing":"0.02em","fontWeight":"600"}],"headline-md":["1.375rem",{"lineHeight":"1.875rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"600"}],"body-lg":["1rem",{"lineHeight":"1.625rem","fontWeight":"400"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.04em","fontWeight":"600"}],"body-md":["0.875rem",{"lineHeight":"1.375rem","fontWeight":"400"}],"body-sm":["0.75rem",{"lineHeight":"1.125rem","fontWeight":"400"}],"display-lg-mobile":["2.25rem",{"lineHeight":"2.75rem","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[1px_0_12px_rgba(53,16,94,0.04)] z-50 flex flex-col justify-between"><div class="flex flex-col"><div class="h-16 px-gutter flex items-center gap-space-sm border-b border-surface-container"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-display-lg text-title-md font-bold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)]">M</div><div class="flex flex-col"><span class="font-headline-md text-title-md font-bold tracking-tight text-on-surface leading-tight">MoraJaws</span><span class="font-label-sm text-label-sm text-outline leading-tight">Library Spec v3.4</span></div></div><div class="p-space-md flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm text-outline uppercase tracking-wider px-space-sm py-1">Component Showcase</span><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]"><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-2.5 transition-all bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]" data-path="showcase-workbench" href="#"><span class="material-symbols-outlined text-[20px]">apps</span>Showcase Workbench</a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="leader-actions" href="#"><span class="material-symbols-outlined text-[20px]">supervisor_account</span>Leader 3D Actions</a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="installer-actions" href="#"><span class="material-symbols-outlined text-[20px]">construction</span>Installer 3D Actions</a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="state-matrix" href="#"><span class="material-symbols-outlined text-[20px]">layers</span>Tactile State Matrix</a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="telecom-integration" href="#"><span class="material-symbols-outlined text-[20px]">router</span>Dispatch &amp; OLT Controls</a></nav></div></div><div class="p-gutter border-t border-surface-container flex flex-col gap-space-xs"><div class="bg-surface-container-high p-space-md rounded-lg flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface font-semibold">3D Bevel Engine</span><span class="font-label-sm text-label-sm text-outline">Hardware CSS On</span></div><span class="material-symbols-outlined text-primary text-[20px]">check_circle</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-inverse-surface text-inverse-on-surface shadow-[0_1px_8px_rgba(0,0,0,0.06)] z-40 flex items-center justify-between px-gutter-lg"><div class="flex items-center gap-space-lg"><span class="font-headline-md text-title-md font-bold tracking-tight text-surface-container-lowest">Tactile Button Studio</span><nav class="flex items-center gap-space-xs" data-active-classes="bg-surface-container-lowest/15 text-surface-container-lowest font-semibold rounded-lg"><a class="px-space-md py-1.5 rounded-lg font-label-md text-label-md text-surface-variant/80 hover:bg-surface-container-lowest/10 hover:text-surface-container-lowest transition-all" data-path="leader-actions" href="#">Leader Palette</a><a class="px-space-md py-1.5 rounded-lg font-label-md text-label-md text-surface-variant/80 hover:bg-surface-container-lowest/10 hover:text-surface-container-lowest transition-all" data-path="installer-actions" href="#">Installer Palette</a></nav></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-surface-variant/80 text-[20px]">terminal</span><span class="font-label-sm text-label-sm text-surface-container-highest">Extrusion Spec: 2px Solid Base</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-background min-h-screen"><div class="flex flex-col w-full">
+<div class="p-gutter-lg space-y-space-xl max-w-7xl mx-auto w-full">
+<!-- TITLE / SPECS HERO -->
+<div class="relative bg-surface-container-lowest rounded-xl p-space-xl shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] overflow-hidden">
+<div class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-primary-container/10 via-secondary-container/15 to-transparent blur-2xl pointer-events-none"></div>
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-space-lg relative z-10">
+<div class="space-y-space-xs max-w-3xl">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary/10 text-primary font-label-sm text-label-sm font-semibold uppercase tracking-wider">
+<span class="material-symbols-outlined text-[14px]">tune</span> Core System Tokens
+            </span>
+<span class="px-2.5 py-1 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+              FTTH Field Ops v3.4
+            </span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> 60 FPS Hardware Rendered
+            </span>
+</div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">
+            MoraJaws 3D Button Component Library
+          </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+            Tactile Physical UI Token Specification for <span class="font-semibold text-primary">Role Leader</span> (Deep Teal &amp; Command Coordination) and <span class="font-semibold text-primary">Role Installer</span> (Forest Green, High-Vis Amber &amp; Field Execution).
+          </p>
+</div>
+<!-- Metric pill -->
+<div class="flex flex-col items-end gap-space-xs bg-surface-container-low p-space-md rounded-lg min-w-[210px]">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Physics Extrusion Model</span>
+<div class="flex items-baseline gap-1">
+<span class="font-display-lg text-headline-lg font-bold text-primary">2px – 5px</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">True Bevel Z</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Tactile Press Down-shift: 2px</span>
+</div>
+</div>
+<!-- Quick badge specs -->
+<div class="mt-space-lg pt-space-md border-t border-surface-container flex flex-wrap items-center gap-space-sm">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Core Micro-Mechanics:</span>
+<div class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
+<span class="material-symbols-outlined text-[15px] text-primary">layers</span> Beveled Edges
+        </div>
+<div class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
+<span class="material-symbols-outlined text-[15px] text-primary">gradient</span> Dual Gradient Core
+        </div>
+<div class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
+<span class="material-symbols-outlined text-[15px] text-primary">south</span> 2px Pressed Sink
+        </div>
+<div class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
+<span class="material-symbols-outlined text-[15px] text-primary">wb_sunny</span> Specular Top Highlight
+        </div>
+<div class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center gap-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)]">
+<span class="material-symbols-outlined text-[15px] text-primary">compress</span> Directional Depth Shadows
+        </div>
+</div>
+</div>
+<!-- SECTION 1: ROLE LEADER (Command & Coordination) -->
+<div class="space-y-space-lg">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-sm bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)]">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-[#123C45] text-[#D9F2ED] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_3px_0_#07171b]">
+<span class="material-symbols-outlined text-[22px]">military_tech</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="font-headline-md text-title-lg font-bold text-on-surface">SECTION 1: ROLE LEADER</h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-[#D9F2ED] text-[#123C45]">Command &amp; Coordination</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Theme Palette: Deep Teal (#123C45), Ocean Teal (#167C80), Aqua (#42C6B5), Pale Mint (#D9F2ED)</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs font-label-sm text-label-sm text-outline">
+<span class="w-2.5 h-2.5 rounded-full bg-[#167C80]"></span> Extrusion Depth: 4px Solid Base
+        </div>
+</div>
+<!-- Variants Grid (Leader) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
+<!-- Variant 1: Primary Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 01</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#123C45]">Primary Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Deep Teal Gradient (#123C45 to #0c282e), cyan specular top rim, dark teal solid drop shadow.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<!-- Live interactive button -->
+<button class="mj-btn-leader-primary font-label-md text-label-md px-5 py-2.5 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none active:translate-y-[2px]" onclick="updateSimulatorCode('LEADER PRIMARY', 'mj-btn-leader-primary', '+ Buka Penugasan WO')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 0 0 #07171b'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #123C45 0%, #0c282e 100%); box-shadow: inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3);">
+<span class="material-symbols-outlined text-[18px]">add_task</span>
+              + Buka Penugasan WO
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Click to test physical sink</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #42C6B5, 0 4px 0 #07171b;
+          </div>
+</div>
+<!-- Variant 2: Secondary Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 02</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#167C80]">Secondary Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Ocean Teal Gradient (#167C80 to #116265) with mint specular highlight &amp; 4px extrusion.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none" onclick="updateSimulatorCode('LEADER SECONDARY', 'mj-btn-leader-secondary', '📁 Upload Excel WO')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.4), 0 2px 0 0 #0d4648'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #D9F2ED, 0 4px 0 0 #0d4648, 0 6px 14px rgba(22,124,128,0.25)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #D9F2ED, 0 4px 0 0 #0d4648, 0 6px 14px rgba(22,124,128,0.25)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #167C80 0%, #116265 100%); box-shadow: inset 0 1px 0 0 #D9F2ED, 0 4px 0 0 #0d4648, 0 6px 14px rgba(22,124,128,0.25);">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+              📁 Upload Excel WO
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Filter Kluster OLT"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #D9F2ED, 0 4px 0 #0d4648;
+          </div>
+</div>
+<!-- Variant 3: Success Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 03</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#059669]">Success Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Emerald / Leaf Green Gradient (#10b981 to #059669) for batch approval and publication.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none" onclick="updateSimulatorCode('LEADER SUCCESS', 'mj-btn-leader-success', 'Simpan &amp; Terbitkan (Batch)')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.35), 0 2px 0 0 #047857'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.6), 0 4px 0 0 #047857, 0 6px 14px rgba(16,185,129,0.3)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.6), 0 4px 0 0 #047857, 0 6px 14px rgba(16,185,129,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #10b981 0%, #059669 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.6), 0 4px 0 0 #047857, 0 6px 14px rgba(16,185,129,0.3);">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+              Simpan &amp; Terbitkan (Batch)
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Verifikasi Laporan"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 4px 0 #047857;
+          </div>
+</div>
+<!-- Variant 4: Warning Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 04</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#d97706]">Warning Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Amber Gradient (#f59e0b to #d97706) with burnt-amber extrusion base.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none" onclick="updateSimulatorCode('LEADER WARNING', 'mj-btn-leader-warning', 'Reassign Segera (3 WO)')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.35), 0 2px 0 0 #b45309'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3);">
+<span class="material-symbols-outlined text-[18px]">sync_problem</span>
+              Reassign Segera (3 WO)
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Eskalasi Overdue OLT"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 4px 0 #b45309;
+          </div>
+</div>
+<!-- Variant 5: Danger Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 05</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#dc2626]">Danger Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Deep Coral / Red Gradient (#ef4444 to #dc2626) with deep crimson support.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none" onclick="updateSimulatorCode('LEADER DANGER', 'mj-btn-leader-danger', 'Batalkan Penugasan')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.35), 0 2px 0 0 #b91c1c'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.65), 0 4px 0 0 #b91c1c, 0 6px 14px rgba(239,68,68,0.3)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.65), 0 4px 0 0 #b91c1c, 0 6px 14px rgba(239,68,68,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.65), 0 4px 0 0 #b91c1c, 0 6px 14px rgba(239,68,68,0.3);">
+<span class="material-symbols-outlined text-[18px]">cancel</span>
+              Batalkan Penugasan
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Tolak Laporan FAT"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 4px 0 #b91c1c;
+          </div>
+</div>
+<!-- Variant 6: Neutral / Ghost Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Variant 06</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#123C45]">Neutral / Ghost Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Pale Mint Surface (#ffffff to #eef8f6), mint perimeter bevel &amp; 3px soft teal bottom.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg text-[#123C45] font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none" onclick="updateSimulatorCode('LEADER NEUTRAL', 'mj-btn-leader-neutral', 'Reset Filter')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(18,60,69,0.15), 0 1px 0 0 #a2d8cf'; this.style.transform='translateY(2px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #ffffff, 0 3px 0 0 #a2d8cf, 0 4px 10px rgba(18,60,69,0.08)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #ffffff, 0 3px 0 0 #a2d8cf, 0 4px 10px rgba(18,60,69,0.08)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #ffffff 0%, #eef8f6 100%); box-shadow: inset 0 1px 0 0 #ffffff, 0 3px 0 0 #a2d8cf, 0 4px 10px rgba(18,60,69,0.08); border-top: 1px solid #bce6df;">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+              Reset Filter
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Kembali ke Dashboard"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 3px 0 #a2d8cf;
+          </div>
+</div>
+</div>
+<!-- States Row for Leader -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] space-y-space-md">
+<div class="flex items-center justify-between border-b border-surface-container pb-2">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">LEADER INTERACTION SPECS</span>
+<h3 class="font-headline-md text-title-md font-bold text-on-surface">Tactile State Matrix (Leader Primary)</h3>
+</div>
+<span class="font-label-sm text-label-sm text-outline">5 Visualized States</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-space-md items-center text-center">
+<!-- State: Default -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">1. Default State</span>
+<div class="py-2">
+<div class="px-4 py-2 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_1px_0_0_#42C6B5,0_4px_0_0_#07171b,0_8px_16px_rgba(18,60,69,0.3)] bg-gradient-to-b from-[#123C45] to-[#0c282e]">
+                Default 4px
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">4px bevel base</span>
+</div>
+<!-- State: Hover -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">2. Hover State</span>
+<div class="py-2">
+<div class="px-4 py-2 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_1px_0_0_#75e5d7,0_5px_0_0_#07171b,0_12px_20px_rgba(18,60,69,0.35)] -translate-y-0.5 bg-gradient-to-b from-[#184d58] to-[#10353c]">
+                Hover Lift
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">+1px elevation</span>
+</div>
+<!-- State: Pressed -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">3. Pressed State</span>
+<div class="py-2">
+<div class="px-4 py-2 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_0_0_#07171b] translate-y-[2px] bg-gradient-to-b from-[#0e3037] to-[#07191d]">
+                Pressed Sink
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">-2px Z displacement</span>
+</div>
+<!-- State: Disabled -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">4. Disabled</span>
+<div class="py-2">
+<div class="px-4 py-2 rounded-lg text-white/60 font-label-md text-label-md font-semibold select-none bg-[#748487] opacity-60 cursor-not-allowed">
+                Disabled Flat
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">0px flat, grayscale</span>
+</div>
+<!-- State: Loading -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2 col-span-2 md:col-span-1">
+<span class="font-label-sm text-label-sm text-outline">5. Loading</span>
+<div class="py-2">
+<div class="px-4 py-2 rounded-lg text-white font-label-md text-label-md font-semibold select-none bg-gradient-to-b from-[#123C45] to-[#0c282e] shadow-[inset_0_1px_0_0_#42C6B5,0_2px_0_0_#07171b] flex items-center gap-2 cursor-wait">
+<svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewbox="0 0 24 24">
+<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+<path class="opacity-75" d="M4 12a8 8 0 018-8v8H4z" fill="currentColor"></path>
+</svg>
+                Memproses...
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Busy indicator spin</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 2: ROLE INSTALLER (Field Work & Execution) -->
+<div class="space-y-space-lg pt-space-md">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-sm bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)]">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-[#263B2D] text-[#EAF3E9] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_3px_0_#121c16]">
+<span class="material-symbols-outlined text-[22px]">engineering</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="font-headline-md text-title-lg font-bold text-on-surface">SECTION 2: ROLE INSTALLER</h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-[#EAF3E9] text-[#263B2D]">Field Work &amp; Execution</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Theme Palette: Forest Green (#263B2D), Leaf Green (#3D8655), Warm Amber (#E6A23C), Pale Sage (#EAF3E9). High Outdoor Contrast.</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs font-label-sm text-label-sm text-outline">
+<span class="w-2.5 h-2.5 rounded-full bg-[#3D8655]"></span> Extrusion Depth: 5px Reinforced Base (48px Min Target)
+        </div>
+</div>
+<!-- Variants Grid (Installer) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
+<!-- Installer Variant 1: Primary Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 01</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#263B2D]">Primary Field Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Forest Green Gradient (#263B2D to #1a2a20) with vivid green specular highlight and 5px deep drop shadow.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="mj-btn-installer-primary font-label-md text-label-md px-6 py-3 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER PRIMARY', 'mj-btn-installer-primary', 'Lanjut ke Check-out BAST')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.6), 0 2px 0 0 #121c16'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #263B2D 0%, #1a2a20 100%); box-shadow: inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35);">
+<span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+              Lanjut ke Check-out BAST
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Mulai Kerjakan WO"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #76B985, 0 5px 0 #121c16;
+          </div>
+</div>
+<!-- Installer Variant 2: Secondary Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 02</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#3D8655]">Secondary Action</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Leaf Green Gradient (#3D8655 to #2e6640), 5px drop shadow (#1f472c) for secondary routine checks.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-6 py-3 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER SECONDARY', 'mj-btn-installer-secondary', 'Check-in &amp; Mulai')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #1f472c'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c, 0 8px 16px rgba(61,134,85,0.3)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c, 0 8px 16px rgba(61,134,85,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #3D8655 0%, #2e6640 100%); box-shadow: inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c, 0 8px 16px rgba(61,134,85,0.3);">
+<span class="material-symbols-outlined text-[20px]">play_circle</span>
+              Check-in &amp; Mulai
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Buka Detail Tiket"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #EAF3E9, 0 5px 0 #1f472c;
+          </div>
+</div>
+<!-- Installer Variant 3: Success Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 03</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#059669]">Success Telemetry</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Fresh Emerald Gradient (#10b981 to #059669) for OTDR trace capture &amp; GPS validation lock.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-6 py-3 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER SUCCESS', 'mj-btn-installer-success', 'Konfirmasi Check-in (GPS Valid)')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #047857'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #047857, 0 8px 16px rgba(16,185,129,0.35)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #047857, 0 8px 16px rgba(16,185,129,0.35)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #10b981 0%, #059669 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #047857, 0 8px 16px rgba(16,185,129,0.35);">
+<span class="material-symbols-outlined text-[20px]">pin_drop</span>
+              Konfirmasi Check-in (GPS)
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Simpan Telemetri OPM"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 5px 0 #047857;
+          </div>
+</div>
+<!-- Installer Variant 4: Warning Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 04</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#ca8a04]">Warning / Field Alert</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Warm Amber Gradient (#E6A23C to #ca8a04) with maximum sunlight readability for obstacles.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-6 py-3 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER WARNING', 'mj-btn-installer-warning', '⚠️ Laporkan Kendala Lapangan')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #936004'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004, 0 8px 16px rgba(230,162,60,0.35)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004, 0 8px 16px rgba(230,162,60,0.35)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #E6A23C 0%, #ca8a04 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004, 0 8px 16px rgba(230,162,60,0.35);">
+<span class="material-symbols-outlined text-[20px]">warning</span>
+              ⚠️ Laporkan Kendala
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Butuh Konfirmasi H-30"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 5px 0 #936004;
+          </div>
+</div>
+<!-- Installer Variant 5: Danger Action -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 05</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#be123c]">Danger / Abort</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Deep Crimson Gradient (#e11d48 to #be123c) with 5px heavy drop base for critical aborts.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-6 py-3 rounded-lg text-white font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER DANGER', 'mj-btn-installer-danger', 'Batalkan Tiket (Reschedule)')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #881337'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #881337, 0 8px 16px rgba(225,29,72,0.35)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #881337, 0 8px 16px rgba(225,29,72,0.35)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #e11d48 0%, #be123c 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #881337, 0 8px 16px rgba(225,29,72,0.35);">
+<span class="material-symbols-outlined text-[20px]">highlight_off</span>
+              Batalkan Tiket
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Darurat Lapangan"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 5px 0 #881337;
+          </div>
+</div>
+<!-- Installer Variant 6: Neutral Field Light -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] flex flex-col justify-between gap-space-md">
+<div class="space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Installer 06</span>
+<span class="font-label-sm text-label-sm font-semibold text-[#263B2D]">Neutral / Field Light</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sage / White Gradient (#ffffff to #f0f6ef) with 4px solid sage bevel base.</p>
+</div>
+<div class="p-space-lg bg-surface-container-low rounded-lg flex flex-col items-center justify-center gap-3 min-h-[140px]">
+<button class="font-label-md text-label-md px-6 py-3 rounded-lg text-[#263B2D] font-semibold transition-all duration-75 flex items-center gap-2 cursor-pointer select-none min-h-[48px]" onclick="updateSimulatorCode('INSTALLER NEUTRAL', 'mj-btn-installer-neutral', 'Uji Ulang OPM')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(38,59,45,0.15), 0 1px 0 0 #b3cfb1'; this.style.transform='translateY(3px)';" onmouseleave="this.style.boxShadow='inset 0 1px 0 0 #ffffff, 0 4px 0 0 #b3cfb1, 0 6px 12px rgba(38,59,45,0.08)'; this.style.transform='translateY(0)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #ffffff, 0 4px 0 0 #b3cfb1, 0 6px 12px rgba(38,59,45,0.08)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #ffffff 0%, #f0f6ef 100%); box-shadow: inset 0 1px 0 0 #ffffff, 0 4px 0 0 #b3cfb1, 0 6px 12px rgba(38,59,45,0.08); border-top: 1.5px solid #c8dec6;">
+<span class="material-symbols-outlined text-[20px]">speed</span>
+              Uji Ulang OPM
+            </button>
+<span class="font-label-sm text-label-sm text-outline">Example: "Buka Maps Rute"</span>
+</div>
+<div class="bg-surface-container-high p-2.5 rounded font-mono text-[11px] text-on-surface-variant break-all">
+            box-shadow: inset 0 1px 0 #fff, 0 4px 0 #b3cfb1;
+          </div>
+</div>
+</div>
+<!-- States Row for Installer -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] space-y-space-md">
+<div class="flex items-center justify-between border-b border-surface-container pb-2">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">INSTALLER TOUCH TARGET SPECS</span>
+<h3 class="font-headline-md text-title-md font-bold text-on-surface">Tactile State Matrix (Installer Primary)</h3>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Deep 3px Sink</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-space-md items-center text-center">
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">1. Default State</span>
+<div class="py-2">
+<div class="px-5 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_1px_0_0_#76B985,0_5px_0_0_#121c16,0_10px_20px_rgba(38,59,45,0.35)] bg-gradient-to-b from-[#263B2D] to-[#1a2a20]">
+                Base 5px
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Solid 5px bottom</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">2. Hover (Field View)</span>
+<div class="py-2">
+<div class="px-5 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_1px_0_0_#92cf9f,0_6px_0_0_#121c16,0_14px_24px_rgba(38,59,45,0.4)] -translate-y-0.5 bg-gradient-to-b from-[#314a3a] to-[#203428]">
+                Lift +1px
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Specularity glow</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">3. Pressed (Touch Down)</span>
+<div class="py-2">
+<div class="px-5 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none shadow-[inset_0_3px_5px_rgba(0,0,0,0.6),0_2px_0_0_#121c16] translate-y-[3px] bg-gradient-to-b from-[#1b2b20] to-[#111c15]">
+                Sink -3px
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Clear physical snap</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">4. Disabled</span>
+<div class="py-2">
+<div class="px-5 py-2.5 rounded-lg text-white/60 font-label-md text-label-md font-semibold select-none bg-[#758278] opacity-60 cursor-not-allowed">
+                Flat 0px
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Lockout protection</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-low flex flex-col items-center gap-2 col-span-2 md:col-span-1">
+<span class="font-label-sm text-label-sm text-outline">5. Loading</span>
+<div class="py-2">
+<div class="px-5 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none bg-gradient-to-b from-[#263B2D] to-[#1a2a20] shadow-[inset_0_1px_0_0_#76B985,0_2px_0_0_#121c16] flex items-center gap-2">
+<svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewbox="0 0 24 24">
+<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+<path class="opacity-75" d="M4 12a8 8 0 018-8v8H4z" fill="currentColor"></path>
+</svg>
+                Sync GPS...
+              </div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Field telemetry busy</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 3: REAL-WORLD TELECOM ACTION SHOWCASE (Playground) -->
+<div class="space-y-space-md pt-space-md">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">INTERACTIVE COMPARISON WORKBENCH</span>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">Telecom Action Simulator &amp; Code Inspector</h2>
+</div>
+<span class="px-3 py-1 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-semibold">
+          Click any component to inspect CSS
+        </span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- Leader WO Box (Left side, 6 cols) -->
+<div class="lg:col-span-6 bg-surface-container-lowest p-space-lg rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] space-y-space-md">
+<div class="flex items-center justify-between border-b border-surface-container pb-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-[#167C80]"></span>
+<span class="font-label-md text-label-md font-bold text-[#123C45]">DISPATCH COMMAND CONSOLE</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container font-label-sm text-label-sm text-outline">Batch: ID-JKT-098</span>
+</div>
+<!-- OLT Summary Card -->
+<div class="bg-[#123C45] text-white p-space-md rounded-lg space-y-space-xs relative overflow-hidden">
+<div class="flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-[#42C6B5] uppercase font-semibold">Cluster OLT Gambir #04</span>
+<span class="px-2 py-0.5 rounded text-[10px] bg-[#42C6B5]/20 text-[#D9F2ED]">8 Unassigned Orders</span>
+</div>
+<div class="font-headline-md text-title-md font-bold">120 Splice Points Verified</div>
+<p class="font-body-sm text-body-sm text-[#D9F2ED]/80">Lead technician standby at Basecamp Zone 3. Rain forecast in 45m.</p>
+</div>
+<div class="space-y-space-xs">
+<label class="font-label-sm text-label-sm text-outline uppercase">Leader Operational Actions</label>
+<div class="flex flex-wrap items-center gap-space-sm pt-1">
+<!-- Auto Assign 8 WO -->
+<button class="px-4 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none flex items-center gap-2" onclick="updateSimulatorCode('LEADER ACTION', 'mj-btn-leader-primary', '⚡ Auto-Assign 8 WO')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 0 0 #07171b'; this.style.transform='translateY(2px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #123C45 0%, #0c282e 100%); box-shadow: inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3);">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+                ⚡ Auto-Assign 8 WO
+              </button>
+<!-- Reassign WO -->
+<button class="px-4 py-2.5 rounded-lg text-white font-label-md text-label-md font-semibold select-none flex items-center gap-2" onclick="updateSimulatorCode('LEADER WARNING', 'mj-btn-leader-warning', 'Reassign WO')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.35), 0 2px 0 0 #b45309'; this.style.transform='translateY(2px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3);">
+<span class="material-symbols-outlined text-[18px]">cached</span>
+                Reassign WO
+              </button>
+<!-- Reset Kuota -->
+<button class="px-4 py-2.5 rounded-lg text-[#123C45] font-label-md text-label-md font-semibold select-none flex items-center gap-1.5" onclick="updateSimulatorCode('LEADER GHOST', 'mj-btn-leader-neutral', 'Reset Kuota')" onmousedown="this.style.boxShadow='inset 0 2px 4px rgba(18,60,69,0.15), 0 1px 0 0 #a2d8cf'; this.style.transform='translateY(2px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #ffffff, 0 3px 0 0 #a2d8cf'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #ffffff 0%, #eef8f6 100%); box-shadow: inset 0 1px 0 0 #ffffff, 0 3px 0 0 #a2d8cf; border-top: 1px solid #bce6df;">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                Reset Kuota
+              </button>
+</div>
+</div>
+</div>
+<!-- Installer Mobile Card Box (Right side, 6 cols) -->
+<div class="lg:col-span-6 bg-surface-container-lowest p-space-lg rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04),0_8px_16px_-4px_rgba(53,16,94,0.06)] space-y-space-md">
+<div class="flex items-center justify-between border-b border-surface-container pb-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-[#3D8655]"></span>
+<span class="font-label-md text-label-md font-bold text-[#263B2D]">MOBILE WORK ORDER EXECUTION</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container font-label-sm text-label-sm text-outline">FAT-GBR-04/P2</span>
+</div>
+<!-- Installer Ticket Card -->
+<div class="bg-[#263B2D] text-white p-space-md rounded-lg space-y-space-xs relative overflow-hidden">
+<div class="flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-[#76B985] uppercase font-semibold">Active Splice Job #882</span>
+<span class="px-2 py-0.5 rounded text-[10px] bg-[#E6A23C] text-[#263B2D] font-bold">OPM -18.2 dBm OK</span>
+</div>
+<div class="font-headline-md text-title-md font-bold">Pelanggan: PT Surya Dinamika</div>
+<p class="font-body-sm text-body-sm text-[#EAF3E9]/80">FAT Port 7 • Drop Core 85m • Modem ONT ZXHN F609 ready.</p>
+</div>
+<div class="space-y-space-xs">
+<label class="font-label-sm text-label-sm text-outline uppercase">Field Execution Triggers (Min 48px Touch)</label>
+<div class="flex flex-wrap items-center gap-space-sm pt-1">
+<!-- Lanjut Tahap QC -->
+<button class="px-5 py-3 rounded-lg text-white font-label-md text-label-md font-semibold select-none flex items-center gap-2 min-h-[48px]" onclick="updateSimulatorCode('INSTALLER ACTION', 'mj-btn-installer-primary', 'Lanjut Tahap QC')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.6), 0 2px 0 0 #121c16'; this.style.transform='translateY(3px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35)'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #263B2D 0%, #1a2a20 100%); box-shadow: inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35);">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+                Lanjut Tahap QC
+              </button>
+<!-- Check-in GPS -->
+<button class="px-4 py-3 rounded-lg text-white font-label-md text-label-md font-semibold select-none flex items-center gap-1.5 min-h-[48px]" onclick="updateSimulatorCode('INSTALLER SECONDARY', 'mj-btn-installer-secondary', 'Check-in GPS')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #1f472c'; this.style.transform='translateY(3px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #3D8655 0%, #2e6640 100%); box-shadow: inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c;">
+<span class="material-symbols-outlined text-[20px]">my_location</span>
+                Check-in GPS
+              </button>
+<!-- Kendala -->
+<button class="px-4 py-3 rounded-lg text-white font-label-md text-label-md font-semibold select-none flex items-center gap-1.5 min-h-[48px]" onclick="updateSimulatorCode('INSTALLER ALERT', 'mj-btn-installer-warning', 'Kendala')" onmousedown="this.style.boxShadow='inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #936004'; this.style.transform='translateY(3px)';" onmouseup="this.style.boxShadow='inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004'; this.style.transform='translateY(0)';" style="background: linear-gradient(180deg, #E6A23C 0%, #ca8a04 100%); box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004;">
+<span class="material-symbols-outlined text-[20px]">flag</span>
+                Kendala
+              </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Realtime CSS / HTML Code Snippet Box -->
+<div class="bg-inverse-surface text-inverse-on-surface rounded-xl p-space-md shadow-[0_20px_32px_-6px_rgba(22,13,41,0.16)] space-y-space-xs">
+<div class="flex items-center justify-between border-b border-surface-variant/20 pb-2">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-surface-tint text-[18px]">code</span>
+<span class="font-label-md text-label-md font-semibold text-surface-container-lowest" id="snippet-title">Token Inspector: LEADER PRIMARY</span>
+</div>
+<button class="px-2.5 py-1 rounded bg-surface-container-lowest/10 hover:bg-surface-container-lowest/20 text-surface-container-lowest font-label-sm text-label-sm flex items-center gap-1 transition-all" id="copy-btn" onclick="copySnippetCode()">
+<span class="material-symbols-outlined text-[15px]" id="copy-icon">content_copy</span>
+<span id="copy-text">Salin Snippet</span>
+</button>
+</div>
+<pre class="p-space-sm font-mono text-[12px] overflow-x-auto text-[#dab9ff] leading-relaxed select-all" id="code-output">/* MoraJaws 3D Bevel Token */
+.mj-btn-leader-primary {
+  background: linear-gradient(180deg, #123C45 0%, #0c282e 100%);
+  box-shadow: inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3);
+  color: #ffffff;
+  border-radius: 0.5rem;
+  transition: transform 75ms ease, box-shadow 75ms ease;
+}
+.mj-btn-leader-primary:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 0 0 #07171b;
+}</pre>
+</div>
+</div>
+<!-- SECTION 4: CSS CODE TOKENS & ELEVATION SPECIFICATION -->
+<div class="space-y-space-md pt-space-md">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">ENGINEERING ARCHITECTURE</span>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">CSS Code Tokens &amp; Elevation Specification</h2>
+</div>
+<span class="font-label-sm text-label-sm text-outline">WCAG AAA Outdoor Certified</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Spec Card 1: Shadows & Depths -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] space-y-space-xs">
+<div class="flex items-center gap-2 text-primary font-title-md text-title-md font-bold">
+<span class="material-symbols-outlined text-[20px]">layers</span> Extrusion Shadow Tokens
+          </div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Directional Z-axis values built specifically for telecommunication dispatch interfaces.</p>
+<div class="space-y-1.5 pt-2 font-mono text-[11px]">
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-leader-shadow</span>
+<span class="text-primary font-semibold">0 4px 0 #07171b</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-installer-shadow</span>
+<span class="text-primary font-semibold">0 5px 0 #121c16</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-press-leader</span>
+<span class="text-primary font-semibold">translateY(2px)</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-press-installer</span>
+<span class="text-primary font-semibold">translateY(3px)</span>
+</div>
+</div>
+</div>
+<!-- Spec Card 2: Specular Top Inset Rims -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] space-y-space-xs">
+<div class="flex items-center gap-2 text-primary font-title-md text-title-md font-bold">
+<span class="material-symbols-outlined text-[20px]">wb_twilight</span> Specular Optical Bevels
+          </div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Simulates light bouncing off top injection-molded acrylic switch surfaces.</p>
+<div class="space-y-1.5 pt-2 font-mono text-[11px]">
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-rim-cyan (Leader)</span>
+<span class="text-primary font-semibold">inset 0 1px 0 #42C6B5</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-rim-green (Inst.)</span>
+<span class="text-primary font-semibold">inset 0 1px 0 #76B985</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-rim-white</span>
+<span class="text-primary font-semibold">rgba(255,255,255,0.7)</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">--mj-rim-active-sink</span>
+<span class="text-primary font-semibold">inset 0 2px 4px 0 rgba</span>
+</div>
+</div>
+</div>
+<!-- Spec Card 3: Transition & Accessibility -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] space-y-space-xs">
+<div class="flex items-center gap-2 text-primary font-title-md text-title-md font-bold">
+<span class="material-symbols-outlined text-[20px]">accessibility</span> WCAG &amp; Kinetic Curve
+          </div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Field-tested contrast ratio under direct tropical sunlight and harsh glare.</p>
+<div class="space-y-1.5 pt-2 font-mono text-[11px]">
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">Easing Curve</span>
+<span class="text-primary font-semibold">cubic-bezier(0.4, 0, 0.2, 1)</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">Press Duration</span>
+<span class="text-primary font-semibold">75ms snappy mechanical</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">Contrast (#123C45)</span>
+<span class="text-emerald-700 font-semibold font-bold">12.8:1 (AAA)</span>
+</div>
+<div class="p-2 rounded bg-surface-container-low flex justify-between">
+<span class="text-on-surface">Contrast (#263B2D)</span>
+<span class="text-emerald-700 font-semibold font-bold">11.4:1 (AAA)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Reference Specs Table -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_1px_3px_rgba(33,24,58,0.04)] overflow-hidden">
+<div class="px-space-md py-space-sm bg-surface-container-high border-b border-surface-container flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface font-semibold">Comparative Token Implementation Table</span>
+<span class="font-label-sm text-label-sm text-outline">Tailwind Extrusion Standard</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm">
+<thead class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase border-b border-surface-container">
+<tr>
+<th class="py-3 px-space-md">Role Dimension</th>
+<th class="py-3 px-space-md">Base Gradient</th>
+<th class="py-3 px-space-md">Specular Lip</th>
+<th class="py-3 px-space-md">Extrusion Base</th>
+<th class="py-3 px-space-md">Active Travel</th>
+<th class="py-3 px-space-md">Min Touch Height</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<tr class="hover:bg-surface-container-high/40 transition-colors">
+<td class="py-3 px-space-md font-semibold text-[#123C45] flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#123C45]"></span> Leader Core
+                </td>
+<td class="py-3 px-space-md font-mono text-[11px]">#123C45 → #0c282e</td>
+<td class="py-3 px-space-md font-mono text-[11px] text-[#167C80]">inset 0 1px 0 #42C6B5</td>
+<td class="py-3 px-space-md font-mono text-[11px]">4px solid (#07171b)</td>
+<td class="py-3 px-space-md font-semibold">translateY(2px)</td>
+<td class="py-3 px-space-md font-mono text-[11px]">40px standard</td>
+</tr>
+<tr class="hover:bg-surface-container-high/40 transition-colors">
+<td class="py-3 px-space-md font-semibold text-[#263B2D] flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#263B2D]"></span> Installer Core
+                </td>
+<td class="py-3 px-space-md font-mono text-[11px]">#263B2D → #1a2a20</td>
+<td class="py-3 px-space-md font-mono text-[11px] text-[#3D8655]">inset 0 1px 0 #76B985</td>
+<td class="py-3 px-space-md font-mono text-[11px]">5px solid (#121c16)</td>
+<td class="py-3 px-space-md font-semibold">translateY(3px)</td>
+<td class="py-3 px-space-md font-mono text-[11px] font-bold text-primary">48px heavy touch</td>
+</tr>
+<tr class="hover:bg-surface-container-high/40 transition-colors">
+<td class="py-3 px-space-md font-semibold text-[#ca8a04] flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#E6A23C]"></span> Field Warning
+                </td>
+<td class="py-3 px-space-md font-mono text-[11px]">#E6A23C → #ca8a04</td>
+<td class="py-3 px-space-md font-mono text-[11px] text-[#ca8a04]">inset 0 1px 0 #ffffff</td>
+<td class="py-3 px-space-md font-mono text-[11px]">5px solid (#936004)</td>
+<td class="py-3 px-space-md font-semibold">translateY(3px)</td>
+<td class="py-3 px-space-md font-mono text-[11px]">48px heavy touch</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function updateSimulatorCode(title, className, label) {
+    const titleEl = document.getElementById('snippet-title');
+    const outputEl = document.getElementById('code-output');
+    
+    if (titleEl) titleEl.innerText = 'Token Inspector: ' + title;
+
+    let snippet = '';
+    if (className.includes('leader-primary')) {
+      snippet = `/* MoraJaws 3D Leader Primary */\n.mj-btn-leader-primary {\n  background: linear-gradient(180deg, #123C45 0%, #0c282e 100%);\n  box-shadow: inset 0 1px 0 0 #42C6B5, 0 4px 0 0 #07171b, 0 8px 16px rgba(18,60,69,0.3);\n  color: #ffffff;\n  border-radius: 0.5rem;\n  transition: transform 75ms ease, box-shadow 75ms ease;\n}\n.mj-btn-leader-primary:active {\n  transform: translateY(2px);\n  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 2px 0 0 #07171b;\n}`;
+    } else if (className.includes('leader-secondary')) {
+      snippet = `/* MoraJaws 3D Leader Secondary */\n.mj-btn-leader-secondary {\n  background: linear-gradient(180deg, #167C80 0%, #116265 100%);\n  box-shadow: inset 0 1px 0 0 #D9F2ED, 0 4px 0 0 #0d4648, 0 6px 14px rgba(22,124,128,0.25);\n  color: #ffffff;\n  border-radius: 0.5rem;\n}\n.mj-btn-leader-secondary:active {\n  transform: translateY(2px);\n  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 2px 0 0 #0d4648;\n}`;
+    } else if (className.includes('leader-warning')) {
+      snippet = `/* MoraJaws 3D Leader Warning */\n.mj-btn-leader-warning {\n  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);\n  box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 4px 0 0 #b45309, 0 6px 14px rgba(245,158,11,0.3);\n  color: #ffffff;\n  border-radius: 0.5rem;\n}\n.mj-btn-leader-warning:active {\n  transform: translateY(2px);\n  box-shadow: inset 0 2px 4px rgba(0,0,0,0.35), 0 2px 0 0 #b45309;\n}`;
+    } else if (className.includes('installer-primary')) {
+      snippet = `/* MoraJaws 3D Installer Primary (Field Spec) */\n.mj-btn-installer-primary {\n  min-height: 48px;\n  background: linear-gradient(180deg, #263B2D 0%, #1a2a20 100%);\n  box-shadow: inset 0 1px 0 0 #76B985, 0 5px 0 0 #121c16, 0 10px 20px rgba(38,59,45,0.35);\n  color: #ffffff;\n  border-radius: 0.5rem;\n  transition: transform 75ms cubic-bezier(0.4, 0, 0.2, 1);\n}\n.mj-btn-installer-primary:active {\n  transform: translateY(3px);\n  box-shadow: inset 0 3px 5px rgba(0,0,0,0.6), 0 2px 0 0 #121c16;\n}`;
+    } else if (className.includes('installer-secondary')) {
+      snippet = `/* MoraJaws 3D Installer Secondary */\n.mj-btn-installer-secondary {\n  min-height: 48px;\n  background: linear-gradient(180deg, #3D8655 0%, #2e6640 100%);\n  box-shadow: inset 0 1px 0 0 #EAF3E9, 0 5px 0 0 #1f472c;\n  color: #ffffff;\n  border-radius: 0.5rem;\n}\n.mj-btn-installer-secondary:active {\n  transform: translateY(3px);\n  box-shadow: inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #1f472c;\n}`;
+    } else if (className.includes('installer-warning')) {
+      snippet = `/* MoraJaws 3D Installer Warning (Sunlight High Contrast) */\n.mj-btn-installer-warning {\n  min-height: 48px;\n  background: linear-gradient(180deg, #E6A23C 0%, #ca8a04 100%);\n  box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.7), 0 5px 0 0 #936004, 0 8px 16px rgba(230,162,60,0.35);\n  color: #ffffff;\n  border-radius: 0.5rem;\n}\n.mj-btn-installer-warning:active {\n  transform: translateY(3px);\n  box-shadow: inset 0 3px 5px rgba(0,0,0,0.4), 0 2px 0 0 #936004;\n}`;
+    } else {
+      snippet = `/* MoraJaws 3D Generic Token (${title}) */\n<button class="font-label-md text-label-md px-5 py-2.5 rounded-lg font-semibold transition-all select-none">\n  ${label}\n</button>`;
+    }
+
+    if (outputEl) outputEl.innerText = snippet;
+  }
+
+  function copySnippetCode() {
+    const outputEl = document.getElementById('code-output');
+    const copyTextEl = document.getElementById('copy-text');
+    const copyIconEl = document.getElementById('copy-icon');
+    
+    if (outputEl && navigator.clipboard) {
+      navigator.clipboard.writeText(outputEl.innerText).then(() => {
+        if (copyTextEl) copyTextEl.innerText = 'Tersalin!';
+        if (copyIconEl) copyIconEl.innerText = 'done';
+        setTimeout(() => {
+          if (copyTextEl) copyTextEl.innerText = 'Salin Snippet';
+          if (copyIconEl) copyIconEl.innerText = 'content_copy';
+        }, 2000);
+      });
+    }
+  }
+</script></main></div></body></html>
