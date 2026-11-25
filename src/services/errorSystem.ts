@@ -103,6 +103,7 @@ export async function logSystemError(details: ErrorDetails): Promise<void> {
 
     await fetch('/api/supabase/system-error-logs', {
       method: 'POST',
+      credentials: 'include',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload)
     });

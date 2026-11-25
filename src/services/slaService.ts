@@ -52,6 +52,7 @@ export async function fetchSlaTelemetry(query: SlaTelemetryQuery): Promise<SlaTe
 
   const res = await fetch(`/api/sla/telemetry?${params.toString()}`, {
     method: 'GET',
+    credentials: 'include',
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json'
@@ -68,6 +69,7 @@ export async function fetchSlaTelemetry(query: SlaTelemetryQuery): Promise<SlaTe
 export async function fetchSlaConfig(): Promise<SlaConfigResponse> {
   const res = await fetch('/api/sla/config', {
     method: 'GET',
+    credentials: 'include',
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json'
@@ -92,6 +94,7 @@ export async function saveSlaConfig(
 ): Promise<SlaConfigResponse> {
   const res = await fetch('/api/sla/config', {
     method: 'PUT',
+    credentials: 'include',
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json'
@@ -121,6 +124,7 @@ export async function saveSlaConfig(
 export async function executeSlaAction(payload: ExecuteSlaActionPayload): Promise<SlaGovernanceActionRecord> {
   const res = await fetch('/api/sla/actions', {
     method: 'POST',
+    credentials: 'include',
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json'

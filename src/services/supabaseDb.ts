@@ -1,5 +1,5 @@
 import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem, OverdueSummaryMetrics, WoClassificationSummary, RealtimeConnectionState, RealtimeDiagnosticLog, RealtimeStatusInfo } from '../types';
-import { getAuthHeaders } from './authService';
+import { getAuthHeaders, getClientSessionIdentityKey } from './authService';
 
 // ==============================================================================
 // MORAJAWS SUPABASE REPOSITORY LAYER (SECURE BACKEND PROXY ADAPTER)
@@ -42,6 +42,7 @@ async function fetchJsonSafe(
   try {
     const res = await fetch(url, {
       ...init,
+      credentials: init.credentials || 'include',
       signal: init.signal || controller?.signal
     });
     const json = await res.json().catch(() => null);
@@ -322,6 +323,7 @@ export class SupabaseRepository {
       if (options.sortDir) qs.set('sortDir', options.sortDir);
 
       const res = await fetch(`/api/work-orders/progressive?${qs.toString()}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => ({}));
@@ -389,6 +391,7 @@ export class SupabaseRepository {
         const timer = controller ? setTimeout(() => controller.abort(), 25_000) : null;
         const res = await fetch('/api/storage/adapter/upload', {
           method: 'POST',
+          credentials: 'include',
           headers: getAuthHeaders(),
           signal: controller?.signal,
           body: JSON.stringify({
@@ -808,6 +811,7 @@ export class SupabaseRepository {
   async getUserById(id: string): Promise<SupabaseResponse<User | null>> {
     try {
       const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -820,6 +824,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch('/api/supabase/users', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(user)
       });
@@ -833,6 +838,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
@@ -846,6 +852,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({ reason })
       });
@@ -859,6 +866,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}/reset-password`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -874,6 +882,7 @@ export class SupabaseRepository {
   async getContractors(): Promise<SupabaseResponse<Contractor[]>> {
     try {
       const res = await fetch('/api/supabase/contractors', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -886,6 +895,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch('/api/supabase/contractors', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(contractor)
       });
@@ -899,6 +909,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
@@ -912,6 +923,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -923,6 +935,7 @@ export class SupabaseRepository {
   async getCoverageAreas(): Promise<SupabaseResponse<CoverageArea[]>> {
     try {
       const res = await fetch('/api/supabase/coverage-areas', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -935,6 +948,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch('/api/supabase/coverage-areas', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(area)
       });
@@ -948,6 +962,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
@@ -961,6 +976,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -972,6 +988,7 @@ export class SupabaseRepository {
   async getWaTemplates(): Promise<SupabaseResponse<any[]>> {
     try {
       const res = await fetch('/api/supabase/wa-templates', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -984,6 +1001,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch('/api/supabase/wa-templates', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(template)
       });
@@ -997,6 +1015,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/wa-templates/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -1012,6 +1031,7 @@ export class SupabaseRepository {
   async getAppSetting(key: string): Promise<SupabaseResponse<any>> {
     try {
       const res = await fetch(`/api/supabase/settings/${encodeURIComponent(key)}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
@@ -1045,6 +1065,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/supabase/settings/${encodeURIComponent(key)}`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({ value, description })
       });
@@ -1078,6 +1099,7 @@ export class SupabaseRepository {
   async getAuditLogs(limit = 100): Promise<SupabaseResponse<AuditLog[]>> {
     try {
       const res = await fetch(`/api/supabase/audit-logs?limit=${limit}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -1092,6 +1114,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/delivered`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -1106,6 +1129,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/read`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -1123,6 +1147,7 @@ export class SupabaseRepository {
   }> {
     try {
       const res = await fetch('/api/livechat/unread-summary', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       return await res.json();
@@ -1147,6 +1172,7 @@ export class SupabaseRepository {
       if (params?.area) search.set('area', params.area);
       const qs = search.toString();
       const res = await fetch(`/api/dashboard/kpi-summary${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
@@ -1186,6 +1212,7 @@ export class SupabaseRepository {
       }
       const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/approve-report`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
@@ -1209,6 +1236,7 @@ export class SupabaseRepository {
     try {
       const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/request-revision`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({ reason })
       });
@@ -1250,6 +1278,7 @@ export class SupabaseRepository {
       if (params?.ticketId) search.set('ticketId', params.ticketId);
       const qs = search.toString();
       const res = await fetch(`/api/work-orders/progress-history${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
@@ -1299,6 +1328,7 @@ export class SupabaseRepository {
       if (params?.sort) search.set('sort', params.sort);
       const qs = search.toString();
       const res = await fetch(`/api/work-orders/overdue${qs ? `?${qs}` : ''}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
@@ -1337,6 +1367,7 @@ export class SupabaseRepository {
     try {
       const qs = category ? `?category=${encodeURIComponent(category)}` : '';
       const res = await fetch(`/api/work-orders/classifications${qs}`, {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       const json = await res.json().catch(() => null);
@@ -1422,7 +1453,7 @@ export class SupabaseRepository {
     }
     const wantsPolling = transport === 'delta_polling' || sseSupported === false;
     if (wantsPolling) {
-      const currentToken = getAuthHeaders().Authorization || null;
+      const currentToken = getClientSessionIdentityKey();
       if (currentToken) this.capabilityCheckedToken = currentToken;
       const changed = this.realtimeTransport !== 'delta_polling';
       this.realtimeTransport = 'delta_polling';
@@ -1565,7 +1596,7 @@ export class SupabaseRepository {
     });
 
     window.addEventListener('morajaws:auth-changed', () => {
-      const nextToken = getAuthHeaders().Authorization || '';
+      const nextToken = getClientSessionIdentityKey() || '';
       if (!nextToken) {
         this.capabilityCheckedToken = null;
         this.capabilityCheckPromise = null;
@@ -1654,7 +1685,7 @@ export class SupabaseRepository {
     }
 
     const authHeaders = getAuthHeaders();
-    const currentToken = authHeaders.Authorization || '';
+    const currentToken = getClientSessionIdentityKey() || '';
     if (!currentToken) {
       this.setRealtimeConnectionState('disconnected');
       return;
@@ -1715,6 +1746,7 @@ export class SupabaseRepository {
         }
 
         const response = await fetch('/api/supabase/realtime/stream', {
+          credentials: 'include',
           headers,
           signal: abortController.signal
         });
@@ -1840,7 +1872,7 @@ export class SupabaseRepository {
           this.sseListeners.size > 0 &&
           (typeof navigator === 'undefined' || navigator.onLine !== false) &&
           (!abortController.signal.aborted || abortedByWatchdogOrError) &&
-          Boolean(getAuthHeaders().Authorization);
+          Boolean(getClientSessionIdentityKey());
 
         if (shouldRetry) {
           const attempt = this.sseReconnectAttempt;
@@ -1920,6 +1952,7 @@ export class SupabaseRepository {
       if (options?.before) qs.set('before', String(options.before));
       const suffix = qs.toString() ? `?${qs.toString()}` : '';
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketIdOrWo)}/messages${suffix}`, {
+        credentials: 'include',
         headers: { ...getAuthHeaders() }
       });
       const json = await res.json().catch(() => ({}));

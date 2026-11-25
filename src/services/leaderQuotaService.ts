@@ -144,6 +144,7 @@ export async function fetchLeaderQuotaConfig(contractorName?: string): Promise<{
   const started = performance.now();
   const qs = contractorName ? `?contractor=${encodeURIComponent(contractorName)}` : '';
   const res = await fetch(`/api/leader/quota-config${qs}`, {
+    credentials: 'include',
     headers: getAuthHeaders()
   });
   const latencyMs = Math.max(1, Math.round(performance.now() - started));
@@ -178,6 +179,7 @@ export async function saveLeaderQuotaConfig(config: LeaderQuotaConfig): Promise<
 }> {
   const res = await fetch('/api/leader/quota-config', {
     method: 'PUT',
+    credentials: 'include',
     headers: getAuthHeaders(),
     body: JSON.stringify(config)
   });
@@ -206,6 +208,7 @@ export async function fetchLeaderAssignmentFeed(options?: {
   if (options?.limit) params.set('limit', String(options.limit));
   const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/leader/assignment-feed${qs}`, {
+    credentials: 'include',
     headers: getAuthHeaders()
   });
   const json = await res.json().catch(() => ({}));
@@ -237,6 +240,7 @@ export async function executeBulkReassignApi(payload: {
 }> {
   const res = await fetch('/api/tickets/bulk-reassign', {
     method: 'POST',
+    credentials: 'include',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload)
   });

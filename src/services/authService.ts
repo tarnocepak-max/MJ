@@ -187,6 +187,43 @@ export function getRoleDisplayName(role: UserRole): string {
  * sourced from official stored session in localStorage.
  * Custom spoofable headers (x-user-id, x-user-role, x-username) are strictly omitted.
  */
+export function hasActiveClientSession(): boolean {
+  try {
+    if (localStorage.getItem('morajaws_logged_in') === 'true') {
+      return true;
+    }
+    const sessionStr = localStorage.getItem('morajaws_auth_session');
+    if (sessionStr) {
+      const sess = JSON.parse(sessionStr);
+      if (sess?.token || sess?.userId) return true;
+    }
+  } catch {}
+  return false;
+}
+
+export function getClientSessionIdentityKey(): string {
+  try {
+    const sessionStr = localStorage.getItem('morajaws_auth_session');
+    if (sessionStr) {
+      const sess = JSON.parse(sessionStr);
+      if (sess?.token) return `Bearer ${sess.token}`;
+      if (sess?.sessionId) return `cookie:${sess.sessionId}`;
+      if (sess?.userId) return `cookie_user:${sess.userId}`;
+    }
+    if (localStorage.getItem('morajaws_logged_in') === 'true') {
+      return 'cookie:active';
+    }
+  } catch {}
+  return '';
+}
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    credentials: init.credentials || 'include'
+  });
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
@@ -209,7 +246,7 @@ export function getAuthHeaders(): Record<string, string> {
  * Official MoraJaws Custom Authentication client methods communicating through Express backend
  */
 export async function loginWithMoraJaws(identifier: string, password: string) {
-  const res = await fetch('/api/auth/login', {
+  const res = await authFetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier: identifier.trim(), password })
@@ -222,10 +259,10 @@ export async function loginWithMoraJaws(identifier: string, password: string) {
 export const loginWithSupabase = loginWithMoraJaws;
 
 export async function refreshMoraJawsSession(refreshToken?: string) {
-  const res = await fetch('/api/auth/refresh', {
+  const res = await authFetch('/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
+    body: JSON.stringify(refreshToken ? { refreshToken } : {})
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
@@ -236,7 +273,7 @@ export const refreshSupabaseSession = refreshMoraJawsSession;
 
 export async function logoutMoraJaws() {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/auth/logout', {
+  const res = await authFetch('/api/auth/logout', {
     method: 'POST',
     headers
   });
@@ -263,7 +300,7 @@ export async function adminCreateUser(userData: {
   password: string;
 }) {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/admin/users', {
+  const res = await authFetch('/api/admin/users', {
     method: 'POST',
     headers,
     body: JSON.stringify(userData)
@@ -274,7 +311,7 @@ export async function adminCreateUser(userData: {
 
 export async function adminResetPassword(targetUserId: string, newPassword: string, confirmPassword: string) {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/auth/admin/reset-password', {
+  const res = await authFetch('/api/auth/admin/reset-password', {
     method: 'POST',
     headers,
     body: JSON.stringify({ targetUserId, newPassword, confirmPassword })
@@ -285,7 +322,7 @@ export async function adminResetPassword(targetUserId: string, newPassword: stri
 
 export async function adminUpdateUserStatus(targetUserId: string, status: 'active' | 'inactive' | 'locked' | 'unlocked', reason?: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/users/${targetUserId}/status`, {
+  const res = await authFetch(`/api/admin/users/${targetUserId}/status`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify({ status, reason })
@@ -296,7 +333,7 @@ export async function adminUpdateUserStatus(targetUserId: string, status: 'activ
 
 export async function adminRevokeSessions(targetUserId: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/users/${targetUserId}/revoke-sessions`, {
+  const res = await authFetch(`/api/admin/users/${targetUserId}/revoke-sessions`, {
     method: 'POST',
     headers
   });
@@ -306,7 +343,7 @@ export async function adminRevokeSessions(targetUserId: string) {
 
 export async function adminUpdateUser(targetUserId: string, userData: Partial<User>) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/users/${targetUserId}`, {
+  const res = await authFetch(`/api/admin/users/${targetUserId}`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(userData)
@@ -321,7 +358,7 @@ export async function changePasswordWithRotation(payload: {
   confirmPassword: string;
 }) {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/auth/change-password', {
+  const res = await authFetch('/api/auth/change-password', {
     method: 'POST',
     headers,
     credentials: 'include',
@@ -337,7 +374,7 @@ export async function resetPasswordWithToken(payload: {
   newPassword: string;
   confirmPassword: string;
 }) {
-  const res = await fetch('/api/auth/reset-password-token', {
+  const res = await authFetch('/api/auth/reset-password-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -348,7 +385,7 @@ export async function resetPasswordWithToken(payload: {
 
 export async function adminIssueSingleUseResetToken(targetUserId: string, ttlHours: number = 24) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/users/${targetUserId}/issue-reset-token`, {
+  const res = await authFetch(`/api/admin/users/${targetUserId}/issue-reset-token`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ ttlHours })
@@ -434,7 +471,7 @@ export async function adminCreateMassResetJob(payload: {
   reason?: string;
 }) {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/admin/password-reset/jobs', {
+  const res = await authFetch('/api/admin/password-reset/jobs', {
     method: 'POST',
     headers,
     body: JSON.stringify(payload)
@@ -445,21 +482,21 @@ export async function adminCreateMassResetJob(payload: {
 
 export async function adminListMassResetJobs() {
   const headers = getAuthHeaders();
-  const res = await fetch('/api/admin/password-reset/jobs', { headers });
+  const res = await authFetch('/api/admin/password-reset/jobs', { headers });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
 }
 
 export async function adminGetMassResetJob(jobId: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}`, { headers });
+  const res = await authFetch(`/api/admin/password-reset/jobs/${jobId}`, { headers });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
 }
 
 export async function adminRetryMassResetJob(jobId: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/retry`, {
+  const res = await authFetch(`/api/admin/password-reset/jobs/${jobId}/retry`, {
     method: 'POST',
     headers
   });
@@ -469,7 +506,7 @@ export async function adminRetryMassResetJob(jobId: string) {
 
 export async function adminCancelMassResetJob(jobId: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/cancel`, {
+  const res = await authFetch(`/api/admin/password-reset/jobs/${jobId}/cancel`, {
     method: 'POST',
     headers
   });
@@ -479,7 +516,7 @@ export async function adminCancelMassResetJob(jobId: string) {
 
 export async function adminRollbackMassResetJob(jobId: string) {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/rollback`, {
+  const res = await authFetch(`/api/admin/password-reset/jobs/${jobId}/rollback`, {
     method: 'POST',
     headers
   });
@@ -489,7 +526,7 @@ export async function adminRollbackMassResetJob(jobId: string) {
 
 export async function adminDownloadMassResetReport(jobId: string, format: 'json' | 'csv' = 'csv') {
   const headers = getAuthHeaders();
-  const res = await fetch(`/api/admin/password-reset/jobs/${jobId}/report?format=${format}`, {
+  const res = await authFetch(`/api/admin/password-reset/jobs/${jobId}/report?format=${format}`, {
     headers
   });
   if (!res.ok) {

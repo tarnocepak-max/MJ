@@ -182,6 +182,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
       const token = getAccessToken();
       const res = await fetch('/api/integrations/google-sheets/test', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
@@ -233,6 +234,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
     setIsRefreshingStatus(true);
     try {
       const res = await fetch('/api/integrations/google-sheets/status', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       if (res.ok) {
@@ -345,6 +347,7 @@ export const GoogleSheetsSyncView: React.FC = () => {
       // Execute authoritative backend sync (passing OAuth token when connected)
       const res = await fetch('/api/integrations/google-sheets/sync', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),

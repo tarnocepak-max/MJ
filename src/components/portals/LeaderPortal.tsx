@@ -492,6 +492,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
   const handleConfirmTwoStepReassign = async (payload: {
     ticket: Ticket;
+    targetInstallerId: string;
     targetInstallerName: string;
     reason: string;
     prepareWhatsAppNotice: boolean;
@@ -500,15 +501,31 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       toast.error('Hanya akun dengan peran Leader yang berwenang melakukan reassign teknisi.', 'Akses Ditolak');
       return;
     }
-    setReassignModalState(prev => ({ ...prev, isSubmitting: true }));
-    const result = reassignTicketPersonnel(
-      payload.ticket.id,
-      payload.targetInstallerName,
-      payload.reason.trim()
-    );
-    setReassignModalState(prev => ({ ...prev, isSubmitting: false }));
+    if (reassignModalState.isSubmitting) return;
 
-    if (result.success) {
+    setReassignModalState(prev => ({ ...prev, isSubmitting: true }));
+    try {
+      const result = await reassignTicketPersonnel(
+        payload.ticket.id,
+        payload.targetInstallerName,
+        payload.reason.trim(),
+        payload.targetInstallerId
+      );
+
+      if (!result.success) {
+        triggerNotice(
+          'error',
+          result.error || `Gagal mengalihkan WO ${payload.ticket.woNumber} ke teknisi ${payload.targetInstallerName}.`
+        );
+        return;
+      }
+
+      const persistedTicket: Ticket = result.workOrder || {
+        ...payload.ticket,
+        installerId: payload.targetInstallerId,
+        installerName: payload.targetInstallerName
+      };
+
       setReassignModalState({
         isOpen: false,
         ticket: null,
@@ -516,28 +533,26 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       });
       triggerNotice(
         'success',
-        `WO ${payload.ticket.woNumber} berhasil dialihkan ke teknisi ${payload.targetInstallerName}.`
+        `WO ${persistedTicket.woNumber || payload.ticket.woNumber} berhasil dialihkan ke teknisi ${persistedTicket.installerName || payload.targetInstallerName}.`
       );
       if (payload.prepareWhatsAppNotice) {
         const targetInst = myInstallers.find(
-          u => u.name.toLowerCase().trim() === payload.targetInstallerName.toLowerCase().trim()
+          u =>
+            u.id === payload.targetInstallerId ||
+            u.name.toLowerCase().trim() === payload.targetInstallerName.toLowerCase().trim()
         );
         if (targetInst) {
-          const updatedTicketPreview: Ticket = {
-            ...payload.ticket,
-            installerName: targetInst.name
-          };
           setAssignmentNoticeModal({
-            ticket: updatedTicketPreview,
+            ticket: persistedTicket,
             installer: targetInst,
-            renderedMessage: buildInstallerAssignmentMessage(updatedTicketPreview, targetInst),
+            renderedMessage: buildInstallerAssignmentMessage(persistedTicket, targetInst),
             targetPhone: targetInst.phone || ''
           });
         }
       }
-      setTimeout(() => {
-        reloadAssignmentFeed().catch(() => {});
-      }, 450);
+      await Promise.all([refreshActiveTickets(), reloadAssignmentFeed()]).catch(() => {});
+    } finally {
+      setReassignModalState(prev => ({ ...prev, isSubmitting: false }));
     }
   };
 
@@ -1122,6 +1137,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     const installerUser = myInstallers.find(
       u => u.name.toLowerCase().trim() === installerName.toLowerCase().trim()
     );
+    if (!installerUser || !installerUser.id) {
+      const errMsg = `Akun teknisi "${installerName}" tidak ditemukan atau tidak aktif di cakupan Anda.`;
+      triggerNotice('error', errMsg);
+      toast.error(errMsg, 'Teknisi Tidak Valid');
+      return;
+    }
 
     const targetDate = ticket.appointmentDate || scheduleDate;
     const currentCount = getInstallerWOCountForDate(installerName, targetDate);
@@ -1148,7 +1169,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
     setIsSubmittingAssign(true);
     try {
-      const res = await assignTicketPersonnel(ticket.id, currentUser.name, installerName, installerUser?.id);
+      const res = await assignTicketPersonnel(ticket.id, currentUser.name, installerUser.name, installerUser.id);
       if (!res.success) {
         triggerNotice('error', res.error || `Gagal menugaskan WO ${ticket.woNumber} ke ${installerName}.`);
         return;
@@ -3368,7 +3389,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {/* ============================================================ */}
       <LeaderTwoStepReassignModal
         isOpen={Boolean(reassignModalState.isOpen && reassignModalState.ticket)}
-        onClose={() => setReassignModalState(prev => ({ ...prev, isOpen: false }))}
+        onClose={() =>
+          setReassignModalState(prev => (prev.isSubmitting ? prev : { ...prev, isOpen: false }))
+        }
         ticket={reassignModalState.ticket}
         technicians={technicianSummaries}
         quotaConfig={quotaSettings}

@@ -18,6 +18,7 @@ import {
   KPI_FILTER_LABELS
 } from '../../services/woLifecycleService';
 import { TicketMobileCard } from './TicketMobileCard';
+import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
 import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
 import {
   Search,
@@ -213,13 +214,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const {
     tickets,
     currentUser,
+    users,
     archiveTicket,
     restoreTicket,
     bulkAssignPersonnel,
     approveProgressReport,
     rejectProgressReport,
     updateTicket,
-    installersList,
     contractorsList,
     getTicketUnreadCount,
     totalLiveChatUnreadCount,
@@ -288,6 +289,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   // Multi-selection & modals state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkInstaller, setBulkInstaller] = useState('');
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+
+  const scopedInstallers = useMemo(() => {
+    const activeInstallers = (users || []).filter(
+      u =>
+        String(u.role || '').trim().toLowerCase() === 'installer' &&
+        u.active !== false &&
+        !u.isDeleted &&
+        !u.isArchived
+    );
+    if (currentUser.role !== 'leader') return activeInstallers;
+    if (!currentUser.contractorId && !currentUser.contractor) return activeInstallers;
+    return activeInstallers.filter(u =>
+      isContractorScopeMatchClient(
+        currentUser.contractorId,
+        currentUser.contractor,
+        u.contractorId,
+        u.contractor
+      )
+    );
+  }, [users, currentUser.role, currentUser.contractorId, currentUser.contractor]);
   const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showColManager, setShowColManager] = useState(false);
@@ -764,6 +786,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   };
 
   const handleApplyBulkAssign = async () => {
+    if (isBulkAssigning) return;
     if (currentUser.role !== 'leader') {
       toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.');
       return;
@@ -772,10 +795,29 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       toast.error('Pilih teknisi terlebih dahulu.');
       return;
     }
-    const res = await bulkAssignPersonnel(Array.from(selectedIds), currentUser.name, bulkInstaller);
-    if (res.success) {
-      setSelectedIds(new Set());
-      setBulkInstaller('');
+    const targetInst = scopedInstallers.find(
+      u => u.id === bulkInstaller || u.name === bulkInstaller
+    );
+    if (!targetInst || !targetInst.id) {
+      toast.error('Akun teknisi aktif tidak ditemukan atau tidak memiliki ID akun valid.');
+      return;
+    }
+    setIsBulkAssigning(true);
+    try {
+      const res = await bulkAssignPersonnel(
+        Array.from(selectedIds),
+        currentUser.name,
+        targetInst.name,
+        undefined,
+        undefined,
+        targetInst.id
+      );
+      if (res.success) {
+        setSelectedIds(new Set());
+        setBulkInstaller('');
+      }
+    } finally {
+      setIsBulkAssigning(false);
     }
   };
 
@@ -2080,23 +2122,25 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   <>
                     <select
                       value={bulkInstaller}
+                      disabled={isBulkAssigning}
                       onChange={e => setBulkInstaller(e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-md text-[#26364A] dark:text-white"
+                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-md text-[#26364A] dark:text-white disabled:opacity-50"
                     >
                       <option value="">Pilih Teknisi...</option>
-                      {installersList.map(inst => (
-                        <option key={inst} value={inst}>
-                          {inst}
+                      {scopedInstallers.map(inst => (
+                        <option key={inst.id} value={inst.id}>
+                          {inst.name}
                         </option>
                       ))}
                     </select>
                     <button
                       type="button"
+                      disabled={isBulkAssigning || !bulkInstaller}
                       onClick={handleApplyBulkAssign}
-                      className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap flex items-center gap-1"
+                      className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap flex items-center gap-1 disabled:opacity-50"
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      <span>Assign Teknisi</span>
+                      <span>{isBulkAssigning ? 'Menyimpan...' : 'Assign Teknisi'}</span>
                     </button>
                   </>
                 ) : currentUser.role !== 'super_admin' ? (

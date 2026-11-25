@@ -958,6 +958,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
   };
 
   const handleConfirmManualAssign = async () => {
+    if (isSubmittingAssign) return;
     if (currentUser.role !== 'leader') {
       toast.error('Hanya akun Leader yang dapat melakukan disposisi penugasan teknisi.', 'Akses Ditolak');
       return;
@@ -970,11 +971,20 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     if (!targetTicket) return;
 
     const techSummary = technicianSummaries.find(
-      s => s.installer.name.toLowerCase().trim() === modalInstallerName.toLowerCase().trim()
+      s =>
+        s.installer.name.toLowerCase().trim() === modalInstallerName.toLowerCase().trim() ||
+        s.installer.id === modalInstallerName
     );
-    if (techSummary && quotaConfig.enforceStrictLimit && techSummary.isFull) {
+    if (!techSummary || !techSummary.installer?.id) {
       toast.error(
-        `Kuota harian ${modalInstallerName} penuh (${techSummary.assignedCount}/${techSummary.maxLimit} WO).`,
+        `Akun teknisi "${modalInstallerName}" tidak ditemukan atau tidak memiliki ID akun aktif.`,
+        'Teknisi Tidak Valid'
+      );
+      return;
+    }
+    if (quotaConfig.enforceStrictLimit && techSummary.isFull) {
+      toast.error(
+        `Kuota harian ${techSummary.installer.name} penuh (${techSummary.assignedCount}/${techSummary.maxLimit} WO).`,
         'Batas Kuota Tercapai'
       );
       return;
@@ -984,8 +994,20 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     try {
       const res =
         modalSlotTime && modalSlotTime !== targetTicket.slotTime
-          ? await bulkAssignPersonnel([targetTicket.id], currentUser.name, modalInstallerName, modalSlotTime)
-          : await assignTicketPersonnel(targetTicket.id, currentUser.name, modalInstallerName);
+          ? await bulkAssignPersonnel(
+              [targetTicket.id],
+              currentUser.name,
+              techSummary.installer.name,
+              modalSlotTime,
+              undefined,
+              techSummary.installer.id
+            )
+          : await assignTicketPersonnel(
+              targetTicket.id,
+              currentUser.name,
+              techSummary.installer.name,
+              techSummary.installer.id
+            );
       if (res.success) {
         setAssignModalOpen(false);
       }
@@ -2385,7 +2407,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       <ResponsiveModal
         isOpen={assignModalOpen}
-        onClose={() => setAssignModalOpen(false)}
+        onClose={() => {
+          if (!isSubmittingAssign) setAssignModalOpen(false);
+        }}
         title="Disposisi Instan Work Order"
         subtitle={`Sektor ${displayArea} • ${metrics.unassignedTickets.length} WO menunggu penugasan`}
         size="lg"
@@ -2500,8 +2524,9 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                   <button
                     type="button"
+                    disabled={isSubmittingAssign}
                     onClick={() => setAssignModalOpen(false)}
-                    className="mj-btn-leader-neutral px-4 py-2 cursor-pointer"
+                    className="mj-btn-leader-neutral px-4 py-2 cursor-pointer disabled:opacity-50"
                   >
                     Batal
                   </button>

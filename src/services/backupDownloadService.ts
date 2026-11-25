@@ -13,19 +13,24 @@ export const EXPECTED_BACKUP_SHA256 = 'c4b0b42c78f634735f1eb361947e641d096e13b9d
  * Validates exact file size (1,055,520 bytes) and SHA-256 checksum before triggering save.
  */
 export async function downloadProductionBackup(): Promise<BackupDownloadResult> {
-  // 1. Retrieve session token
+  // 1. Retrieve session token (optional under cookie-only mode)
   let token = '';
+  let isLoggedIn = false;
   try {
+    isLoggedIn = localStorage.getItem('morajaws_logged_in') === 'true';
     const sessionStr = localStorage.getItem('morajaws_auth_session');
     if (sessionStr) {
       const s = JSON.parse(sessionStr);
       if (s?.token) {
         token = s.token;
       }
+      if (s?.userId) {
+        isLoggedIn = true;
+      }
     }
   } catch (e) {}
 
-  if (!token) {
+  if (!token && !isLoggedIn) {
     return {
       success: false,
       error: 'Autentikasi tidak ditemukan: Sesi login Anda telah berakhir. Silakan login kembali.'
@@ -33,13 +38,16 @@ export async function downloadProductionBackup(): Promise<BackupDownloadResult> 
   }
 
   try {
-    // 2. Send GET request with Authorization: Bearer <token>
+    // 2. Send GET request with HttpOnly cookies + optional Authorization: Bearer <token>
     // NEVER put token in query string or URL
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     const response = await fetch('/api/admin/backup/download', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      credentials: 'include',
+      headers
     });
 
     if (response.status === 401) {

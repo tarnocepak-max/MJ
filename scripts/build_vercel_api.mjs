@@ -22,7 +22,7 @@ async function buildVercelServerlessBundle() {
     outfile: OUT_FILE,
     bundle: true,
     platform: 'node',
-    target: 'node20',
+    target: 'node22',
     format: 'esm',
     packages: 'external',
     external: ['vite'],

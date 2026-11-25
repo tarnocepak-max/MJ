@@ -1424,7 +1424,18 @@ export async function getScopedInstallerLiveLocations(
   const stores = ensureLocalTrackingStores();
   if (isSupabaseMode()) {
     const client = getSupabaseBackendClient();
-    if (client) {
+    if (!client) {
+      if (!isLocalJsonModeAllowed()) {
+        return {
+          success: false,
+          status: 503,
+          code: 'DATABASE_UNAVAILABLE',
+          message: 'Koneksi Supabase tidak tersedia untuk pemantauan lokasi installer.',
+          config,
+          installers: []
+        };
+      }
+    } else {
       try {
         const [usersRes, sessRes, locRes] = await Promise.all([
           getUsersFromSupabase(),
@@ -1435,20 +1446,46 @@ export async function getScopedInstallerLiveLocations(
             .limit(500),
           client.from('installer_current_locations').select('*').limit(500)
         ]);
+        if (!usersRes.success || sessRes.error || locRes.error) {
+          if (!isLocalJsonModeAllowed()) {
+            return {
+              success: false,
+              status: 503,
+              code: 'DATABASE_UNAVAILABLE',
+              message:
+                usersRes.error?.message ||
+                sessRes.error?.message ||
+                locRes.error?.message ||
+                'Gagal membaca data lokasi installer dari Supabase.',
+              config,
+              installers: []
+            };
+          }
+        }
         if (usersRes.success && Array.isArray(usersRes.data)) {
           allUsers = usersRes.data;
         }
-        if (!sessRes.error && Array.isArray(sessRes.data) && sessRes.data.length > 0) {
+        if (!sessRes.error && Array.isArray(sessRes.data)) {
           sessions = sessRes.data.map(mapRowToInstallerSession);
-        } else {
+        } else if (isLocalJsonModeAllowed()) {
           sessions = stores.sessions;
         }
-        if (!locRes.error && Array.isArray(locRes.data) && locRes.data.length > 0) {
+        if (!locRes.error && Array.isArray(locRes.data)) {
           currentLocations = locRes.data.map(mapRowToCurrentLocation);
-        } else {
+        } else if (isLocalJsonModeAllowed()) {
           currentLocations = stores.currentLocations;
         }
-      } catch {
+      } catch (err: any) {
+        if (!isLocalJsonModeAllowed()) {
+          return {
+            success: false,
+            status: 503,
+            code: 'DATABASE_UNAVAILABLE',
+            message: err?.message || 'Gagal membaca data lokasi installer dari Supabase.',
+            config,
+            installers: []
+          };
+        }
         allUsers = db.users || [];
         sessions = stores.sessions;
         currentLocations = stores.currentLocations;
@@ -1460,7 +1497,7 @@ export async function getScopedInstallerLiveLocations(
     currentLocations = stores.currentLocations;
   }
 
-  if (allUsers.length === 0 && Array.isArray(db.users)) {
+  if (allUsers.length === 0 && isLocalJsonModeAllowed() && Array.isArray(db.users)) {
     allUsers = db.users;
   }
 

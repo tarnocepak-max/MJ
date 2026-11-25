@@ -80,6 +80,7 @@ export function setTrackedConfigVersion(key: string, version: number | undefined
 
 export async function bootstrapGlobalConfigs(): Promise<BootstrapGlobalConfigResult> {
   const res = await fetch('/api/global-config/bootstrap', {
+    credentials: 'include',
     headers: getAuthHeaders()
   });
   const json = await res.json().catch(() => null);
@@ -112,6 +113,7 @@ export async function getGlobalConfig<T = any>(
   key: string
 ): Promise<{ key: string; value: T | null; version: number; updatedAt: string | null; updatedBy: string | null }> {
   const res = await fetch(`/api/global-config/${encodeURIComponent(key)}`, {
+    credentials: 'include',
     headers: getAuthHeaders()
   });
   const json = await res.json().catch(() => null);
@@ -138,6 +140,7 @@ export async function saveGlobalConfig<T = any>(
   const trackedVer = options.expectedVersion !== undefined ? options.expectedVersion : clientVersionRegistry.get(key);
   const res = await fetch(`/api/global-config/${encodeURIComponent(key)}`, {
     method: 'PUT',
+    credentials: 'include',
     headers: getAuthHeaders(),
     body: JSON.stringify({
       value,
@@ -193,7 +196,7 @@ export async function getConfigVersions(key?: string, limit: number = 100): Prom
     key && key !== 'ALL'
       ? `/api/global-config/${encodeURIComponent(key)}/versions?limit=${limit}`
       : `/api/global-config/versions/all?limit=${limit}`;
-  const res = await fetch(url, { headers: getAuthHeaders() });
+  const res = await fetch(url, { credentials: 'include', headers: getAuthHeaders() });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
     throw new Error(json?.error || `Gagal memuat riwayat versi konfigurasi (HTTP ${res.status}).`);
@@ -215,6 +218,7 @@ export async function rollbackGlobalConfig(
 }> {
   const res = await fetch(`/api/global-config/${encodeURIComponent(key)}/rollback`, {
     method: 'POST',
+    credentials: 'include',
     headers: getAuthHeaders(),
     body: JSON.stringify(target)
   });
@@ -237,7 +241,7 @@ export async function getRolePermissionsFromServer(): Promise<{
   updatedAt: string | null;
   updatedBy: string | null;
 }> {
-  const res = await fetch('/api/roles/permissions', { headers: getAuthHeaders() });
+  const res = await fetch('/api/roles/permissions', { credentials: 'include', headers: getAuthHeaders() });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
     throw new Error(json?.error || `Gagal memuat matriks hak akses role (HTTP ${res.status}).`);
@@ -263,6 +267,7 @@ export async function saveRolePermissionsToServer(
   const trackedVer = options.expectedVersion !== undefined ? options.expectedVersion : clientVersionRegistry.get('role_permissions');
   const res = await fetch('/api/roles/permissions', {
     method: 'PUT',
+    credentials: 'include',
     headers: getAuthHeaders(),
     body: JSON.stringify({
       rolePermissions,

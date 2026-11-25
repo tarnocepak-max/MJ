@@ -152,9 +152,12 @@ const RETRY_BACKOFF_SECONDS = [30, 120, 300];
 const MAX_LOCAL_LOGS = 500;
 const MAX_LOCAL_QUEUE = 500;
 
+const EMAIL_CACHE_TTL_MS = 30_000;
 let persistenceHooks: EmailServicePersistenceHooks | null = null;
 let cachedConfig: EmailNotificationConfig | null = null;
+let cachedConfigLoadedAt = 0;
 let cachedTemplates: Record<EmailTemplateKey, EmailTemplateConfig> | null = null;
+let cachedTemplatesLoadedAt = 0;
 let dedicatedTablesMissing = false;
 let isWorkerProcessing = false;
 let workerDrainRequested = false;
@@ -365,7 +368,9 @@ export async function getEmailProviderHealth(): Promise<EmailProviderHealth> {
 }
 
 export async function getEmailNotificationConfig(): Promise<EmailNotificationConfig> {
-  if (cachedConfig) return cachedConfig;
+  if (cachedConfig && Date.now() - cachedConfigLoadedAt < EMAIL_CACHE_TTL_MS) {
+    return cachedConfig;
+  }
 
   if (isSupabaseConfigured() && !dedicatedTablesMissing) {
     const client = getSupabaseBackendClient();
@@ -391,6 +396,7 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
           updatedBy: data.updated_by,
           updatedAt: data.updated_at
         });
+        cachedConfigLoadedAt = Date.now();
         return cachedConfig;
       }
 
@@ -402,6 +408,7 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
         .maybeSingle();
       if (appSet?.value && typeof appSet.value === 'object') {
         cachedConfig = normalizeEmailConfig(appSet.value);
+        cachedConfigLoadedAt = Date.now();
         return cachedConfig;
       }
     }
@@ -410,10 +417,12 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
   const localStore = persistenceHooks?.getLocalStore();
   if (localStore?.emailNotificationConfig) {
     cachedConfig = normalizeEmailConfig(localStore.emailNotificationConfig);
+    cachedConfigLoadedAt = Date.now();
     return cachedConfig;
   }
   if (localStore?.appSettings?.email_notification_settings) {
     cachedConfig = normalizeEmailConfig(localStore.appSettings.email_notification_settings);
+    cachedConfigLoadedAt = Date.now();
     return cachedConfig;
   }
 
@@ -423,6 +432,7 @@ export async function getEmailNotificationConfig(): Promise<EmailNotificationCon
     ...DEFAULT_CONFIG,
     enabled: smtpReady ? true : DEFAULT_CONFIG.enabled
   });
+  cachedConfigLoadedAt = Date.now();
   return cachedConfig;
 }
 
@@ -498,6 +508,7 @@ export async function saveEmailNotificationConfig(
   }
 
   cachedConfig = merged;
+  cachedConfigLoadedAt = Date.now();
   await persistenceHooks?.writeAuditLog?.(
     'Email Notification Config Updated',
     'email_notification_settings',
@@ -509,7 +520,9 @@ export async function saveEmailNotificationConfig(
 }
 
 export async function getEmailTemplates(): Promise<Record<EmailTemplateKey, EmailTemplateConfig>> {
-  if (cachedTemplates) return cachedTemplates;
+  if (cachedTemplates && Date.now() - cachedTemplatesLoadedAt < EMAIL_CACHE_TTL_MS) {
+    return cachedTemplates;
+  }
   const defaults = getDefaultEmailTemplates();
 
   if (isSupabaseConfigured() && !dedicatedTablesMissing) {
@@ -536,6 +549,7 @@ export async function getEmailTemplates(): Promise<Record<EmailTemplateKey, Emai
           }
         }
         cachedTemplates = merged;
+        cachedTemplatesLoadedAt = Date.now();
         return cachedTemplates;
       }
 
@@ -563,6 +577,7 @@ export async function getEmailTemplates(): Promise<Record<EmailTemplateKey, Emai
             }
           }
           cachedTemplates = merged;
+          cachedTemplatesLoadedAt = Date.now();
           return cachedTemplates;
         }
       }
@@ -586,10 +601,12 @@ export async function getEmailTemplates(): Promise<Record<EmailTemplateKey, Emai
       }
     }
     cachedTemplates = merged;
+    cachedTemplatesLoadedAt = Date.now();
     return cachedTemplates;
   }
 
   cachedTemplates = defaults;
+  cachedTemplatesLoadedAt = Date.now();
   return cachedTemplates;
 }
 
@@ -661,6 +678,7 @@ export async function saveEmailTemplate(
   }
 
   cachedTemplates = nextMap;
+  cachedTemplatesLoadedAt = Date.now();
   await persistenceHooks?.writeAuditLog?.(
     'Email Template Updated',
     templateKey,
@@ -2749,40 +2767,69 @@ function getJakartaHHmmNow(): { dateWIB: string; hhmmWIB: string } {
 
 let schedulerTimer: NodeJS.Timeout | null = null;
 
+export async function runScheduledEmailTick(options?: {
+  forceDailyResetWindow?: boolean;
+  forceDailySummaryWindow?: boolean;
+}): Promise<{
+  enabled: boolean;
+  queueResult?: Awaited<ReturnType<typeof processEmailQueueBatch>>;
+  dailyResetTriggered?: boolean;
+  dailySummaryTriggered?: boolean;
+  dateWIB: string;
+  hhmmWIB: string;
+}> {
+  const { dateWIB, hhmmWIB } = getJakartaHHmmNow();
+  const cfg = await getEmailNotificationConfig();
+  if (!cfg.enabled) {
+    return { enabled: false, dateWIB, hhmmWIB };
+  }
+
+  // 1. Drain due queued / retry_pending items
+  const queueResult = await processEmailQueueBatch(25);
+  let dailySummaryTriggered = false;
+  let dailyResetTriggered = false;
+
+  // 2. Check WIB schedule for Daily Summary & scheduled Daily Reset Notification window
+  if (
+    cfg.rules.dailySummary.enabled &&
+    (options?.forceDailySummaryWindow || hhmmWIB === cfg.rules.dailySummary.scheduleTime) &&
+    lastDailySummaryRunDateWIB !== dateWIB
+  ) {
+    lastDailySummaryRunDateWIB = dateWIB;
+    dailySummaryTriggered = true;
+    await triggerDailySummaryNotifications({ operationalDateWIB: dateWIB });
+  }
+
+  if (
+    cfg.rules.dailyReset.enabled &&
+    (options?.forceDailyResetWindow || hhmmWIB === cfg.rules.dailyReset.scheduleTime) &&
+    lastDailyResetTriggerDateWIB !== dateWIB
+  ) {
+    lastDailyResetTriggerDateWIB = dateWIB;
+    dailyResetTriggered = true;
+    // Daily reset idempotency guarantees at most 1 notification per recipient per operationalDateWIB
+    const activeOpDate = persistenceHooks?.getOperationalDateWIB() || dateWIB;
+    await triggerDailyResetNotifications({
+      operationalDateWIB: activeOpDate,
+      resetCompleted: activeOpDate === dateWIB
+    });
+  }
+
+  return {
+    enabled: true,
+    queueResult,
+    dailyResetTriggered,
+    dailySummaryTriggered,
+    dateWIB,
+    hhmmWIB
+  };
+}
+
 export function startEmailNotificationScheduler(): void {
   if (schedulerTimer) return;
   schedulerTimer = setInterval(async () => {
     try {
-      const cfg = await getEmailNotificationConfig();
-      if (!cfg.enabled) return;
-
-      // 1. Drain due queued / retry_pending items
-      await processEmailQueueBatch(10);
-
-      // 2. Check WIB schedule for Daily Summary & scheduled Daily Reset Notification window
-      const { dateWIB, hhmmWIB } = getJakartaHHmmNow();
-      if (
-        cfg.rules.dailySummary.enabled &&
-        hhmmWIB === cfg.rules.dailySummary.scheduleTime &&
-        lastDailySummaryRunDateWIB !== dateWIB
-      ) {
-        lastDailySummaryRunDateWIB = dateWIB;
-        await triggerDailySummaryNotifications({ operationalDateWIB: dateWIB });
-      }
-
-      if (
-        cfg.rules.dailyReset.enabled &&
-        hhmmWIB === cfg.rules.dailyReset.scheduleTime &&
-        lastDailyResetTriggerDateWIB !== dateWIB
-      ) {
-        lastDailyResetTriggerDateWIB = dateWIB;
-        // Daily reset idempotency guarantees at most 1 notification per recipient per operationalDateWIB
-        const activeOpDate = persistenceHooks?.getOperationalDateWIB() || dateWIB;
-        await triggerDailyResetNotifications({
-          operationalDateWIB: activeOpDate,
-          resetCompleted: activeOpDate === dateWIB
-        });
-      }
+      await runScheduledEmailTick();
     } catch {
       // Never crash main Express server process from background scheduler
     }
@@ -2795,7 +2842,9 @@ export function startEmailNotificationScheduler(): void {
 
 export function resetEmailServiceCachesForTesting(): void {
   cachedConfig = null;
+  cachedConfigLoadedAt = 0;
   cachedTemplates = null;
+  cachedTemplatesLoadedAt = 0;
   dedicatedTablesMissing = false;
   workerDrainRequested = false;
   lastDailySummaryRunDateWIB = null;

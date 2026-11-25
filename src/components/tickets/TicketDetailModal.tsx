@@ -26,6 +26,7 @@ import {
   formatCoordinates,
   isValidCoordinatePair
 } from '../../services/mapsService';
+import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
 import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
 import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
@@ -101,13 +102,13 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 }) => {
   const {
     currentUser,
+    users,
     syncStatus,
     updateTicket,
     assignTicketPersonnel,
     reopenTicket,
     archiveTicket,
     restoreTicket,
-    installersList,
     approveProgressReport,
     rejectProgressReport,
     getTicketUnreadCount,
@@ -128,6 +129,27 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isAssigningInstaller, setIsAssigningInstaller] = useState(false);
+
+  const scopedInstallers = useMemo(() => {
+    const activeInstallers = (users || []).filter(
+      u =>
+        String(u.role || '').trim().toLowerCase() === 'installer' &&
+        u.active !== false &&
+        !u.isDeleted &&
+        !u.isArchived
+    );
+    if (currentUser.role !== 'leader') return activeInstallers;
+    if (!currentUser.contractorId && !currentUser.contractor) return activeInstallers;
+    return activeInstallers.filter(u =>
+      isContractorScopeMatchClient(
+        currentUser.contractorId,
+        currentUser.contractor,
+        u.contractorId,
+        u.contractor
+      )
+    );
+  }, [users, currentUser.role, currentUser.contractorId, currentUser.contractor]);
 
   // Reopen ticket banner state
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -1394,18 +1416,50 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         </span>
                         {currentUser.role === 'leader' && (
                           <select
-                            value={ticket.installerName || ''}
+                            value={
+                              ticket.installerId ||
+                              scopedInstallers.find(
+                                i =>
+                                  i.name.toLowerCase().trim() ===
+                                  String(ticket.installerName || '').toLowerCase().trim()
+                              )?.id ||
+                              ''
+                            }
+                            disabled={isAssigningInstaller}
                             onChange={async e => {
-                              if (e.target.value !== ticket.installerName) {
-                                await assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
+                              const nextInstallerId = e.target.value;
+                              if (!nextInstallerId || isAssigningInstaller) return;
+                              const targetInst = scopedInstallers.find(i => i.id === nextInstallerId);
+                              if (!targetInst || !targetInst.id) {
+                                toast.error('Akun teknisi aktif tidak ditemukan di database.', 'Teknisi Tidak Valid');
+                                return;
+                              }
+                              if (
+                                targetInst.id === ticket.installerId &&
+                                targetInst.name === ticket.installerName
+                              ) {
+                                return;
+                              }
+                              setIsAssigningInstaller(true);
+                              try {
+                                await assignTicketPersonnel(
+                                  ticket.id,
+                                  currentUser.name,
+                                  targetInst.name,
+                                  targetInst.id
+                                );
+                              } finally {
+                                setIsAssigningInstaller(false);
                               }
                             }}
-                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded font-semibold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"
+                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded font-semibold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer disabled:opacity-50"
                             title="Tugaskan Teknisi (Wewenang Khusus Leader)"
                           >
-                            <option value="">-- Assign Teknisi --</option>
-                            {installersList.map(inst => (
-                              <option key={inst} value={inst}>{inst}</option>
+                            <option value="">
+                              {isAssigningInstaller ? 'Menyimpan...' : '-- Assign Teknisi --'}
+                            </option>
+                            {scopedInstallers.map(inst => (
+                              <option key={inst.id} value={inst.id}>{inst.name}</option>
                             ))}
                           </select>
                         )}

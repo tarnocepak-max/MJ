@@ -60,18 +60,12 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
       const authHdrs = getAuthHeaders();
       const [statusRes, historyRes] = await Promise.all([
         fetch('/api/sync/status', {
-          headers: {
-            ...authHdrs,
-            'x-user-role': currentUser.role,
-            'x-user-id': currentUser.id
-          }
+          credentials: 'include',
+          headers: authHdrs
         }),
         fetch('/api/sync/history', {
-          headers: {
-            ...authHdrs,
-            'x-user-role': currentUser.role,
-            'x-user-id': currentUser.id
-          }
+          credentials: 'include',
+          headers: authHdrs
         })
       ]);
 
@@ -111,11 +105,10 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     try {
       const res = await fetch('/api/sync/check-connection', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          'x-user-role': currentUser.role,
-          'x-user-id': currentUser.id
+          ...getAuthHeaders()
         }
       });
       const data = await res.json();
@@ -146,11 +139,10 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     try {
       const res = await fetch('/api/sync/run', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          'x-user-role': currentUser.role,
-          'x-user-id': currentUser.id
+          ...getAuthHeaders()
         },
         body: JSON.stringify({
           syncType: 'full_sync',

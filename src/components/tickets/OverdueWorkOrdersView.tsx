@@ -518,25 +518,23 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
 
   const handleConfirmReassign = async (payload: {
     ticket: Ticket;
+    targetInstallerId: string;
     targetInstallerName: string;
     reason: string;
     prepareWhatsAppNotice: boolean;
   }) => {
+    if (isReassignSubmitting) return;
     setIsReassignSubmitting(true);
     try {
-      const result = reassignTicketPersonnel(
+      const result = await reassignTicketPersonnel(
         payload.ticket.id,
         payload.targetInstallerName,
-        payload.reason
+        payload.reason,
+        payload.targetInstallerId
       );
       if (result.success) {
-        toast.success(
-          `WO ${payload.ticket.woNumber} berhasil dialihkan ke ${payload.targetInstallerName}. Status Overdue dan riwayat audit tetap terjaga.`,
-          'Reassign Berhasil'
-        );
         setReassignTicket(null);
-      } else {
-        toast.error(result.error || 'Gagal melakukan reassign WO.', 'Reassign Gagal');
+        await refreshOverdueTickets().catch(() => {});
       }
     } finally {
       setIsReassignSubmitting(false);

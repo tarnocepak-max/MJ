@@ -141,6 +141,9 @@ export class SandboxRealtimeCoordinator {
     this.pollingTimer = setInterval(() => {
       this.drainNewEventsFromOutbox();
     }, intervalMs);
+    if (typeof this.pollingTimer.unref === 'function') {
+      this.pollingTimer.unref();
+    }
   }
 
   public stopPollingSafetyNet(): void {

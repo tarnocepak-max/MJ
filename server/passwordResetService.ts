@@ -16,7 +16,7 @@ import {
   checkPasswordNotReused,
   checkPasswordEndpointRateLimit
 } from './customAuthService.ts';
-import { db, saveDatabaseToDisk, isLocalJsonModeAllowed, logServerAuditAsync, type ServerUser } from '../server.ts';
+import { db, saveDatabaseToDisk, isLocalJsonModeAllowed, isServerlessRuntime, logServerAuditAsync, type ServerUser } from '../server.ts';
 
 // ==============================================================================
 // MORAJAWS ENTERPRISE PASSWORD RESET & MASS CREDENTIAL ROTATION SERVICE
@@ -153,8 +153,9 @@ export function sanitizeJobForClient(job: MassResetJob, includeItems = true): Om
   };
 }
 
-async function loadJobsStore(): Promise<void> {
-  if (jobsHydrated) return;
+async function loadJobsStore(forceReload = false): Promise<void> {
+  const shouldReloadFromSupabase = isSupabaseAvailable() && (forceReload || isServerlessRuntime());
+  if (jobsHydrated && !shouldReloadFromSupabase) return;
   jobsHydrated = true;
 
   if (isSupabaseAvailable()) {
@@ -162,7 +163,18 @@ async function loadJobsStore(): Promise<void> {
       const res = await getAppSettingFromSupabase(APP_SETTING_JOBS_KEY);
       if (res.success && Array.isArray(res.data)) {
         for (const j of res.data) {
-          if (j && j.id) MEMORY_JOBS.set(j.id, j);
+          if (j && j.id) {
+            const existing = MEMORY_JOBS.get(j.id);
+            if (existing && Array.isArray(j.items)) {
+              const snapByItemId = new Map(existing.items.map(it => [it.id, it._rollbackSnapshot]));
+              for (const item of j.items) {
+                if (!item._rollbackSnapshot && snapByItemId.has(item.id)) {
+                  item._rollbackSnapshot = snapByItemId.get(item.id);
+                }
+              }
+            }
+            MEMORY_JOBS.set(j.id, j);
+          }
         }
         return;
       }
@@ -524,8 +536,12 @@ export async function createAndStartMassResetJob(input: CreateMassResetJobInput)
     return { job, deduplicated: false };
   }
 
-  // Run batch processing asynchronously so HTTP creation returns immediately for live progress polling
-  void processJobBatches(job.id, simFailSet);
+  if (isServerlessRuntime()) {
+    await processJobBatches(job.id, simFailSet);
+  } else {
+    // Run batch processing asynchronously on persistent Node servers for live progress polling
+    void processJobBatches(job.id, simFailSet);
+  }
 
   return { job, deduplicated: false };
 }
@@ -583,7 +599,11 @@ export async function retryFailedJobItems(
     { level: 'critical' }
   );
 
-  void processJobBatches(job.id);
+  if (isServerlessRuntime()) {
+    await processJobBatches(job.id);
+  } else {
+    void processJobBatches(job.id);
+  }
   return { success: true, job, retriedCount: failedItems.length };
 }
 

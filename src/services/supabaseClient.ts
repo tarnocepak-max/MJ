@@ -57,6 +57,7 @@ export async function fetchLiveSupabaseStatus(): Promise<ClientSupabaseStatus> {
 
     try {
       const res = await fetch('/api/supabase/status', {
+        credentials: 'include',
         signal: controller.signal,
         headers: { Accept: 'application/json' }
       });

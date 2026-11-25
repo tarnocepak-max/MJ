@@ -10,6 +10,7 @@ import type { Ticket } from './src/types/index.ts';
 export type { Ticket };
 
 import { checkSupabaseConnection, getLastSupabaseHealthStatus, getSupabaseBackendClient } from './server/supabaseClient.ts';
+import { getEnvironmentConfig } from './server/environmentConfig.ts';
 import { runPendingSupabaseMigrations, getMigrationStatus, isDatabaseUrlConfigured } from './server/migrationRunner.ts';
 import {
   signInWithSupabaseAuth,
@@ -210,6 +211,7 @@ import {
 import {
   registerEmailNotificationPersistenceHooks,
   startEmailNotificationScheduler,
+  runScheduledEmailTick,
   getEmailNotificationConfig,
   saveEmailNotificationConfig,
   getEmailProviderHealth,
@@ -451,6 +453,7 @@ export const PROTECTED_PRODUCTION_WO_IDS = new Set<string>([
 
 export function isLocalJsonModeAllowed(): boolean {
   if (process.env.NODE_ENV === 'production') return false;
+  if (isServerlessRuntime()) return false;
   if (isSupabaseMode()) return false;
   if (process.env.ALLOW_LOCAL_JSON_MODE === 'false') return false;
   return true;
@@ -1839,7 +1842,24 @@ function getAllowedCorsAndCsrfOrigins(): Set<string> {
     'https://morajaws.ai.studio',
     ...configured
   ]);
-  for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.APP_BASE_URL]) {
+  const envCfg = getEnvironmentConfig();
+  for (const allowedOrigin of envCfg.allowedRedirectOrigins || []) {
+    if (allowedOrigin) origins.add(allowedOrigin);
+  }
+  const vercelHostCandidates = [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ];
+  for (const hostOrUrl of vercelHostCandidates) {
+    if (hostOrUrl && hostOrUrl.trim()) {
+      const normalized = hostOrUrl.trim().startsWith('http') ? hostOrUrl.trim() : `https://${hostOrUrl.trim()}`;
+      try {
+        origins.add(new URL(normalized).origin);
+      } catch {}
+    }
+  }
+  for (const rawBase of [process.env.PRODUCTION_APP_BASE_URL, process.env.STAGING_APP_BASE_URL, process.env.APP_BASE_URL]) {
     if (rawBase && rawBase.trim()) {
       try {
         origins.add(new URL(rawBase.trim()).origin);
@@ -1862,7 +1882,7 @@ export function validateCsrfProtection(req: {
   }
 
   const reqPath = String(req.path || req.originalUrl || '').split('?')[0];
-  if (reqPath.startsWith('/api/webhooks/resend')) {
+  if (reqPath.startsWith('/api/webhooks/resend') || reqPath.startsWith('/api/cron/')) {
     return { valid: true };
   }
 
@@ -5868,6 +5888,7 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const requestId = `req_reassign_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const now = new Date().toISOString();
 
     if (isSupabaseMode()) {
@@ -5887,7 +5908,8 @@ export async function createExpressApp(options?: {
         userContractor: req.user!.contractor,
         userContractorId: req.user!.contractorId,
         userArea: req.user!.area,
-        userRole: req.user!.role
+        userRole: req.user!.role,
+        requestId
       });
 
       if (!reassignRes.success) {
@@ -5896,7 +5918,7 @@ export async function createExpressApp(options?: {
           const status = reassignRes.error?.isUnavailable ? 503
             : (errCode === 'SCOPE_MISMATCH' || errCode === 'REQUIRE_LEADER_ROLE' || errCode === 'PROTECTED_RECORD' || errCode === 'PROTECTED_PRODUCTION_RECORD') ? 403
             : errCode === 'NOT_FOUND' ? 404
-            : errCode === 'WO_DELETED_OR_ARCHIVED' ? 409
+            : (errCode === 'WO_DELETED_OR_ARCHIVED' || errCode === 'WO_COMPLETED_OR_CLOSED') ? 409
             : (errCode === 'INVALID_INPUT' || errCode === 'INVALID_REASON') ? 400
             : (errCode === 'REASSIGN_PARTIAL_FAILURE_INCONSISTENT') ? 500
             : 500;
@@ -5904,6 +5926,7 @@ export async function createExpressApp(options?: {
             success: false,
             error: reassignRes.error?.message || 'Gagal mereassign Work Order di Supabase.',
             code: errCode || 'REASSIGN_ERROR',
+            requestId,
             details: reassignRes.error?.details
           });
         }
@@ -5938,6 +5961,7 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
+            requestId,
             message: `Work Order ${assignedWoNumber} berhasil dialihkan ke teknisi ${resolvedNewLabel}.`,
             historyEntry: reassignRes.data?.history,
             workOrder: reassignRes.data?.workOrder,
@@ -5967,9 +5991,12 @@ export async function createExpressApp(options?: {
           u.role === 'installer' &&
           !u.isDeleted &&
           u.active !== false &&
-          ((effNewInstId && u.id === effNewInstId) ||
-            (effNewInstName && u.name.trim().toLowerCase() === effNewInstName.toLowerCase()) ||
-            (effNewInstName && u.username.trim().toLowerCase() === effNewInstName.toLowerCase()))
+          (effNewInstId
+            ? u.id === effNewInstId
+            : Boolean(
+                (effNewInstName && u.name.trim().toLowerCase() === effNewInstName.toLowerCase()) ||
+                  (effNewInstName && u.username.trim().toLowerCase() === effNewInstName.toLowerCase())
+              ))
       );
       if (!targetInstaller) {
         return res.status(400).json({
@@ -17878,9 +17905,71 @@ export async function createExpressApp(options?: {
     }
   });
 
+  const handleCronMaintenance = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const cronSecret = (process.env.CRON_SECRET || '').trim();
+      const authHeader = String(req.headers['authorization'] || '');
+      const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+      let authorizedViaSecret = false;
+      if (cronSecret && bearerToken) {
+        const expectedBuf = Buffer.from(cronSecret, 'utf8');
+        const actualBuf = Buffer.from(bearerToken, 'utf8');
+        if (expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf)) {
+          authorizedViaSecret = true;
+        }
+      }
+
+      const isSuperAdminCaller = req.user?.role === 'super_admin';
+      if (!authorizedViaSecret && !isSuperAdminCaller) {
+        if (!cronSecret) {
+          return res.status(401).json({
+            success: false,
+            code: 'CRON_SECRET_MISSING',
+            error: 'CRON_SECRET belum dikonfigurasi pada server.'
+          });
+        }
+        return res.status(401).json({
+          success: false,
+          code: 'CRON_UNAUTHORIZED',
+          error: 'Unauthorized cron invocation.'
+        });
+      }
+
+      const opDate = getOperationalDate(getNow()).date;
+      const emailTick = await runScheduledEmailTick({
+        forceDailyResetWindow: req.query.dailyReset !== 'false',
+        forceDailySummaryWindow: req.query.dailySummary === 'true'
+      });
+
+      return res.json({
+        success: true,
+        operationalDateWIB: opDate,
+        emailTick,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        code: 'CRON_EXECUTION_ERROR',
+        error: err?.message || 'Gagal menjalankan cron maintenance.'
+      });
+    }
+  };
+
+  app.get('/api/cron/daily-maintenance', handleCronMaintenance);
+  app.post('/api/cron/daily-maintenance', handleCronMaintenance);
+
   app.post('/api/webhooks/resend', async (req: Request, res: Response) => {
     try {
       const secret = (process.env.RESEND_WEBHOOK_SECRET || '').trim();
+      if (!secret && process.env.NODE_ENV === 'production') {
+        return res.status(503).json({
+          received: false,
+          code: 'WEBHOOK_SECRET_MISSING',
+          error: 'RESEND_WEBHOOK_SECRET belum dikonfigurasi pada production.'
+        });
+      }
       if (secret) {
         const rawBody = String((req as any).rawBody || '');
         const isValidSig = verifyResendWebhookSignature({
@@ -17912,57 +18001,56 @@ export async function createExpressApp(options?: {
   });
 
   // Mount Vite middleware in development or serve static / API-only in production
-  if (process.env.NODE_ENV === 'production') {
-    if (process.env.API_ONLY_MODE === 'true') {
-      app.get('/', (_req, res) => {
-        res.json({
-          status: 'ok',
-          service: 'MoraJaws Express Backend API',
-          apiOnlyMode: true,
-          timestamp: new Date().toISOString()
-        });
+  if (options?.apiOnly || (process.env.NODE_ENV === 'production' && process.env.API_ONLY_MODE === 'true')) {
+    app.get('/', (_req, res) => {
+      res.json({
+        status: 'ok',
+        service: 'MoraJaws Express Backend API',
+        apiOnlyMode: true,
+        timestamp: new Date().toISOString()
       });
-      app.use((req, res) => {
-        if (req.path.startsWith('/api/')) {
-          return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-        }
-        return res.status(404).json({
-          error: 'Endpoint frontend tidak di-host pada backend API-only. Gunakan domain Cloudflare Pages.',
-          code: 'API_ONLY_MODE'
-        });
+    });
+    app.use((req, res) => {
+      if (req.path === '/api' || req.path.startsWith('/api/')) {
+        return res.status(404).json({ success: false, error: 'Not found', code: 'NOT_FOUND' });
+      }
+      return res.status(404).json({
+        success: false,
+        error: 'Endpoint frontend tidak di-host pada backend API-only. Gunakan domain aplikasi utama.',
+        code: 'API_ONLY_MODE'
       });
-    } else {
-      const distDir = path.join(__dirname, 'dist');
-      const distAssetsDir = path.join(distDir, 'assets');
-      const indexHtmlPath = path.join(distDir, 'index.html');
+    });
+  } else if (process.env.NODE_ENV === 'production') {
+    const distDir = path.join(__dirname, 'dist');
+    const distAssetsDir = path.join(distDir, 'assets');
+    const indexHtmlPath = path.join(distDir, 'index.html');
 
-      app.use('/assets', express.static(distAssetsDir, {
-        immutable: true,
-        maxAge: '1y'
-      }), (_req, res) => {
-        res.status(404).type('text/plain').send('Asset not found');
-      });
+    app.use('/assets', express.static(distAssetsDir, {
+      immutable: true,
+      maxAge: '1y'
+    }), (_req, res) => {
+      res.status(404).type('text/plain').send('Asset not found');
+    });
 
-      app.use(express.static(distDir, {
-        index: false
-      }));
+    app.use(express.static(distDir, {
+      index: false
+    }));
 
-      app.get('*', (req, res) => {
-        if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
-          return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-        }
-        if (!fs.existsSync(indexHtmlPath)) {
-          console.error('[Production Static] Missing dist/index.html at:', indexHtmlPath);
-          return res.status(503).type('html').send(
-            '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
-          );
-        }
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.sendFile(indexHtmlPath);
-      });
-    }
+    app.get('*', (req, res) => {
+      if (req.path === '/api' || req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+        return res.status(404).json({ success: false, error: 'Not found', code: 'NOT_FOUND' });
+      }
+      if (!fs.existsSync(indexHtmlPath)) {
+        console.error('[Production Static] Missing dist/index.html at:', indexHtmlPath);
+        return res.status(503).type('html').send(
+          '<!doctype html><html><body style="font-family:sans-serif;padding:32px;background:#0f0a22;color:#f8fafc"><h2>MoraJaws Production Build Belum Siap</h2><p>File <code>dist/index.html</code> tidak ditemukan. Jalankan <code>npm run build</code> sebelum menjalankan server produksi.</p></body></html>'
+        );
+      }
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.sendFile(indexHtmlPath);
+    });
   } else if (!options?.skipVite) {
     let viteMiddleware: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
     let viteError: Error | null = null;
@@ -18022,6 +18110,42 @@ export async function createExpressApp(options?: {
         .catch(next);
     });
   }
+
+  app.use((req, res, next) => {
+    if (req.path === '/api' || req.path.startsWith('/api/')) {
+      return res.status(404).json({ success: false, error: 'Not found', code: 'NOT_FOUND' });
+    }
+    return next();
+  });
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    if (res.headersSent) {
+      return;
+    }
+    if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_JSON',
+        error: 'Payload JSON tidak valid atau rusak.'
+      });
+    }
+    if (err?.type === 'entity.too.large' || err?.status === 413) {
+      return res.status(413).json({
+        success: false,
+        code: 'PAYLOAD_TOO_LARGE',
+        error: 'Ukuran payload melebihi batas maksimum server.'
+      });
+    }
+    const status = Number(err?.status || err?.statusCode || 500);
+    const safeStatus = status >= 400 && status < 600 ? status : 500;
+    const isProd = process.env.NODE_ENV === 'production';
+    console.error('[Express Error]', err?.message || err);
+    return res.status(safeStatus).json({
+      success: false,
+      code: typeof err?.code === 'string' ? err.code : 'INTERNAL_SERVER_ERROR',
+      error: isProd && safeStatus >= 500 ? 'Terjadi kesalahan internal server MoraJaws.' : err?.message || 'Internal server error'
+    });
+  });
 
   return app;
 }

@@ -5852,6 +5852,24 @@ export async function reassignTicketInSupabase(
     };
   }
 
+  if (
+    targetTicket.statusWOInstaller === 'Completed' ||
+    targetTicket.statusWOInstaller === 'Installed' ||
+    targetTicket.statusWOAgent === 'Done' ||
+    targetTicket.statusWOAgent === 'Closed' ||
+    targetTicket.ticketResult === 'Closed'
+  ) {
+    return {
+      success: false,
+      error: {
+        code: 'WO_COMPLETED_OR_CLOSED',
+        httpStatus: 409,
+        message: `Work Order ${targetTicket.woNumber || targetTicket.id} sudah selesai atau ditutup sehingga tidak dapat direassign.`,
+        details: { stage: 'WO_STATE_CHECK', requestId }
+      }
+    };
+  }
+
   // 2. Validate contractor & area scope for Leader (supports both contractorId & free-text contractor name; fails closed when empty)
   const woContrName = String(targetTicket.contactorName || targetTicket.contractorName || contractorName || '').trim();
   const woContrId = String(targetTicket.contractorId || '').trim();
@@ -5961,7 +5979,7 @@ export async function reassignTicketInSupabase(
       }
     };
   }
-  if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+  if (!matchedInstaller.active || matchedInstaller.isDeleted || matchedInstaller.isArchived) {
     return {
       success: false,
       error: {

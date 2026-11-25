@@ -162,6 +162,7 @@ async function fetchWithTimeout(
   try {
     return await fetch(url, {
       ...init,
+      credentials: init.credentials || 'include',
       signal: controller.signal
     });
   } catch (err: any) {

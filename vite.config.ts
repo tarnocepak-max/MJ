@@ -10,6 +10,11 @@ function distSecurityPlugin(): Plugin {
     closeBundle() {
       const distDir = path.resolve(import.meta.dirname, 'dist');
       if (fs.existsSync(distDir)) {
+        const aistudioAssetsDir = path.join(distDir, 'assets', 'aistudio');
+        if (fs.existsSync(aistudioAssetsDir)) {
+          fs.rmSync(aistudioAssetsDir, { recursive: true, force: true });
+          console.warn('[Security Plugin] Removed dist/assets/aistudio directory');
+        }
         const scanAndPurge = (dir: string) => {
           const entries = fs.readdirSync(dir, { withFileTypes: true });
           for (const entry of entries) {
@@ -17,6 +22,7 @@ function distSecurityPlugin(): Plugin {
             if (entry.isDirectory()) {
               scanAndPurge(fullPath);
             } else if (
+              entry.name.endsWith('.map') ||
               entry.name.endsWith('.zip') ||
               entry.name.endsWith('.bak') ||
               entry.name.endsWith('.sql') ||
@@ -24,7 +30,7 @@ function distSecurityPlugin(): Plugin {
               entry.name.includes('database.json')
             ) {
               fs.unlinkSync(fullPath);
-              console.warn(`[Security Plugin] Purged sensitive file from dist: ${entry.name}`);
+              console.warn(`[Security Plugin] Purged sensitive/map file from dist: ${entry.name}`);
             }
           }
         };
@@ -42,6 +48,9 @@ export default defineConfig(() => {
         '@': path.resolve(import.meta.dirname, '.'),
       },
     },
+    build: {
+      sourcemap: false,
+    },
     server: {
       host: '0.0.0.0',
       port: 3000,
@@ -51,14 +60,6 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-    },
-    define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
-        process.env.SUPABASE_URL ? (() => {
-          try { return new URL(process.env.SUPABASE_URL).origin; } catch { return ''; }
-        })() : ''
-      ),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || ''),
     },
   };
 });

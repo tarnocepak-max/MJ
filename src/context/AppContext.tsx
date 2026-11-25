@@ -43,7 +43,9 @@ import {
 import { installerGpsTracker } from '../services/installerGpsTrackingService';
 import {
   AssignmentActionResult,
+  ReassignActionResult,
   buildAssignmentPatchPlan,
+  executeReassignWorkOrderRequest,
   formatAssignmentFailureMessage,
   isContractorScopeMatchClient,
   isTicketInLeaderScope,
@@ -80,8 +82,7 @@ import {
   runWODistributionEngine,
   extractContractorsFromTickets,
   generateContractorCode,
-  processRawImportWithEngine,
-  reassignWOTechnician
+  processRawImportWithEngine
 } from '../services/woFieldMappingEngine';
 import {
   DEFAULT_PASSWORD_HASH,
@@ -376,7 +377,7 @@ interface AppContextType {
   updateTicket: (id: string, updates: Partial<Ticket>, reason?: string) => { success: boolean; error?: string };
   assignTicketPersonnel: (ticketId: string, leaderName?: string, installerName?: string, installerId?: string) => Promise<AssignmentActionResult>;
   bulkAssignPersonnel: (ticketIds: string[], leaderName?: string, installerName?: string, slotTime?: string, remarks?: string, installerId?: string) => Promise<AssignmentActionResult>;
-  reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string) => { success: boolean; error?: string; historyEntry?: WOAssignmentHistory };
+  reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string, newInstallerId?: string) => Promise<ReassignActionResult>;
   updateTicketStatus: (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => void;
   reopenTicket: (ticketId: string, reason: string) => { success: boolean; error?: string };
   archiveTicket: (ticketId: string) => void;
@@ -641,12 +642,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (sessionStr) {
         const sess = JSON.parse(sessionStr);
         if (sess.token) headers['Authorization'] = `Bearer ${sess.token}`;
-        if (sess.userId) headers['x-user-id'] = sess.userId;
-        if (sess.username) headers['x-username'] = sess.username;
       }
     } catch (e) {}
     return headers;
   };
+
+  const hasActiveAuthSession = (): boolean =>
+    Boolean(
+      getAuthHeaders()['Authorization'] ||
+        isLoggedInRef.current ||
+        safeLocalStorageGet('morajaws_logged_in') === 'true'
+    );
 
   // Supabase PostgreSQL Real-time Sync & Connectivity Status
   const [databaseStatus, setDatabaseStatus] = useState<'connected' | 'connecting' | 'offline' | 'error'>('connecting');
@@ -844,7 +850,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isLoggedInRef.current || currentUserRef.current?.mustChangePassword) return;
       runDeltaSync({ force: true }).catch(() => {});
       scheduleKpiRefreshRef.current?.();
-      fetch('/api/livechat/presence', { headers: getAuthHeaders() })
+      fetch('/api/livechat/presence', { credentials: 'include', headers: getAuthHeaders() })
         .then(r => (r.ok ? r.json() : null))
         .then(data => {
           if (data?.success && Array.isArray(data.users)) {
@@ -1086,8 +1092,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('focus', handleWindowFocusOrVisible);
     document.addEventListener('visibilitychange', handleWindowFocusOrVisible);
 
-    const headers = getAuthHeaders();
-    if (headers['Authorization']) {
+    if (hasActiveAuthSession()) {
       try {
         unsubWorkOrders = supabaseDb.subscribeToChanges({
           table: 'work_orders',
@@ -1204,7 +1209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
               // When a WO becomes newly accessible (e.g., reassignment to this Installer), fetch its messages immediately
               if (!wasPresent && !rec.isDeleted && !rec.isArchived) {
-                fetch(`/api/tickets/${encodeURIComponent(rec.id)}/messages`, { headers: getAuthHeaders() })
+                fetch(`/api/tickets/${encodeURIComponent(rec.id)}/messages`, { credentials: 'include', headers: getAuthHeaders() })
                   .then(r => (r.ok ? r.json() : null))
                   .then(data => {
                     if (!isCancelled && data?.success && Array.isArray(data.messages)) {
@@ -1379,7 +1384,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
 
-        fetch('/api/livechat/presence', { headers })
+        fetch('/api/livechat/presence', { credentials: 'include', headers: getAuthHeaders() })
           .then(r => (r.ok ? r.json() : null))
           .then(data => {
             if (!isCancelled && data?.success && Array.isArray(data.users)) {
@@ -1678,7 +1683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resolvedRole = data.currentUser.role || resolvedRole;
       resolvedUserId = data.currentUser.id || resolvedUserId;
       resolvedActive = data.currentUser.active !== false;
-    } else if (data.isAuthenticated === false && options.headers['Authorization']) {
+    } else if (data.isAuthenticated === false && (options.headers['Authorization'] || isLoggedInRef.current || safeLocalStorageGet('morajaws_logged_in') === 'true')) {
       setIsLoggedIn(false);
       setCurrentUser(UNAUTHENTICATED_USER);
       safeLocalStorageSet('morajaws_logged_in', 'false');
@@ -1758,8 +1763,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const runDeltaSync = async (options?: { force?: boolean }): Promise<void> => {
+    if (!hasActiveAuthSession()) return;
     const headers = getAuthHeaders();
-    if (!headers['Authorization']) return;
     if (currentUserRef.current?.mustChangePassword) return;
     if (!navigator.onLine) {
       cancelPendingDeltaRetry();
@@ -1786,6 +1791,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? new Date(parsedWatermarkMs - 5_000).toISOString()
           : new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, {
+          credentials: 'include',
           headers,
           signal: controller.signal
         });
@@ -1943,7 +1949,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (
           navigator.onLine &&
           document.visibilityState === 'visible' &&
-          getAuthHeaders()['Authorization'] &&
+          hasActiveAuthSession() &&
           !currentUserRef.current?.mustChangePassword
         ) {
           const cappedExponent = Math.min(syncRetryCountRef.current - 1, 5);
@@ -1953,7 +1959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cancelPendingDeltaRetry();
           deltaSyncRetryTimerRef.current = setTimeout(() => {
             deltaSyncRetryTimerRef.current = null;
-            if (navigator.onLine && document.visibilityState === 'visible' && getAuthHeaders()['Authorization']) {
+            if (navigator.onLine && document.visibilityState === 'visible' && hasActiveAuthSession()) {
               void runDeltaSync();
             }
           }, retryDelayMs);
@@ -1967,8 +1973,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const revalidateWoView = async (viewKey: string, options?: { force?: boolean }): Promise<void> => {
-    const headers = getAuthHeaders();
-    if (!headers['Authorization']) return;
+    if (!hasActiveAuthSession()) return;
     if (currentUserRef.current?.mustChangePassword) return;
     if (!navigator.onLine) {
       setSyncStatus('OFFLINE');
@@ -1990,13 +1995,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanId = String(ticketId || '').trim();
     if (!cleanId) return null;
     const headers = getAuthHeaders();
-    if (!headers['Authorization'] || !navigator.onLine) return null;
+    if (!hasActiveAuthSession() || !navigator.onLine) return null;
 
     return dedupedFetch(`wo:detail:${cleanId}`, async () => {
       try {
         const res = await fetch(
           `/api/work-orders/${encodeURIComponent(cleanId)}?include=messages,activities`,
-          { headers }
+          { credentials: 'include', headers }
         );
         if (!res.ok) return null;
         const data = await res.json();
@@ -2075,6 +2080,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // PHASE 1 — Critical Shell, RBAC, First-Paint Work Orders (light payload)
         const critRes = await fetch('/api/bootstrap?mode=critical', {
+          credentials: 'include',
           headers,
           signal: bootController.signal
         });
@@ -2105,7 +2111,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDataLoading(false);
         setDatabaseLoading(false);
 
-        if (!headers['Authorization']) {
+        if (!headers['Authorization'] && !critData?.isAuthenticated && !isLoggedInRef.current) {
           setAuditLogs([]);
           setIsDropdownCategoriesLoading(false);
           setSyncStage('complete');
@@ -2144,6 +2150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           try {
             const firstRes = await fetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
+              credentials: 'include',
               headers,
               signal: bootController.signal
             });
@@ -2166,7 +2173,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (bootController.signal.aborted) break;
               const pageRes = await fetch(
                 `/api/work-orders/progressive?phase=full&page=${page}&limit=${PAGE_SIZE}`,
-                { headers, signal: bootController.signal }
+                { credentials: 'include', headers, signal: bootController.signal }
               );
               if (!pageRes.ok) break;
               const pageJson = await pageRes.json().catch(() => null);
@@ -2187,6 +2194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
           fetchPaginatedFullChunks(),
           fetch('/api/bootstrap?mode=secondary', {
+            credentials: 'include',
             headers,
             signal: bootController.signal
           })
@@ -2318,7 +2326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSyncStage('phase3_background');
         const runPhase3Background = () => {
           phase3IdleTimerRef.current = null;
-          if (bootController.signal.aborted || !getAuthHeaders()['Authorization']) return;
+          if (bootController.signal.aborted || !hasActiveAuthSession()) return;
           void (async () => {
             try {
               const canViewAudit = Boolean(
@@ -2339,6 +2347,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (canViewAudit) {
                 tasks.push(
                   fetch('/api/supabase/audit-logs?limit=100', {
+                    credentials: 'include',
                     headers: getAuthHeaders(),
                     signal: bootController.signal
                   })
@@ -2430,6 +2439,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const entry = item.payload.entry;
               const resp = await fetch(`/api/tickets/${encodeURIComponent(targetId)}/progress-report`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({
                   entry,
@@ -2467,6 +2477,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (item.action === 'ASSIGN') {
             const resp = await fetch('/api/tickets/assign', {
               method: 'POST',
+              credentials: 'include',
               headers: getAuthHeaders(),
               body: JSON.stringify({
                 ticketId: targetId,
@@ -2657,6 +2668,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSyncStatus('SYNCING');
       const res = await fetch('/api/sheets/config', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           ...updates,
@@ -2736,8 +2748,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshKpiSummary = React.useCallback(
     async (opts?: { date?: string; contractor?: string; area?: string; silent?: boolean }) => {
-      const headers = getAuthHeaders();
-      if (!headers['Authorization']) return;
+      if (!hasActiveAuthSession()) return;
       if (!opts?.silent) {
         setIsKpiLoading(true);
       }
@@ -2789,6 +2800,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSyncStatus('SYNCING');
       const res = await fetch('/api/system/operational-date', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           operationalDate: date,
@@ -2834,8 +2846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Authoritative backend sync for today's active WOs (uses lightweight delta sync when cache exists)
   const refreshActiveTickets = async () => {
     try {
-      const headers = getAuthHeaders();
-      if (!headers['Authorization']) return;
+      if (!hasActiveAuthSession()) return;
       if (ticketsRef.current.length > 0) {
         await runDeltaSync({ force: true });
         return;
@@ -2930,6 +2941,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Primary Production Authentication Gateway: /api/auth/login (MoraJaws Custom Auth)
       const serverRes = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           identifier: cleanUser,
@@ -3043,26 +3055,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshAuthSession = async (): Promise<boolean> => {
     try {
       const sessionStr = safeLocalStorageGet('morajaws_auth_session');
-      if (!sessionStr) return false;
-      const sess = JSON.parse(sessionStr);
-      if (!sess?.refreshToken) return false;
+      if (!sessionStr && !isLoggedInRef.current && safeLocalStorageGet('morajaws_logged_in') !== 'true') {
+        return false;
+      }
+      const sess = sessionStr ? JSON.parse(sessionStr) : {};
 
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: sess.refreshToken })
+        body: JSON.stringify(sess?.refreshToken ? { refreshToken: sess.refreshToken } : {})
       });
       if (!res.ok) return false;
       const data = await res.json();
-      if (data.success && data.tokens) {
-        const updatedSess = {
-          ...sess,
-          token: data.tokens.accessToken,
-          accessToken: data.tokens.accessToken,
-          refreshToken: data.tokens.refreshToken || sess.refreshToken,
-          expiresAt: data.tokens.expiresAt
-        };
-        safeLocalStorageSet('morajaws_auth_session', JSON.stringify(updatedSess));
+      if (data.success) {
+        if (data.tokens) {
+          const updatedSess = {
+            ...sess,
+            token: data.tokens.accessToken,
+            accessToken: data.tokens.accessToken,
+            refreshToken: data.tokens.refreshToken || sess.refreshToken,
+            expiresAt: data.tokens.expiresAt
+          };
+          safeLocalStorageSet('morajaws_auth_session', JSON.stringify(updatedSess));
+        }
         return true;
       }
       return false;
@@ -3109,6 +3125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Invoke MoraJaws Custom Auth logout on Express backend
     fetch('/api/auth/logout', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...authHeaders
@@ -4715,6 +4732,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSyncStatus('SYNCING');
         const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/progress-report`, {
           method: 'POST',
+          credentials: 'include',
           headers: getAuthHeaders(),
           body: JSON.stringify({
             entry,
@@ -4802,6 +4820,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/photo-evidence`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           ...payload,
@@ -4854,6 +4873,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `/api/tickets/${encodeURIComponent(ticketId)}/photo-evidence/${encodeURIComponent(slotKey)}`,
         {
           method: 'DELETE',
+          credentials: 'include',
           headers: getAuthHeaders()
         }
       );
@@ -4906,6 +4926,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSyncStatus('SYNCING');
       const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/kendala-report`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
@@ -5550,6 +5571,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages`, {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           text: text.trim(),
@@ -5675,12 +5697,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const sendTypingIndicator = React.useCallback(async (ticketId: string, isTyping: boolean) => {
     if (!ticketId || currentUserRef.current?.role === 'leader') return;
+    if (!hasActiveAuthSession()) return;
     const headers = getAuthHeaders();
-    if (!headers['Authorization']) return;
     const ticket = ticketsRef.current.find(t => t.id === ticketId || t.woNumber === ticketId);
     try {
       await fetch('/api/livechat/typing', {
         method: 'POST',
+        credentials: 'include',
         headers,
         body: JSON.stringify({
           ticketId: ticket?.id || ticketId,
@@ -5732,10 +5755,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const uploadChatAttachment = React.useCallback(
     async (ticketId: string, file: File): Promise<{ success: boolean; attachment?: ChatAttachment; error?: string }> => {
-      const headers = getAuthHeaders();
-      if (!headers['Authorization']) {
+      if (!hasActiveAuthSession()) {
         return { success: false, error: 'Sesi login tidak valid.' };
       }
+      const headers = getAuthHeaders();
       if (!file) {
         return { success: false, error: 'File tidak ditemukan.' };
       }
@@ -5758,6 +5781,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const res = await fetch('/api/storage/adapter/upload', {
         method: 'POST',
+        credentials: 'include',
         headers,
         body: JSON.stringify({
           fileName: file.name,
@@ -5815,11 +5839,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async (ticketId: string): Promise<{ messages: TicketMessage[]; hasProgressTrigger: boolean }> => {
       const cleanId = String(ticketId || '').trim();
       if (!cleanId) return { messages: [], hasProgressTrigger: false };
+      if (!hasActiveAuthSession()) return { messages: [], hasProgressTrigger: false };
       const headers = getAuthHeaders();
-      if (!headers['Authorization']) return { messages: [], hasProgressTrigger: false };
 
       try {
         const res = await fetch(`/api/tickets/${encodeURIComponent(cleanId)}/messages`, {
+          credentials: 'include',
           headers,
           cache: 'no-store'
         });
@@ -6242,6 +6267,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const res = await fetch('/api/tickets/assign', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         signal: controller.signal,
         body: JSON.stringify({
@@ -6441,6 +6467,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const res = await fetch('/api/tickets/assign', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         signal: controller.signal,
         body: JSON.stringify({
@@ -6553,102 +6580,103 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const reassignTicketPersonnel = (ticketId: string, newInstallerName: string, reason: string): { success: boolean; error?: string; historyEntry?: WOAssignmentHistory } => {
-    // 1. App Flow 2 RBAC check: Strictly Leader ONLY
-    if (currentUser.role !== 'leader') {
-      const err = 'Akses Ditolak: Hanya akun dengan role Leader yang berwenang melakukan Reassign WO.';
-      toast.error(err, 'Akses Ditolak');
-      return { success: false, error: err };
-    }
-
+  const reassignTicketPersonnel = async (
+    ticketId: string,
+    newInstallerName: string,
+    reason: string,
+    newInstallerId?: string
+  ): Promise<ReassignActionResult> => {
     const ticket = getTicketById(ticketId);
-    if (!ticket) {
-      const err = 'Tiket Work Order tidak ditemukan.';
-      toast.error(err, 'Error');
-      return { success: false, error: err };
+
+    if (inFlightAssignmentKeysRef.current.has(ticketId)) {
+      const errMsg = `Pengalihan untuk WO ${ticket?.woNumber || ticketId} sedang diproses. Mohon tunggu hingga selesai.`;
+      toast.info(errMsg, 'Sedang Diproses');
+      return { success: false, code: 'IN_FLIGHT', error: errMsg };
     }
 
-    if (
-      ticket.installerName &&
-      ticket.installerName.trim().toLowerCase() === newInstallerName.trim().toLowerCase()
-    ) {
-      const msg = `WO ${ticket.woNumber} sudah ditugaskan kepada ${ticket.installerName}. Pilih teknisi lain untuk melakukan reassign.`;
-      toast.warning(msg, 'Teknisi Tidak Berubah');
-      return { success: false, error: msg };
-    }
-
-    const foundInstaller = users.find(u => u.name.toLowerCase().trim() === newInstallerName.toLowerCase().trim() && u.role === 'installer');
-    const targetInstaller = foundInstaller || {
-      id: 'inst-' + Date.now(),
-      name: newInstallerName,
-      active: true,
-      contractor: currentUser.contractor,
-      area: currentUser.area
-    };
-
-    // Call central reassignWOTechnician service engine
-    const reassignRes = reassignWOTechnician(
-      ticket,
-      targetInstaller,
-      {
-        id: currentUser.id,
-        name: currentUser.name,
-        role: currentUser.role,
-        contractor: currentUser.contractor,
-        area: currentUser.area
-      },
-      reason
-    );
-
-    if (!reassignRes.success || !reassignRes.ticket) {
-      toast.error(reassignRes.error || 'Gagal melakukan reassign WO.', 'Reassign Gagal');
-      return { success: false, error: reassignRes.error };
-    }
-
-    // Update tickets state
-    setTickets(prev => prev.map(t => t.id === ticketId ? reassignRes.ticket! : t));
-
-    // Persist via authoritative backend reassign endpoint
+    inFlightAssignmentKeysRef.current.add(ticketId);
     setSyncStatus('SYNCING');
-    fetch('/api/tickets/reassign', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        ticketId,
-        woNumber: ticket.woNumber,
+
+    try {
+      const result = await executeReassignWorkOrderRequest({
+        ticket,
+        users,
+        leader: currentUser,
         newInstallerName,
-        newInstallerId: foundInstaller?.id,
-        reason
-      })
-    })
-      .then(async (res) => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error || `Reassign gagal (${res.status})`);
-        }
-        if (json.ticket) {
-          setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, ...json.ticket } : t));
-        }
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        scheduleKpiRefreshRef.current?.();
-        toast.success(`WO ${ticket.woNumber} berhasil dialihkan ke ${newInstallerName}!`, 'Reassign Berhasil');
-      })
-      .catch(err => {
-        setSyncStatus('ERROR');
-        setTickets(prev => prev.map(t => t.id === ticketId ? ticket : t));
-        toast.error('Gagal menyimpan reassign ke server: ' + (err?.message || err), 'Reassign Gagal');
+        newInstallerId,
+        reason,
+        headers: getAuthHeaders(),
+        timeoutMs: 25_000
       });
 
-    // Audit log
-    addAuditLog(
-      'WO Reassigned',
-      'ticket',
-      ticket.woNumber,
-      `WO ${ticket.woNumber} dialihkan dari ${ticket.installerName || 'Unassigned'} ke ${newInstallerName} oleh ${currentUser.name}. Alasan: ${reason}`
-    );
+      if (!result.success || !result.workOrder) {
+        setSyncStatus('ERROR');
+        const errTitle =
+          result.code === 'REQUIRE_LEADER_ROLE' || result.code === 'SCOPE_MISMATCH' || result.httpStatus === 403
+            ? 'Akses Ditolak'
+            : result.code === 'SAME_INSTALLER'
+            ? 'Teknisi Tidak Berubah'
+            : 'Reassign Gagal';
+        if (result.code === 'SAME_INSTALLER') {
+          toast.warning(result.error || 'Teknisi tidak berubah.', errTitle);
+        } else {
+          toast.error(result.error || 'Gagal melakukan reassign WO.', errTitle);
+        }
+        return {
+          success: false,
+          error: result.error || 'Gagal melakukan reassign WO.',
+          code: result.code,
+          httpStatus: result.httpStatus,
+          requestId: result.requestId
+        };
+      }
 
-    return { success: true, historyEntry: reassignRes.historyEntry };
+      const authoritativeWo = result.workOrder;
+      const mergedWo: Ticket = {
+        ...(ticket || authoritativeWo),
+        ...authoritativeWo,
+        assignmentHistory:
+          Array.isArray(authoritativeWo.assignmentHistory) && authoritativeWo.assignmentHistory.length > 0
+            ? authoritativeWo.assignmentHistory
+            : result.historyEntry
+            ? [...(ticket?.assignmentHistory || []), result.historyEntry]
+            : ticket?.assignmentHistory
+      };
+
+      setTickets(prev =>
+        prev.map(t =>
+          t.id === ticketId || (authoritativeWo.id && t.id === authoritativeWo.id) ? mergedWo : t
+        )
+      );
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+
+      const resolvedNewName = mergedWo.installerName || newInstallerName;
+      addAuditLog(
+        'WO Reassigned',
+        'ticket',
+        mergedWo.woNumber || ticket?.woNumber || ticketId,
+        `WO ${mergedWo.woNumber || ticket?.woNumber || ticketId} dialihkan dari ${ticket?.installerName || 'Unassigned'} ke ${resolvedNewName} oleh ${currentUser.name}. Alasan: ${reason.trim()}`
+      );
+      toast.success(
+        `WO ${mergedWo.woNumber || ticket?.woNumber || ticketId} berhasil dialihkan ke ${resolvedNewName}!`,
+        'Reassign Berhasil'
+      );
+
+      return {
+        ...result,
+        success: true,
+        workOrder: mergedWo
+      };
+    } catch (err: any) {
+      setSyncStatus('ERROR');
+      const errMsg = err?.message || 'Gagal menghubungi server reassign.';
+      toast.error(errMsg, 'Reassign Gagal');
+      return { success: false, code: 'UNEXPECTED_ERROR', error: errMsg };
+    } finally {
+      inFlightAssignmentKeysRef.current.delete(ticketId);
+    }
   };
 
   const updateTicketStatus = (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => {

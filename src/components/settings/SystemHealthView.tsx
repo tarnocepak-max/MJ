@@ -38,7 +38,7 @@ export const SystemHealthView: React.FC = () => {
     setIsLoading(true);
     setHealthError(null);
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch('/api/health', { credentials: 'include' });
       if (res.ok) {
         const d = await res.json();
         setHealthData(d);

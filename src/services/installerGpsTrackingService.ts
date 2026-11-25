@@ -211,13 +211,13 @@ class InstallerGpsTrackingController {
       const raw = safeLocalStorageGet('morajaws_auth_session');
       if (loggedIn !== 'true' || !raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed?.userId || !parsed?.token || parsed?.role !== 'installer') return null;
+      if (!parsed?.userId || parsed?.role !== 'installer') return null;
       const sessionId = String(parsed.sessionId || '').trim();
       return {
         userId: String(parsed.userId),
         role: String(parsed.role),
         sessionId,
-        token: String(parsed.token)
+        token: String(parsed.token || '')
       };
     } catch {
       return null;
@@ -244,6 +244,7 @@ class InstallerGpsTrackingController {
     try {
       const res = await fetch('/api/installer-tracking/session/ensure', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           sessionId: candidateSessionId || undefined
@@ -363,6 +364,7 @@ class InstallerGpsTrackingController {
   private async loadServerTrackingConfig(): Promise<void> {
     try {
       const res = await fetch('/api/installer-tracking/config', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       if (res.ok) {
@@ -798,6 +800,7 @@ class InstallerGpsTrackingController {
       const postLocation = async (sessionIdToSend: string) => {
         return fetch('/api/installer-tracking/location', {
           method: 'POST',
+          credentials: 'include',
           headers: getAuthHeaders(),
           body: JSON.stringify({ ...point, sessionId: sessionIdToSend })
         });
@@ -882,6 +885,7 @@ class InstallerGpsTrackingController {
     try {
       const res = await fetch('/api/installer-tracking/location/batch', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           sessionId: this.activeSessionId,
@@ -913,6 +917,7 @@ class InstallerGpsTrackingController {
     try {
       await fetch('/api/installer-tracking/session/status', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           sessionId: this.activeSessionId,
@@ -971,6 +976,7 @@ class InstallerGpsTrackingController {
     try {
       const res = await fetch('/api/installer-tracking/heartbeat', {
         method: 'POST',
+        credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           sessionId: this.activeSessionId,

@@ -430,6 +430,7 @@ export const MonitoringMapsView: React.FC<MonitoringMapsViewProps> = ({
   const fetchLiveInstallers = useCallback(async () => {
     try {
       const res = await fetch('/api/installer-tracking/live', {
+        credentials: 'include',
         headers: getAuthHeaders()
       });
       if (!res.ok) return;
