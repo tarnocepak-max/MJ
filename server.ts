@@ -233,6 +233,7 @@ import {
 } from './server/emailTemplateRenderer.ts';
 import {
   EnterpriseImportEngine,
+  ImportServiceError,
   MAX_STAGE_CHUNK_ROWS,
   MAX_IMPORT_JOB_ROWS
 } from './server/importJobService.ts';
@@ -12403,11 +12404,39 @@ export async function createExpressApp(options?: {
     }
   });
 
+  const MAX_VERCEL_SAFE_STAGE_BYTES = 4 * 1024 * 1024; // 4 MB safety guard below Vercel 4.5 MB limit
+  const isValidImportJobId = (id: string) => /^[A-Za-z0-9_-]{3,120}$/.test(id);
+
+  const ensureImportDbAvailable = (res: Response): boolean => {
+    if (!isSupabaseMode()) {
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'DATABASE_UNAVAILABLE',
+          message: 'Database authoritative PostgreSQL/Supabase tidak tersedia. Enterprise Batch Import memerlukan koneksi Supabase PostgreSQL.'
+        }
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleImportRouteError = (res: Response, err: any, fallbackCode: string, fallbackMessage: string) => {
+    if (err instanceof ImportServiceError) {
+      return res.status(err.statusCode).json({
+        success: false,
+        error: { code: err.code, message: err.message, retryable: err.retryable }
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: { code: fallbackCode, message: err?.message || fallbackMessage }
+    });
+  };
+
   app.post('/api/imports/jobs', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
-        return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
-      }
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user!;
       const body = req.body || {};
       const totalRows = Number(body.totalRows || 0);
@@ -12432,19 +12461,27 @@ export async function createExpressApp(options?: {
       );
       return res.status(201).json({ success: true, data: job });
     } catch (err: any) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'CREATE_JOB_FAILED', message: err?.message || 'Gagal membuat import job.' }
-      });
+      return handleImportRouteError(res, err, 'CREATE_JOB_FAILED', 'Gagal membuat import job.');
     }
   });
 
   app.post('/api/imports/jobs/:jobId/stage', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
+      const contentLength = Number(req.headers['content-length'] || 0);
+      if (Number.isFinite(contentLength) && contentLength > MAX_VERCEL_SAFE_STAGE_BYTES) {
+        return res.status(413).json({
+          success: false,
+          error: {
+            code: 'PAYLOAD_TOO_LARGE',
+            message: 'Ukuran chunk staging melebihi batas aman 4MB Vercel Serverless. Kurangi jumlah baris per request staging.'
+          }
+        });
+      }
       const jobId = String(req.params.jobId || '').trim();
       const { rows, startRowNumber, validationMode } = req.body || {};
-      if (!jobId) {
-        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Job ID wajib diisi.' } });
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
       }
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(400).json({ success: false, error: { code: 'INVALID_ROWS', message: 'Rows staging harus berupa array tidak kosong.' } });
@@ -12462,30 +12499,32 @@ export async function createExpressApp(options?: {
       });
       return res.json({ success: true, data: stageRes });
     } catch (err: any) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'STAGE_ROWS_FAILED', message: err?.message || 'Gagal menyimpan rows staging.' }
-      });
+      return handleImportRouteError(res, err, 'STAGE_ROWS_FAILED', 'Gagal menyimpan rows staging.');
     }
   });
 
   app.post('/api/imports/jobs/:jobId/start', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const job = await enterpriseImportEngine.startJob(jobId);
       return res.json({ success: true, data: job });
     } catch (err: any) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'START_JOB_FAILED', message: err?.message || 'Gagal memulai import job.' }
-      });
+      return handleImportRouteError(res, err, 'START_JOB_FAILED', 'Gagal memulai import job.');
     }
   });
 
   app.post('/api/imports/jobs/:jobId/process-next', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user!;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const { batchNumber, retryFailed } = req.body || {};
       const result = await enterpriseImportEngine.processNextBatch(
         jobId,
@@ -12497,74 +12536,76 @@ export async function createExpressApp(options?: {
       );
       return res.json({ success: true, data: result });
     } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'PROCESS_BATCH_FAILED', message: err?.message || 'Gagal memproses batch impor.' }
-      });
+      return handleImportRouteError(res, err, 'PROCESS_BATCH_FAILED', 'Gagal memproses batch impor.');
     }
   });
 
   app.post('/api/imports/jobs/:jobId/cancel', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user!;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const job = await enterpriseImportEngine.cancelImportJob(jobId, { id: user.id, name: user.name, role: user.role });
       await logServerAuditAsync('Enterprise Import Job Cancelled', 'import_batch', jobId, `Job ${jobId} dibatalkan oleh ${user.name}`, user);
       return res.json({ success: true, data: job });
     } catch (err: any) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'CANCEL_JOB_FAILED', message: err?.message || 'Gagal membatalkan import job.' }
-      });
+      return handleImportRouteError(res, err, 'CANCEL_JOB_FAILED', 'Gagal membatalkan import job.');
     }
   });
 
   app.post('/api/imports/jobs/:jobId/retry', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const user = req.user!;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const job = await enterpriseImportEngine.retryFailedBatches(jobId, { id: user.id, name: user.name, role: user.role });
       return res.json({ success: true, data: job });
     } catch (err: any) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'RETRY_JOB_FAILED', message: err?.message || 'Gagal mengulang batch yang gagal.' }
-      });
+      return handleImportRouteError(res, err, 'RETRY_JOB_FAILED', 'Gagal mengulang batch yang gagal.');
     }
   });
 
   app.get('/api/imports/jobs', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
       const jobs = await enterpriseImportEngine.listImportJobs(limit);
       return res.json({ success: true, data: jobs });
     } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'LIST_JOBS_FAILED', message: err?.message || 'Gagal mengambil daftar import job.' }
-      });
+      return handleImportRouteError(res, err, 'LIST_JOBS_FAILED', 'Gagal mengambil daftar import job.');
     }
   });
 
   app.get('/api/imports/jobs/:jobId', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const job = await enterpriseImportEngine.getImportJobDetail(jobId);
       if (!job) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Import job tidak ditemukan.' } });
       }
       return res.json({ success: true, data: job });
     } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'GET_JOB_FAILED', message: err?.message || 'Gagal mengambil detail import job.' }
-      });
+      return handleImportRouteError(res, err, 'GET_JOB_FAILED', 'Gagal mengambil detail import job.');
     }
   });
 
   app.get('/api/imports/jobs/:jobId/errors', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
       const format = String(req.query.format || 'json').toLowerCase();
       if (format === 'csv') {
         const csv = await enterpriseImportEngine.formatJobErrorsCsv(jobId);
@@ -12577,23 +12618,18 @@ export async function createExpressApp(options?: {
       const errors = await enterpriseImportEngine.getImportJobErrors(jobId, limit, offset);
       return res.json({ success: true, data: errors });
     } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'GET_JOB_ERRORS_FAILED', message: err?.message || 'Gagal mengambil laporan error impor.' }
-      });
+      return handleImportRouteError(res, err, 'GET_JOB_ERRORS_FAILED', 'Gagal mengambil laporan error impor.');
     }
   });
 
   app.get('/api/imports/history', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!ensureImportDbAvailable(res)) return;
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
       const history = await enterpriseImportEngine.listImportHistory(limit);
       return res.json({ success: true, data: history });
     } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'LIST_HISTORY_FAILED', message: err?.message || 'Gagal mengambil riwayat impor.' }
-      });
+      return handleImportRouteError(res, err, 'LIST_HISTORY_FAILED', 'Gagal mengambil riwayat impor.');
     }
   });
 

@@ -47,6 +47,17 @@ export function saveActiveImportJobId(jobId: string | null): void {
   safeSessionStorageSet(ACTIVE_IMPORT_JOB_KEY, jobId);
 }
 
+class ImportApiError extends Error {
+  status: number;
+  code: string;
+  constructor(message: string, status: number, code: string) {
+    super(message);
+    this.name = 'ImportApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function apiRequest<T>(url: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -57,7 +68,12 @@ async function apiRequest<T>(url: string, init: RequestInit = {}): Promise<T> {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.success === false) {
     const errMsg = json?.error?.message || json?.error || `HTTP ${res.status}`;
-    throw new Error(typeof errMsg === 'string' ? errMsg : 'Permintaan import server gagal.');
+    const errCode = json?.error?.code || json?.code || `HTTP_${res.status}`;
+    throw new ImportApiError(
+      typeof errMsg === 'string' ? errMsg : 'Permintaan import server gagal.',
+      res.status,
+      String(errCode)
+    );
   }
   return json.data as T;
 }
@@ -127,20 +143,42 @@ export async function runPendingBatchesLoop(
   });
   options?.onJobUpdate?.(latestJob, `Memulai pemrosesan batch (${latestJob.totalBatches} batch)...`);
 
+  let lockWaitAttempts = 0;
   while (true) {
     if (options?.signal?.aborted) {
       break;
     }
 
-    const res = await apiRequest<{
+    let res: {
       job: ImportJobSummary;
       processedBatch: ImportBatchSummary | null;
       done: boolean;
-    }>(`/api/imports/jobs/${encodeURIComponent(jobId)}/process-next`, {
-      method: 'POST',
-      body: JSON.stringify({ retryFailed: Boolean(options?.retryFailed) }),
-      signal: options?.signal
-    });
+    };
+    try {
+      res = await apiRequest<{
+        job: ImportJobSummary;
+        processedBatch: ImportBatchSummary | null;
+        done: boolean;
+      }>(`/api/imports/jobs/${encodeURIComponent(jobId)}/process-next`, {
+        method: 'POST',
+        body: JSON.stringify({ retryFailed: Boolean(options?.retryFailed) }),
+        signal: options?.signal
+      });
+      lockWaitAttempts = 0;
+    } catch (err: any) {
+      if (
+        err instanceof ImportApiError &&
+        err.code === 'BATCH_LOCK_CONTENTION' &&
+        lockWaitAttempts < 15 &&
+        !options?.signal?.aborted
+      ) {
+        lockWaitAttempts++;
+        options?.onJobUpdate?.(latestJob, 'Menunggu batch worker lain selesai...');
+        await new Promise(resolve => setTimeout(resolve, 800));
+        continue;
+      }
+      throw err;
+    }
 
     latestJob = res.job;
     const batchLabel = res.processedBatch
