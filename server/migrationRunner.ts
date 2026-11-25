@@ -18,7 +18,8 @@ export const FORWARD_MIGRATIONS = [
   '016_password_reset_jobs_and_tokens.sql',
   '017_consolidate_roles_to_super_admin.sql',
   '018_kendala_reports_and_workflow_update.sql',
-  '019_email_notification_system.sql'
+  '019_email_notification_system.sql',
+  '020_enterprise_import_architecture.sql'
 ] as const;
 
 export interface MigrationRunStatus {

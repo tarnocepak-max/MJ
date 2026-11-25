@@ -1118,7 +1118,7 @@ export function extractContractorsFromRawRows(
     // Check if contractor already registered in master data
     const existingIndex = mergedContractors.findIndex(
       c => c.name.toLowerCase() === key ||
-           c.code.toLowerCase() === key ||
+           (c.code || '').toLowerCase() === key ||
            c.name.toLowerCase().includes(key) ||
            key.includes(c.name.toLowerCase())
     );
@@ -1131,7 +1131,7 @@ export function extractContractorsFromRawRows(
     if (existingIndex >= 0) {
       const existing = mergedContractors[existingIndex];
       // Merge coverage areas so coverage_mismatch doesn't block valid WOs
-      const combinedAreas = Array.from(new Set([...existing.coverageAreas, ...areasList]));
+      const combinedAreas = Array.from(new Set([...(existing.coverageAreas || []), ...areasList]));
       mergedContractors[existingIndex] = {
         ...existing,
         coverageAreas: combinedAreas,

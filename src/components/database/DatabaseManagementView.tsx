@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Ticket, User, Contractor, CoverageArea } from '../../types/index.ts';
+import { Ticket, User, Contractor, CoverageArea, ImportHistoryRecord } from '../../types/index.ts';
 import { parseAppointmentDate } from '../../services/appointmentDateParser';
 import { DuplicateAuditReport } from '../../services/woDeduplicationService';
+import { listImportHistory, downloadImportErrorsCsv } from '../../services/enterpriseImportService';
 import {
   Database,
   Server,
@@ -75,6 +76,15 @@ export const DatabaseManagementView: React.FC = () => {
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
   const [woPage, setWoPage] = useState(1);
   const [woPageSize, setWoPageSize] = useState<number | 'ALL'>(25);
+  const [dbImportHistory, setDbImportHistory] = useState<ImportHistoryRecord[]>([]);
+
+  useEffect(() => {
+    if (activeSubmenu !== 'import_history') return;
+    if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch') return;
+    listImportHistory(50)
+      .then(records => setDbImportHistory(records))
+      .catch(() => {});
+  }, [activeSubmenu, currentUser.role]);
 
   const handleDownloadBackup = async () => {
     setIsDownloadingBackup(true);
@@ -719,16 +729,64 @@ export const DatabaseManagementView: React.FC = () => {
       {/* SUBMENU 3: IMPORT HISTORY */}
       {activeSubmenu === 'import_history' && (
         <div className="space-y-4">
-          <div className="card-3d-lavender p-5 rounded-2xl">
-            <h3 className="font-bold text-sm text-[#26364A] dark:text-white mb-1">
-              Riwayat Impor &amp; Batch Audit
-            </h3>
-            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mb-4">
-              Daftar seluruh proses impor berkas WO yang pernah dieksekusi oleh Super Admin dan Dispatch.
-            </p>
+          <div className="card-3d-lavender p-5 rounded-2xl space-y-4">
+            <div>
+              <h3 className="font-bold text-sm text-[#26364A] dark:text-white mb-1">
+                Riwayat Impor &amp; Batch Audit
+              </h3>
+              <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+                Daftar seluruh proses impor berkas WO (Asynchronous Batch Jobs &amp; Audit Log) yang dieksekusi oleh Super Admin dan Dispatch.
+              </p>
+            </div>
+
+            {dbImportHistory.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
+                  Riwayat Job Import Database ({dbImportHistory.length})
+                </div>
+                {dbImportHistory.map(hist => (
+                  <div
+                    key={hist.id}
+                    className="p-3.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-bold text-[#26364A] dark:text-white flex items-center gap-2 flex-wrap">
+                        <FileSpreadsheet className="w-4 h-4 text-[#2E7D8B] dark:text-emerald-400 shrink-0" />
+                        <span className="truncate">{hist.sourceFile || hist.importName || hist.jobId}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF]">
+                          {hist.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono tabular-nums text-[#52647A] dark:text-[#D9CCF2] mt-1">
+                        Total: {hist.totalRows} • Sukses: <strong className="text-[#2E7D8B] dark:text-emerald-300">{hist.successCount}</strong> • Duplikat: {hist.duplicateCount} • Gagal: <strong className="text-[#BA1A1A] dark:text-rose-300">{hist.failedCount}</strong>
+                        {hist.durationMs ? ` • ${(hist.durationMs / 1000).toFixed(1)}s` : ''}
+                      </div>
+                      <div className="text-[10.5px] text-[#8492A5] dark:text-[#A78BFA] mt-1">
+                        Oleh: <strong>{hist.importedBy}</strong> • {new Date(hist.createdAt).toLocaleString('id-ID')}
+                      </div>
+                    </div>
+
+                    {(hist.failedCount > 0 || hist.duplicateCount > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void downloadImportErrorsCsv(hist.jobId).catch(err => {
+                            toast.error(err?.message || 'Gagal mengunduh error CSV.');
+                          });
+                        }}
+                        className="btn-3d-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Error CSV</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-3">
-              {importHistoryLogs.length === 0 ? (
+              {importHistoryLogs.length === 0 && dbImportHistory.length === 0 ? (
                 <div className="p-8 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs">
                   Belum ada log histori impor WO yang tercatat di sistem.
                 </div>

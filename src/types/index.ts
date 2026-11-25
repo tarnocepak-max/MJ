@@ -1553,3 +1553,112 @@ export interface TypingIndicatorInfo {
   expiresAt: string;
 }
 
+export type ImportJobStatus =
+  | 'staging'
+  | 'queued'
+  | 'processing'
+  | 'paused'
+  | 'completed'
+  | 'completed_with_errors'
+  | 'failed'
+  | 'cancelled';
+
+export type ImportBatchStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type ImportTemplateType =
+  | 'BASE_DATA_WO'
+  | 'WO_KORLAP'
+  | 'INSTALLER_WO'
+  | 'ASSIGNED_TEKNISI'
+  | 'CUSTOM';
+
+export interface ImportBatchSummary {
+  id: string;
+  jobId: string;
+  batchNumber: number;
+  startRow: number;
+  endRow: number;
+  rowCount: number;
+  processedRows: number;
+  successfulRows: number;
+  duplicateRows: number;
+  failedRows: number;
+  status: ImportBatchStatus;
+  retryCount: number;
+  errorMessage?: string | null;
+  durationMs?: number | null;
+  startedAt?: string | null;
+  processedAt?: string | null;
+}
+
+export interface ImportJobSummary {
+  id: string;
+  importName: string;
+  sourceFile: string;
+  sourceFormat: string;
+  templateType: ImportTemplateType | string;
+  duplicatePolicy: 'skip' | 'update_allowed';
+  autoRegisterContractors: boolean;
+  batchSize: number;
+  totalRows: number;
+  stagedRows: number;
+  processedRows: number;
+  successfulRows: number;
+  updatedRows: number;
+  duplicateRows: number;
+  failedRows: number;
+  totalBatches: number;
+  completedBatches: number;
+  currentBatch: number;
+  progressPercent: number;
+  status: ImportJobStatus;
+  errorSummary?: string | null;
+  createdBy: string;
+  createdById?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  updatedAt: string;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  durationMs?: number | null;
+  batches?: ImportBatchSummary[];
+  hasFailedBatches?: boolean;
+  canResume?: boolean;
+  canCancel?: boolean;
+  canRetry?: boolean;
+}
+
+export interface ImportRowErrorRecord {
+  id: string;
+  jobId: string;
+  batchNumber?: number | null;
+  rowNumber: number;
+  woNumber?: string | null;
+  errorCode: string;
+  errorMessage: string;
+  rawPayload?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface ImportHistoryRecord {
+  id: string;
+  jobId: string;
+  importName?: string | null;
+  sourceFile?: string | null;
+  importedBy: string;
+  importedById?: string | null;
+  totalRows: number;
+  successCount: number;
+  duplicateCount: number;
+  failedCount: number;
+  status: string;
+  durationMs?: number | null;
+  createdAt: string;
+}
+
+

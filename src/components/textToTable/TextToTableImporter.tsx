@@ -1,9 +1,31 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { parseWorkOrderText, parseWorkOrderFile } from '../../services/textToTableParser';
-import { TextToTableResult, ParsedRowData } from '../../types/index.ts';
+import {
+  parseWorkOrderText,
+  parseWorkOrderFile,
+  detectImportFormat,
+  detectTemplateSignature
+} from '../../services/textToTableParser';
+import {
+  TextToTableResult,
+  ParsedRowData,
+  ImportJobSummary,
+  ImportHistoryRecord
+} from '../../types/index.ts';
 import { MASTER_CANONICAL_FIELDS, isValidWoNumber } from '../../services/woFieldMappingEngine';
 import { parseAppointmentDate } from '../../services/appointmentDateParser';
+import {
+  executeEnterpriseAsyncImport,
+  runPendingBatchesLoop,
+  retryFailedImportBatches,
+  cancelImportJob,
+  downloadImportErrorsCsv,
+  getImportJobDetail,
+  getSavedActiveImportJobId,
+  listImportJobs,
+  listImportHistory
+} from '../../services/enterpriseImportService';
+import { ImportJobMonitorPanel } from './ImportJobMonitorPanel';
 import {
   FileSpreadsheet,
   CheckCircle2,
@@ -34,6 +56,8 @@ import {
   ClipboardPaste,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Inbox
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -60,7 +84,6 @@ const REQUIRED_FIELD_PILLS = [
 export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImportSuccess }) => {
   const { isCompactUI } = useResponsiveViewport();
   const {
-    bulkImportTickets,
     headerMappings,
     tickets,
     auditLogs,
@@ -70,7 +93,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     autoRegisterContractors,
     googleSheetsConfig,
     syncGoogleSheetsNow,
-    deleteImportedTicketsByDate
+    deleteImportedTicketsByDate,
+    refreshActiveTickets,
+    refreshKpiSummary
   } = useApp();
 
   const { showToast } = useToast();
@@ -94,9 +119,19 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [sourceFileName, setSourceFileName] = useState('Belum ada berkas');
+  const [sourceFormatDetected, setSourceFormatDetected] = useState<string>('xlsx');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isExecutingImport, setIsExecutingImport] = useState(false);
   const [contractorEnrollNotice, setContractorEnrollNotice] = useState<string | null>(null);
+  const [batchSize, setBatchSize] = useState<number>(500);
+  const [previewPage, setPreviewPage] = useState<number>(1);
+  const [previewPageSize] = useState<number>(50);
+  const [activeImportJob, setActiveImportJob] = useState<ImportJobSummary | null>(null);
+  const [importPhaseLabel, setImportPhaseLabel] = useState<string>('');
+  const [recentImportJobs, setRecentImportJobs] = useState<ImportJobSummary[]>([]);
+  const [importHistoryRecords, setImportHistoryRecords] = useState<ImportHistoryRecord[]>([]);
+  const [isJobRunnerActive, setIsJobRunnerActive] = useState<boolean>(false);
+  const jobAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchConfirmSectionRef = useRef<HTMLDivElement>(null);
 
@@ -149,12 +184,32 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     return { total, valid, duplicate, error, validPct };
   }, [parseResult]);
 
-  // Real Recent Import History derived from live tickets & auditLogs (ZERO fake/hardcoded batches)
+  // Real Recent Import History merged from DB import_history, tickets, and auditLogs
   const recentImportBatches = useMemo(() => {
     const batchMap = new Map<
       string,
       { key: string; label: string; timeLabel: string; sortTs: number; performer: string; count: number; statusLabel: string }
     >();
+
+    importHistoryRecords.forEach(h => {
+      const ts = new Date(h.createdAt).getTime() || 0;
+      batchMap.set(`hist_${h.jobId}`, {
+        key: `hist_${h.jobId}`,
+        label: h.sourceFile || h.importName || h.jobId,
+        timeLabel: h.createdAt,
+        sortTs: ts,
+        performer: h.importedBy || 'Superadmin',
+        count: h.successCount || 0,
+        statusLabel:
+          h.status === 'completed'
+            ? 'TERSIMPAN'
+            : h.status === 'cancelled'
+            ? 'DIBATALKAN'
+            : h.status === 'completed_with_errors'
+            ? 'SELESAI (ERROR)'
+            : 'GAGAL'
+      });
+    });
 
     tickets.forEach(t => {
       if (t.isArchived) return;
@@ -185,7 +240,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       .forEach(l => {
         const ts = new Date(l.timestamp).getTime() || 0;
         const mapKey = `audit_${l.id}`;
-        const matchWoCount = String(l.details || '').match(/(\d+)\s*(?:WO|tiket|baris)/i);
+        const matchWoCount = String(l.details || '').match(/(\d+)\s*(?:WO|tiket|baris|sukses)/i);
         batchMap.set(mapKey, {
           key: mapKey,
           label: l.entityId && l.entityId !== 'bulk' ? l.entityId : l.action,
@@ -199,8 +254,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
     return Array.from(batchMap.values())
       .sort((a, b) => b.sortTs - a.sortTs)
-      .slice(0, 4);
-  }, [tickets, auditLogs]);
+      .slice(0, 6);
+  }, [importHistoryRecords, tickets, auditLogs]);
 
   // Detect New Contractors from parsed rows
   const newContractorsFound = useMemo(() => {
@@ -254,6 +309,42 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       return true;
     });
   }, [parseResult, statusFilter, previewCategoryFilter, previewCategorySearch]);
+
+  const totalPreviewPages = useMemo(
+    () => Math.max(1, Math.ceil(displayedPreviewRows.length / previewPageSize)),
+    [displayedPreviewRows.length, previewPageSize]
+  );
+
+  const safePreviewPage = Math.min(previewPage, totalPreviewPages);
+
+  const paginatedPreviewRows = useMemo(() => {
+    const start = (safePreviewPage - 1) * previewPageSize;
+    return displayedPreviewRows.slice(start, start + previewPageSize);
+  }, [displayedPreviewRows, safePreviewPage, previewPageSize]);
+
+  useEffect(() => {
+    setPreviewPage(1);
+  }, [statusFilter, previewCategoryFilter, previewCategorySearch, parseResult?.totalDetected]);
+
+  const refreshImportMonitorState = useCallback(async () => {
+    if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch') return;
+    try {
+      const [jobs, history] = await Promise.all([listImportJobs(10), listImportHistory(15)]);
+      setRecentImportJobs(jobs);
+      setImportHistoryRecords(history);
+      const savedId = getSavedActiveImportJobId();
+      if (savedId && !activeImportJob) {
+        const detail = await getImportJobDetail(savedId).catch(() => null);
+        if (detail) setActiveImportJob(detail);
+      }
+    } catch {
+      // silent background check
+    }
+  }, [currentUser.role, activeImportJob]);
+
+  useEffect(() => {
+    void refreshImportMonitorState();
+  }, [refreshImportMonitorState]);
 
   const handleEnrollContractorsNow = () => {
     if (!parseResult || !parseResult.detectedContractors) return;
@@ -538,9 +629,11 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const handleParse = (textToParse?: string, shouldScrollToConfirm = false) => {
     const text = textToParse !== undefined ? textToParse : rawText;
     if (!text.trim()) {
-      showToast('Masukkan data teks/tabel atau unggah file Excel/CSV terlebih dahulu.', 'warning', 'Data Kosong');
+      showToast('Masukkan data teks/tabel atau unggah file Excel/CSV/JSON terlebih dahulu.', 'warning', 'Data Kosong');
       return;
     }
+    const fmt = detectImportFormat(text, sourceFileName !== 'Belum ada berkas' ? sourceFileName : undefined);
+    setSourceFormatDetected(fmt);
     const result = parseWorkOrderText(text, {
       customMappings: headerMappings,
       existingWoNumbers: existingWos,
@@ -550,6 +643,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setParseResult(result);
     setImportReport(null);
     setStatusFilter('ALL');
+    setPreviewPage(1);
     if (shouldScrollToConfirm) {
       setTimeout(() => {
         batchConfirmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -563,17 +657,20 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       !lowerName.endsWith('.xlsx') &&
       !lowerName.endsWith('.xls') &&
       !lowerName.endsWith('.csv') &&
-      !lowerName.endsWith('.txt')
+      !lowerName.endsWith('.txt') &&
+      !lowerName.endsWith('.json')
     ) {
-      showToast('Format file harus .xlsx, .xls, .csv, atau .txt.', 'error', 'Format Tidak Didukung');
+      showToast('Format file harus .xlsx, .xls, .csv, .txt, atau .json.', 'error', 'Format Tidak Didukung');
       return;
     }
 
     setSourceFileName(file.name);
     setStatusFilter('ALL');
+    setPreviewPage(1);
     const reader = new FileReader();
 
     if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+      setSourceFormatDetected('xlsx');
       reader.onload = event => {
         const buffer = event.target?.result as ArrayBuffer;
         if (buffer) {
@@ -594,6 +691,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
         const text = event.target?.result as string;
         if (text) {
           setRawText(text);
+          const fmt = detectImportFormat(text, file.name);
+          setSourceFormatDetected(fmt);
           handleParse(text);
           showToast(`Berkas "${file.name}" berhasil dibaca.`, 'success', 'Berkas Diparsing');
         }
@@ -772,6 +871,65 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setEditingRowIndex(null);
   };
 
+  const finalizeImportJobOutcome = async (job: ImportJobSummary, enrolledNewCount = 0) => {
+    setActiveImportJob(job);
+    setImportReport({
+      imported: job.successfulRows,
+      duplicates: job.duplicateRows,
+      failed: job.failedRows,
+      error: job.errorSummary || undefined,
+      enrolledContractors: enrolledNewCount,
+      newContractors: enrolledNewCount
+    });
+
+    await refreshImportMonitorState();
+
+    if (job.successfulRows > 0) {
+      await Promise.all([
+        refreshActiveTickets().catch(() => {}),
+        refreshKpiSummary({ silent: true }).catch(() => {})
+      ]);
+    }
+
+    if (job.status === 'cancelled') {
+      showToast(
+        `Job impor dibatalkan aman (${job.successfulRows} WO yang sudah diproses tetap tersimpan).`,
+        'warning',
+        'Import Dibatalkan'
+      );
+      return;
+    }
+
+    if (job.status === 'failed' && job.successfulRows === 0) {
+      showToast(
+        job.errorSummary || 'Gagal memproses batch impor ke database. Gunakan Retry Batch Gagal pada monitor.',
+        'error',
+        'Import Gagal'
+      );
+      return;
+    }
+
+    if (job.status === 'completed_with_errors' || job.failedRows > 0) {
+      showToast(
+        `${job.successfulRows} WO berhasil tersimpan, ${job.duplicateRows} duplikat dilewati, ${job.failedRows} gagal/tidak valid. Unduh Error CSV atau Retry Batch Gagal.`,
+        'warning',
+        'Import Selesai dengan Catatan'
+      );
+      return;
+    }
+
+    showToast(
+      `${job.successfulRows} Work Order terkonfirmasi tersimpan permanen di database.${job.duplicateRows > 0 ? ` (${job.duplicateRows} duplikat diabaikan)` : ''}`,
+      'success',
+      'Batch Import Selesai'
+    );
+    setParseResult(null);
+    setRawText('');
+    setTimeout(() => {
+      onImportSuccess();
+    }, 1000);
+  };
+
   const handleExecuteImport = async () => {
     if (!parseResult || parseResult.parsedRows.length === 0) return;
 
@@ -794,11 +952,6 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       );
       return;
     }
-
-    const validMapped = rowsToImport.map(r => ({
-      ...r.mapped,
-      fileName: sourceFileName
-    }));
 
     let enrolledNewCount = 0;
     if (autoRegisterNewContractors) {
@@ -833,82 +986,127 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       }
     }
 
-    const report = await bulkImportTickets(validMapped, { duplicatePolicy });
-    const failedCount = Number(report.failedCount || 0);
-    const savedTotal = report.importedCount + (report.updatedCount || 0);
-
-    setImportReport({
-      imported: report.importedCount,
-      duplicates: report.duplicatesIgnored,
-      failed: failedCount,
-      error: report.error,
-      enrolledContractors: enrolledNewCount,
-      newContractors: enrolledNewCount,
-      distributedCount: report.distributedCount,
-      undistributedCount: report.undistributedCount
-    });
-
-    // Total failure: keep all staging rows & rawText intact so user can retry immediately
-    if (!report.success && savedTotal === 0) {
-      setShowConfirmModal(false);
-      showToast(
-        report.error || 'Gagal menyimpan data Work Order ke database Supabase. Input Anda tetap dipertahankan agar dapat dicoba ulang.',
-        'error',
-        'Import Gagal Disimpan'
-      );
-      return;
-    }
-
-    // Partial failure: keep ONLY unconfirmed/failed rows in staging so succeeded WOs aren't duplicated on retry
-    if (report.partialSuccess || failedCount > 0) {
-      const confirmedWoSet = new Set(
-        (report.importedWoNumbers || []).map(w => String(w || '').trim().toUpperCase().replace(/\s+/g, ''))
-      );
-      const remainingRows = parseResult.parsedRows.filter(r => {
-        const key = String(r.mapped?.woNumber || r.mapped?.workOrderNumber || '')
-          .trim()
-          .toUpperCase()
-          .replace(/\s+/g, '');
-        return !key || !confirmedWoSet.has(key);
-      });
-      setParseResult({
-        ...parseResult,
-        parsedRows: remainingRows,
-        validCount: remainingRows.filter(r => r.isValid && !r.isDuplicate).length,
-        problematicCount: remainingRows.filter(r => !r.isValid).length,
-        duplicateCount: remainingRows.filter(r => r.isDuplicate).length
-      });
-      setShowConfirmModal(false);
-      showToast(
-        `${report.importedCount} WO berhasil disimpan ke database, tetapi ${failedCount} WO gagal disimpan (${report.error || 'kesalahan sebagian chunk'}). Baris yang gagal tetap dipertahankan untuk dicoba ulang.`,
-        'warning',
-        'Import Parsial'
-      );
-      return;
-    }
-
-    // Confirmed clean completion
-    if (savedTotal === 0 && report.duplicatesIgnored > 0) {
-      setShowConfirmModal(false);
-      showToast(
-        `Semua (${report.duplicatesIgnored}) nomor WO diabaikan karena sudah terdaftar di database.`,
-        'warning',
-        'Semua Duplikat'
-      );
-      return;
-    }
-
-    showToast(
-      `${report.importedCount} Work Order valid terkonfirmasi tersimpan permanen di database.${report.duplicatesIgnored > 0 ? ` (${report.duplicatesIgnored} duplikat diabaikan)` : ''}`,
-      'success',
-      'Batch Import Selesai'
-    );
-    setParseResult(null);
-    setRawText('');
+    const templateSignature = detectTemplateSignature(parseResult.detectedHeaders || []);
+    const controller = new AbortController();
+    jobAbortRef.current = controller;
+    setIsJobRunnerActive(true);
     setShowConfirmModal(false);
-    setTimeout(() => {
-      onImportSuccess();
-    }, 1200);
+
+    try {
+      const stagedPayload = rowsToImport.map((r, idx) => ({
+        rowNumber: idx + 1,
+        raw: r.raw,
+        mapped: {
+          ...r.mapped,
+          fileName: sourceFileName
+        }
+      }));
+
+      const finalJob = await executeEnterpriseAsyncImport({
+        importName: sourceFileName,
+        sourceFile: sourceFileName,
+        sourceFormat: sourceFormatDetected,
+        templateType: templateSignature,
+        duplicatePolicy,
+        autoRegisterContractors: autoRegisterNewContractors,
+        batchSize,
+        rows: stagedPayload,
+        validationMode: templateSignature === 'ASSIGNED_TEKNISI' ? 'standard' : 'strict',
+        signal: controller.signal,
+        onJobUpdate: (jobUpdate, label) => {
+          setActiveImportJob(jobUpdate);
+          if (label) setImportPhaseLabel(label);
+        }
+      });
+
+      await finalizeImportJobOutcome(finalJob, enrolledNewCount);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        showToast(err?.message || 'Gagal menjalankan batch import asinkron.', 'error', 'Import Gagal');
+      }
+      await refreshImportMonitorState();
+    } finally {
+      setIsJobRunnerActive(false);
+      jobAbortRef.current = null;
+    }
+  };
+
+  const handleResumeImportJob = async (jobId: string) => {
+    const controller = new AbortController();
+    jobAbortRef.current = controller;
+    setIsJobRunnerActive(true);
+    try {
+      const finalJob = await runPendingBatchesLoop(jobId, {
+        signal: controller.signal,
+        onJobUpdate: (jobUpdate, label) => {
+          setActiveImportJob(jobUpdate);
+          if (label) setImportPhaseLabel(label);
+        }
+      });
+      await finalizeImportJobOutcome(finalJob, 0);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        showToast(err?.message || 'Gagal melanjutkan import job.', 'error', 'Resume Gagal');
+      }
+    } finally {
+      setIsJobRunnerActive(false);
+      jobAbortRef.current = null;
+    }
+  };
+
+  const handleRetryFailedImportJob = async (jobId: string) => {
+    const controller = new AbortController();
+    jobAbortRef.current = controller;
+    setIsJobRunnerActive(true);
+    try {
+      const finalJob = await retryFailedImportBatches(jobId, {
+        signal: controller.signal,
+        onJobUpdate: (jobUpdate, label) => {
+          setActiveImportJob(jobUpdate);
+          if (label) setImportPhaseLabel(label);
+        }
+      });
+      await finalizeImportJobOutcome(finalJob, 0);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        showToast(err?.message || 'Gagal mengulang batch yang gagal.', 'error', 'Retry Gagal');
+      }
+    } finally {
+      setIsJobRunnerActive(false);
+      jobAbortRef.current = null;
+    }
+  };
+
+  const handleCancelActiveJob = async (jobId: string) => {
+    try {
+      jobAbortRef.current?.abort();
+      const cancelled = await cancelImportJob(jobId);
+      setActiveImportJob(cancelled);
+      setImportPhaseLabel('Job dibatalkan dengan aman.');
+      await refreshImportMonitorState();
+      showToast('Batch import dibatalkan dengan aman.', 'warning', 'Import Dibatalkan');
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal membatalkan job.', 'error');
+    }
+  };
+
+  const handleRefreshJobDetail = async (jobId: string) => {
+    try {
+      const detail = await getImportJobDetail(jobId);
+      setActiveImportJob(detail);
+      await refreshImportMonitorState();
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal memuat ulang status job.', 'error');
+    }
+  };
+
+  const handleDownloadJobErrorsCsv = async (jobId: string) => {
+    try {
+      await downloadImportErrorsCsv(jobId);
+      showToast('Laporan error CSV berhasil diunduh.', 'success', 'Error CSV Diunduh');
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal mengunduh laporan error CSV.', 'error');
+    }
   };
 
   return (
@@ -967,7 +1165,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept=".xlsx,.xls,.csv,.txt"
+            accept=".xlsx,.xls,.csv,.txt,.json"
             className="hidden"
             id="file-upload-input"
           />
@@ -1166,6 +1364,23 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               </div>
             )}
           </div>
+
+          {/* Enterprise Live Batch Monitor Panel */}
+          <ImportJobMonitorPanel
+            activeJob={activeImportJob}
+            phaseLabel={importPhaseLabel}
+            isBusy={isJobRunnerActive}
+            recentJobs={recentImportJobs}
+            onResumeJob={handleResumeImportJob}
+            onCancelJob={handleCancelActiveJob}
+            onRetryFailed={handleRetryFailedImportJob}
+            onDownloadErrors={handleDownloadJobErrorsCsv}
+            onRefreshJob={handleRefreshJobDetail}
+            onSelectJob={job => {
+              setActiveImportJob(job);
+              void handleRefreshJobDetail(job.id);
+            }}
+          />
 
           {/* 4 Validation KPI Bento Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -1671,13 +1886,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
 
                   <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8] shrink-0 self-end sm:self-auto font-mono tabular-nums">
-                    Menampilkan <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{displayedPreviewRows.length}</span> dari {parseResult.parsedRows.length} baris
+                    Hal. <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{safePreviewPage}/{totalPreviewPages}</span> • Menampilkan <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{paginatedPreviewRows.length}</span> dari {displayedPreviewRows.length} baris
                   </div>
                 </div>
 
-                {/* Responsive Preview Table */}
+                {/* Responsive Preview Table (Paginated 50 rows/page to keep 3,000-10,000 WO previews instant) */}
                 <ResponsiveDataTable<ParsedRowData>
-                  data={displayedPreviewRows}
+                  data={paginatedPreviewRows}
                   getRowKey={row => String(row.rowIndex)}
                   maxTableHeightClass="max-h-96"
                   getRowClassName={row =>
@@ -2010,6 +2225,37 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     )
                   }
                 />
+
+                {totalPreviewPages > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E2E8F0] dark:border-[#3b1d78] text-xs">
+                    <span className="font-mono text-[11px] text-[#52647A] dark:text-[#CABDE8] tabular-nums">
+                      Menampilkan baris {(safePreviewPage - 1) * previewPageSize + 1}–{Math.min(safePreviewPage * previewPageSize, displayedPreviewRows.length)} dari {displayedPreviewRows.length.toLocaleString('id-ID')}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={safePreviewPage <= 1}
+                        onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
+                        className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Sebelumnya</span>
+                      </button>
+                      <span className="px-2.5 py-1 rounded-lg bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] font-mono text-[11px] font-bold tabular-nums text-[#26364A] dark:text-white">
+                        {safePreviewPage} / {totalPreviewPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={safePreviewPage >= totalPreviewPages}
+                        onClick={() => setPreviewPage(p => Math.min(totalPreviewPages, p + 1))}
+                        className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                      >
+                        <span>Berikutnya</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Bottom Batch Confirmation Card (Stitch Screenshot 2 Style) */}
@@ -2318,6 +2564,33 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       ? 'Aktif — Kontraktor yang belum ada di master data akan langsung didaftarkan otomatis saat import disimpan.'
                       : 'Nonaktif — Kontraktor baru tidak ditambahkan ke Master Database.'}
                   </p>
+                </div>
+
+                <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-[#26364A] dark:text-white text-xs">
+                      Ukuran Batch Pemrosesan (Asynchronous Staging):
+                    </span>
+                    <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
+                      {Math.ceil(validationSummary.valid / batchSize)} batch
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[100, 250, 500].map(sizeOpt => (
+                      <button
+                        key={sizeOpt}
+                        type="button"
+                        onClick={() => setBatchSize(sizeOpt)}
+                        className={`py-2 px-3 rounded-xl border text-[11px] font-mono font-bold cursor-pointer transition-colors ${
+                          batchSize === sizeOpt
+                            ? 'bg-white dark:bg-[#1e1238] border-[#6657C8] text-[#5145A6] dark:text-[#DAB9FF] ring-1 ring-[#6657C8]/30'
+                            : 'bg-[#F4F7FB] dark:bg-[#160d29] border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8]'
+                        }`}
+                      >
+                        {sizeOpt} WO / batch
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] space-y-2">

@@ -14,6 +14,7 @@ import {
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { safeSessionStorageRemove, safeSessionStorageSet } from '../../utils/safeStorage';
 
 export interface KendalaReportModalProps {
   isOpen: boolean;
@@ -161,48 +162,28 @@ export const KendalaReportModal: React.FC<KendalaReportModalProps> = ({
 
   const persistDraftToSession = () => {
     if (!draftStorageKey || typeof window === 'undefined') return;
-    const hasContent = Boolean(description.trim() || photoDataUrl);
-    try {
-      if (!hasContent) {
-        window.sessionStorage.removeItem(draftStorageKey);
-        return;
-      }
-      const draft: KendalaDraftState = {
+    const hasContent = Boolean(description.trim());
+    if (!hasContent) {
+      safeSessionStorageRemove(draftStorageKey);
+      return;
+    }
+    // Never write large Base64 photoDataUrl blobs into browser sessionStorage/localStorage
+    safeSessionStorageSet(
+      draftStorageKey,
+      JSON.stringify({
         reasonId: selectedReasonId,
         description,
-        photoDataUrl,
-        photoFileName,
-        photoMimeType,
+        photoDataUrl: '',
+        photoFileName: photoFileName || '',
+        photoMimeType: photoMimeType || 'image/jpeg',
         savedAt: new Date().toISOString()
-      };
-      window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
-    } catch {
-      // If sessionStorage quota exceeded because of large dataUrl, persist text draft cleanly
-      try {
-        window.sessionStorage.setItem(
-          draftStorageKey,
-          JSON.stringify({
-            reasonId: selectedReasonId,
-            description,
-            photoDataUrl: '',
-            photoFileName: '',
-            photoMimeType: 'image/jpeg',
-            savedAt: new Date().toISOString()
-          })
-        );
-      } catch {
-        // ignore
-      }
-    }
+      })
+    );
   };
 
   const clearDraftFromSession = () => {
-    if (!draftStorageKey || typeof window === 'undefined') return;
-    try {
-      window.sessionStorage.removeItem(draftStorageKey);
-    } catch {
-      // ignore
-    }
+    if (!draftStorageKey) return;
+    safeSessionStorageRemove(draftStorageKey);
   };
 
   const handleBack = () => {
