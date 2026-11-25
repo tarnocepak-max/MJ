@@ -20,8 +20,6 @@ import {
   Phone,
   RefreshCw,
   RotateCcw,
-  Search,
-  SlidersHorizontal,
   Sparkles,
   UserCheck,
   Users2,
@@ -35,8 +33,19 @@ import {
 } from '../../services/leaderQuotaService';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { PaginationBar } from '../common/PaginationBar';
-import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { formatAppointmentDateDisplay, getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { getTicketWorkStatus, formatJakartaTimeOnly } from '../../services/workSessionService';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import {
+  SortState,
+  getNextSortDirection,
+  sortDataArray
+} from '../../utils/tableSorting';
 
 interface LeaderReassignViewProps {
   todayTickets: Ticket[];
@@ -176,11 +185,16 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
   const { isCompactUI } = useResponsiveViewport();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [woSearch, setWoSearch] = useState<string>('');
+  const [customerSearch, setCustomerSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<ReassignStatusFilter>('eligible');
   const [slotFilter, setSlotFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [installerFilter, setInstallerFilter] = useState<string>('ALL');
-  const [showMobileAdvancedFilters, setShowMobileAdvancedFilters] = useState<boolean>(false);
+  const [exactDateFilter, setExactDateFilter] = useState<string>('');
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(() => (isCompactUI ? 6 : 10));
@@ -282,6 +296,23 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
         }
       }
 
+      // Column header specific search & date filters
+      if (woSearch.trim()) {
+        const hay = `${t.woNumber || ''} ${t.fatCode || ''} ${t.fdtCode || ''} ${t.idCustomer || ''}`.toLowerCase();
+        if (!hay.includes(woSearch.trim().toLowerCase())) return false;
+      }
+      if (customerSearch.trim()) {
+        const hay = `${t.customerName || ''} ${t.customerPhone || ''} ${t.area || ''} ${t.clusterName || ''} ${t.streetName || ''}`.toLowerCase();
+        if (!hay.includes(customerSearch.trim().toLowerCase())) return false;
+      }
+      if (exactDateFilter || dateFromFilter || dateToFilter) {
+        const appt = getTicketAppointmentDate(t) || '';
+        if (!appt) return false;
+        if (exactDateFilter && appt !== exactDateFilter) return false;
+        if (dateFromFilter && appt < dateFromFilter) return false;
+        if (dateToFilter && appt > dateToFilter) return false;
+      }
+
       // Live search
       if (q) {
         const hay = [
@@ -305,14 +336,59 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
       return true;
     });
-  }, [assignedTodayTickets, statusFilter, slotFilter, categoryFilter, installerFilter, searchQuery]);
+  }, [
+    assignedTodayTickets,
+    statusFilter,
+    slotFilter,
+    categoryFilter,
+    installerFilter,
+    woSearch,
+    customerSearch,
+    exactDateFilter,
+    dateFromFilter,
+    dateToFilter,
+    searchQuery
+  ]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / rowsPerPage));
+  const handleSort = (columnKey: string) => {
+    setSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, columnKey);
+      return {
+        column: nextDir ? columnKey : null,
+        direction: nextDir
+      };
+    });
+    setCurrentPage(1);
+  };
+
+  const sortedTickets = useMemo(() => {
+    if (!sortState.column || !sortState.direction) return filteredTickets;
+    return sortDataArray(filteredTickets, sortState, (t: Ticket, col: string) => {
+      switch (col) {
+        case 'woNumber':
+          return t.woNumber || '';
+        case 'customerName':
+          return t.customerName || '';
+        case 'ticketCategory':
+          return t.ticketCategory || '';
+        case 'appointmentDate':
+          return getTicketAppointmentDate(t) || t.appointmentDate || '';
+        case 'installerName':
+          return t.installerName || '';
+        case 'status':
+          return getReassignBadge(t).label;
+        default:
+          return (t as any)[col] || '';
+      }
+    });
+  }, [filteredTickets, sortState]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedTickets.length / rowsPerPage));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedTickets = useMemo(() => {
     const start = (safePage - 1) * rowsPerPage;
-    return filteredTickets.slice(start, start + rowsPerPage);
-  }, [filteredTickets, safePage, rowsPerPage]);
+    return sortedTickets.slice(start, start + rowsPerPage);
+  }, [sortedTickets, safePage, rowsPerPage]);
 
   const [previewTicketId, setPreviewTicketId] = useState<string>('');
 
@@ -342,19 +418,30 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
     );
   }, [selectedPreviewTicket, basecampReserveTechs]);
 
-  const hasActiveCustomFilter =
-    Boolean(searchQuery.trim()) ||
-    statusFilter !== 'eligible' ||
-    slotFilter !== 'ALL' ||
-    categoryFilter !== 'ALL' ||
-    installerFilter !== 'ALL';
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (woSearch.trim() ? 1 : 0) +
+    (customerSearch.trim() ? 1 : 0) +
+    (statusFilter !== 'eligible' ? 1 : 0) +
+    (slotFilter !== 'ALL' ? 1 : 0) +
+    (categoryFilter !== 'ALL' ? 1 : 0) +
+    (installerFilter !== 'ALL' ? 1 : 0) +
+    (exactDateFilter ? 1 : 0) +
+    (dateFromFilter || dateToFilter ? 1 : 0);
+  const hasActiveCustomFilter = activeFilterCount > 0;
 
   const handleResetFilters = () => {
     setSearchQuery('');
+    setWoSearch('');
+    setCustomerSearch('');
     setStatusFilter('eligible');
     setSlotFilter('ALL');
     setCategoryFilter('ALL');
     setInstallerFilter('ALL');
+    setExactDateFilter('');
+    setDateFromFilter('');
+    setDateToFilter('');
+    setSortState({ column: null, direction: null });
     setCurrentPage(1);
   };
 
@@ -469,96 +556,58 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             </div>
           </div>
 
-          {/* Mobile Search + Filter Drawer Trigger */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7D7484] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Cari ID WO, pelanggan, atau teknisi..."
-                className="w-full pl-10 pr-8 py-2.5 min-h-[44px] rounded-2xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Hapus pencarian"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#8492A5] dark:text-[#7D7484] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowMobileAdvancedFilters(prev => !prev)}
-              aria-label="Filter lanjutan"
-              className={`min-w-[44px] min-h-[44px] rounded-2xl border flex items-center justify-center cursor-pointer transition-colors ${
-                showMobileAdvancedFilters
-                  ? 'bg-[#6657C8] dark:bg-[#58149C] text-white border-[#6657C8] dark:border-[#58149C]'
-                  : 'bg-white dark:bg-[#1E1238] text-[#5145A6] dark:text-[#DAB9FF] border-[#DDE6F0] dark:border-[#3E246F]'
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
+          {/* Mobile Compact Header Trigger Popovers (Zero external input box) */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <HeaderSearchPopover
+              label="WO / Pelanggan"
+              value={searchQuery}
+              onChange={val => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari WO, pelanggan, atau teknisi..."
+              sortActive={sortState.column === 'woNumber'}
+              sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+              onCycleSort={() => handleSort('woNumber')}
+            />
+            <HeaderCategoryDropdown
+              label="Teknisi"
+              value={installerFilter}
+              defaultValue="ALL"
+              allLabel="Semua Teknisi"
+              options={[
+                { value: 'ALL', label: 'Semua Teknisi' },
+                ...installers.map(inst => ({ value: inst.name, label: inst.name }))
+              ]}
+              onChange={val => {
+                setInstallerFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+            <HeaderCategoryDropdown
+              label="Slot"
+              value={slotFilter}
+              defaultValue="ALL"
+              allLabel="Semua Slot"
+              options={[
+                { value: 'ALL', label: 'Semua Slot Waktu' },
+                { value: '09:00', label: 'Slot 1 (09:00 - 11:00)' },
+                { value: '11:00', label: 'Slot 2 (11:00 - 13:00)' },
+                { value: '13:00', label: 'Slot 3 (13:00 - 15:00)' },
+                { value: '15:00', label: 'Slot 4 (15:00 - 17:00)' }
+              ]}
+              onChange={val => {
+                setSlotFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+            <TableResetFilterButton
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              label="Reset Search/Filter"
+              testId="leader-reassign-mobile-reset"
+            />
           </div>
-
-          {showMobileAdvancedFilters && (
-            <div className="p-3 rounded-2xl bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#3E246F] grid grid-cols-1 gap-2 text-xs">
-              <select
-                value={statusFilter}
-                onChange={e => {
-                  setStatusFilter(e.target.value as ReassignStatusFilter);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
-              >
-                <option value="eligible">Aktif / Siap Reassign ({eligibleCount})</option>
-                <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
-                <option value="problem">Kendala / Pending ({problemCount})</option>
-                <option value="in_progress">Sedang Dikerjakan</option>
-                <option value="waiting">Menunggu Pengerjaan</option>
-                <option value="reassigned">Pernah Direassign</option>
-              </select>
-
-              <select
-                value={installerFilter}
-                onChange={e => {
-                  setInstallerFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
-              >
-                <option value="ALL">Semua Teknisi</option>
-                {installers.map(inst => (
-                  <option key={inst.id} value={inst.name}>
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={categoryFilter}
-                onChange={e => {
-                  setCategoryFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] font-semibold text-[#26364A] dark:text-white"
-              >
-                <option value="ALL">Semua Kategori</option>
-                {categoryOptions.map(cat => (
-                  <option key={cat.name} value={cat.name}>
-                    {cat.name} ({cat.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Mobile Quick Filter Chips */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
@@ -808,164 +857,32 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
             </button>
           </div>
 
-          {/* MULTI-FILTER TOOLBAR */}
-          <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
-              <div className="md:col-span-4 relative">
-                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7D7484] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => {
-                    setSearchQuery(e.target.value);
+          {/* COMPACT STATUS & RESET BAR (Filters embedded directly in Table Headers) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[#52647A] dark:text-[#CEC0E8] tabular-nums font-semibold">
+                {sortedTickets.length} dari {assignedTodayTickets.length} WO ({todayAppointmentDisplay})
+              </span>
+              {problemCount > 0 && statusFilter !== 'problem' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('problem');
                     setCurrentPage(1);
                   }}
-                  placeholder="Cari Nomor WO, Pelanggan, ODP/FAT, atau Teknisi..."
-                  className="w-full pl-9 pr-8 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Bersihkan pencarian"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] dark:text-[#7D7484] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="md:col-span-2">
-                <select
-                  value={statusFilter}
-                  onChange={e => {
-                    setStatusFilter(e.target.value as ReassignStatusFilter);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Filter Status WO"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-800 font-bold cursor-pointer"
                 >
-                  <option value="eligible">Siap Reassign ({eligibleCount})</option>
-                  <option value="all">Semua WO Ditugaskan ({assignedTodayTickets.length})</option>
-                  <option value="problem">Kendala / Pending ({problemCount})</option>
-                  <option value="in_progress">Sedang Dikerjakan</option>
-                  <option value="waiting">Menunggu Pengerjaan</option>
-                  <option value="reassigned">Pernah Direassign</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <select
-                  value={slotFilter}
-                  onChange={e => {
-                    setSlotFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Filter Slot Jadwal"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
-                >
-                  <option value="ALL">Semua Slot Waktu</option>
-                  <option value="09:00">Slot 1 (09:00 - 11:00)</option>
-                  <option value="11:00">Slot 2 (11:00 - 13:00)</option>
-                  <option value="13:00">Slot 3 (13:00 - 15:00)</option>
-                  <option value="15:00">Slot 4 (15:00 - 17:00)</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <select
-                  value={categoryFilter}
-                  onChange={e => {
-                    setCategoryFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Filter Kategori Tiket"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
-                >
-                  <option value="ALL">Semua Kategori</option>
-                  {categoryOptions.map(cat => (
-                    <option key={cat.name} value={cat.name}>
-                      {cat.name} ({cat.count})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <select
-                  value={installerFilter}
-                  onChange={e => {
-                    setInstallerFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Filter Teknisi Saat Ini"
-                  className="w-full px-3 py-2 min-h-[40px] rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DCE3F2] dark:border-[#4B386B] text-xs font-semibold text-[#26364A] dark:text-white cursor-pointer"
-                >
-                  <option value="ALL">Semua Teknisi</option>
-                  {installers.map(inst => (
-                    <option key={inst.id} value={inst.name}>
-                      {inst.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Kendala / Catatan ({problemCount})</span>
+                </button>
+              )}
             </div>
-
-            {/* Active Filter Tags Row */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span className="font-semibold text-[#8492A5] dark:text-[#A79BC0] mr-1">
-                  Filter Aktif:
-                </span>
-                {activeFilterTags.length === 0 ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#261942] text-[#5145A6] dark:text-[#DAB9FF] font-semibold">
-                    WO Aktif Siap Reassign ({todayAppointmentDisplay})
-                  </span>
-                ) : (
-                  activeFilterTags.map(tag => (
-                    <button
-                      key={tag.key}
-                      type="button"
-                      onClick={tag.onClear}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#DAB9FF] font-bold hover:bg-[#DDF4F4] dark:hover:bg-[#DAB9FF]/60 cursor-pointer"
-                    >
-                      <span>{tag.label}</span>
-                      <X className="w-3 h-3" />
-                    </button>
-                  ))
-                )}
-
-                {problemCount > 0 && statusFilter !== 'problem' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter('problem');
-                      setCurrentPage(1);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-800 font-bold cursor-pointer"
-                  >
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>Kendala / Catatan ({problemCount})</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
-                  {filteredTickets.length} dari {assignedTodayTickets.length} WO
-                </span>
-                {hasActiveCustomFilter && (
-                  <button
-                    type="button"
-                    onClick={handleResetFilters}
-                    className="mj-btn-leader-neutral mj-btn-xs px-3 py-1.5 text-[11px] flex items-center gap-1 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reset Filter</span>
-                  </button>
-                )}
-              </div>
-            </div>
+            <TableResetFilterButton
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              label="Reset Search/Filter"
+              testId="leader-reassign-reset-filters"
+            />
           </div>
         </>
       )}
@@ -1278,12 +1195,131 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
               <table className="w-full text-left text-xs border-collapse mj-zebra-table">
                 <thead className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
                   <tr>
-                    <th className="py-3 px-4 min-w-[140px]">WO Number</th>
-                    <th className="py-3 px-4 min-w-[185px]">Customer Details</th>
-                    <th className="py-3 px-4 min-w-[130px]">Category</th>
-                    <th className="py-3 px-4 min-w-[145px]">Appointment &amp; Slot</th>
-                    <th className="py-3 px-4 min-w-[175px]">Current Staff &amp; Load</th>
-                    <th className="py-3 px-4 min-w-[120px]">Status</th>
+                    <th className="py-3 px-4 min-w-[140px]">
+                      <HeaderSearchPopover
+                        label="WO Number"
+                        value={woSearch}
+                        onChange={val => {
+                          setWoSearch(val);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Cari WO / FAT / ID..."
+                        sortActive={sortState.column === 'woNumber'}
+                        sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('woNumber')}
+                      />
+                    </th>
+                    <th className="py-3 px-4 min-w-[185px]">
+                      <HeaderSearchPopover
+                        label="Customer Details"
+                        value={customerSearch}
+                        onChange={val => {
+                          setCustomerSearch(val);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Cari Pelanggan / Area / Alamat..."
+                        sortActive={sortState.column === 'customerName'}
+                        sortDir={sortState.column === 'customerName' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('customerName')}
+                      />
+                    </th>
+                    <th className="py-3 px-4 min-w-[130px]">
+                      <HeaderCategoryDropdown
+                        label="Category"
+                        value={categoryFilter}
+                        defaultValue="ALL"
+                        allLabel="Semua Kategori"
+                        options={[
+                          { value: 'ALL', label: 'Semua Kategori' },
+                          ...categoryOptions.map(cat => ({ value: cat.name, label: `${cat.name} (${cat.count})` }))
+                        ]}
+                        onChange={val => {
+                          setCategoryFilter(val);
+                          setCurrentPage(1);
+                        }}
+                        sortActive={sortState.column === 'ticketCategory'}
+                        sortDir={sortState.column === 'ticketCategory' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('ticketCategory')}
+                      />
+                    </th>
+                    <th className="py-3 px-4 min-w-[165px]">
+                      <div className="flex items-center gap-1">
+                        <HeaderDateSortFilterPopover
+                          label="Appointment"
+                          sortActive={sortState.column === 'appointmentDate'}
+                          sortDir={sortState.column === 'appointmentDate' ? sortState.direction : null}
+                          onCycleSort={() => handleSort('appointmentDate')}
+                          exactDate={exactDateFilter}
+                          dateFrom={dateFromFilter}
+                          dateTo={dateToFilter}
+                          onChangeDates={({ exactDate, dateFrom, dateTo }) => {
+                            setExactDateFilter(exactDate);
+                            setDateFromFilter(dateFrom);
+                            setDateToFilter(dateTo);
+                            setCurrentPage(1);
+                          }}
+                        />
+                        <HeaderCategoryDropdown
+                          label="Slot"
+                          value={slotFilter}
+                          defaultValue="ALL"
+                          allLabel="Semua Slot"
+                          options={[
+                            { value: 'ALL', label: 'Semua Slot' },
+                            { value: '09:00', label: 'Slot 1 (09-11)' },
+                            { value: '11:00', label: 'Slot 2 (11-13)' },
+                            { value: '13:00', label: 'Slot 3 (13-15)' },
+                            { value: '15:00', label: 'Slot 4 (15-17)' }
+                          ]}
+                          onChange={val => {
+                            setSlotFilter(val);
+                            setCurrentPage(1);
+                          }}
+                        />
+                      </div>
+                    </th>
+                    <th className="py-3 px-4 min-w-[175px]">
+                      <HeaderCategoryDropdown
+                        label="Current Staff & Load"
+                        value={installerFilter}
+                        defaultValue="ALL"
+                        allLabel="Semua Teknisi"
+                        options={[
+                          { value: 'ALL', label: 'Semua Teknisi' },
+                          ...installers.map(inst => ({ value: inst.name, label: inst.name }))
+                        ]}
+                        onChange={val => {
+                          setInstallerFilter(val);
+                          setCurrentPage(1);
+                        }}
+                        sortActive={sortState.column === 'installerName'}
+                        sortDir={sortState.column === 'installerName' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('installerName')}
+                      />
+                    </th>
+                    <th className="py-3 px-4 min-w-[130px]">
+                      <HeaderCategoryDropdown
+                        label="Status"
+                        value={statusFilter}
+                        defaultValue="eligible"
+                        allLabel={`Siap Reassign (${eligibleCount})`}
+                        options={[
+                          { value: 'eligible', label: `Siap Reassign (${eligibleCount})` },
+                          { value: 'all', label: `Semua WO (${assignedTodayTickets.length})` },
+                          { value: 'problem', label: `Kendala (${problemCount})` },
+                          { value: 'in_progress', label: 'Sedang Dikerjakan' },
+                          { value: 'waiting', label: 'Menunggu Pengerjaan' },
+                          { value: 'reassigned', label: 'Pernah Direassign' }
+                        ]}
+                        onChange={val => {
+                          setStatusFilter(val as ReassignStatusFilter);
+                          setCurrentPage(1);
+                        }}
+                        sortActive={sortState.column === 'status'}
+                        sortDir={sortState.column === 'status' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('status')}
+                      />
+                    </th>
                     <th className="py-3 px-4 text-right min-w-[140px]">Action</th>
                   </tr>
                 </thead>

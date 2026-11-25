@@ -9,7 +9,6 @@ import {
   Database,
   FileSpreadsheet,
   Layers,
-  Search,
   Activity,
   History,
   Info,
@@ -25,6 +24,7 @@ import { useToast } from '../../context/ToastContext';
 import { getAuthHeaders } from '../../services/authService';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 export const DatabaseSyncMonitoringView: React.FC = () => {
   const { currentUser, googleSheetsConfig } = useApp();
@@ -51,6 +51,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<SyncHistoryEntry | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [syncSort, setSyncSort] = useState<SortState>({ column: null, direction: null });
 
   // Fetch live sync status and history
   const fetchStatusAndHistory = async () => {
@@ -172,11 +173,11 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     }
   };
 
-  // Filter history
+  // Filter & sort history (3-state NULLS LAST)
   const filteredHistory = syncHistory.filter(item => {
     if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
       return (
         String(item.jobId || '').toLowerCase().includes(q) ||
         String(item.dataSource || '').toLowerCase().includes(q) ||
@@ -186,6 +187,38 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
     }
     return true;
   });
+
+  const sortedHistory = sortDataArray(filteredHistory, syncSort, (item, col) => {
+    switch (col) {
+      case 'jobId':
+        return item.jobId || null;
+      case 'syncType':
+        return item.syncType || null;
+      case 'startedAt':
+        return item.startedAt ? new Date(item.startedAt) : null;
+      case 'durationMs':
+        return typeof item.durationMs === 'number' ? item.durationMs : null;
+      case 'status':
+        return item.status || null;
+      case 'processedCount':
+        return typeof item.processedCount === 'number' ? item.processedCount : null;
+      case 'failedCount':
+        return typeof item.failedCount === 'number' ? item.failedCount : null;
+      case 'initiatedBy':
+        return item.initiatedBy || null;
+      default:
+        return null;
+    }
+  });
+
+  const syncActiveFilterCount = (searchTerm.trim() ? 1 : 0) + (statusFilter !== 'ALL' ? 1 : 0);
+
+  const handleToggleSyncSort = (col: string) => {
+    setSyncSort(prev => ({
+      column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+      direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+    }));
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -388,46 +421,28 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
 
       {/* Sync History Table */}
       <div className="card-3d-lavender rounded-2xl p-4 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DDE6F0] dark:border-[#35105E] pb-4">
-          <div>
-            <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
-              <History className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
-              <span>Riwayat &amp; Log Transaksi Sinkronisasi</span>
-            </h3>
-            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
-              Setiap proses mencatat Job ID unik, durasi eksekusi, volume data, dan operator inisiator.
-            </p>
-          </div>
-
-          {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-56">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8492A5] dark:text-[#766B83]" />
-              <input
-                type="text"
-                placeholder="Cari Job ID / Operator..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="tactile-debossed-input w-full pl-8 pr-3 py-1.5 min-h-[44px] sm:min-h-[38px] text-xs rounded-xl text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="tactile-debossed-input py-1.5 px-3 min-h-[44px] sm:min-h-[38px] text-xs rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-            >
-              <option value="ALL">Semua Status</option>
-              <option value="Success">Success</option>
-              <option value="Syncing">Syncing</option>
-              <option value="Failed">Failed</option>
-              <option value="Partial Success">Partial Success</option>
-            </select>
-          </div>
+        <div className="border-b border-[#DDE6F0] dark:border-[#35105E] pb-3">
+          <h3 className="text-sm font-bold text-[#26364A] dark:text-white flex items-center gap-2">
+            <History className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+            <span>Riwayat &amp; Log Transaksi Sinkronisasi</span>
+          </h3>
+          <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
+            Setiap proses mencatat Job ID unik, durasi eksekusi, volume data, dan operator inisiator. Gunakan ikon search/filter pada header kolom tabel.
+          </p>
         </div>
 
         <ResponsiveDataTable<SyncHistoryEntry>
-          data={filteredHistory}
+          data={sortedHistory}
           getRowKey={item => item.jobId}
+          sortKey={syncSort.column}
+          sortDirection={syncSort.direction}
+          onSort={handleToggleSyncSort}
+          activeFilterCount={syncActiveFilterCount}
+          onResetFilters={() => {
+            setSearchTerm('');
+            setStatusFilter('ALL');
+            setSyncSort({ column: null, direction: null });
+          }}
           emptyState={{
             icon: <Database className="w-7 h-7" />,
             title: 'Belum ada riwayat proses sinkronisasi tercatat',
@@ -451,6 +466,13 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               key: 'jobId',
               label: 'Job ID',
               priority: 'hidden_mobile',
+              sortable: true,
+              headerControl: {
+                kind: 'search',
+                value: searchTerm,
+                onChange: setSearchTerm,
+                placeholder: 'Cari Job ID / Operator...'
+              },
               render: item => (
                 <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">{item.jobId}</span>
               )
@@ -459,6 +481,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               key: 'syncType',
               label: 'Jenis Proses',
               priority: 'hidden_mobile',
+              sortable: true,
               render: item => (
                 <span className="capitalize font-medium text-[#26364A] dark:text-white">
                   {item.syncType.replace('_', ' ')}
@@ -469,6 +492,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               key: 'startedAt',
               label: 'Waktu Mulai',
               priority: 'hidden_mobile',
+              sortable: true,
               render: item => (
                 <span className="text-[#52647A] dark:text-[#CEC0E8] text-[11px] font-mono tabular-nums whitespace-nowrap">
                   {new Date(item.startedAt).toLocaleString('id-ID')}
@@ -480,6 +504,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               label: 'Durasi',
               priority: 'secondary',
               numeric: true,
+              sortable: true,
               render: item => (
                 <span className="text-[#52647A] dark:text-[#CEC0E8] text-[11px] font-mono tabular-nums">
                   {item.durationMs ? `${item.durationMs} ms` : '-'}
@@ -490,6 +515,19 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               key: 'status',
               label: 'Status',
               priority: 'hidden_mobile',
+              sortable: true,
+              headerControl: {
+                kind: 'select',
+                value: statusFilter,
+                allLabel: 'Semua Status',
+                options: [
+                  { value: 'Success', label: 'Success' },
+                  { value: 'Syncing', label: 'Syncing' },
+                  { value: 'Failed', label: 'Failed' },
+                  { value: 'Partial Success', label: 'Partial Success' }
+                ],
+                onChange: setStatusFilter
+              },
               render: item => (
                 <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border ${getStatusBadge(item.status)}`}>
                   {item.status}
@@ -502,6 +540,7 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               priority: 'primary',
               align: 'center',
               numeric: true,
+              sortable: true,
               render: item => (
                 <span className="font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{item.processedCount}</span>
               )
@@ -512,12 +551,14 @@ export const DatabaseSyncMonitoringView: React.FC = () => {
               priority: 'primary',
               align: 'center',
               numeric: true,
+              sortable: true,
               render: item => <span className="font-semibold font-mono tabular-nums text-rose-600">{item.failedCount}</span>
             },
             {
               key: 'initiatedBy',
               label: 'Inisiator',
               priority: 'secondary',
+              sortable: true,
               render: item => (
                 <span className="text-[#26364A] dark:text-[#E8DDFF] text-xs">
                   {item.initiatedBy} {item.initiatedByRole ? `(${item.initiatedByRole})` : ''}

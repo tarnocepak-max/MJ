@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
@@ -6,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { supabaseDb } from '../../services/supabaseDb';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import {
   Wrench,
   CheckCircle2,
@@ -73,6 +75,16 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [uploadingTarget, setUploadingTarget] = useState<'before' | 'after' | null>(null);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const lightboxZ = useModalLayer(Boolean(zoomImage), { tier: 'nested' });
+
+  useEffect(() => {
+    if (!zoomImage) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomImage(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [zoomImage]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'before' | 'after') => {
     const file = e.target.files?.[0];
@@ -539,29 +551,34 @@ export const TechnicalReportForm: React.FC<TechnicalReportFormProps> = ({
         </form>
       )}
 
-      {zoomImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-70 bg-[#0B1220]/85 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
-          onClick={() => setZoomImage(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full max-h-[92dvh] flex flex-col items-center justify-center overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
+      {zoomImage &&
+        (() => {
+          const lightbox = (
+            <div
+              role="dialog"
+              aria-modal="true"
+              style={{ zIndex: lightboxZ }}
+              className="fixed inset-0 bg-[#0B1220]/85 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
               onClick={() => setZoomImage(null)}
-              aria-label="Tutup preview foto"
-              className="absolute top-2.5 right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center bg-[#0F172A]/90 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
             >
-              <X className="w-5 h-5" />
-            </button>
-            <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[82dvh] object-contain rounded-xl" />
-          </div>
-        </div>
-      )}
+              <div
+                className="relative max-w-4xl w-full max-h-[92dvh] flex flex-col items-center justify-center overflow-hidden"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setZoomImage(null)}
+                  aria-label="Tutup preview foto"
+                  className="absolute top-2.5 right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center bg-[#0F172A]/90 text-white rounded-full hover:bg-rose-600 transition-colors z-10 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <img src={getSafePreviewUrl(zoomImage)} alt="Bukti Foto Zoom" className="max-w-full max-h-[82dvh] object-contain rounded-xl" />
+              </div>
+            </div>
+          );
+          return typeof document !== 'undefined' ? createPortal(lightbox, document.body) : lightbox;
+        })()}
     </div>
   );
 };

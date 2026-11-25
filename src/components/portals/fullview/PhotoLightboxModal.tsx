@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ExternalLink, RefreshCw, Satellite, Trash2, X } from 'lucide-react';
 import { TechnicalPhotoSlot } from '../../../types/index.ts';
 import { getSafePreviewUrl } from '../../../services/storageCompatibility';
@@ -10,6 +11,7 @@ import {
 } from '../../../services/mapsService';
 import { GeoLocationMiniMap } from '../../maps/GeoLocationMiniMap';
 import { PhotoSlotDefinition } from './types';
+import { useModalLayer } from '../../../hooks/useModalLayer';
 
 interface PhotoLightboxModalProps {
   imageUrl: string | null;
@@ -30,6 +32,8 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
   onRetake,
   onDelete
 }) => {
+  const layerZ = useModalLayer(Boolean(imageUrl), { tier: 'nested' });
+
   useEffect(() => {
     if (!imageUrl) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -61,12 +65,13 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
       : '';
   const metaLine = [accLabel, altLabel, timeLabel].filter(Boolean).join(' • ');
 
-  return (
+  const lightboxContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={titleLabel}
-      className="fixed inset-0 z-70 bg-slate-900/55 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      style={{ zIndex: layerZ }}
+      className="fixed inset-0 bg-slate-900/55 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -153,7 +158,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#DDE6F0] dark:border-[#e8ddff] bg-white/95 dark:bg-white flex flex-wrap gap-2 shrink-0">
+        <div className="px-4 py-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] border-t border-[#DDE6F0] dark:border-[#e8ddff] bg-white/95 dark:bg-white flex flex-wrap gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -191,4 +196,6 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(lightboxContent, document.body) : lightboxContent;
 };

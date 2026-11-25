@@ -1,6 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { useApp } from '../../context/AppContext';
+import { useModalLayer } from '../../hooks/useModalLayer';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import {
   Wifi,
   WifiOff,
@@ -57,6 +60,18 @@ export const OfflineSyncModal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'status' | 'queue' | 'history' | 'backup'>('status');
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const layerZ = useModalLayer(isOfflineModalOpen, { tier: 'modal' });
+  const vv = useVisualViewportModal(isOfflineModalOpen, dialogRef);
+
+  useEffect(() => {
+    if (!isOfflineModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOfflineModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOfflineModalOpen, setIsOfflineModalOpen]);
 
   if (!isOfflineModalOpen) return null;
 
@@ -129,9 +144,23 @@ export const OfflineSyncModal: React.FC = () => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[92dvh] rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+  const modalContent = (
+    <div
+      style={{
+        zIndex: layerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      onClick={() => setIsOfflineModalOpen(false)}
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
+        className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[92dvh] rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden"
+      >
         {/* Header */}
         <div className="px-4 sm:px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 bg-slate-50/80 dark:bg-slate-800/50 shrink-0">
           <div className="flex items-center gap-3">
@@ -643,7 +672,7 @@ export const OfflineSyncModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between gap-3 text-xs shrink-0">
+        <div className="px-4 sm:px-5 py-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between gap-3 text-xs shrink-0">
           <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px] min-w-0 truncate">
             <HardDrive className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">MoraJaws Offline Storage Engine v1.0 (IndexedDB)</span>
@@ -660,4 +689,6 @@ export const OfflineSyncModal: React.FC = () => {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

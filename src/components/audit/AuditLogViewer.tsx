@@ -20,7 +20,10 @@ import {
   GlobalConfigVersionItem
 } from '../../services/globalConfigService';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
-import { FilterToolbar } from '../common/FilterToolbar';
+import {
+  HeaderCategoryDropdown,
+  HeaderSortButton
+} from '../common/InteractiveTableHeader';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { AuditLog } from '../../types';
@@ -49,9 +52,16 @@ export const AuditLogViewer: React.FC = () => {
   const { isCompactUI } = useResponsiveViewport();
 
   const [activeSubTab, setActiveSubTab] = useState<'audit_trail' | 'config_versions'>('audit_trail');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [actionSearch, setActionSearch] = useState('');
+  const [detailsSearch, setDetailsSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
   const [selectedEntity, setSelectedEntity] = useState('ALL');
+  const [selectedRole, setSelectedRole] = useState('ALL');
+  const [exactDate, setExactDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [sortState, setSortState] = useState<SortState>({ column: 'timestamp', direction: 'desc' });
+  const [versionSortState, setVersionSortState] = useState<SortState>({ column: 'created_at', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'ALL'>(25);
 
@@ -123,26 +133,74 @@ export const AuditLogViewer: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleVersionSort = (colKey: string) => {
+    setVersionSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, colKey);
+      return { column: nextDir ? colKey : null, direction: nextDir };
+    });
+  };
+
+  const sortedVersions = useMemo(() => {
+    return sortDataArray(configVersions, versionSortState, (ver, col) => (ver as any)[col]);
+  }, [configVersions, versionSortState]);
+
+  const roleOptions = useMemo(() => {
+    const roles = new Set<string>();
+    auditLogs.forEach(l => {
+      if (l.userRole) roles.add(String(l.userRole));
+    });
+    return Array.from(roles).sort();
+  }, [auditLogs]);
+
   const filteredLogs = useMemo(() => {
     return auditLogs.filter(log => {
       if (selectedEntity !== 'ALL' && log.entity !== selectedEntity) return false;
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        return (
-          String(log.action || '').toLowerCase().includes(q) ||
-          String(log.details || '').toLowerCase().includes(q) ||
-          String(log.performedBy || '').toLowerCase().includes(q)
-        );
+      if (selectedRole !== 'ALL' && String(log.userRole || '') !== selectedRole) return false;
+      const logDate = String(log.timestamp || '').slice(0, 10);
+      if (exactDate && logDate !== exactDate) return false;
+      if (dateFrom && (!logDate || logDate < dateFrom)) return false;
+      if (dateTo && (!logDate || logDate > dateTo)) return false;
+      if (actionSearch.trim()) {
+        const q = actionSearch.toLowerCase().trim();
+        if (!String(log.action || '').toLowerCase().includes(q)) return false;
+      }
+      if (detailsSearch.trim()) {
+        const q = detailsSearch.toLowerCase().trim();
+        if (!String(log.details || '').toLowerCase().includes(q)) return false;
+      }
+      if (userSearch.trim()) {
+        const q = userSearch.toLowerCase().trim();
+        if (!String(log.performedBy || '').toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [auditLogs, selectedEntity, searchTerm]);
+  }, [auditLogs, selectedEntity, selectedRole, exactDate, dateFrom, dateTo, actionSearch, detailsSearch, userSearch]);
 
   const sortedLogs = useMemo(() => {
     return sortDataArray(filteredLogs, sortState, (log, col) => {
       return (log as any)[col];
     });
   }, [filteredLogs, sortState]);
+
+  const activeAuditFilterCount =
+    (selectedEntity !== 'ALL' ? 1 : 0) +
+    (selectedRole !== 'ALL' ? 1 : 0) +
+    (exactDate || dateFrom || dateTo ? 1 : 0) +
+    (actionSearch.trim() ? 1 : 0) +
+    (detailsSearch.trim() ? 1 : 0) +
+    (userSearch.trim() ? 1 : 0);
+
+  const resetAuditFilters = () => {
+    setSelectedEntity('ALL');
+    setSelectedRole('ALL');
+    setExactDate('');
+    setDateFrom('');
+    setDateTo('');
+    setActionSearch('');
+    setDetailsSearch('');
+    setUserSearch('');
+    setCurrentPage(1);
+  };
 
   const totalPages = useMemo(() => {
     if (pageSize === 'ALL') return 1;
@@ -165,6 +223,18 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'secondary',
         numeric: true,
         tdClassName: 'whitespace-nowrap text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums',
+        headerControl: {
+          type: 'date',
+          exactDate,
+          dateFrom,
+          dateTo,
+          onChangeDates: ({ exactDate: ed, dateFrom: df, dateTo: dt }) => {
+            setExactDate(ed);
+            setDateFrom(df);
+            setDateTo(dt);
+            setCurrentPage(1);
+          }
+        },
         render: log => new Date(log.timestamp).toLocaleString('id-ID')
       },
       {
@@ -173,6 +243,15 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'hidden_mobile',
         tdClassName: 'font-bold text-[#26364A] dark:text-white whitespace-nowrap',
+        headerControl: {
+          type: 'search',
+          value: actionSearch,
+          onChange: v => {
+            setActionSearch(v);
+            setCurrentPage(1);
+          },
+          placeholder: 'Cari action...'
+        },
         render: log => log.action
       },
       {
@@ -181,6 +260,26 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         tdClassName: 'whitespace-nowrap font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] uppercase',
+        headerControl: {
+          type: 'select',
+          value: selectedEntity,
+          defaultValue: 'ALL',
+          allLabel: 'All Entities',
+          options: [
+            { value: 'ALL', label: 'All Entities' },
+            { value: 'global_config', label: 'Global Configurations' },
+            { value: 'ticket', label: 'Ticket Work Orders' },
+            { value: 'template', label: 'WhatsApp Templates' },
+            { value: 'workflow', label: 'Workflows' },
+            { value: 'ui_config', label: 'UI Configurations' },
+            { value: 'import_batch', label: 'Import Batches' },
+            { value: 'auth', label: 'Authentication & Roles' }
+          ],
+          onChange: v => {
+            setSelectedEntity(v);
+            setCurrentPage(1);
+          }
+        },
         render: log => log.entity
       },
       {
@@ -189,6 +288,15 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'primary',
         tdClassName: 'text-[#52647A] dark:text-[#D9CCF2] max-w-md break-words',
+        headerControl: {
+          type: 'search',
+          value: detailsSearch,
+          onChange: v => {
+            setDetailsSearch(v);
+            setCurrentPage(1);
+          },
+          placeholder: 'Cari rincian audit...'
+        },
         render: log => <span className="break-words">{log.details}</span>
       },
       {
@@ -197,6 +305,15 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         tdClassName: 'font-semibold text-[#26364A] dark:text-white whitespace-nowrap',
+        headerControl: {
+          type: 'search',
+          value: userSearch,
+          onChange: v => {
+            setUserSearch(v);
+            setCurrentPage(1);
+          },
+          placeholder: 'Cari pelaku...'
+        },
         render: log => log.performedBy
       },
       {
@@ -205,10 +322,34 @@ export const AuditLogViewer: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         tdClassName: 'font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] capitalize whitespace-nowrap',
+        headerControl: {
+          type: 'select',
+          value: selectedRole,
+          defaultValue: 'ALL',
+          allLabel: 'Semua Role',
+          options: [
+            { value: 'ALL', label: 'Semua Role' },
+            ...roleOptions.map(r => ({ value: r, label: r.replace('_', ' ') }))
+          ],
+          onChange: v => {
+            setSelectedRole(v);
+            setCurrentPage(1);
+          }
+        },
         render: log => String(log.userRole || '').replace('_', ' ')
       }
     ],
-    []
+    [
+      exactDate,
+      dateFrom,
+      dateTo,
+      actionSearch,
+      selectedEntity,
+      detailsSearch,
+      userSearch,
+      selectedRole,
+      roleOptions
+    ]
   );
 
   if (!canViewAuditLogs) {
@@ -315,44 +456,6 @@ export const AuditLogViewer: React.FC = () => {
 
       {activeSubTab === 'audit_trail' ? (
         <div className="space-y-4">
-          <FilterToolbar
-            searchValue={searchTerm}
-            onSearchChange={val => {
-              setSearchTerm(val);
-              setCurrentPage(1);
-            }}
-            searchPlaceholder="Cari action, details, atau user..."
-            activeFilterCount={selectedEntity !== 'ALL' ? 1 : 0}
-            onResetFilters={() => {
-              setSearchTerm('');
-              setSelectedEntity('ALL');
-              setCurrentPage(1);
-            }}
-          >
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8] shrink-0">
-                Entity:
-              </label>
-              <select
-                value={selectedEntity}
-                onChange={e => {
-                  setSelectedEntity(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="tactile-debossed-input flex-1 sm:w-56 px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-xs font-semibold text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-              >
-                <option value="ALL">All Entities</option>
-                <option value="global_config">Global Configurations</option>
-                <option value="ticket">Ticket Work Orders</option>
-                <option value="template">WhatsApp Templates</option>
-                <option value="workflow">Workflows</option>
-                <option value="ui_config">UI Configurations</option>
-                <option value="import_batch">Import Batches</option>
-                <option value="auth">Authentication &amp; Roles</option>
-              </select>
-            </div>
-          </FilterToolbar>
-
           <ResponsiveDataTable<AuditLog>
             data={paginatedLogs}
             columns={auditColumns}
@@ -360,6 +463,8 @@ export const AuditLogViewer: React.FC = () => {
             sortKey={sortState.column}
             sortDirection={sortState.direction}
             onSort={handleSort}
+            activeFilterCount={activeAuditFilterCount}
+            onResetFilters={activeAuditFilterCount > 0 ? resetAuditFilters : undefined}
             mobileTitle={log => log.action}
             mobileSubtitle={log => `${log.performedBy} • ${new Date(log.timestamp).toLocaleString('id-ID')}`}
             mobileStatus={log => (
@@ -393,27 +498,15 @@ export const AuditLogViewer: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-              <label className="font-bold text-[#26364A] dark:text-[#E8DDFF] shrink-0">Kunci Konfigurasi:</label>
-              <select
-                value={selectedConfigKey}
-                onChange={e => setSelectedConfigKey(e.target.value)}
-                className="tactile-debossed-input w-full sm:w-auto px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-              >
-                {CONFIG_KEY_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs px-1">
+            <span className="font-semibold text-[#52647A] dark:text-[#CEC0E8]">
+              Filter Kunci Konfigurasi tersedia langsung pada header kolom tabel.
+            </span>
             <button
               type="button"
               onClick={fetchVersions}
               disabled={versionsLoading}
-              className="btn-3d-lilac px-3.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="btn-3d-lilac px-3.5 py-2 min-h-[40px] sm:min-h-[34px] rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${versionsLoading ? 'animate-spin' : ''}`} />
               <span>Muat Ulang Versi</span>
@@ -541,10 +634,43 @@ export const AuditLogViewer: React.FC = () => {
                 <thead className="bg-[#EDF3F8] dark:bg-[#120926] text-[11px] font-bold text-[#26364A] dark:text-[#EADFFF] border-b border-[#DDE6F0] dark:border-transparent uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-3 w-8"></th>
-                    <th className="py-3 px-3">Waktu</th>
-                    <th className="py-3 px-3">Kunci Konfigurasi</th>
-                    <th className="py-3 px-3">Versi</th>
-                    <th className="py-3 px-3">Aksi</th>
+                    <th className="py-3 px-3">
+                      <HeaderSortButton
+                        label="Waktu"
+                        sortActive={versionSortState.column === 'created_at'}
+                        sortDir={versionSortState.column === 'created_at' ? versionSortState.direction : null}
+                        onCycleSort={() => handleVersionSort('created_at')}
+                      />
+                    </th>
+                    <th className="py-3 px-3">
+                      <HeaderCategoryDropdown
+                        label="Kunci Konfigurasi"
+                        value={selectedConfigKey}
+                        defaultValue="ALL"
+                        allLabel="Semua Kunci Konfigurasi"
+                        options={CONFIG_KEY_OPTIONS}
+                        onChange={setSelectedConfigKey}
+                        sortActive={versionSortState.column === 'config_key'}
+                        sortDir={versionSortState.column === 'config_key' ? versionSortState.direction : null}
+                        onCycleSort={() => handleVersionSort('config_key')}
+                      />
+                    </th>
+                    <th className="py-3 px-3">
+                      <HeaderSortButton
+                        label="Versi"
+                        sortActive={versionSortState.column === 'version'}
+                        sortDir={versionSortState.column === 'version' ? versionSortState.direction : null}
+                        onCycleSort={() => handleVersionSort('version')}
+                      />
+                    </th>
+                    <th className="py-3 px-3">
+                      <HeaderSortButton
+                        label="Aksi"
+                        sortActive={versionSortState.column === 'action'}
+                        sortDir={versionSortState.column === 'action' ? versionSortState.direction : null}
+                        onCycleSort={() => handleVersionSort('action')}
+                      />
+                    </th>
                     <th className="py-3 px-3">Diubah Oleh</th>
                     <th className="py-3 px-3">Status</th>
                     <th className="py-3 px-3 text-right">Pemulihan</th>
@@ -557,14 +683,14 @@ export const AuditLogViewer: React.FC = () => {
                         Memuat riwayat versi konfigurasi dari database...
                       </td>
                     </tr>
-                  ) : configVersions.length === 0 ? (
+                  ) : sortedVersions.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-[#52647A] dark:text-[#CEC0E8]">
                         Belum ada snapshot riwayat versi untuk kunci ini.
                       </td>
                     </tr>
                   ) : (
-                    configVersions.map(ver => {
+                    sortedVersions.map(ver => {
                       const isExpanded = expandedVersionId === ver.id;
                       return (
                         <React.Fragment key={ver.id}>

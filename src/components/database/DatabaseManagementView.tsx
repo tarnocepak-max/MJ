@@ -42,6 +42,7 @@ import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataT
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { DataDeletionManagementView } from './DataDeletionManagementView';
 import { DeletionNavContext } from '../../services/deletionManagementService';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 export type DatabaseSubmenu =
   | 'overview'
@@ -90,9 +91,13 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
     initialDeletionContext || null
   );
   const [searchWo, setSearchWo] = useState('');
+  const [searchCustomer, setSearchCustomer] = useState('');
   const [selectedContractor, setSelectedContractor] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedAppointmentDate, setSelectedAppointmentDate] = useState('');
+  const [appointmentDateFrom, setAppointmentDateFrom] = useState('');
+  const [appointmentDateTo, setAppointmentDateTo] = useState('');
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [editForm, setEditForm] = useState<Partial<Ticket>>({});
   const [auditReport, setAuditReport] = useState<DuplicateAuditReport | null>(null);
@@ -248,27 +253,74 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
     return nonDeletedTickets.filter(t => {
       if (searchWo.trim()) {
         const query = searchWo.toLowerCase().trim();
-        const matchWo = String(t.woNumber || '').toLowerCase().includes(query);
+        if (!String(t.woNumber || '').toLowerCase().includes(query)) return false;
+      }
+      if (searchCustomer.trim()) {
+        const query = searchCustomer.toLowerCase().trim();
         const matchCust = String(t.customerName || '').toLowerCase().includes(query);
         const matchCid = String(t.idCustomer || t.customerId || '').toLowerCase().includes(query);
-        if (!matchWo && !matchCust && !matchCid) return false;
+        if (!matchCust && !matchCid) return false;
       }
       if (selectedContractor !== 'all') {
-        const cName = String(t.contactorName || t.contractorName || '').toLowerCase();
-        if (!cName.includes(selectedContractor.toLowerCase())) return false;
+        const cName = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+        if (cName !== selectedContractor.toLowerCase()) return false;
       }
       if (selectedStatus !== 'all') {
         if (t.statusWOInstaller !== selectedStatus && t.statusWOAgent !== selectedStatus) return false;
       }
-      if (selectedAppointmentDate) {
+      if (selectedAppointmentDate || appointmentDateFrom || appointmentDateTo) {
         const raw = t.appointmentDate || '';
         const parsed = parseAppointmentDate(raw);
-        const ticketDate = parsed.date || (raw.length >= 10 ? raw.slice(0, 10) : raw.trim());
-        if (ticketDate !== selectedAppointmentDate && !ticketDate.startsWith(selectedAppointmentDate)) return false;
+        const ticketDate = parsed.date || (raw.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '');
+        if (!ticketDate) return false;
+        if (selectedAppointmentDate && ticketDate !== selectedAppointmentDate) return false;
+        if (appointmentDateFrom && ticketDate < appointmentDateFrom) return false;
+        if (appointmentDateTo && ticketDate > appointmentDateTo) return false;
       }
       return true;
     });
-  }, [nonDeletedTickets, searchWo, selectedContractor, selectedStatus, selectedAppointmentDate]);
+  }, [nonDeletedTickets, searchWo, searchCustomer, selectedContractor, selectedStatus, selectedAppointmentDate, appointmentDateFrom, appointmentDateTo]);
+
+  const sortedWODatabase = useMemo(() => {
+    return sortDataArray(filteredWODatabase, sortState, (t: Ticket, col: string) => {
+      if (col === 'woNumber') return t.woNumber;
+      if (col === 'appointmentDate') {
+        const parsed = parseAppointmentDate(t.appointmentDate || '');
+        return parsed.date || t.appointmentDate || null;
+      }
+      if (col === 'customer') return t.customerName || t.idCustomer || t.customerId || null;
+      if (col === 'areaContractor') return `${t.area || ''} ${t.contactorName || t.contractorName || ''}`.trim() || null;
+      if (col === 'installer') return t.installerName || null;
+      if (col === 'status') return t.statusWOInstaller || null;
+      return (t as any)[col];
+    });
+  }, [filteredWODatabase, sortState]);
+
+  const handleSortWo = (colKey: string) => {
+    setSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, colKey);
+      return { column: nextDir ? colKey : null, direction: nextDir };
+    });
+    setWoPage(1);
+  };
+
+  const woActiveFilterCount =
+    (searchWo.trim() ? 1 : 0) +
+    (searchCustomer.trim() ? 1 : 0) +
+    (selectedContractor !== 'all' ? 1 : 0) +
+    (selectedStatus !== 'all' ? 1 : 0) +
+    (selectedAppointmentDate || appointmentDateFrom || appointmentDateTo ? 1 : 0);
+
+  const resetWoFilters = () => {
+    setSearchWo('');
+    setSearchCustomer('');
+    setSelectedContractor('all');
+    setSelectedStatus('all');
+    setSelectedAppointmentDate('');
+    setAppointmentDateFrom('');
+    setAppointmentDateTo('');
+    setWoPage(1);
+  };
 
   // Import history from auditLogs
   const importHistoryLogs = useMemo(() => {
@@ -527,85 +579,40 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
       {/* SUBMENU 2: WO MASTER DATABASE */}
       {activeSubmenu === 'wo_database' && (
         <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="card-3d-lavender p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#766B83] shrink-0" />
-              <input
-                type="text"
-                value={searchWo}
-                onChange={e => setSearchWo(e.target.value)}
-                placeholder="Cari WO Number, Customer ID, Nama Pelanggan..."
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={selectedContractor}
-                onChange={e => setSelectedContractor(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
-              >
-                <option value="all">Semua Kontraktor</option>
-                {contractors.map((c, cIdx) => (
-                  <option key={`db-contractor-${c.id || c.name}-${cIdx}`} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedStatus}
-                onChange={e => setSelectedStatus(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
-              >
-                <option value="all">Semua Status</option>
-                <option value="Unassigned">Unassigned</option>
-                <option value="Assigned">Assigned</option>
-                <option value="En Route">En Route</option>
-                <option value="On Site">On Site</option>
-                <option value="Completed">Completed</option>
-                <option value="Pending Technical">Pending Technical</option>
-                <option value="Failed / Cancelled">Failed / Cancelled</option>
-              </select>
-
-              <input
-                type="date"
-                value={selectedAppointmentDate}
-                onChange={e => setSelectedAppointmentDate(e.target.value)}
-                className="tactile-debossed-input px-3 py-2 rounded-xl text-[#26364A] dark:text-white font-semibold"
-                title="Filter Appointment Date"
-              />
-
-              {(searchWo || selectedContractor !== 'all' || selectedStatus !== 'all' || selectedAppointmentDate) && (
-                <button
-                  onClick={() => {
-                    setSearchWo('');
-                    setSelectedContractor('all');
-                    setSelectedStatus('all');
-                    setSelectedAppointmentDate('');
-                  }}
-                  className="btn-3d-lilac px-3 py-2 rounded-xl font-bold cursor-pointer"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Table */}
+          {/* Table with Embedded Interactive Column Headers */}
           {(() => {
-            const effectivePageSize = woPageSize === 'ALL' ? Math.max(1, filteredWODatabase.length) : woPageSize;
-            const totalWoPages = Math.max(1, Math.ceil(filteredWODatabase.length / effectivePageSize));
+            const effectivePageSize = woPageSize === 'ALL' ? Math.max(1, sortedWODatabase.length) : woPageSize;
+            const totalWoPages = Math.max(1, Math.ceil(sortedWODatabase.length / effectivePageSize));
             const safeWoPage = Math.min(woPage, totalWoPages);
             const pagedWOs =
               woPageSize === 'ALL'
-                ? filteredWODatabase
-                : filteredWODatabase.slice((safeWoPage - 1) * effectivePageSize, safeWoPage * effectivePageSize);
+                ? sortedWODatabase
+                : sortedWODatabase.slice((safeWoPage - 1) * effectivePageSize, safeWoPage * effectivePageSize);
+
+            const contractorFilterOptions = Array.from(
+              new Set([
+                ...contractors.map(c => c.name?.trim()).filter(Boolean) as string[],
+                ...nonDeletedTickets.map(t => (t.contactorName || t.contractorName || '').trim()).filter(Boolean)
+              ])
+            )
+              .sort((a, b) => a.localeCompare(b))
+              .map(name => ({ value: name, label: name }));
 
             const woColumns: ResponsiveColumn<Ticket>[] = [
               {
                 key: 'woNumber',
                 label: 'WO Number',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: searchWo,
+                  onChange: val => {
+                    setSearchWo(val);
+                    setWoPage(1);
+                  },
+                  placeholder: 'Cari WO Number...'
+                },
                 render: ticket => (
                   <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
                     {ticket.woNumber}
@@ -616,6 +623,20 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 key: 'appointmentDate',
                 label: 'Appointment Date',
                 priority: 'primary',
+                sortable: true,
+                headerControl: {
+                  kind: 'date',
+                  exactDate: selectedAppointmentDate,
+                  dateFrom: appointmentDateFrom,
+                  dateTo: appointmentDateTo,
+                  supportsExactDate: true,
+                  onChangeDates: next => {
+                    setSelectedAppointmentDate(next.exactDate);
+                    setAppointmentDateFrom(next.dateFrom);
+                    setAppointmentDateTo(next.dateTo);
+                    setWoPage(1);
+                  }
+                },
                 render: ticket => (
                   <div>
                     <span className="font-semibold font-mono tabular-nums text-[#26364A] dark:text-white">
@@ -629,6 +650,16 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 key: 'customer',
                 label: 'Customer ID & Nama',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: searchCustomer,
+                  onChange: val => {
+                    setSearchCustomer(val);
+                    setWoPage(1);
+                  },
+                  placeholder: 'Cari Nama / Customer ID...'
+                },
                 render: ticket => (
                   <div>
                     <div className="font-bold text-[#26364A] dark:text-white">{ticket.customerName}</div>
@@ -642,6 +673,18 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 key: 'areaContractor',
                 label: 'Area & Kontraktor',
                 priority: 'secondary',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: selectedContractor,
+                  defaultValue: 'all',
+                  allLabel: 'Semua Kontraktor',
+                  options: contractorFilterOptions,
+                  onChange: val => {
+                    setSelectedContractor(val);
+                    setWoPage(1);
+                  }
+                },
                 render: ticket => (
                   <div>
                     <div className="font-semibold text-[#26364A] dark:text-white">{ticket.area || '-'}</div>
@@ -655,6 +698,7 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 key: 'installer',
                 label: 'Teknisi (Installer)',
                 priority: 'primary',
+                sortable: true,
                 render: ticket =>
                   ticket.installerName ? (
                     <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -669,6 +713,27 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 key: 'status',
                 label: 'Status',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: selectedStatus,
+                  defaultValue: 'all',
+                  allLabel: 'Semua Status',
+                  options: [
+                    { value: 'Unassigned', label: 'Unassigned' },
+                    { value: 'Assigned', label: 'Assigned' },
+                    { value: 'En Route', label: 'En Route' },
+                    { value: 'On Site', label: 'On Site' },
+                    { value: 'In Progress', label: 'In Progress' },
+                    { value: 'Completed', label: 'Completed' },
+                    { value: 'Pending Technical', label: 'Pending Technical' },
+                    { value: 'Failed / Cancelled', label: 'Failed / Cancelled' }
+                  ],
+                  onChange: val => {
+                    setSelectedStatus(val);
+                    setWoPage(1);
+                  }
+                },
                 render: ticket => <StatusInstallerBadge status={ticket.statusWOInstaller} />
               }
             ];
@@ -678,6 +743,11 @@ export const DatabaseManagementView: React.FC<DatabaseManagementViewProps> = ({
                 data={pagedWOs}
                 columns={woColumns}
                 getRowKey={t => t.id}
+                sortKey={sortState.column}
+                sortDirection={sortState.direction}
+                onSort={handleSortWo}
+                activeFilterCount={woActiveFilterCount}
+                onResetFilters={resetWoFilters}
                 emptyState={{
                   title: 'Tidak ada record WO ditemukan',
                   description: 'Tidak ada record WO yang sesuai dengan filter pencarian.'

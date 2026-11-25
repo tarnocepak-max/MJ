@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Ticket, GeotagStatus, TechnicalPhotoSlotKey, DispatchApprovalWoAgentStatus } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import { StatusAgentBadge, StatusApprovalBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
@@ -121,7 +123,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
-  const vv = useVisualViewportModal(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const vv = useVisualViewportModal(isOpen, dialogRef);
+  const modalLayerZ = useModalLayer(isOpen, { tier: 'modal' });
 
   const canOpenDataDeletion =
     currentUser.role === 'super_admin' ||
@@ -167,6 +171,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   // Evidence lightbox & error fallback
   const [zoomPhoto, setZoomPhoto] = useState<EvidencePhotoItem | null>(null);
+  const lightboxLayerZ = useModalLayer(Boolean(isOpen && zoomPhoto), { tier: 'nested' });
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [isHistoryOpen, setIsHistoryOpen] = useState(defaultTab === 'history');
 
@@ -547,14 +552,19 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     { label: 'File Sumber', value: ticket.fileName, mono: true }
   ].filter(f => hasValue(f.value));
 
-  return (
+  const modalContent = (
     <div
-      className={`fixed inset-0 z-60 flex items-start sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
+      style={{
+        zIndex: modalLayerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      className={`fixed inset-0 flex items-start sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/65 backdrop-blur-sm transition-opacity ${
         isCompactUI ? 'p-0' : 'p-2 sm:p-4 lg:p-6'
       }`}
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-ticket-title"
@@ -1832,8 +1842,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-[#DDE6F0] dark:border-[#35105E] shrink-0">
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div className="bg-white dark:bg-[#1E1238] px-4 sm:px-5 py-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-[#DDE6F0] dark:border-[#35105E] shrink-0">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onClose}
@@ -1889,7 +1899,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-70 bg-black/90 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
+          style={{ zIndex: lightboxLayerZ }}
+          className="fixed inset-0 bg-black/90 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
           onClick={() => setZoomPhoto(null)}
         >
           <div
@@ -1950,4 +1961,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       )}
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

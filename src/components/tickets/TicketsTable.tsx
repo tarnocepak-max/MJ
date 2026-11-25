@@ -21,7 +21,6 @@ import { TicketMobileCard } from './TicketMobileCard';
 import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
 import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
 import {
-  Search,
   SlidersHorizontal,
   Download,
   Eye,
@@ -88,6 +87,14 @@ import {
 } from '../../services/woDateFilterEngine';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
 import { LoadingSkeleton } from '../common/LoadingSkeleton';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
 
 const PRIORITY_1_CANONICAL_KEYS = new Set([
   'woNumber',
@@ -255,8 +262,15 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   // Synchronized strictly with global Display Mode (Desktop Mode = Table, Mobile Mode = Cards)
   const effectiveLayout: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
 
-  // Search & 6-Column Filter state
+  // Column Search & Filter state (embedded in table headers)
   const [searchTerm, setSearchTerm] = useState('');
+  const [woSearch, setWoSearch] = useState('');
+  const [idCustSearch, setIdCustSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [installerSearch, setInstallerSearch] = useState('');
+  const [exactAppointmentDate, setExactAppointmentDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedArea, setSelectedArea] = useState('ALL');
   const [selectedContractor, setSelectedContractor] = useState('ALL');
   const [selectedAgentStatus, setSelectedAgentStatus] = useState('ALL');
@@ -473,12 +487,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const isCrossDateSearchEligible =
     currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
 
+  const effectiveCrossDateQuery = searchTerm.trim() || woSearch.trim() || idCustSearch.trim();
+
   const crossDateSearchResults = useMemo(() => {
-    if (isCrossDateSearchEligible && searchTerm.trim()) {
-      return executeSuperadminDispatchSearch(searchTerm, tickets);
+    if (isCrossDateSearchEligible && effectiveCrossDateQuery) {
+      return executeSuperadminDispatchSearch(effectiveCrossDateQuery, tickets);
     }
     return { isSearchActive: false, results: [], resultTickets: [], crossDateCount: 0 };
-  }, [isCrossDateSearchEligible, searchTerm, tickets]);
+  }, [isCrossDateSearchEligible, effectiveCrossDateQuery, tickets]);
 
   const isCrossDateActive = crossDateSearchResults.isSearchActive;
 
@@ -555,6 +571,35 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           return false;
         }
       }
+      if (woSearch.trim()) {
+        if (!String(t.woNumber || '').toLowerCase().includes(woSearch.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (idCustSearch.trim()) {
+        const cid = String(t.idCustomer || t.customerId || '').toLowerCase();
+        if (!cid.includes(idCustSearch.trim().toLowerCase())) return false;
+      }
+      if (customerSearch.trim()) {
+        const qC = customerSearch.trim().toLowerCase();
+        const cName = String(t.customerName || '').toLowerCase();
+        const cPhone = String(t.customerPhone || (t as any).phoneNumber || '').toLowerCase();
+        const cAddr = String(t.streetName || (t as any).customerAddress || '').toLowerCase();
+        if (!cName.includes(qC) && !cPhone.includes(qC) && !cAddr.includes(qC)) return false;
+      }
+      if (installerSearch.trim()) {
+        const qI = installerSearch.trim().toLowerCase();
+        const iName = String(t.installerName || '').toLowerCase();
+        const lName = String(t.leaderName || '').toLowerCase();
+        if (!iName.includes(qI) && !lName.includes(qI)) return false;
+      }
+      if (exactAppointmentDate || dateFrom || dateTo) {
+        const woDateNorm = getTicketAppointmentDate(t) || '';
+        if (!woDateNorm) return false;
+        if (exactAppointmentDate && woDateNorm !== exactAppointmentDate) return false;
+        if (dateFrom && woDateNorm < dateFrom) return false;
+        if (dateTo && woDateNorm > dateTo) return false;
+      }
       return true;
     };
 
@@ -571,7 +616,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       if (showArchived ? !t.isArchived : t.isArchived) return false;
 
       const woDate = getTicketAppointmentDate(t);
-      if (!woDate || woDate !== todayStr) return false;
+      if (!(exactAppointmentDate || dateFrom || dateTo)) {
+        if (!woDate || woDate !== todayStr) return false;
+      } else if (!woDate) {
+        return false;
+      }
 
       if (currentUser?.role === 'leader') {
         const currentLeaderName = (currentUser.name || '').trim().toLowerCase();
@@ -673,6 +722,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     selectedWhatsAppStatus,
     selectedCategory,
     selectedApprovalStatus,
+    woSearch,
+    idCustSearch,
+    customerSearch,
+    installerSearch,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo,
     activeKpiDrilldown,
     searchTerm
   ]);
@@ -686,11 +742,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       (item, col) => {
         if (col === 'woNumber') return item.woNumber;
         if (col === 'idCustomer') return item.idCustomer;
-        if (col === 'date' || col === 'appointmentDate') return item.appointmentDate || '';
+        if (col === 'date' || col === 'appointmentDate') return getTicketAppointmentDate(item) || item.appointmentDate || '';
         if (col === 'statusWOInstaller') return item.statusWOInstaller;
         if (col === 'statusWOAgent') return item.statusWOAgent;
         if (col === 'slotTime') return item.slotTime;
-        return (item as any)[col];
+        return getTicketColumnValue(item, col);
       }
     );
   }, [filteredTickets, sortField, sortDirection]);
@@ -827,10 +883,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       return;
     }
     if (selectedButuhApprovalTickets.length === 0) {
-      // Auto-select all visible BUTUH APPROVAL rows on current page or filter
-      const candidates = sortedTickets.filter(t => t.approvalStatus === 'BUTUH APPROVAL');
+      // Only select matching candidates on the current active page (never across other pages)
+      const candidates = paginatedTickets.filter(t => t.approvalStatus === 'BUTUH APPROVAL');
       if (candidates.length === 0) {
-        toast.info('Tidak ada Work Order berstatus BUTUH APPROVAL pada filter saat ini.');
+        toast.info('Tidak ada Work Order berstatus BUTUH APPROVAL pada halaman aktif.');
         return;
       }
       setSelectedIds(new Set(candidates.map(t => t.id)));
@@ -1011,20 +1067,54 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       : '0.0';
   const canApproveInline = currentUser.role === 'dispatch' || currentUser.role === 'super_admin';
 
-  const hasActiveFilters =
-    Boolean(activeKpiDrilldown) ||
-    selectedArea !== 'ALL' ||
-    selectedContractor !== 'ALL' ||
-    selectedCategory !== 'ALL' ||
-    selectedInstallerStatus !== 'ALL' ||
-    selectedApprovalStatus !== 'ALL' ||
-    selectedAgentStatus !== 'ALL' ||
-    selectedWhatsAppStatus !== 'ALL' ||
-    Boolean(searchTerm.trim());
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (activeKpiDrilldown) count++;
+    if (selectedArea !== 'ALL') count++;
+    if (selectedContractor !== 'ALL') count++;
+    if (selectedCategory !== 'ALL') count++;
+    if (selectedInstallerStatus !== 'ALL') count++;
+    if (selectedApprovalStatus !== 'ALL') count++;
+    if (selectedAgentStatus !== 'ALL') count++;
+    if (selectedWhatsAppStatus !== 'ALL') count++;
+    if (searchTerm.trim()) count++;
+    if (woSearch.trim()) count++;
+    if (idCustSearch.trim()) count++;
+    if (customerSearch.trim()) count++;
+    if (installerSearch.trim()) count++;
+    if (exactAppointmentDate || dateFrom || dateTo) count++;
+    return count;
+  }, [
+    activeKpiDrilldown,
+    selectedArea,
+    selectedContractor,
+    selectedCategory,
+    selectedInstallerStatus,
+    selectedApprovalStatus,
+    selectedAgentStatus,
+    selectedWhatsAppStatus,
+    searchTerm,
+    woSearch,
+    idCustSearch,
+    customerSearch,
+    installerSearch,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo
+  ]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   const resetAllFilters = () => {
     setActiveKpiDrilldown(null);
     setSearchTerm('');
+    setWoSearch('');
+    setIdCustSearch('');
+    setCustomerSearch('');
+    setInstallerSearch('');
+    setExactAppointmentDate('');
+    setDateFrom('');
+    setDateTo('');
     setSelectedArea('ALL');
     setSelectedContractor('ALL');
     setSelectedCategory('ALL');
@@ -1769,74 +1859,29 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         </div>
       </section>
 
-      {/* 2. COMPREHENSIVE FILTER & OPERATIONAL TOOLBAR */}
-      <section className="bg-white/90 dark:bg-[#1E1238] backdrop-blur-md rounded-xl p-3.5 shadow-xs space-y-3 border border-[#DDE6F0] dark:border-[#35105E]">
-        {/* Search Row & Appointment Scope + Live SSE */}
+      {/* 2. SLIM OPERATIONAL UTILITY HEADER (Header-embedded filters live inside <thead>) */}
+      <section className="bg-white/90 dark:bg-[#1E1238] backdrop-blur-md rounded-xl p-3.5 shadow-xs space-y-2.5 border border-[#DDE6F0] dark:border-[#35105E]">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 justify-between">
-          <div className="flex items-center gap-2 flex-1 max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#8B8495] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder={
-                  isCrossDateSearchEligible
-                    ? 'Cari Nomor WO / ID Customer 7-digit...'
-                    : 'Cari WO Hari Ini (Nomor WO, ID, Nama, Teknisi)...'
-                }
-                value={searchTerm}
-                onChange={e => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[42px] sm:min-h-[36px] pl-9 pr-20 py-2 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] dark:placeholder:text-[#8B8495] border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:bg-white dark:focus:bg-[#22123F] focus:border-[#6657C8] dark:focus:border-[#A78BFA] focus:ring-2 focus:ring-[#6657C8]/25 dark:focus:ring-[#A78BFA]/40 transition-all"
-              />
-              <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
-                {searchTerm ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 rounded bg-[#EAE8FF] dark:bg-[#35105E] font-mono text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] border border-[#DCE3F2] dark:border-[#5B35B1] shadow-2xs cursor-pointer hover:bg-[#DCE3F2] dark:hover:bg-[#E9D5FF]"
-                  >
-                    Clear
-                  </button>
-                ) : (
-                  !isCompactUI && (
-                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] border border-[#DCE3F2] dark:border-[#5B35B1] text-[10px] font-mono font-semibold text-[#5145A6] dark:text-[#D8B4FE]">
-                      /
-                    </kbd>
-                  )
-                )}
-              </div>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-2">
             {isCompactUI && (
               <button
                 type="button"
                 onClick={() => setShowFilterSheet(true)}
                 aria-label="Buka Filter Lanjutan"
-                className={`min-h-[44px] px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-all ${
-                  selectedArea !== 'ALL' ||
-                  selectedContractor !== 'ALL' ||
-                  selectedAgentStatus !== 'ALL' ||
-                  selectedInstallerStatus !== 'ALL' ||
-                  selectedWhatsAppStatus !== 'ALL' ||
-                  selectedApprovalStatus !== 'ALL' ||
-                  selectedCategory !== 'ALL'
-                    ? 'btn-3d-primary'
-                    : 'btn-3d-lilac'
+                className={`min-h-[40px] px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer transition-all ${
+                  hasActiveFilters ? 'btn-3d-primary' : 'btn-3d-lilac'
                 }`}
               >
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
+                {activeFilterCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-mono tabular-nums">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
             )}
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
             <div className="btn-3d-ceramic flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[#26364A] dark:text-[#E9D5FF]">
               <Calendar className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#A78BFA] shrink-0" />
               <span className="text-[11px] font-bold whitespace-nowrap tabular-nums">
@@ -1874,340 +1919,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 <RefreshCw className="w-3 h-3" />
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* Cross-Date Search Banner */}
-        {isCrossDateActive && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#EAE8FF]/80 dark:bg-[#2A174E] border border-[#DCE3F2] dark:border-[#5B35B1] text-[#5145A6] dark:text-[#E9D5FF] text-xs">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#6657C8] dark:text-[#D8B4FE] shrink-0" />
-              <span>
-                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan{' '}
-                <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{searchTerm}&rdquo;.
-                {crossDateSearchResults.crossDateCount > 0 && (
-                  <span className="ml-1 opacity-85">
-                    ({crossDateSearchResults.crossDateCount} WO di luar tanggal hari ini)
-                  </span>
-                )}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setCurrentPage(1);
-              }}
-              className="btn-3d-ceramic px-2.5 py-1.5 min-h-[36px] sm:min-h-0 rounded-lg text-xs font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer whitespace-nowrap"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Reset ke Hari Ini</span>
-            </button>
-          </div>
-        )}
-
-        {/* 6-Column Filter Matrix (Desktop; mobile uses WorkOrderFilterSheet) */}
-        {!isCompactUI && (
-          <div
-            className={`grid gap-2 text-xs ${
-              isCompactUI
-                ? 'grid-cols-1 sm:grid-cols-2'
-                : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
-            }`}
-          >
-            <div>
-              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                Area Servis
-              </label>
-              <select
-                value={selectedArea}
-                onChange={e => {
-                  setSelectedArea(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">Semua Area ({areaOptions.length})</option>
-                {areaOptions.map(a => (
-                  <option key={a.name} value={a.name}>
-                    {a.name} ({a.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                Mitra Kontraktor
-              </label>
-              <select
-                value={selectedContractor}
-                onChange={e => {
-                  setSelectedContractor(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">Semua Kontraktor ({contractorOptions.length})</option>
-                {contractorOptions.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                Status WO Agent
-              </label>
-              <select
-                value={selectedAgentStatus}
-                onChange={e => {
-                  setSelectedAgentStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">statusWOAgent (All)</option>
-                <option value="Pending">Pending</option>
-                <option value="Assigned">Assigned</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Done">Done</option>
-                <option value="Reschedule">Reschedule</option>
-                <option value="Cancel">Cancel</option>
-                <option value="Resolved">Resolved</option>
-                <option value="Closed">Closed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                Status Lapangan (Tech)
-              </label>
-              <select
-                value={selectedInstallerStatus}
-                onChange={e => {
-                  setSelectedInstallerStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">statusWOInstaller (All)</option>
-                <option value="Unassigned">Unassigned</option>
-                <option value="Assigned">Assigned</option>
-                <option value="En Route">En Route</option>
-                <option value="On Site">On Site</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Pending Technical">Pending Technical</option>
-                <option value="Completed">Completed</option>
-                <option value="Installed">Installed</option>
-                <option value="Failed / Cancelled">Failed / Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                WhatsApp Handshake
-              </label>
-              <select
-                value={selectedWhatsAppStatus}
-                onChange={e => {
-                  setSelectedWhatsAppStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">statusWhatsApp (All)</option>
-                <option value="not_prepared">Not Prepared</option>
-                <option value="ready">Ready</option>
-                <option value="opened_in_whatsapp">Opened in WhatsApp</option>
-                <option value="awaiting_confirmation">Awaiting Confirmation</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="reschedule_requested">Reschedule Requested</option>
-                <option value="unreachable">Unreachable</option>
-                <option value="invalid_number">Invalid Phone</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] mb-0.5">
-                Approval Dispatch
-              </label>
-              <select
-                value={selectedApprovalStatus}
-                onChange={e => {
-                  setSelectedApprovalStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full min-h-[40px] sm:min-h-[34px] py-1.5 px-2.5 bg-[#EAE8FF]/70 dark:bg-[#35105E]/50 rounded-lg text-xs text-[#5145A6] dark:text-[#F5F1FF] font-semibold border border-[#DCE3F2] dark:border-[#5B35B1] focus:outline-none focus:ring-1 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
-              >
-                <option value="ALL">approvalStatus (All)</option>
-                <option value="BUTUH APPROVAL">BUTUH APPROVAL ({approvalCounts.butuhApproval})</option>
-                <option value="APPROVED">APPROVED ({approvalCounts.approved})</option>
-                <option value="REJECTED">REJECTED / REVISI ({approvalCounts.rejected})</option>
-                <option value="CLOSED">CLOSED ({approvalCounts.closed})</option>
-              </select>
-            </div>
-
-            {isCompactUI && ticketCategories.length > 0 && (
-              <div>
-                <label className="block text-[10px] font-semibold text-[#52647A] dark:text-[#8B8495] mb-0.5">
-                  Kategori Tiket
-                </label>
-                <select
-                  value={selectedCategory}
-                  onChange={e => {
-                    setSelectedCategory(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Filter Kategori Tiket Mobile"
-                  className="w-full min-h-[40px] py-1.5 px-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg text-xs text-[#26364A] dark:text-[#F5F1FF] font-medium border border-[#DDE6F0] dark:border-[#35105E]"
-                >
-                  <option value="ALL">Kategori (All)</option>
-                  {ticketCategories.map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Action Utilities Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 bg-[#F8FAFD] dark:bg-[#160D29]/80 p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
-          {/* Left: PILIH SEMUA + Contextual Bulk Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white cursor-pointer select-none whitespace-nowrap"
-            >
-              {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
-              ) : (
-                <Square className="w-4 h-4 text-[#8492A5] dark:text-[#8B8495]" />
-              )}
-              <span className="uppercase tracking-wide">Pilih Semua</span>
-            </button>
-
-            {canApproveInline && (selectedButuhApprovalTickets.length > 0 || approvalCounts.butuhApproval > 0) && (
-              <button
-                type="button"
-                onClick={handleTriggerBulkApprove}
-                className="btn-3d-success px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>
-                  Bulk Approve (
-                  {selectedButuhApprovalTickets.length > 0
-                    ? selectedButuhApprovalTickets.length
-                    : approvalCounts.butuhApproval}
-                  )
-                </span>
-              </button>
-            )}
-
-            {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#DDE6F0] dark:border-[#35105E]">
-                <span className="px-2 py-0.5 rounded-md bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#E9D5FF] text-[11px] font-bold tabular-nums">
-                  {selectedIds.size} dipilih
-                </span>
-
-                {currentUser.role === 'leader' ? (
-                  <>
-                    <select
-                      value={bulkInstaller}
-                      disabled={isBulkAssigning}
-                      onChange={e => setBulkInstaller(e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-md text-[#26364A] dark:text-white disabled:opacity-50"
-                    >
-                      <option value="">Pilih Teknisi...</option>
-                      {scopedInstallers.map(inst => (
-                        <option key={inst.id} value={inst.id}>
-                          {inst.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isBulkAssigning || !bulkInstaller}
-                      onClick={handleApplyBulkAssign}
-                      className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap flex items-center gap-1 disabled:opacity-50"
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>{isBulkAssigning ? 'Menyimpan...' : 'Assign Teknisi'}</span>
-                    </button>
-                  </>
-                ) : currentUser.role !== 'super_admin' ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-[#9D661F] bg-[#FFF2D9] px-2 py-0.5 rounded-md border border-[#F2CF95]">
-                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                    <span>Assign/Reassign khusus Leader</span>
-                  </span>
-                ) : null}
-
-                {currentUser.role === 'super_admin' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowBulkDeleteModal(true)}
-                    className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Hapus ({selectedIds.size})</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedIds(new Set());
-                    setShowBulkApproveConfirm(false);
-                  }}
-                  className="px-2 py-1 text-[11px] font-semibold text-[#52647A] hover:text-[#26364A] dark:text-[#CEC0E8] hover:bg-[#EDF3F8] dark:hover:bg-[#35105E] rounded-md cursor-pointer"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {/* Category Quick Filter & Reset Filter */}
-            {ticketCategories.length > 0 && (
-              <select
-                value={selectedCategory}
-                onChange={e => {
-                  setSelectedCategory(e.target.value);
-                  setCurrentPage(1);
-                }}
-                aria-label="Filter Kategori Tiket"
-                className="hidden sm:block py-1 px-2 bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8]"
-              >
-                <option value="ALL">Kategori (All)</option>
-                {ticketCategories.map(cat => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#D45B66] dark:text-[#DC4C5A] hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 cursor-pointer whitespace-nowrap"
-              >
-                <X className="w-3 h-3" />
-                <span>Reset Filter</span>
-              </button>
-            )}
+            <TableResetFilterButton
+              activeCount={activeFilterCount}
+              onReset={resetAllFilters}
+              label="Reset Search/Filter"
+              testId="tickets-reset-filters"
+            />
           </div>
 
           {/* Right: 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
-          <div className="flex items-center gap-2 flex-wrap ml-auto">
+          <div className="flex items-center gap-2 flex-wrap lg:ml-auto">
             {/* Archive Filter Toggle */}
             <button
               type="button"
@@ -2403,6 +2125,102 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           </div>
         </div>
 
+        {/* Cross-Date Search Banner */}
+        {isCrossDateActive && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-[#EAE8FF]/80 dark:bg-[#2A174E] border border-[#DCE3F2] dark:border-[#5B35B1] text-[#5145A6] dark:text-[#E9D5FF] text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#6657C8] dark:text-[#D8B4FE] shrink-0" />
+              <span>
+                <strong>Mode Pencarian Lintas Tanggal Aktif:</strong> Ditemukan{' '}
+                <strong>{filteredTickets.length}</strong> WO untuk kueri &ldquo;{effectiveCrossDateQuery}&rdquo;.
+                {crossDateSearchResults.crossDateCount > 0 && (
+                  <span className="ml-1 opacity-85">
+                    ({crossDateSearchResults.crossDateCount} WO di luar tanggal hari ini)
+                  </span>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setWoSearch('');
+                setIdCustSearch('');
+                setCurrentPage(1);
+              }}
+              className="btn-3d-ceramic px-2.5 py-1.5 min-h-[34px] sm:min-h-0 rounded-lg text-xs font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer whitespace-nowrap"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Reset ke Hari Ini</span>
+            </button>
+          </div>
+        )}
+
+        {/* Contextual Bulk Selection Toolbar (visible ONLY when rows are selected) */}
+        <TableSelectionToolbar
+          selectedCount={selectedIds.size}
+          onClearSelection={() => {
+            setSelectedIds(new Set());
+            setShowBulkApproveConfirm(false);
+          }}
+          label="Work Order terpilih di halaman aktif"
+          testId="tickets-selection-toolbar"
+        >
+          {canApproveInline && selectedButuhApprovalTickets.length > 0 && (
+            <button
+              type="button"
+              onClick={handleTriggerBulkApprove}
+              className="btn-3d-success px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Bulk Approve ({selectedButuhApprovalTickets.length})</span>
+            </button>
+          )}
+
+          {currentUser.role === 'leader' ? (
+            <>
+              <select
+                value={bulkInstaller}
+                disabled={isBulkAssigning}
+                onChange={e => setBulkInstaller(e.target.value)}
+                className="px-2 py-1.5 text-xs bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-lg text-[#26364A] dark:text-white disabled:opacity-50"
+              >
+                <option value="">Pilih Teknisi...</option>
+                {scopedInstallers.map(inst => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={isBulkAssigning || !bulkInstaller}
+                onClick={handleApplyBulkAssign}
+                className="btn-3d-primary px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap flex items-center gap-1 disabled:opacity-50"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>{isBulkAssigning ? 'Menyimpan...' : 'Assign Teknisi'}</span>
+              </button>
+            </>
+          ) : currentUser.role !== 'super_admin' ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#9D661F] bg-[#FFF2D9] px-2 py-1 rounded-lg border border-[#F2CF95]">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+              <span>Assign/Reassign khusus Leader</span>
+            </span>
+          ) : null}
+
+          {currentUser.role === 'super_admin' && (
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus ({selectedIds.size})</span>
+            </button>
+          )}
+        </TableSelectionToolbar>
+
         {/* Inline Bulk Approval Confirmation Banner */}
         {showBulkApproveConfirm && canApproveInline && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800 text-xs">
@@ -2550,6 +2368,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 Menampilkan {paginatedTickets.length} dari {sortedTickets.length} WO
               </span>
               <div className="flex items-center gap-1.5 shrink-0">
+                <TableResetFilterButton
+                  activeCount={activeFilterCount}
+                  onReset={resetAllFilters}
+                  label="Reset"
+                />
                 <ArrowUpDown className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
                 <select
                   aria-label="Urutkan Work Order"
@@ -2645,57 +2468,235 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         )}
                       </button>
                     </th>
-                    <th
-                      onClick={() => handleSort('woNumber')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>WO Number</span>
-                        {sortField === 'woNumber' && sortDirection === 'asc' ? (
-                          <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                        ) : sortField === 'woNumber' && sortDirection === 'desc' ? (
-                          <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                    <th className="py-2.5 px-3 whitespace-nowrap">
+                      <HeaderSearchPopover
+                        label="WO Number"
+                        value={woSearch}
+                        onChange={val => {
+                          setWoSearch(val);
+                          setCurrentPage(1);
+                        }}
+                        placeholder={isCrossDateSearchEligible ? 'Cari WO (Lintas Tanggal)...' : 'Cari WO Number...'}
+                        sortActive={sortField === 'woNumber'}
+                        sortDir={sortField === 'woNumber' ? sortDirection : null}
+                        onCycleSort={() => handleSort('woNumber')}
+                        testId="tickets-hdr-wo"
+                      />
+                    </th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">
+                      <HeaderSearchPopover
+                        label="ID Cust"
+                        value={idCustSearch}
+                        onChange={val => {
+                          setIdCustSearch(val);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Cari 7-digit ID Cust..."
+                        sortActive={sortField === 'idCustomer'}
+                        sortDir={sortField === 'idCustomer' ? sortDirection : null}
+                        onCycleSort={() => handleSort('idCustomer')}
+                        testId="tickets-hdr-idcust"
+                      />
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[205px]">
+                      <HeaderSearchPopover
+                        label="Pelanggan & Kontak"
+                        value={customerSearch}
+                        onChange={val => {
+                          setCustomerSearch(val);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Cari Nama, HP, Alamat..."
+                        sortActive={sortField === 'customerName'}
+                        sortDir={sortField === 'customerName' ? sortDirection : null}
+                        onCycleSort={() => handleSort('customerName')}
+                        testId="tickets-hdr-customer"
+                      />
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[160px]">
+                      <HeaderCategoryDropdown
+                        label="Area / Cluster"
+                        value={selectedArea}
+                        defaultValue="ALL"
+                        allLabel="Semua Area"
+                        options={[
+                          { value: 'ALL', label: `Semua Area (${areaOptions.length})` },
+                          ...areaOptions.map(a => ({ value: a.name, label: `${a.name} (${a.count})` }))
+                        ]}
+                        onChange={val => {
+                          setSelectedArea(val);
+                          setCurrentPage(1);
+                        }}
+                        sortActive={sortField === 'area'}
+                        sortDir={sortField === 'area' ? sortDirection : null}
+                        onCycleSort={() => handleSort('area')}
+                        testId="tickets-hdr-area"
+                      />
+                    </th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        <HeaderSortButton
+                          label="Slot Waktu"
+                          sortActive={sortField === 'slotTime'}
+                          sortDir={sortField === 'slotTime' ? sortDirection : null}
+                          onCycleSort={() => handleSort('slotTime')}
+                          testId="tickets-hdr-slot"
+                        />
+                        <HeaderDateSortFilterPopover
+                          label="Tgl"
+                          sortActive={sortField === 'appointmentDate'}
+                          sortDir={sortField === 'appointmentDate' ? sortDirection : null}
+                          onCycleSort={() => handleSort('appointmentDate')}
+                          exactDate={exactAppointmentDate}
+                          dateFrom={dateFrom}
+                          dateTo={dateTo}
+                          onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                            setExactAppointmentDate(exactDate);
+                            setDateFrom(df);
+                            setDateTo(dt);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-date"
+                        />
+                      </div>
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[185px]">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <HeaderCategoryDropdown
+                          label="Kontraktor"
+                          value={selectedContractor}
+                          defaultValue="ALL"
+                          allLabel="Semua Kontraktor"
+                          options={[
+                            { value: 'ALL', label: `Semua Kontraktor (${contractorOptions.length})` },
+                            ...contractorOptions.map(c => ({ value: c, label: c }))
+                          ]}
+                          onChange={val => {
+                            setSelectedContractor(val);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-contractor"
+                        />
+                        <HeaderSearchPopover
+                          label="Tim"
+                          value={installerSearch}
+                          onChange={val => {
+                            setInstallerSearch(val);
+                            setCurrentPage(1);
+                          }}
+                          placeholder="Cari Teknisi / Leader..."
+                          testId="tickets-hdr-installer"
+                        />
+                      </div>
+                    </th>
+                    <th className="py-2.5 px-3 min-w-[235px]">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <HeaderCategoryDropdown
+                          label="Agent"
+                          value={selectedAgentStatus}
+                          defaultValue="ALL"
+                          allLabel="Semua Agent"
+                          options={[
+                            { value: 'ALL', label: 'Agent (All)' },
+                            { value: 'Pending', label: 'Pending' },
+                            { value: 'Assigned', label: 'Assigned' },
+                            { value: 'In Progress', label: 'In Progress' },
+                            { value: 'Done', label: 'Done' },
+                            { value: 'Reschedule', label: 'Reschedule' },
+                            { value: 'Cancel', label: 'Cancel' },
+                            { value: 'Resolved', label: 'Resolved' },
+                            { value: 'Closed', label: 'Closed' },
+                            { value: 'Cancelled', label: 'Cancelled' }
+                          ]}
+                          onChange={val => {
+                            setSelectedAgentStatus(val);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-agent"
+                        />
+                        <HeaderCategoryDropdown
+                          label="Tech"
+                          value={selectedInstallerStatus}
+                          defaultValue="ALL"
+                          allLabel="Semua Tech"
+                          options={[
+                            { value: 'ALL', label: 'Tech (All)' },
+                            { value: 'Unassigned', label: 'Unassigned' },
+                            { value: 'Assigned', label: 'Assigned' },
+                            { value: 'En Route', label: 'En Route' },
+                            { value: 'On Site', label: 'On Site' },
+                            { value: 'In Progress', label: 'In Progress' },
+                            { value: 'Pending Technical', label: 'Pending Technical' },
+                            { value: 'Completed', label: 'Completed' },
+                            { value: 'Installed', label: 'Installed' },
+                            { value: 'Failed / Cancelled', label: 'Failed / Cancelled' }
+                          ]}
+                          onChange={val => {
+                            setSelectedInstallerStatus(val);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-tech"
+                        />
+                        <HeaderCategoryDropdown
+                          label="WA"
+                          value={selectedWhatsAppStatus}
+                          defaultValue="ALL"
+                          allLabel="Semua WA"
+                          options={[
+                            { value: 'ALL', label: 'WA (All)' },
+                            { value: 'not_prepared', label: 'Not Prepared' },
+                            { value: 'ready', label: 'Ready' },
+                            { value: 'opened_in_whatsapp', label: 'Opened in WhatsApp' },
+                            { value: 'awaiting_confirmation', label: 'Awaiting Confirmation' },
+                            { value: 'confirmed', label: 'Confirmed' },
+                            { value: 'reschedule_requested', label: 'Reschedule Requested' },
+                            { value: 'unreachable', label: 'Unreachable' },
+                            { value: 'invalid_number', label: 'Invalid Phone' },
+                            { value: 'cancelled', label: 'Cancelled' }
+                          ]}
+                          onChange={val => {
+                            setSelectedWhatsAppStatus(val);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-wa"
+                        />
+                        <HeaderCategoryDropdown
+                          label="Approval"
+                          value={selectedApprovalStatus}
+                          defaultValue="ALL"
+                          allLabel="Semua Approval"
+                          options={[
+                            { value: 'ALL', label: 'Approval (All)' },
+                            { value: 'BUTUH APPROVAL', label: `BUTUH APPROVAL (${approvalCounts.butuhApproval})` },
+                            { value: 'APPROVED', label: `APPROVED (${approvalCounts.approved})` },
+                            { value: 'REJECTED', label: `REJECTED / REVISI (${approvalCounts.rejected})` },
+                            { value: 'CLOSED', label: `CLOSED (${approvalCounts.closed})` }
+                          ]}
+                          onChange={val => {
+                            setSelectedApprovalStatus(val);
+                            setCurrentPage(1);
+                          }}
+                          testId="tickets-hdr-approval"
+                        />
+                        {ticketCategories.length > 0 && (
+                          <HeaderCategoryDropdown
+                            label="Kat"
+                            value={selectedCategory}
+                            defaultValue="ALL"
+                            allLabel="Semua Kategori"
+                            options={[
+                              { value: 'ALL', label: 'Kategori (All)' },
+                              ...ticketCategories.map(cat => ({ value: cat, label: cat }))
+                            ]}
+                            onChange={val => {
+                              setSelectedCategory(val);
+                              setCurrentPage(1);
+                            }}
+                            testId="tickets-hdr-category"
+                          />
                         )}
                       </div>
                     </th>
-                    <th
-                      onClick={() => handleSort('idCustomer')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>ID Cust</span>
-                        {sortField === 'idCustomer' && sortDirection === 'asc' ? (
-                          <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                        ) : sortField === 'idCustomer' && sortDirection === 'desc' ? (
-                          <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 opacity-50" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3 min-w-[205px]">Pelanggan &amp; Kontak</th>
-                    <th className="py-2.5 px-3 min-w-[160px]">Area / Cluster</th>
-                    <th
-                      onClick={() => handleSort('slotTime')}
-                      className="py-2.5 px-3 cursor-pointer hover:text-[#26364A] dark:hover:text-white whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Slot Waktu</span>
-                        {sortField === 'slotTime' ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 opacity-40" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="py-2.5 px-3 min-w-[175px]">Kontraktor &amp; Tim</th>
-                    <th className="py-2.5 px-3 min-w-[225px]">4 Dimensi Status</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#EDF3F8] dark:bg-[#251545] shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.06)]">
                       Aksi Operasional
                     </th>
@@ -3021,8 +3022,281 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                     {renderedCanonicalColumns.map(col => {
                       const isSorted = sortField === col.key;
+                      const activeDir = isSorted ? sortDirection : null;
                       const stickyInfo = stickyLeftMap[col.key];
                       const widthPx = col.width || 130;
+                      const cycleSort = col.sortable ? () => handleSort(col.key) : undefined;
+
+                      const renderCanonicalHeader = () => {
+                        if (col.key === 'woNumber') {
+                          return (
+                            <HeaderSearchPopover
+                              label={col.label}
+                              value={woSearch}
+                              onChange={v => {
+                                setWoSearch(v);
+                                setCurrentPage(1);
+                              }}
+                              placeholder="Cari WO Number..."
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'idCustomer') {
+                          return (
+                            <HeaderSearchPopover
+                              label={col.label}
+                              value={idCustSearch}
+                              onChange={v => {
+                                setIdCustSearch(v);
+                                setCurrentPage(1);
+                              }}
+                              placeholder="Cari 7-digit ID..."
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'customerName') {
+                          return (
+                            <HeaderSearchPopover
+                              label={col.label}
+                              value={customerSearch}
+                              onChange={v => {
+                                setCustomerSearch(v);
+                                setCurrentPage(1);
+                              }}
+                              placeholder="Cari Pelanggan..."
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'installerName') {
+                          return (
+                            <HeaderSearchPopover
+                              label={col.label}
+                              value={installerSearch}
+                              onChange={v => {
+                                setInstallerSearch(v);
+                                setCurrentPage(1);
+                              }}
+                              placeholder="Cari Teknisi..."
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'area') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedArea}
+                              defaultValue="ALL"
+                              allLabel="Semua Area"
+                              options={[
+                                { value: 'ALL', label: `Semua Area (${areaOptions.length})` },
+                                ...areaOptions.map(a => ({ value: a.name, label: `${a.name} (${a.count})` }))
+                              ]}
+                              onChange={v => {
+                                setSelectedArea(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'contactorName' || col.key === 'contractorName') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedContractor}
+                              defaultValue="ALL"
+                              allLabel="Semua Kontraktor"
+                              options={[
+                                { value: 'ALL', label: `Semua Kontraktor (${contractorOptions.length})` },
+                                ...contractorOptions.map(c => ({ value: c, label: c }))
+                              ]}
+                              onChange={v => {
+                                setSelectedContractor(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'ticketCategory') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedCategory}
+                              defaultValue="ALL"
+                              allLabel="Semua Kategori"
+                              options={[
+                                { value: 'ALL', label: 'Semua Kategori' },
+                                ...ticketCategories.map(c => ({ value: c, label: c }))
+                              ]}
+                              onChange={v => {
+                                setSelectedCategory(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'statusWOAgent') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedAgentStatus}
+                              defaultValue="ALL"
+                              allLabel="Semua Agent"
+                              options={[
+                                { value: 'ALL', label: 'Agent (All)' },
+                                { value: 'Pending', label: 'Pending' },
+                                { value: 'Assigned', label: 'Assigned' },
+                                { value: 'In Progress', label: 'In Progress' },
+                                { value: 'Done', label: 'Done' },
+                                { value: 'Reschedule', label: 'Reschedule' },
+                                { value: 'Cancel', label: 'Cancel' },
+                                { value: 'Resolved', label: 'Resolved' },
+                                { value: 'Closed', label: 'Closed' },
+                                { value: 'Cancelled', label: 'Cancelled' }
+                              ]}
+                              onChange={v => {
+                                setSelectedAgentStatus(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'statusWOInstaller') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedInstallerStatus}
+                              defaultValue="ALL"
+                              allLabel="Semua Tech"
+                              options={[
+                                { value: 'ALL', label: 'Tech (All)' },
+                                { value: 'Unassigned', label: 'Unassigned' },
+                                { value: 'Assigned', label: 'Assigned' },
+                                { value: 'En Route', label: 'En Route' },
+                                { value: 'On Site', label: 'On Site' },
+                                { value: 'In Progress', label: 'In Progress' },
+                                { value: 'Pending Technical', label: 'Pending Technical' },
+                                { value: 'Completed', label: 'Completed' },
+                                { value: 'Installed', label: 'Installed' },
+                                { value: 'Failed / Cancelled', label: 'Failed / Cancelled' }
+                              ]}
+                              onChange={v => {
+                                setSelectedInstallerStatus(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'statusWhatsApp') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedWhatsAppStatus}
+                              defaultValue="ALL"
+                              allLabel="Semua WA"
+                              options={[
+                                { value: 'ALL', label: 'WA (All)' },
+                                { value: 'not_prepared', label: 'Not Prepared' },
+                                { value: 'ready', label: 'Ready' },
+                                { value: 'opened_in_whatsapp', label: 'Opened in WhatsApp' },
+                                { value: 'awaiting_confirmation', label: 'Awaiting Confirmation' },
+                                { value: 'confirmed', label: 'Confirmed' },
+                                { value: 'reschedule_requested', label: 'Reschedule Requested' },
+                                { value: 'unreachable', label: 'Unreachable' },
+                                { value: 'invalid_number', label: 'Invalid Phone' },
+                                { value: 'cancelled', label: 'Cancelled' }
+                              ]}
+                              onChange={v => {
+                                setSelectedWhatsAppStatus(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'approvalStatus') {
+                          return (
+                            <HeaderCategoryDropdown
+                              label={col.label}
+                              value={selectedApprovalStatus}
+                              defaultValue="ALL"
+                              allLabel="Semua Approval"
+                              options={[
+                                { value: 'ALL', label: 'Approval (All)' },
+                                { value: 'BUTUH APPROVAL', label: `BUTUH APPROVAL (${approvalCounts.butuhApproval})` },
+                                { value: 'APPROVED', label: `APPROVED (${approvalCounts.approved})` },
+                                { value: 'REJECTED', label: `REJECTED / REVISI (${approvalCounts.rejected})` },
+                                { value: 'CLOSED', label: `CLOSED (${approvalCounts.closed})` }
+                              ]}
+                              onChange={v => {
+                                setSelectedApprovalStatus(v);
+                                setCurrentPage(1);
+                              }}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        if (col.key === 'appointmentDate') {
+                          return (
+                            <HeaderDateSortFilterPopover
+                              label={col.label}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort || (() => handleSort('appointmentDate'))}
+                              exactDate={exactAppointmentDate}
+                              dateFrom={dateFrom}
+                              dateTo={dateTo}
+                              onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                                setExactAppointmentDate(exactDate);
+                                setDateFrom(df);
+                                setDateTo(dt);
+                                setCurrentPage(1);
+                              }}
+                            />
+                          );
+                        }
+                        if (cycleSort) {
+                          return (
+                            <HeaderSortButton
+                              label={col.label}
+                              sortActive={isSorted}
+                              sortDir={activeDir}
+                              onCycleSort={cycleSort}
+                            />
+                          );
+                        }
+                        return <span>{col.label}</span>;
+                      };
 
                       return (
                         <th
@@ -3033,27 +3307,14 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                             ...(stickyInfo ? { left: `${stickyInfo.left}px` } : {})
                           }}
                           className={`py-3 px-3.5 whitespace-nowrap ${
-                            col.sortable ? 'cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-[#35105E]' : ''
-                          } ${
                             stickyInfo
                               ? `sticky bg-[#EDF3F8] dark:bg-[#251545] z-20 border-r border-[#DDE6F0] dark:border-[#35105E] ${
                                   stickyInfo.isLastFrozen ? 'shadow-[3px_0_6px_-2px_rgba(38,54,74,0.10)]' : ''
                                 }`
                               : ''
                           }`}
-                          onClick={() => col.sortable && handleSort(col.key)}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span>{col.label}</span>
-                            {col.sortable &&
-                              (isSorted && sortDirection === 'asc' ? (
-                                <ArrowUp className="w-3.5 h-3.5 shrink-0" />
-                              ) : isSorted && sortDirection === 'desc' ? (
-                                <ArrowDown className="w-3.5 h-3.5 shrink-0" />
-                              ) : (
-                                <ArrowUpDown className="w-3 h-3 opacity-50 shrink-0" />
-                              ))}
-                          </div>
+                          {renderCanonicalHeader()}
                         </th>
                       );
                     })}

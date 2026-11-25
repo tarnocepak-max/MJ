@@ -33,6 +33,7 @@ import { DEFAULT_FRONTEND_GPS_CONFIG } from '../../services/installerGpsTracking
 import { DroplistManagementView } from './DroplistManagementView';
 import { SoundSettingsView } from './SoundSettingsView';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 interface SystemSettingsProps {
   defaultTab?: 'core_config' | 'contractors' | 'coverage' | 'header_mapping' | 'branding' | 'system_session' | 'report_dropdowns' | 'sound_settings';
@@ -129,6 +130,15 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   // Header Mapping Edit
   const [editingField, setEditingField] = useState<string | null>(null);
   const [aliasInput, setAliasInput] = useState('');
+
+  // Embedded table header filter/sort state (contractors + header_mapping)
+  const [contractorSearch, setContractorSearch] = useState('');
+  const [contractorStatusFilter, setContractorStatusFilter] = useState<'ALL' | 'active' | 'inactive'>('ALL');
+  const [contractorSort, setContractorSort] = useState<SortState>({ column: null, direction: null });
+  const [mappingSearch, setMappingSearch] = useState('');
+  const [mappingCategoryFilter, setMappingCategoryFilter] = useState('ALL');
+  const [mappingRequiredFilter, setMappingRequiredFilter] = useState<'ALL' | 'required' | 'optional'>('ALL');
+  const [mappingSort, setMappingSort] = useState<SortState>({ column: null, direction: null });
 
   // Branding state
   const [appNameInput, setAppNameInput] = useState(config.global.appName || 'MoraJaws');
@@ -1019,90 +1029,158 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </form>
           )}
 
-          <ResponsiveDataTable<Contractor>
-            data={contractors}
-            getRowKey={(c, cIdx) => `settings-contractor-row-${c.id || c.name}-${cIdx}`}
-            emptyState={{
-              title: 'Belum ada vendor kontraktor',
-              description: 'Tambahkan vendor kontraktor baru untuk mengaktifkan alokasi penugasan.'
-            }}
-            mobileTitle={c => <span className="font-bold text-[#26364A] dark:text-white">{c.name}</span>}
-            mobileSubtitle={c => (
-              <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">
-                Kode: {c.code} · Leader: {c.leaderName || 'Belum ada leader'}
-              </span>
-            )}
-            mobileStatus={c => (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
-                {c.active ? 'Aktif' : 'Nonaktif'}
-              </span>
-            )}
-            columns={[
-              {
-                key: 'name',
-                label: 'Nama Vendor',
-                priority: 'hidden_mobile',
-                render: c => <span className="font-semibold text-[#26364A] dark:text-white">{c.name}</span>
-              },
-              {
-                key: 'code',
-                label: 'Kode',
-                priority: 'hidden_mobile',
-                render: c => (
-                  <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE] font-bold">{c.code}</span>
-                )
-              },
-              {
-                key: 'leaderName',
-                label: 'Leader / Korlap',
-                priority: 'primary',
-                render: c =>
-                  c.leaderName ? (
-                    <span className="font-medium text-[#52647A] dark:text-[#CEC0E8]">{c.leaderName}</span>
-                  ) : (
-                    <span className="text-[#8492A5] italic">Belum ada leader</span>
-                  )
-              },
-              {
-                key: 'coverageAreas',
-                label: 'Coverage Area',
-                priority: 'primary',
-                render: c => (
-                  <div className="flex flex-wrap gap-1">
-                    {c.coverageAreas.map(a => (
-                      <span
-                        key={a}
-                        className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-transparent"
-                      >
-                        {a}
-                      </span>
-                    ))}
-                  </div>
-                )
-              },
-              {
-                key: 'contact',
-                label: 'Kontak',
-                priority: 'secondary',
-                render: c => (
-                  <div className="text-[#52647A] dark:text-[#CEC0E8]">
-                    <div>{c.phone || '-'}</div>
-                    <div className="text-[11px] text-[#8492A5]">{c.email || ''}</div>
-                  </div>
-                )
-              },
-              {
-                key: 'status',
-                label: 'Status',
-                priority: 'hidden_mobile',
-                render: c => (
+          {(() => {
+            const cq = contractorSearch.trim().toLowerCase();
+            const filteredContractors = contractors.filter(c => {
+              if (contractorStatusFilter === 'active' && !c.active) return false;
+              if (contractorStatusFilter === 'inactive' && c.active) return false;
+              if (cq) {
+                return (
+                  String(c.name || '').toLowerCase().includes(cq) ||
+                  String(c.code || '').toLowerCase().includes(cq) ||
+                  String(c.leaderName || '').toLowerCase().includes(cq) ||
+                  c.coverageAreas.some(a => a.toLowerCase().includes(cq))
+                );
+              }
+              return true;
+            });
+            const sortedContractors = sortDataArray(filteredContractors, contractorSort, (c, col) => {
+              switch (col) {
+                case 'name':
+                  return c.name || null;
+                case 'code':
+                  return c.code || null;
+                case 'leaderName':
+                  return c.leaderName || null;
+                case 'status':
+                  return c.active ? 'Aktif' : 'Nonaktif';
+                default:
+                  return null;
+              }
+            });
+            const contractorFilterCount =
+              (contractorSearch.trim() ? 1 : 0) + (contractorStatusFilter !== 'ALL' ? 1 : 0);
+            return (
+              <ResponsiveDataTable<Contractor>
+                data={sortedContractors}
+                getRowKey={(c, cIdx) => `settings-contractor-row-${c.id || c.name}-${cIdx}`}
+                sortKey={contractorSort.column}
+                sortDirection={contractorSort.direction}
+                onSort={col =>
+                  setContractorSort(prev => ({
+                    column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+                    direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+                  }))
+                }
+                activeFilterCount={contractorFilterCount}
+                onResetFilters={() => {
+                  setContractorSearch('');
+                  setContractorStatusFilter('ALL');
+                  setContractorSort({ column: null, direction: null });
+                }}
+                emptyState={{
+                  title: 'Belum ada vendor kontraktor',
+                  description: 'Tambahkan vendor kontraktor baru atau reset filter untuk melihat daftar kontraktor.'
+                }}
+                mobileTitle={c => <span className="font-bold text-[#26364A] dark:text-white">{c.name}</span>}
+                mobileSubtitle={c => (
+                  <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">
+                    Kode: {c.code} · Leader: {c.leaderName || 'Belum ada leader'}
+                  </span>
+                )}
+                mobileStatus={c => (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
                     {c.active ? 'Aktif' : 'Nonaktif'}
                   </span>
-                )
-              }
-            ] satisfies ResponsiveColumn<Contractor>[]}
-          />
+                )}
+                columns={[
+                  {
+                    key: 'name',
+                    label: 'Nama Vendor',
+                    priority: 'hidden_mobile',
+                    sortable: true,
+                    headerControl: {
+                      kind: 'search',
+                      value: contractorSearch,
+                      onChange: setContractorSearch,
+                      placeholder: 'Cari nama, kode, leader, area...'
+                    },
+                    render: c => <span className="font-semibold text-[#26364A] dark:text-white">{c.name}</span>
+                  },
+                  {
+                    key: 'code',
+                    label: 'Kode',
+                    priority: 'hidden_mobile',
+                    sortable: true,
+                    render: c => (
+                      <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE] font-bold">{c.code}</span>
+                    )
+                  },
+                  {
+                    key: 'leaderName',
+                    label: 'Leader / Korlap',
+                    priority: 'primary',
+                    sortable: true,
+                    render: c =>
+                      c.leaderName ? (
+                        <span className="font-medium text-[#52647A] dark:text-[#CEC0E8]">{c.leaderName}</span>
+                      ) : (
+                        <span className="text-[#8492A5] italic">Belum ada leader</span>
+                      )
+                  },
+                  {
+                    key: 'coverageAreas',
+                    label: 'Coverage Area',
+                    priority: 'primary',
+                    render: c => (
+                      <div className="flex flex-wrap gap-1">
+                        {c.coverageAreas.map(a => (
+                          <span
+                            key={a}
+                            className="px-2 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] text-[10px] font-semibold text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-transparent"
+                          >
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'contact',
+                    label: 'Kontak',
+                    priority: 'secondary',
+                    render: c => (
+                      <div className="text-[#52647A] dark:text-[#CEC0E8]">
+                        <div>{c.phone || '-'}</div>
+                        <div className="text-[11px] text-[#8492A5]">{c.email || ''}</div>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    priority: 'hidden_mobile',
+                    sortable: true,
+                    headerControl: {
+                      kind: 'select',
+                      value: contractorStatusFilter,
+                      allLabel: 'Semua Status',
+                      options: [
+                        { value: 'active', label: 'Aktif' },
+                        { value: 'inactive', label: 'Nonaktif' }
+                      ],
+                      onChange: val => setContractorStatusFilter(val as 'ALL' | 'active' | 'inactive')
+                    },
+                    render: c => (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#15803D] dark:bg-emerald-950/60 dark:text-emerald-300">
+                        {c.active ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                    )
+                  }
+                ] satisfies ResponsiveColumn<Contractor>[]}
+              />
+            );
+          })()}
         </div>
       )}
 
@@ -1211,9 +1289,61 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             Kamus Alias Header Terdaftar ({headerMappings.length} Fields)
           </h4>
 
+          {(() => {
+            const mq = mappingSearch.trim().toLowerCase();
+            const categoryOpts = Array.from(new Set(headerMappings.map(m => m.category).filter(Boolean)))
+              .sort((a, b) => a.localeCompare(b))
+              .map(cat => ({ value: cat, label: cat.toUpperCase() }));
+            const filteredMappings = headerMappings.filter(m => {
+              if (mappingCategoryFilter !== 'ALL' && m.category !== mappingCategoryFilter) return false;
+              if (mappingRequiredFilter === 'required' && !m.required) return false;
+              if (mappingRequiredFilter === 'optional' && m.required) return false;
+              if (mq) {
+                return (
+                  String(m.standardField || '').toLowerCase().includes(mq) ||
+                  String(m.label || '').toLowerCase().includes(mq) ||
+                  m.aliases.some(a => a.toLowerCase().includes(mq))
+                );
+              }
+              return true;
+            });
+            const sortedMappings = sortDataArray(filteredMappings, mappingSort, (m, col) => {
+              switch (col) {
+                case 'standardField':
+                  return m.standardField || null;
+                case 'label':
+                  return m.label || null;
+                case 'category':
+                  return m.category || null;
+                case 'required':
+                  return m.required ? 1 : 0;
+                default:
+                  return null;
+              }
+            });
+            const mappingFilterCount =
+              (mappingSearch.trim() ? 1 : 0) +
+              (mappingCategoryFilter !== 'ALL' ? 1 : 0) +
+              (mappingRequiredFilter !== 'ALL' ? 1 : 0);
+            return (
           <ResponsiveDataTable
-            data={headerMappings}
+            data={sortedMappings}
             getRowKey={m => m.standardField}
+            sortKey={mappingSort.column}
+            sortDirection={mappingSort.direction}
+            onSort={col =>
+              setMappingSort(prev => ({
+                column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+                direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+              }))
+            }
+            activeFilterCount={mappingFilterCount}
+            onResetFilters={() => {
+              setMappingSearch('');
+              setMappingCategoryFilter('ALL');
+              setMappingRequiredFilter('ALL');
+              setMappingSort({ column: null, direction: null });
+            }}
             mobileTitle={m => (
               <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">{m.standardField}</span>
             )}
@@ -1234,6 +1364,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 key: 'standardField',
                 label: 'Standard Field',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: mappingSearch,
+                  onChange: setMappingSearch,
+                  placeholder: 'Cari field, label, atau alias...'
+                },
                 render: mapping => (
                   <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE] whitespace-nowrap">
                     {mapping.standardField}
@@ -1244,6 +1381,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 key: 'label',
                 label: 'Label',
                 priority: 'hidden_mobile',
+                sortable: true,
                 render: mapping => (
                   <span className="font-medium whitespace-nowrap text-[#26364A] dark:text-white">
                     {mapping.label}
@@ -1254,6 +1392,14 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 key: 'category',
                 label: 'Kategori',
                 priority: 'secondary',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: mappingCategoryFilter,
+                  allLabel: 'Semua Kategori',
+                  options: categoryOpts,
+                  onChange: setMappingCategoryFilter
+                },
                 render: mapping => (
                   <span className="font-mono text-[11px] text-[#52647A] uppercase whitespace-nowrap">
                     {mapping.category}
@@ -1264,6 +1410,17 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 key: 'required',
                 label: 'Wajib',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: mappingRequiredFilter,
+                  allLabel: 'Semua',
+                  options: [
+                    { value: 'required', label: 'Wajib' },
+                    { value: 'optional', label: 'Opsional' }
+                  ],
+                  onChange: val => setMappingRequiredFilter(val as 'ALL' | 'required' | 'optional')
+                },
                 render: mapping =>
                   mapping.required ? (
                     <span className="text-[#DC4C5A] font-bold">Yes</span>
@@ -1369,6 +1526,8 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               );
             }}
           />
+            );
+          })()}
         </div>
       )}
 

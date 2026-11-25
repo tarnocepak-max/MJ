@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, UserCheck, ArrowRightLeft, FileText, MapPin } from 'lucide-react';
+import { useHasOpenModal } from '../../hooks/useModalLayer';
 
 export type LeaderTabType =
   | 'progress_dashboard'
@@ -19,6 +20,9 @@ export const LeaderBottomNav: React.FC<LeaderBottomNavProps> = ({
   onTabChange,
   unassignedCount = 0
 }) => {
+  const hasOpenModal = useHasOpenModal();
+  if (hasOpenModal) return null;
+
   const tabs: {
     id: LeaderTabType;
     label: string;

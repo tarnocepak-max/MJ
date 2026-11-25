@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, RotateCcw, SlidersHorizontal, Check } from 'lucide-react';
+import { useModalLayer } from '../../hooks/useModalLayer';
+import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 export interface FilterOptionItem {
   value: string;
@@ -99,6 +102,19 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
   ticketCategories,
   onResetAll
 }) => {
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const layerZ = useModalLayer(isOpen, { tier: 'modal' });
+  const vv = useVisualViewportModal(isOpen, sheetRef);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const activeFilterCount = [
@@ -111,16 +127,22 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
     selectedCategory !== 'ALL'
   ].filter(Boolean).length;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="wo-filter-sheet-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-xs"
+      style={{
+        zIndex: layerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
+        ref={sheetRef}
         onClick={e => e.stopPropagation()}
+        style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
         className="mj-sheet-enter w-full sm:max-w-lg bg-white/95 dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] max-h-[88dvh] flex flex-col overflow-hidden"
       >
         {/* Drag Handle + Header */}
@@ -312,7 +334,7 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
         </div>
 
         {/* Sticky Footer Actions */}
-        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5 shrink-0">
+        <div className="px-4 py-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160D29] border-t border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onResetAll}
@@ -333,4 +355,6 @@ export const WorkOrderFilterSheet: React.FC<WorkOrderFilterSheetProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

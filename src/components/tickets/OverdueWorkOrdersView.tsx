@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   AlertTriangle,
-  ArrowDown,
   ArrowRightLeft,
-  ArrowUp,
   Calendar,
   Clock,
   Download,
@@ -15,12 +13,10 @@ import {
   MessageSquare,
   RefreshCw,
   RotateCcw,
-  Search,
   ShieldAlert,
   Database,
   Wrench,
-  CheckCircle2,
-  X
+  CheckCircle2
 } from 'lucide-react';
 import { OverdueDurationBucket, Ticket } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
@@ -31,7 +27,7 @@ import {
   getOverdueBucketLabel,
   getOverdueDurationLabel
 } from '../../services/woClassificationService';
-import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
 import { isTicketClosed } from '../../services/woLifecycleService';
 import {
   buildTechnicianCapacitySummaries,
@@ -43,6 +39,15 @@ import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../
 import { PaginationBar } from '../common/PaginationBar';
 import { LeaderTwoStepReassignModal } from '../portals/LeaderTwoStepReassignModal';
 import { navigateToDataDeletion } from '../../services/deletionManagementService';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
+import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
 
 interface OverdueWorkOrdersViewProps {
   onSelectTicket: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -156,14 +161,19 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   const isLeaderRole = currentUser.role === 'leader';
 
   const [viewMode, setViewMode] = useState<'overdue' | 'exception'>('overdue');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [woSearch, setWoSearch] = useState('');
+  const [customerIdSearch, setCustomerIdSearch] = useState('');
+  const [customerNameSearch, setCustomerNameSearch] = useState('');
   const [contractorFilter, setContractorFilter] = useState('ALL');
   const [areaFilter, setAreaFilter] = useState('ALL');
-  const [leaderFilter, setLeaderFilter] = useState('ALL');
   const [installerFilter, setInstallerFilter] = useState('ALL');
   const [durationFilter, setDurationFilter] = useState<'ALL' | OverdueDurationBucket>('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [exactAppointmentDate, setExactAppointmentDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortColumn, setSortColumn] = useState<string>('appointmentDate');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'ALL'>(25);
@@ -262,17 +272,21 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     };
   }, [activePool, contractorsList, areasList, isLeaderRole]);
 
+  const handleCycleSort = (colKey: string) => {
+    const nextDir = getNextSortDirection(sortColumn, sortDirection, colKey);
+    setSortColumn(nextDir ? colKey : 'appointmentDate');
+    setSortDirection(nextDir);
+  };
+
   const filteredTickets = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const qWo = woSearch.trim().toLowerCase();
+    const qCid = customerIdSearch.trim().toLowerCase();
+    const qCname = customerNameSearch.trim().toLowerCase();
+
     const list = activePool.filter(t => {
-      if (q) {
-        const wo = String(t.woNumber || '').toLowerCase();
-        const cid = String(t.idCustomer || t.customerId || '').toLowerCase();
-        const cname = String(t.customerName || '').toLowerCase();
-        if (!wo.includes(q) && !cid.includes(q) && !cname.includes(q)) {
-          return false;
-        }
-      }
+      if (qWo && !String(t.woNumber || '').toLowerCase().includes(qWo)) return false;
+      if (qCid && !String(t.idCustomer || t.customerId || '').toLowerCase().includes(qCid)) return false;
+      if (qCname && !String(t.customerName || '').toLowerCase().includes(qCname)) return false;
 
       if (contractorFilter !== 'ALL') {
         const c = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
@@ -282,11 +296,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
       if (areaFilter !== 'ALL') {
         const a = String(t.area || '').trim().toLowerCase();
         if (a !== areaFilter.trim().toLowerCase()) return false;
-      }
-
-      if (leaderFilter !== 'ALL') {
-        const l = String(t.leaderName || t.corlapName || '').trim().toLowerCase();
-        if (l !== leaderFilter.trim().toLowerCase()) return false;
       }
 
       if (installerFilter !== 'ALL') {
@@ -305,27 +314,58 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         if (sa !== target && si !== target) return false;
       }
 
+      if (exactAppointmentDate || dateFrom || dateTo) {
+        const normalizedDate = getTicketAppointmentDate(t) || '';
+        if (!normalizedDate) return false;
+        if (exactAppointmentDate && normalizedDate !== exactAppointmentDate) return false;
+        if (dateFrom && normalizedDate < dateFrom) return false;
+        if (dateTo && normalizedDate > dateTo) return false;
+      }
+
       return true;
     });
 
-    return [...list].sort((a, b) => {
-      const da = String(a.appointmentDate || '');
-      const db = String(b.appointmentDate || '');
-      if (da !== db) {
-        return sortDirection === 'asc' ? da.localeCompare(db) : db.localeCompare(da);
+    if (!sortDirection) return list;
+
+    return sortDataArray(
+      list,
+      sortColumn,
+      sortDirection,
+      (item, col) => {
+        if (col === 'woNumber') return item.woNumber || '';
+        if (col === 'idCustomer') return item.idCustomer || item.customerId || '';
+        if (col === 'customerName') return item.customerName || '';
+        if (col === 'contractor') return item.contactorName || item.contractorName || '';
+        if (col === 'area') return item.area || '';
+        if (col === 'appointmentDate') return getTicketAppointmentDate(item) || item.appointmentDate || '';
+        if (col === 'installerName') return item.installerName || '';
+        if (col === 'status') return item.statusWOInstaller || item.statusWOAgent || '';
+        if (col === 'overdueDays') return item.overdueDays ?? null;
+        if (col === 'updatedAt') return item.updatedAt || item.createdAt || '';
+        return (item as any)[col];
       }
+    ).sort((a, b) => {
+      if (sortColumn !== 'appointmentDate') return 0;
+      const da = getTicketAppointmentDate(a) || a.appointmentDate || '';
+      const db = getTicketAppointmentDate(b) || b.appointmentDate || '';
+      if (da !== db) return 0;
       return String(a.woNumber || '').localeCompare(String(b.woNumber || ''));
     });
   }, [
     activePool,
-    searchQuery,
+    woSearch,
+    customerIdSearch,
+    customerNameSearch,
     contractorFilter,
     areaFilter,
-    leaderFilter,
     installerFilter,
     viewMode,
     durationFilter,
     statusFilter,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo,
+    sortColumn,
     sortDirection
   ]);
 
@@ -334,13 +374,18 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     setCurrentPage(1);
   }, [
     viewMode,
-    searchQuery,
+    woSearch,
+    customerIdSearch,
+    customerNameSearch,
     contractorFilter,
     areaFilter,
-    leaderFilter,
     installerFilter,
     durationFilter,
     statusFilter,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo,
+    sortColumn,
     sortDirection
   ]);
 
@@ -438,24 +483,47 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     });
   }, [isLeaderRole, leaderInstallers, tickets, currentUser.contractor, quotaConfig, todayWIB]);
 
-  const hasActiveFilters = Boolean(
-    searchQuery.trim() ||
-      contractorFilter !== 'ALL' ||
-      areaFilter !== 'ALL' ||
-      leaderFilter !== 'ALL' ||
-      installerFilter !== 'ALL' ||
-      durationFilter !== 'ALL' ||
-      statusFilter !== 'ALL'
-  );
+  const activeFilterCount = useMemo(() => {
+    let c = 0;
+    if (woSearch.trim()) c++;
+    if (customerIdSearch.trim()) c++;
+    if (customerNameSearch.trim()) c++;
+    if (contractorFilter !== 'ALL') c++;
+    if (areaFilter !== 'ALL') c++;
+    if (installerFilter !== 'ALL') c++;
+    if (durationFilter !== 'ALL') c++;
+    if (statusFilter !== 'ALL') c++;
+    if (exactAppointmentDate || dateFrom || dateTo) c++;
+    return c;
+  }, [
+    woSearch,
+    customerIdSearch,
+    customerNameSearch,
+    contractorFilter,
+    areaFilter,
+    installerFilter,
+    durationFilter,
+    statusFilter,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo
+  ]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   const resetFilters = () => {
-    setSearchQuery('');
+    setWoSearch('');
+    setCustomerIdSearch('');
+    setCustomerNameSearch('');
     setContractorFilter('ALL');
     setAreaFilter('ALL');
-    setLeaderFilter('ALL');
     setInstallerFilter('ALL');
     setDurationFilter('ALL');
     setStatusFilter('ALL');
+    setExactAppointmentDate('');
+    setDateFrom('');
+    setDateTo('');
+    setSortColumn('appointmentDate');
     setSortDirection('asc');
   };
 
@@ -688,213 +756,42 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         </div>
       )}
 
-      {/* Search & Comprehensive Filter Bar */}
-      <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-4 space-y-3 shadow-xs dark:shadow-none">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#8492A5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari WO Number, Customer ID, atau Customer Name..."
-              className="w-full pl-9 pr-8 py-2 min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] dark:placeholder:text-[#7D7484] focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                aria-label="Bersihkan pencarian"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="btn-3d-secondary px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-              title="Urutkan berdasarkan Appointment Date"
-            >
-              {sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-              <span>
-                Appointment Date ({sortDirection === 'asc' ? 'Terlama Dulu' : 'Terbaru Dulu'})
-              </span>
-            </button>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="px-3 py-2 rounded-xl text-xs font-bold border border-[#DDE6F0] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Filter</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Multi-attribute Dropdown Filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Contractor / Vendor
-            </label>
-            <select
-              value={contractorFilter}
-              onChange={e => setContractorFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Contractor</option>
-              {filterOptions.contractors.map(c => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Area
-            </label>
-            <select
-              value={areaFilter}
-              onChange={e => setAreaFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Area</option>
-              {filterOptions.areas.map(a => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Leader
-            </label>
-            <select
-              value={leaderFilter}
-              onChange={e => setLeaderFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Leader</option>
-              {filterOptions.leaders.map(l => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Installer
-            </label>
-            <select
-              value={installerFilter}
-              onChange={e => setInstallerFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Installer</option>
-              {filterOptions.installers.map(inst => (
-                <option key={inst} value={inst}>
-                  {inst}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Durasi Overdue
-            </label>
-            <select
-              disabled={viewMode === 'exception'}
-              value={durationFilter}
-              onChange={e => setDurationFilter(e.target.value as 'ALL' | OverdueDurationBucket)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white disabled:opacity-50 focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Durasi</option>
-              <option value="1_day">1 Hari</option>
-              <option value="2_3_days">2–3 Hari</option>
-              <option value="4_7_days">4–7 Hari</option>
-              <option value="gt_7_days">Critical (&gt;7 Hari)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] mb-1">
-              Status WO Asli
-            </label>
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-            >
-              <option value="ALL">Semua Status</option>
-              {filterOptions.statuses.map(st => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Bulk Selection Action Toolbar */}
-      {selectedTicketIds.length > 0 && (
-        <div className="bg-[#EAE8FF] dark:bg-[#22123F] border border-[#DCE3F2] dark:border-[#5B35B1] rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#6657C8] dark:bg-[#58149C] text-white font-mono font-extrabold tabular-nums">
-              {selectedTicketIds.length} WO Overdue dipilih
-            </span>
-            {filteredTickets.length > selectedTicketIds.length && (
-              <button
-                type="button"
-                onClick={() => setSelectedTicketIds(filteredTickets.map(t => t.id))}
-                className="text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
-              >
-                Pilih semua ({filteredTickets.length})
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setSelectedTicketIds([])}
-              className="text-xs font-semibold text-[#52647A] dark:text-[#CEC0E8] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
-            >
-              Batal Pilih
-            </button>
-          </div>
-
-          {canOpenDataDeletion && (
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() =>
-                  navigateToDataDeletion({
-                    category: 'work_orders',
-                    mode: 'soft_delete',
-                    search: selectedTicketsList.length === 1 ? selectedTicketsList[0].woNumber : ''
-                  })
-                }
-                className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>Kelola Penghapusan di Data Deletion</span>
-              </button>
-            </div>
-          )}
+      {/* Compact Reset Filter Strip (no separate filter bar above table) */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TableResetFilterButton
+            activeCount={activeFilterCount}
+            onReset={resetFilters}
+            label="Reset Search/Filter"
+            testId="overdue-reset-filters"
+          />
         </div>
       )}
+
+      {/* Contextual Bulk Selection Toolbar */}
+      <TableSelectionToolbar
+        selectedCount={selectedTicketIds.length}
+        onClearSelection={() => setSelectedTicketIds([])}
+        label="WO Overdue terpilih pada halaman aktif"
+        testId="overdue-selection-toolbar"
+      >
+        {canOpenDataDeletion && (
+          <button
+            type="button"
+            onClick={() =>
+              navigateToDataDeletion({
+                category: 'work_orders',
+                mode: 'soft_delete',
+                search: selectedTicketsList.length === 1 ? selectedTicketsList[0].woNumber : ''
+              })
+            }
+            className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Kelola Penghapusan di Data Deletion</span>
+          </button>
+        )}
+      </TableSelectionToolbar>
 
       {/* Results Area */}
       {filteredTickets.length === 0 ? (
@@ -929,6 +826,76 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         </div>
       ) : isCompactUI ? (
         <div className="space-y-3">
+          {/* Compact Mobile Header Filter & Sort Strip */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <div className="shrink-0 inline-flex items-center px-2 py-1 rounded-xl bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
+              <HeaderSearchPopover
+                label="WO"
+                value={woSearch}
+                onChange={setWoSearch}
+                placeholder="Cari WO Number..."
+                sortActive={sortColumn === 'woNumber'}
+                sortDir={sortColumn === 'woNumber' ? sortDirection : null}
+                onCycleSort={() => handleCycleSort('woNumber')}
+              />
+            </div>
+            <div className="shrink-0 inline-flex items-center px-2 py-1 rounded-xl bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
+              <HeaderDateSortFilterPopover
+                label="Appointment"
+                sortActive={sortColumn === 'appointmentDate'}
+                sortDir={sortColumn === 'appointmentDate' ? sortDirection : null}
+                onCycleSort={() => handleCycleSort('appointmentDate')}
+                exactDate={exactAppointmentDate}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                  setExactAppointmentDate(exactDate);
+                  setDateFrom(df);
+                  setDateTo(dt);
+                }}
+              />
+            </div>
+            <div className="shrink-0 inline-flex items-center px-2 py-1 rounded-xl bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
+              <HeaderCategoryDropdown
+                label="Contractor"
+                value={contractorFilter}
+                defaultValue="ALL"
+                allLabel="Semua Contractor"
+                options={[
+                  { value: 'ALL', label: 'Semua Contractor' },
+                  ...filterOptions.contractors.map(c => ({ value: c, label: c }))
+                ]}
+                onChange={setContractorFilter}
+              />
+            </div>
+            <div className="shrink-0 inline-flex items-center px-2 py-1 rounded-xl bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
+              <HeaderCategoryDropdown
+                label="Area"
+                value={areaFilter}
+                defaultValue="ALL"
+                allLabel="Semua Area"
+                options={[
+                  { value: 'ALL', label: 'Semua Area' },
+                  ...filterOptions.areas.map(a => ({ value: a, label: a }))
+                ]}
+                onChange={setAreaFilter}
+              />
+            </div>
+            <div className="shrink-0 inline-flex items-center px-2 py-1 rounded-xl bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold text-[#52647A] dark:text-[#CEC0E8]">
+              <HeaderCategoryDropdown
+                label="Status"
+                value={statusFilter}
+                defaultValue="ALL"
+                allLabel="Semua Status"
+                options={[
+                  { value: 'ALL', label: 'Semua Status' },
+                  ...filterOptions.statuses.map(st => ({ value: st, label: st }))
+                ]}
+                onChange={setStatusFilter}
+              />
+            </div>
+          </div>
+
           <div className="flex items-center justify-between px-1 text-xs">
             <label className="inline-flex items-center gap-2 font-bold text-[#52647A] dark:text-[#CEC0E8] cursor-pointer">
               <input
@@ -1092,18 +1059,160 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer align-middle"
                     />
                   </th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">WO Number</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Customer ID</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Customer Name</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Contractor / Vendor</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Area</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Appointment Date</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Installer / Technician</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Current Progress</th>
                   <th className="px-3.5 py-3 whitespace-nowrap">
-                    {viewMode === 'exception' ? 'Exception Reason' : 'Overdue Duration'}
+                    <HeaderSearchPopover
+                      label="WO Number"
+                      value={woSearch}
+                      onChange={setWoSearch}
+                      placeholder="Cari WO Number..."
+                      sortActive={sortColumn === 'woNumber'}
+                      sortDir={sortColumn === 'woNumber' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('woNumber')}
+                      testId="overdue-hdr-wo"
+                    />
                   </th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Last Updated</th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderSearchPopover
+                      label="Customer ID"
+                      value={customerIdSearch}
+                      onChange={setCustomerIdSearch}
+                      placeholder="Cari ID Customer..."
+                      sortActive={sortColumn === 'idCustomer'}
+                      sortDir={sortColumn === 'idCustomer' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('idCustomer')}
+                      testId="overdue-hdr-cid"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderSearchPopover
+                      label="Customer Name"
+                      value={customerNameSearch}
+                      onChange={setCustomerNameSearch}
+                      placeholder="Cari Nama Pelanggan..."
+                      sortActive={sortColumn === 'customerName'}
+                      sortDir={sortColumn === 'customerName' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('customerName')}
+                      testId="overdue-hdr-cname"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderCategoryDropdown
+                      label="Contractor"
+                      value={contractorFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Contractor"
+                      options={[
+                        { value: 'ALL', label: 'Semua Contractor' },
+                        ...filterOptions.contractors.map(c => ({ value: c, label: c }))
+                      ]}
+                      onChange={setContractorFilter}
+                      sortActive={sortColumn === 'contractor'}
+                      sortDir={sortColumn === 'contractor' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('contractor')}
+                      testId="overdue-hdr-contractor"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderCategoryDropdown
+                      label="Area"
+                      value={areaFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Area"
+                      options={[
+                        { value: 'ALL', label: 'Semua Area' },
+                        ...filterOptions.areas.map(a => ({ value: a, label: a }))
+                      ]}
+                      onChange={setAreaFilter}
+                      sortActive={sortColumn === 'area'}
+                      sortDir={sortColumn === 'area' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('area')}
+                      testId="overdue-hdr-area"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderDateSortFilterPopover
+                      label="Appointment Date"
+                      sortActive={sortColumn === 'appointmentDate'}
+                      sortDir={sortColumn === 'appointmentDate' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('appointmentDate')}
+                      exactDate={exactAppointmentDate}
+                      dateFrom={dateFrom}
+                      dateTo={dateTo}
+                      onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                        setExactAppointmentDate(exactDate);
+                        setDateFrom(df);
+                        setDateTo(dt);
+                      }}
+                      testId="overdue-hdr-date"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderCategoryDropdown
+                      label="Installer"
+                      value={installerFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Installer"
+                      options={[
+                        { value: 'ALL', label: 'Semua Installer' },
+                        ...filterOptions.installers.map(inst => ({ value: inst, label: inst }))
+                      ]}
+                      onChange={setInstallerFilter}
+                      sortActive={sortColumn === 'installerName'}
+                      sortDir={sortColumn === 'installerName' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('installerName')}
+                      testId="overdue-hdr-installer"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderCategoryDropdown
+                      label="Current Progress"
+                      value={statusFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Status"
+                      options={[
+                        { value: 'ALL', label: 'Semua Status' },
+                        ...filterOptions.statuses.map(st => ({ value: st, label: st }))
+                      ]}
+                      onChange={setStatusFilter}
+                      sortActive={sortColumn === 'status'}
+                      sortDir={sortColumn === 'status' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('status')}
+                      testId="overdue-hdr-status"
+                    />
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    {viewMode === 'exception' ? (
+                      'Exception Reason'
+                    ) : (
+                      <HeaderCategoryDropdown
+                        label="Overdue Duration"
+                        value={durationFilter}
+                        defaultValue="ALL"
+                        allLabel="Semua Durasi"
+                        options={[
+                          { value: 'ALL', label: 'Semua Durasi' },
+                          { value: '1_day', label: '1 Hari' },
+                          { value: '2_3_days', label: '2–3 Hari' },
+                          { value: '4_7_days', label: '4–7 Hari' },
+                          { value: 'gt_7_days', label: 'Critical (>7 Hari)' }
+                        ]}
+                        onChange={v => setDurationFilter(v as 'ALL' | OverdueDurationBucket)}
+                        sortActive={sortColumn === 'overdueDays'}
+                        sortDir={sortColumn === 'overdueDays' ? sortDirection : null}
+                        onCycleSort={() => handleCycleSort('overdueDays')}
+                        testId="overdue-hdr-duration"
+                      />
+                    )}
+                  </th>
+                  <th className="px-3.5 py-3 whitespace-nowrap">
+                    <HeaderSortButton
+                      label="Last Updated"
+                      sortActive={sortColumn === 'updatedAt'}
+                      sortDir={sortColumn === 'updatedAt' ? sortDirection : null}
+                      onCycleSort={() => handleCycleSort('updatedAt')}
+                      testId="overdue-hdr-updated"
+                    />
+                  </th>
                   <th className="px-3.5 py-3 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>

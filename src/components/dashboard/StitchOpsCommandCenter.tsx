@@ -28,7 +28,6 @@ import {
   Radio,
   RefreshCw,
   RotateCcw,
-  Search,
   Server,
   ShieldCheck,
   Sparkles,
@@ -55,6 +54,13 @@ import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
 import { buildGoogleMapsSearchUrl, isValidCoordinatePair } from '../../services/mapsService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { NeonFiberOpticTrails } from '../common/MoraRepublicBrandVisuals';
+import {
+  HeaderSearchPopover,
+  HeaderCategoryDropdown,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 interface StitchOpsCommandCenterProps {
   onNavigate: (tab: string) => void;
@@ -194,6 +200,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
   const { pendingCount } = useOfflineSync();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [techFilter, setTechFilter] = useState('ALL');
+  const [statusFeedFilter, setStatusFeedFilter] = useState('ALL');
+  const [feedSort, setFeedSort] = useState<SortState>({ key: null, direction: null });
   const [leaderFilter, setLeaderFilter] = useState('ALL');
   const [priorityOnly, setPriorityOnly] = useState(false);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
@@ -471,6 +481,19 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     });
   }, [c, telemetry.completedCount]);
 
+  const feedTechOptions = useMemo(() => {
+    const set = new Set<string>();
+    filteredTodayTickets.forEach(t => {
+      if (t.installerName && String(t.installerName).trim()) {
+        set.add(String(t.installerName).trim());
+      }
+    });
+    return [
+      { value: '__UNASSIGNED__', label: 'Belum Assign' },
+      ...Array.from(set).sort().map(name => ({ value: name, label: name }))
+    ];
+  }, [filteredTodayTickets]);
+
   // Critical WO Feed sorting & priority filtering
   const feedTickets = useMemo(() => {
     const priorityRank = (t: Ticket): number => {
@@ -484,12 +507,41 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       return 5;
     };
 
-    let list = filteredTodayTickets;
-    if (showUnassignedOnly) {
-      list = list.filter(t => !isTicketAssigned(t));
-    }
-    if (priorityOnly) {
-      list = list.filter(t => priorityRank(t) <= 3);
+    const qCust = customerSearchQuery.trim().toLowerCase();
+    let list = filteredTodayTickets.filter(t => {
+      if (showUnassignedOnly && isTicketAssigned(t)) return false;
+      if (priorityOnly && priorityRank(t) > 3) return false;
+      if (qCust) {
+        const hay = [t.customerName, t.idCustomer, t.streetName, t.address, t.clusterName, t.area]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(qCust)) return false;
+      }
+      if (techFilter === '__UNASSIGNED__' && isTicketAssigned(t)) return false;
+      if (techFilter !== 'ALL' && techFilter !== '__UNASSIGNED__') {
+        if (String(t.installerName || '').trim() !== techFilter) return false;
+      }
+      if (statusFeedFilter !== 'ALL') {
+        const app = getTicketCanonicalApprovalStatus(t);
+        if (statusFeedFilter === 'BUTUH_APPROVAL' && app !== 'BUTUH APPROVAL') return false;
+        if (statusFeedFilter === 'APPROVED' && app !== 'APPROVED') return false;
+        if (statusFeedFilter === 'REVISION' && app !== 'REVISION') return false;
+        if (statusFeedFilter === 'CHECKED_IN' && !isTicketCheckedIn(t)) return false;
+        if (statusFeedFilter === 'CLOSED' && !isTicketClosed(t)) return false;
+      }
+      return true;
+    });
+
+    if (feedSort.key && feedSort.direction) {
+      return sortDataArray(list, feedSort.key, feedSort.direction, (row, key) => {
+        if (key === 'woNumber') return row.woNumber;
+        if (key === 'customerName') return row.customerName;
+        if (key === 'installerName') return row.installerName || null;
+        if (key === 'status') return getTicketCanonicalApprovalStatus(row) || row.statusWOInstaller || null;
+        if (key === 'geotag') return getTicketHouseGeotagInfo(row).label;
+        return null;
+      });
     }
 
     return list.slice().sort((a, b) => {
@@ -497,7 +549,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       if (diff !== 0) return diff;
       return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
     });
-  }, [filteredTodayTickets, priorityOnly, showUnassignedOnly]);
+  }, [filteredTodayTickets, priorityOnly, showUnassignedOnly, customerSearchQuery, techFilter, statusFeedFilter, feedSort]);
 
   const totalFeedPages = Math.max(1, Math.ceil(feedTickets.length / FEED_PAGE_SIZE));
   const safeFeedPage = Math.min(feedPage, totalFeedPages);
@@ -514,14 +566,34 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
+    customerSearchQuery.trim() !== '' ||
+    techFilter !== 'ALL' ||
+    statusFeedFilter !== 'ALL' ||
+    Boolean(feedSort.direction) ||
     kpiContractorFilter !== 'ALL' ||
     kpiAreaFilter !== 'ALL' ||
     leaderFilter !== 'ALL' ||
     showUnassignedOnly ||
     priorityOnly;
 
+  const activeFeedHeaderCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (customerSearchQuery.trim() ? 1 : 0) +
+    (techFilter !== 'ALL' ? 1 : 0) +
+    (statusFeedFilter !== 'ALL' ? 1 : 0) +
+    (feedSort.direction ? 1 : 0) +
+    (kpiContractorFilter !== 'ALL' ? 1 : 0) +
+    (kpiAreaFilter !== 'ALL' ? 1 : 0) +
+    (leaderFilter !== 'ALL' ? 1 : 0) +
+    (showUnassignedOnly ? 1 : 0) +
+    (priorityOnly ? 1 : 0);
+
   const handleResetFilters = () => {
     setSearchQuery('');
+    setCustomerSearchQuery('');
+    setTechFilter('ALL');
+    setStatusFeedFilter('ALL');
+    setFeedSort({ key: null, direction: null });
     setKpiContractorFilter('ALL');
     setKpiAreaFilter('ALL');
     setLeaderFilter('ALL');
@@ -788,35 +860,8 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
             </div>
           </div>
 
-          {/* 5-Column Micro Filter Toolbar */}
-          <div className="card-3d-lavender rounded-xl p-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 items-center">
-            <div className="relative sm:col-span-2 lg:col-span-2">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => {
-                  setSearchQuery(e.target.value);
-                  setFeedPage(1);
-                }}
-                placeholder="Cari WO, OLT, Cluster, Teknisi..."
-                aria-label="Cari Work Order di Operations Command"
-                className="w-full pl-9 pr-7 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 placeholder:text-[#8492A5]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFeedPage(1);
-                  }}
-                  aria-label="Bersihkan pencarian"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#6657C8] cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          {/* Scope Filter Ribbon (Vendor / Area / Leader KPI Scope) */}
+          <div className="card-3d-lavender rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-center">
 
             <div className="relative">
               <select
@@ -968,35 +1013,8 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
             </div>
           </div>
 
-          {/* 5-Column Micro Filter Toolbar */}
-          <div className="mt-5 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-[#EDF3F8] dark:bg-[#160d29] p-3 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)]">
-            <div className="relative col-span-1 sm:col-span-2 lg:col-span-1">
-              <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A78BFA] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => {
-                  setSearchQuery(e.target.value);
-                  setFeedPage(1);
-                }}
-                placeholder="Cari WO, OLT, Cluster, Teknisi..."
-                aria-label="Cari Work Order di Operations Command"
-                className="w-full pl-9 pr-7 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 placeholder:text-[#8492A5]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFeedPage(1);
-                  }}
-                  aria-label="Bersihkan pencarian"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#6657C8] cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          {/* Scope Filter Ribbon (Vendor / Area / Leader KPI Scope) */}
+          <div className="mt-5 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#EDF3F8] dark:bg-[#160d29] p-3 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)]">
 
             <div className="relative">
               <select
@@ -1797,6 +1815,11 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <TableResetFilterButton
+              activeCount={activeFeedHeaderCount}
+              onReset={handleResetFilters}
+              label="Reset Search/Filter"
+            />
             <button
               type="button"
               onClick={() => {
@@ -1839,11 +1862,105 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           <table className="w-full text-left border-collapse mj-zebra-table">
             <thead>
               <tr className="bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider border-y border-[#DDE6F0] dark:border-transparent">
-                <th className="py-3 px-3 rounded-l-lg">WO ID &amp; Node</th>
-                <th className="py-3 px-3">Pelanggan &amp; Alamat</th>
-                <th className="py-3 px-3">Teknisi / Leader</th>
-                <th className="py-3 px-3">Status WO</th>
-                <th className="py-3 px-3">Foto Rumah &amp; Optical</th>
+                <th className="py-3 px-3 rounded-l-lg">
+                  <HeaderSearchPopover
+                    label="WO ID & Node"
+                    value={searchQuery}
+                    onChange={val => {
+                      setSearchQuery(val);
+                      setFeedPage(1);
+                    }}
+                    placeholder="Cari WO, OLT, FAT, Cluster..."
+                    sortActive={feedSort.key === 'woNumber' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.key === 'woNumber' ? feedSort.direction : null}
+                    onCycleSort={() =>
+                      setFeedSort(prev => ({
+                        key: 'woNumber',
+                        direction: prev.key === 'woNumber' ? getNextSortDirection(prev.direction) : 'asc'
+                      }))
+                    }
+                  />
+                </th>
+                <th className="py-3 px-3">
+                  <HeaderSearchPopover
+                    label="Pelanggan & Alamat"
+                    value={customerSearchQuery}
+                    onChange={val => {
+                      setCustomerSearchQuery(val);
+                      setFeedPage(1);
+                    }}
+                    placeholder="Cari nama, ID 7 digit, alamat..."
+                    sortActive={feedSort.key === 'customerName' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.key === 'customerName' ? feedSort.direction : null}
+                    onCycleSort={() =>
+                      setFeedSort(prev => ({
+                        key: 'customerName',
+                        direction: prev.key === 'customerName' ? getNextSortDirection(prev.direction) : 'asc'
+                      }))
+                    }
+                  />
+                </th>
+                <th className="py-3 px-3">
+                  <HeaderCategoryDropdown
+                    label="Teknisi / Leader"
+                    value={techFilter}
+                    defaultValue="ALL"
+                    allLabel="Semua Teknisi"
+                    options={feedTechOptions}
+                    onChange={val => {
+                      setTechFilter(val);
+                      setFeedPage(1);
+                    }}
+                    sortActive={feedSort.key === 'installerName' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.key === 'installerName' ? feedSort.direction : null}
+                    onCycleSort={() =>
+                      setFeedSort(prev => ({
+                        key: 'installerName',
+                        direction: prev.key === 'installerName' ? getNextSortDirection(prev.direction) : 'asc'
+                      }))
+                    }
+                  />
+                </th>
+                <th className="py-3 px-3">
+                  <HeaderCategoryDropdown
+                    label="Status WO"
+                    value={statusFeedFilter}
+                    defaultValue="ALL"
+                    allLabel="Semua Status"
+                    options={[
+                      { value: 'BUTUH_APPROVAL', label: 'Butuh Approval' },
+                      { value: 'CHECKED_IN', label: 'Checked-In / Progress' },
+                      { value: 'REVISION', label: 'Revisi' },
+                      { value: 'APPROVED', label: 'Approved' },
+                      { value: 'CLOSED', label: 'Closed' }
+                    ]}
+                    onChange={val => {
+                      setStatusFeedFilter(val);
+                      setFeedPage(1);
+                    }}
+                    sortActive={feedSort.key === 'status' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.key === 'status' ? feedSort.direction : null}
+                    onCycleSort={() =>
+                      setFeedSort(prev => ({
+                        key: 'status',
+                        direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                      }))
+                    }
+                  />
+                </th>
+                <th className="py-3 px-3">
+                  <HeaderSortButton
+                    label="Foto Rumah & Optical"
+                    sortActive={feedSort.key === 'geotag' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.key === 'geotag' ? feedSort.direction : null}
+                    onCycleSort={() =>
+                      setFeedSort(prev => ({
+                        key: 'geotag',
+                        direction: prev.key === 'geotag' ? getNextSortDirection(prev.direction) : 'asc'
+                      }))
+                    }
+                  />
+                </th>
                 <th className="py-3 px-3 text-right rounded-r-lg">Aksi Command</th>
               </tr>
             </thead>

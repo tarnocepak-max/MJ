@@ -8325,8 +8325,11 @@ export async function createExpressApp(options?: {
       });
 
       filtered.sort((a: any, b: any) => {
-        const da = getStrictAppointmentDateServer(a) || '';
-        const dbDate = getStrictAppointmentDateServer(b) || '';
+        const da = (getStrictAppointmentDateServer(a) || '').trim();
+        const dbDate = (getStrictAppointmentDateServer(b) || '').trim();
+        if (!da && !dbDate) return 0;
+        if (!da) return 1;
+        if (!dbDate) return -1;
         return sortOrder === 'desc' ? dbDate.localeCompare(da) : da.localeCompare(dbDate);
       });
 

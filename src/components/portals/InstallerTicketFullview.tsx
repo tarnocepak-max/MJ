@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Ticket,
   ProgressReportEntry,
@@ -87,6 +88,7 @@ import { useToast } from '../../context/ToastContext';
 import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import { KendalaReportModal } from '../tickets/KendalaReportModal';
 import {
   PHOTO_SLOT_DEFINITIONS,
@@ -235,7 +237,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     reason: string;
     remarks: string;
   } | null>(null);
-  const qcViewport = useVisualViewportModal(showQcConfirmSheet);
+  const fullviewRef = useRef<HTMLDivElement>(null);
+  const qcSheetRef = useRef<HTMLDivElement>(null);
+  const fullviewLayerZ = useModalLayer(true, { tier: 'modal' });
+  const fullviewViewport = useVisualViewportModal(true, fullviewRef);
+  const qcViewport = useVisualViewportModal(showQcConfirmSheet, qcSheetRef);
+  const qcLayerZ = useModalLayer(showQcConfirmSheet, { tier: 'nested' });
+  const successAlertLayerZ = useModalLayer(showSuccessAlert, { tier: 'confirm' });
+
+  useEffect(() => {
+    if (!showQcConfirmSheet) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowQcConfirmSheet(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showQcConfirmSheet]);
 
   // -------------------------------------------------------------
   // 2-TIER CASCADE REPORT STATE (Status WO -> Reason WO)
@@ -1843,8 +1860,17 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return Math.round(((clamped + 30) / 20) * 100);
   }, [opmNumericForLcd]);
 
-  return (
-    <div className="fixed inset-0 z-45 bg-[#F8FAFD] dark:bg-[#140827] text-[#26364A] dark:text-[#f5eeff] flex flex-col overflow-hidden">
+  const fullviewContent = (
+    <div
+      ref={fullviewRef}
+      style={{
+        zIndex: fullviewLayerZ,
+        ...(fullviewViewport.keyboardInset > 0
+          ? { paddingBottom: `${fullviewViewport.keyboardInset}px` }
+          : {})
+      }}
+      className="fixed inset-0 bg-[#F8FAFD] dark:bg-[#140827] text-[#26364A] dark:text-[#f5eeff] flex flex-col overflow-hidden"
+    >
       {/* ============================================================== */}
       {/* MORAJAWS ENTERPRISE STICKY HEADER                              */}
       {/* ============================================================== */}
@@ -3401,24 +3427,30 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       {/* ============================================================== */}
       {/* QC CONFIRMATION BOTTOM SHEET MODAL                             */}
       {/* ============================================================== */}
-      {showQcConfirmSheet && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="qc-confirm-sheet-title"
-          style={qcViewport.keyboardInset > 0 ? { paddingBottom: `${qcViewport.keyboardInset}px` } : undefined}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-150"
-        >
-          <div className="absolute inset-0" onClick={() => setShowQcConfirmSheet(false)} />
+      {showQcConfirmSheet &&
+        (() => {
+          const qcSheet = (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="qc-confirm-sheet-title"
+              style={{
+                zIndex: qcLayerZ,
+                ...(qcViewport.keyboardInset > 0 ? { paddingBottom: `${qcViewport.keyboardInset}px` } : {})
+              }}
+              className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-150"
+            >
+              <div className="absolute inset-0" onClick={() => setShowQcConfirmSheet(false)} />
 
-          <div
-            style={
-              qcViewport.isKeyboardOpen
-                ? { maxHeight: `${Math.max(280, qcViewport.viewportHeight - 12)}px` }
-                : undefined
-            }
-            className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FFFFFF] dark:bg-[#1E1238] text-[#26364A] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
-          >
+              <div
+                ref={qcSheetRef}
+                style={
+                  qcViewport.isKeyboardOpen
+                    ? { maxHeight: `${Math.max(280, qcViewport.viewportHeight - 12)}px` }
+                    : undefined
+                }
+                className="mj-sheet-enter relative z-10 w-full sm:max-w-lg bg-[#FFFFFF] dark:bg-[#1E1238] text-[#26364A] dark:text-[#f5eeff] rounded-t-[1.5rem] sm:rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+              >
             <div className="flex justify-center pt-2.5 pb-1 sm:hidden shrink-0">
               <div className="w-10 h-1.5 rounded-full bg-[#CBD5E1] dark:bg-[#4B386B]" />
             </div>
@@ -3607,7 +3639,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </div>
           </div>
         </div>
-      )}
+          );
+          return typeof document !== 'undefined' ? createPortal(qcSheet, document.body) : qcSheet;
+        })()}
 
       {/* ============================================================== */}
       {/* KENDALA / RESCHEDULE ESCALATION MODAL (MANDATORY PHOTO+DESC)   */}
@@ -3621,12 +3655,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       {/* ============================================================== */}
       {/* SUCCESS ALERT MODAL (MORAJAWS LIGHT & DARK)                    */}
       {/* ============================================================== */}
-      {showSuccessAlert && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-200"
-        >
+      {showSuccessAlert &&
+        (() => {
+          const successAlert = (
+            <div
+              role="dialog"
+              aria-modal="true"
+              style={{ zIndex: successAlertLayerZ }}
+              className="fixed inset-0 flex items-center justify-center p-3 sm:p-4 bg-[#26364A]/40 dark:bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+            >
           <div className="w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden bg-[#FFFFFF] dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#35105E] shadow-2xl text-center">
             <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 flex items-center justify-center">
@@ -3686,7 +3723,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </div>
           </div>
         </div>
-      )}
+          );
+          return typeof document !== 'undefined' ? createPortal(successAlert, document.body) : successAlert;
+        })()}
 
       {/* Geo-Tag Camera Modal */}
       {cameraModalSlot && (
@@ -3754,4 +3793,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       />
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(fullviewContent, document.body) : fullviewContent;
 };

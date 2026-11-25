@@ -5,9 +5,7 @@ import { Ticket } from '../../types';
 import {
   FileSpreadsheet,
   Download,
-  Search,
   BarChart3,
-  RotateCcw,
   Building2,
   Wrench,
   MapPin,
@@ -26,7 +24,12 @@ import { getJakartaDateString, parseAppointmentDate } from '../../services/appoi
 import { classifyWorkOrder } from '../../services/woClassificationService';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
 import { HistoryProgressReportView } from './HistoryProgressReportView';
-import { SortableColumnHeader } from '../common/SortableColumnHeader';
+import {
+  HeaderSearchPopover,
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
 import { PaginationBar } from '../common/PaginationBar';
 import {
   SortState,
@@ -38,12 +41,7 @@ interface ColumnFilters {
   woNumber: string;
   customerId: string;
   customerName: string;
-  area: string;
-  appointmentDate: string;
   slotTime: string;
-  contractor: string;
-  installer: string;
-  statusInstaller: string;
   remarks: string;
 }
 
@@ -51,12 +49,7 @@ const initialFilters: ColumnFilters = {
   woNumber: '',
   customerId: '',
   customerName: '',
-  area: '',
-  appointmentDate: '',
   slotTime: '',
-  contractor: '',
-  installer: '',
-  statusInstaller: '',
   remarks: ''
 };
 
@@ -80,9 +73,11 @@ export const ReportDataWOView: React.FC = () => {
 
   const [contractorFilter, setContractorFilter] = useState('ALL');
   const [areaFilter, setAreaFilter] = useState('ALL');
+  const [installerFilter, setInstallerFilter] = useState('ALL');
+  const [statusInstallerFilter, setStatusInstallerFilter] = useState('ALL');
+  const [exactAppointmentDate, setExactAppointmentDate] = useState('');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // Feature 2: Individual Column Filters
@@ -105,6 +100,33 @@ export const ReportDataWOView: React.FC = () => {
 
   // Base list
   const activeTickets = useMemo(() => tickets.filter(t => !t.isArchived && !t.isDeleted), [tickets]);
+
+  const areaOptions = useMemo(() => {
+    const set = new Set<string>();
+    activeTickets.forEach(t => {
+      const a = String(t.area || '').trim();
+      if (a) set.add(a);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeTickets]);
+
+  const installerOptions = useMemo(() => {
+    const set = new Set<string>();
+    activeTickets.forEach(t => {
+      const inst = String(t.installerName || '').trim();
+      if (inst) set.add(inst);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeTickets]);
+
+  const statusInstallerOptions = useMemo(() => {
+    const set = new Set<string>();
+    activeTickets.forEach(t => {
+      const st = String(t.statusWOInstaller || '').trim();
+      if (st) set.add(st);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeTickets]);
 
   // Report-specific data subset
   const reportData = useMemo(() => {
@@ -140,29 +162,31 @@ export const ReportDataWOView: React.FC = () => {
         if (isCid7 && hasAppDate && hasPhone) return false;
       }
 
-      // 2. Global Filters
+      // 2. Category Dropdown Filters from Headers
       if (contractorFilter !== 'ALL') {
-        const c = t.contactorName || t.contractorName || '';
+        const c = (t.contactorName || t.contractorName || '').trim();
         if (c !== contractorFilter) return false;
       }
-      if (areaFilter !== 'ALL' && t.area !== areaFilter) return false;
-
-      // 3. Date Range
-      const d = t.appointmentDate || '';
-      if (dateStart && d < dateStart) return false;
-      if (dateEnd && d > dateEnd) return false;
-
-      // 4. Global Search query
-      if (searchQuery && typeof searchQuery === 'string' && searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const m1 = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
-        const m2 = (t.customerName ? String(t.customerName).toLowerCase() : '').includes(q);
-        const m3 = (t.idCustomer || t.customerId || '').toLowerCase().includes(q);
-        const m4 = (t.installerName || '').toLowerCase().includes(q);
-        if (!m1 && !m2 && !m3 && !m4) return false;
+      if (areaFilter !== 'ALL' && (t.area || '').trim() !== areaFilter) return false;
+      if (installerFilter !== 'ALL') {
+        const inst = String(t.installerName || '').trim();
+        if (installerFilter === '__UNASSIGNED__') {
+          if (inst) return false;
+        } else if (inst !== installerFilter) {
+          return false;
+        }
+      }
+      if (statusInstallerFilter !== 'ALL' && String(t.statusWOInstaller || '').trim() !== statusInstallerFilter) {
+        return false;
       }
 
-      // 5. Individual Column Filters (AND logic)
+      // 3. Appointment Date Filter (Exact or Range)
+      const parsedDate = parseAppointmentDate(t.appointmentDate).date || '';
+      if (exactAppointmentDate && parsedDate !== exactAppointmentDate) return false;
+      if (dateStart && (!parsedDate || parsedDate < dateStart)) return false;
+      if (dateEnd && (!parsedDate || parsedDate > dateEnd)) return false;
+
+      // 4. Individual Column Search Popovers (AND logic)
       if (colFilters.woNumber.trim()) {
         const q = colFilters.woNumber.toLowerCase().trim();
         if (!(t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q)) return false;
@@ -176,31 +200,9 @@ export const ReportDataWOView: React.FC = () => {
         const q = colFilters.customerName.toLowerCase().trim();
         if (!String(t.customerName ?? '').toLowerCase().includes(q)) return false;
       }
-      if (colFilters.area.trim()) {
-        const q = colFilters.area.toLowerCase().trim();
-        if (!String(t.area ?? '').toLowerCase().includes(q)) return false;
-      }
-      if (colFilters.appointmentDate.trim()) {
-        const q = colFilters.appointmentDate.toLowerCase().trim();
-        const d = String(t.appointmentDate ?? '').toLowerCase();
-        if (!d.includes(q)) return false;
-      }
       if (colFilters.slotTime.trim()) {
         const q = colFilters.slotTime.toLowerCase().trim();
         if (!String(t.slotTime ?? '').toLowerCase().includes(q)) return false;
-      }
-      if (colFilters.contractor.trim()) {
-        const q = colFilters.contractor.toLowerCase().trim();
-        const c = String(t.contactorName || t.contractorName || '').toLowerCase();
-        if (!c.includes(q)) return false;
-      }
-      if (colFilters.installer.trim()) {
-        const q = colFilters.installer.toLowerCase().trim();
-        if (!String(t.installerName ?? '').toLowerCase().includes(q)) return false;
-      }
-      if (colFilters.statusInstaller.trim()) {
-        const q = colFilters.statusInstaller.toLowerCase().trim();
-        if (!String(t.statusWOInstaller ?? '').toLowerCase().includes(q)) return false;
       }
       if (colFilters.remarks.trim()) {
         const q = colFilters.remarks.toLowerCase().trim();
@@ -215,9 +217,11 @@ export const ReportDataWOView: React.FC = () => {
     reportType,
     contractorFilter,
     areaFilter,
+    installerFilter,
+    statusInstallerFilter,
+    exactAppointmentDate,
     dateStart,
     dateEnd,
-    searchQuery,
     colFilters
   ]);
 
@@ -278,9 +282,11 @@ export const ReportDataWOView: React.FC = () => {
   // Reset all filters
   const handleResetFilters = () => {
     setColFilters(initialFilters);
-    setSearchQuery('');
     setContractorFilter('ALL');
     setAreaFilter('ALL');
+    setInstallerFilter('ALL');
+    setStatusInstallerFilter('ALL');
+    setExactAppointmentDate('');
     setDateStart('');
     setDateEnd('');
     setSortState({ column: null, direction: null });
@@ -428,14 +434,14 @@ export const ReportDataWOView: React.FC = () => {
     toast.success('Laporan CSV berhasil diunduh.', 'Ekspor CSV');
   };
 
-  const hasActiveFilters = Boolean(
-    searchQuery ||
-    contractorFilter !== 'ALL' ||
-    areaFilter !== 'ALL' ||
-    dateStart ||
-    dateEnd ||
-    Object.values(colFilters).some(v => Boolean(v.trim()))
-  );
+  const activeFilterCount =
+    (contractorFilter !== 'ALL' ? 1 : 0) +
+    (areaFilter !== 'ALL' ? 1 : 0) +
+    (installerFilter !== 'ALL' ? 1 : 0) +
+    (statusInstallerFilter !== 'ALL' ? 1 : 0) +
+    (exactAppointmentDate || dateStart || dateEnd ? 1 : 0) +
+    Object.values(colFilters).filter(v => Boolean(v.trim())).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <div className="space-y-4">
@@ -561,74 +567,6 @@ export const ReportDataWOView: React.FC = () => {
         <HistoryProgressReportView />
       ) : (
       <>
-      {/* Global Filters Toolbar & Reset */}
-      <div className="card-3d-lavender p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 text-xs">
-        <div className={`grid gap-2.5 flex-1 min-w-0 ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
-          <div className="relative">
-            <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A493C2] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Cari Global (WO, Pelanggan, ID, Teknisi)..."
-              value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="tactile-debossed-input w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-[#26364A] dark:text-white"
-            />
-          </div>
-          <select
-            value={contractorFilter}
-            onChange={e => {
-              setContractorFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="tactile-debossed-input px-3 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl font-medium text-[#26364A] dark:text-white"
-          >
-            <option value="ALL">Semua Mitra Kontraktor</option>
-            {contractors.map(c => (
-              <option key={c.id} value={c.name}>{c.name}</option>
-            ))}
-          </select>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#52647A] dark:text-[#C5B3DF] shrink-0 w-12 sm:w-auto">Dari:</span>
-            <input
-              type="date"
-              value={dateStart}
-              onChange={e => {
-                setDateStart(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs text-[#26364A] dark:text-white"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#52647A] dark:text-[#C5B3DF] shrink-0 w-12 sm:w-auto">Sampai:</span>
-            <input
-              type="date"
-              value={dateEnd}
-              onChange={e => {
-                setDateEnd(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs text-[#26364A] dark:text-white"
-            />
-          </div>
-        </div>
-
-        {/* Reset Filter Button */}
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="btn-3d-crimson px-3.5 py-2 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Semua Filter</span>
-          </button>
-        )}
-      </div>
-
       {/* Interactive Data Table / Responsive Priority Cards */}
       <div className="card-3d-lavender overflow-hidden">
         <div className="px-4 sm:px-5 py-3 border-b border-[#DDE6F0] dark:border-[#361F5E] flex flex-wrap items-center justify-between text-xs gap-2">
@@ -636,49 +574,101 @@ export const ReportDataWOView: React.FC = () => {
             <span className="font-bold text-[#26364A] dark:text-white">
               Hasil Laporan: <span className="font-mono tabular-nums text-[#5145A6] dark:text-[#D8B4FE]">{sortedReportData.length}</span> Work Order
             </span>
-            {hasActiveFilters && (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1654] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#5B289B]/40">
-                Filter Aktif
-              </span>
-            )}
             {sortState.column && (
               <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[#F4F7FB] text-[#52647A] dark:bg-[#1E1238] dark:text-[#C5B3DF]">
                 Sort: {sortState.column} ({sortState.direction})
               </span>
             )}
+            <TableResetFilterButton
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              testId="report-wo-reset-filters"
+            />
           </div>
 
           {isCompactUI ? (
-            <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <ArrowUpDown className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] shrink-0" />
-              <select
-                aria-label="Urutkan Laporan"
-                value={sortState.column || 'woNumber'}
-                onChange={e => {
-                  setSortState({ column: e.target.value, direction: sortState.direction || 'asc' });
+            <div className="flex flex-wrap items-center gap-1.5 w-full">
+              <HeaderSearchPopover
+                label="WO"
+                value={colFilters.woNumber}
+                onChange={val => {
+                  setColFilters(prev => ({ ...prev, woNumber: val }));
                   setCurrentPage(1);
                 }}
-                className="tactile-debossed-input flex-1 sm:flex-none px-2.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold text-[#26364A] dark:text-white"
-              >
-                <option value="woNumber">Urut: WO Number</option>
-                <option value="appointmentDate">Urut: Appointment</option>
-                <option value="customerName">Urut: Pelanggan</option>
-                <option value="area">Urut: Area</option>
-                <option value="contractor">Urut: Kontraktor</option>
-                <option value="statusInstaller">Urut: Status</option>
-              </select>
-              <button
-                type="button"
-                onClick={() =>
-                  setSortState(prev => ({
-                    column: prev.column || 'woNumber',
-                    direction: prev.direction === 'asc' ? 'desc' : 'asc'
-                  }))
-                }
-                className="btn-3d-lilac px-3 py-2 min-h-[44px] rounded-xl font-mono text-[11px] font-bold cursor-pointer"
-              >
-                {sortState.direction === 'desc' ? 'DESC' : 'ASC'}
-              </button>
+                placeholder="Cari WO Number..."
+                sortActive={sortState.column === 'woNumber'}
+                sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+                onCycleSort={() => handleSort('woNumber')}
+              />
+              <HeaderSearchPopover
+                label="Pelanggan"
+                value={colFilters.customerName}
+                onChange={val => {
+                  setColFilters(prev => ({ ...prev, customerName: val }));
+                  setCurrentPage(1);
+                }}
+                placeholder="Cari Nama..."
+              />
+              <HeaderCategoryDropdown
+                label="Mitra"
+                value={contractorFilter}
+                defaultValue="ALL"
+                allLabel="Semua Mitra"
+                options={[
+                  { value: 'ALL', label: 'Semua Mitra' },
+                  ...contractors.map(c => ({ value: c.name, label: c.name }))
+                ]}
+                onChange={val => {
+                  setContractorFilter(val);
+                  setCurrentPage(1);
+                }}
+              />
+              <HeaderDateSortFilterPopover
+                label="Tanggal"
+                sortActive={sortState.column === 'appointmentDate'}
+                sortDir={sortState.column === 'appointmentDate' ? sortState.direction : null}
+                onCycleSort={() => handleSort('appointmentDate')}
+                exactDate={exactAppointmentDate}
+                dateFrom={dateStart}
+                dateTo={dateEnd}
+                onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                  setExactAppointmentDate(exactDate);
+                  setDateStart(df);
+                  setDateEnd(dt);
+                  setCurrentPage(1);
+                }}
+              />
+              <div className="flex items-center gap-1 ml-auto">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] shrink-0" />
+                <select
+                  aria-label="Urutkan Laporan"
+                  value={sortState.column || 'woNumber'}
+                  onChange={e => {
+                    setSortState({ column: e.target.value, direction: sortState.direction || 'asc' });
+                    setCurrentPage(1);
+                  }}
+                  className="tactile-debossed-input px-2 py-1.5 min-h-[36px] rounded-xl text-[11px] font-semibold text-[#26364A] dark:text-white"
+                >
+                  <option value="woNumber">WO</option>
+                  <option value="appointmentDate">Tanggal</option>
+                  <option value="customerName">Pelanggan</option>
+                  <option value="area">Area</option>
+                  <option value="contractor">Mitra</option>
+                  <option value="statusInstaller">Status</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSortState(prev => ({
+                      column: prev.column || 'woNumber',
+                      direction: prev.direction === 'asc' ? 'desc' : 'asc'
+                    }))
+                  }
+                  className="btn-3d-lilac px-2.5 py-1.5 min-h-[36px] rounded-xl font-mono text-[11px] font-bold cursor-pointer"
+                >
+                  {sortState.direction === 'desc' ? 'DESC' : 'ASC'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -826,232 +816,169 @@ export const ReportDataWOView: React.FC = () => {
                 <tr className="border-b border-[#DDE6F0] dark:border-[#3F2370]">
                   <th className="py-2.5 px-3 w-12 text-center">No</th>
                   <th className="py-2.5 px-3 min-w-[130px]">
-                    <SortableColumnHeader
+                    <HeaderSearchPopover
                       label="WO Number"
-                      columnKey="woNumber"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="wo_number"
-                      onSort={handleSort}
+                      value={colFilters.woNumber}
+                      onChange={v => {
+                        setColFilters(prev => ({ ...prev, woNumber: v }));
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Cari WO Number..."
+                      sortActive={sortState.column === 'woNumber'}
+                      sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('woNumber')}
                     />
                   </th>
-                  <th className="py-2.5 px-3 min-w-[110px]">
-                    <SortableColumnHeader
+                  <th className="py-2.5 px-3 min-w-[115px]">
+                    <HeaderSearchPopover
                       label="Customer ID"
-                      columnKey="customerId"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="number"
-                      onSort={handleSort}
+                      value={colFilters.customerId}
+                      onChange={v => {
+                        setColFilters(prev => ({ ...prev, customerId: v }));
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Cari Customer ID..."
+                      sortActive={sortState.column === 'customerId'}
+                      sortDir={sortState.column === 'customerId' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('customerId')}
                     />
                   </th>
-                  <th className="py-2.5 px-3 min-w-[150px]">
-                    <SortableColumnHeader
+                  <th className="py-2.5 px-3 min-w-[155px]">
+                    <HeaderSearchPopover
                       label="Nama Pelanggan"
-                      columnKey="customerName"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3 min-w-[110px]">
-                    <SortableColumnHeader
-                      label="Area"
-                      columnKey="area"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3 min-w-[130px]">
-                    <SortableColumnHeader
-                      label="Appointment"
-                      columnKey="appointmentDate"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="date"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3 min-w-[100px]">
-                    <SortableColumnHeader
-                      label="Slot Time"
-                      columnKey="slotTime"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="time_slot"
-                      onSort={handleSort}
+                      value={colFilters.customerName}
+                      onChange={v => {
+                        setColFilters(prev => ({ ...prev, customerName: v }));
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Cari Nama Pelanggan..."
+                      sortActive={sortState.column === 'customerName'}
+                      sortDir={sortState.column === 'customerName' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('customerName')}
                     />
                   </th>
                   <th className="py-2.5 px-3 min-w-[120px]">
-                    <SortableColumnHeader
-                      label="Kontraktor"
-                      columnKey="contractor"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3 min-w-[130px]">
-                    <SortableColumnHeader
-                      label="Teknisi"
-                      columnKey="installer"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
-                    />
-                  </th>
-                  <th className="py-2.5 px-3 min-w-[130px]">
-                    <SortableColumnHeader
-                      label="Status Installer"
-                      columnKey="statusInstaller"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="status"
-                      onSort={handleSort}
+                    <HeaderCategoryDropdown
+                      label="Area"
+                      value={areaFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Area"
+                      options={[
+                        { value: 'ALL', label: `Semua Area (${areaOptions.length})` },
+                        ...areaOptions.map(a => ({ value: a, label: a }))
+                      ]}
+                      onChange={v => {
+                        setAreaFilter(v);
+                        setCurrentPage(1);
+                      }}
+                      sortActive={sortState.column === 'area'}
+                      sortDir={sortState.column === 'area' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('area')}
                     />
                   </th>
                   <th className="py-2.5 px-3 min-w-[140px]">
-                    <SortableColumnHeader
-                      label="Catatan / Remarks"
-                      columnKey="remarks"
-                      currentSortColumn={sortState.column}
-                      currentDirection={sortState.direction}
-                      dataType="text"
-                      onSort={handleSort}
+                    <HeaderDateSortFilterPopover
+                      label="Appointment"
+                      sortActive={sortState.column === 'appointmentDate'}
+                      sortDir={sortState.column === 'appointmentDate' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('appointmentDate')}
+                      exactDate={exactAppointmentDate}
+                      dateFrom={dateStart}
+                      dateTo={dateEnd}
+                      onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                        setExactAppointmentDate(exactDate);
+                        setDateStart(df);
+                        setDateEnd(dt);
+                        setCurrentPage(1);
+                      }}
                     />
                   </th>
-                </tr>
-
-                {/* Individual Column Search Row (Feature 2) */}
-                <tr className="bg-[#F4F7FB] dark:bg-[#1E1238] border-b border-[#DDE6F0] dark:border-[#361F5E]">
-                  <td className="p-1.5 text-center">
-                    <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] mx-auto" />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari WO..."
-                      value={colFilters.woNumber}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, woNumber: e.target.value }));
-                        setCurrentPage(1);
-                      }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#26364A] dark:text-white"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari ID..."
-                      value={colFilters.customerId}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, customerId: e.target.value }));
-                        setCurrentPage(1);
-                      }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#26364A] dark:text-white"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari Nama..."
-                      value={colFilters.customerName}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, customerName: e.target.value }));
-                        setCurrentPage(1);
-                      }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari Area..."
-                      value={colFilters.area}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, area: e.target.value }));
-                        setCurrentPage(1);
-                      }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="YYYY-MM-DD..."
-                      value={colFilters.appointmentDate}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, appointmentDate: e.target.value }));
-                        setCurrentPage(1);
-                      }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] font-mono text-[#26364A] dark:text-white"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Slot..."
+                  <th className="py-2.5 px-3 min-w-[110px]">
+                    <HeaderSearchPopover
+                      label="Slot Time"
                       value={colFilters.slotTime}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, slotTime: e.target.value }));
+                      onChange={v => {
+                        setColFilters(prev => ({ ...prev, slotTime: v }));
                         setCurrentPage(1);
                       }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
+                      placeholder="Cari Slot..."
+                      sortActive={sortState.column === 'slotTime'}
+                      sortDir={sortState.column === 'slotTime' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('slotTime')}
                     />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Kontraktor..."
-                      value={colFilters.contractor}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, contractor: e.target.value }));
+                  </th>
+                  <th className="py-2.5 px-3 min-w-[130px]">
+                    <HeaderCategoryDropdown
+                      label="Kontraktor"
+                      value={contractorFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Kontraktor"
+                      options={[
+                        { value: 'ALL', label: `Semua Kontraktor (${contractors.length})` },
+                        ...contractors.map(c => ({ value: c.name, label: c.name }))
+                      ]}
+                      onChange={v => {
+                        setContractorFilter(v);
                         setCurrentPage(1);
                       }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
+                      sortActive={sortState.column === 'contractor'}
+                      sortDir={sortState.column === 'contractor' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('contractor')}
                     />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Teknisi..."
-                      value={colFilters.installer}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, installer: e.target.value }));
+                  </th>
+                  <th className="py-2.5 px-3 min-w-[135px]">
+                    <HeaderCategoryDropdown
+                      label="Teknisi"
+                      value={installerFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Teknisi"
+                      options={[
+                        { value: 'ALL', label: 'Semua Teknisi' },
+                        { value: '__UNASSIGNED__', label: 'Belum Di-assign' },
+                        ...installerOptions.map(i => ({ value: i, label: i }))
+                      ]}
+                      onChange={v => {
+                        setInstallerFilter(v);
                         setCurrentPage(1);
                       }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
+                      sortActive={sortState.column === 'installer'}
+                      sortDir={sortState.column === 'installer' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('installer')}
                     />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Status..."
-                      value={colFilters.statusInstaller}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, statusInstaller: e.target.value }));
+                  </th>
+                  <th className="py-2.5 px-3 min-w-[135px]">
+                    <HeaderCategoryDropdown
+                      label="Status Installer"
+                      value={statusInstallerFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Status"
+                      options={[
+                        { value: 'ALL', label: 'Semua Status' },
+                        ...statusInstallerOptions.map(s => ({ value: s, label: s }))
+                      ]}
+                      onChange={v => {
+                        setStatusInstallerFilter(v);
                         setCurrentPage(1);
                       }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
+                      sortActive={sortState.column === 'statusInstaller'}
+                      sortDir={sortState.column === 'statusInstaller' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('statusInstaller')}
                     />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari remarks..."
+                  </th>
+                  <th className="py-2.5 px-3 min-w-[140px]">
+                    <HeaderSearchPopover
+                      label="Catatan / Remarks"
                       value={colFilters.remarks}
-                      onChange={e => {
-                        setColFilters(prev => ({ ...prev, remarks: e.target.value }));
+                      onChange={v => {
+                        setColFilters(prev => ({ ...prev, remarks: v }));
                         setCurrentPage(1);
                       }}
-                      className="tactile-debossed-input w-full px-2 py-1 rounded-md text-[11px] text-[#26364A] dark:text-white"
+                      placeholder="Cari Catatan / Remarks..."
+                      sortActive={sortState.column === 'remarks'}
+                      sortDir={sortState.column === 'remarks' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('remarks')}
                     />
-                  </td>
+                  </th>
                 </tr>
               </thead>
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
 import { UserRole, User as UserType } from '../../types';
@@ -43,6 +44,7 @@ import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import { SuperAdminDeleteModal } from '../common/SuperAdminDeleteModal';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
 import {
@@ -393,15 +395,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const { toast } = useToast();
   const { isCompactUI } = useResponsiveViewport();
 
-  const filterBarRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const createModalVv = useVisualViewportModal(isCreateModalOpen);
+  const createModalLayer = useModalLayer(isCreateModalOpen, () => {
+    if (!isCreatingUser) setIsCreateModalOpen(false);
+  });
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [areaVendorFilter, setAreaVendorFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'inactive' | 'locked'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
@@ -1001,36 +1006,45 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         const matchesPhone = String(u.phone || '').toLowerCase().includes(q);
         const matchesContractor = String(u.contractor || '').toLowerCase().includes(q);
         const matchesArea = String(u.area || '').toLowerCase().includes(q);
-        return (
-          matchesName ||
-          matchesUser ||
-          matchesUserId ||
-          matchesEmail ||
-          matchesPhone ||
-          matchesContractor ||
-          matchesArea
-        );
+        if (
+          !matchesName &&
+          !matchesUser &&
+          !matchesUserId &&
+          !matchesEmail &&
+          !matchesPhone &&
+          !matchesContractor &&
+          !matchesArea
+        ) {
+          return false;
+        }
+      }
+
+      if (contactSearchQuery.trim()) {
+        const cq = contactSearchQuery.toLowerCase().trim();
+        const mEmail = String(u.email || '').toLowerCase().includes(cq);
+        const mPhone = String(u.phone || '').toLowerCase().includes(cq);
+        if (!mEmail && !mPhone) return false;
       }
       return true;
     });
-  }, [users, roleFilter, statusFilter, areaVendorFilter, searchQuery]);
+  }, [users, roleFilter, statusFilter, areaVendorFilter, searchQuery, contactSearchQuery]);
 
   const sortedUsers = useMemo(() => {
     return sortDataArray(filteredUsers, sortState, (u: UserType, col: string) => {
       if (col === 'name') return u.name;
-      if (col === 'username') return u.username;
+      if (col === 'username') return u.email || u.username;
       if (col === 'role') return u.role;
-      if (col === 'contractor') return `${u.area || ''} ${u.contractor || ''}`;
-      if (col === 'phone') return u.phone || '';
+      if (col === 'contractor') return `${u.area || ''} ${u.contractor || ''}`.trim() || null;
+      if (col === 'phone') return u.phone || null;
       if (col === 'active') return isUserLocked(u) ? 2 : u.active ? 1 : 0;
-      if (col === 'lastLogin') return u.lastLoginAt || '';
+      if (col === 'lastLogin') return u.lastLoginAt || null;
       return (u as any)[col];
     });
   }, [filteredUsers, sortState]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [roleFilter, statusFilter, areaVendorFilter, searchQuery]);
+  }, [roleFilter, statusFilter, areaVendorFilter, searchQuery, contactSearchQuery]);
 
   const effectivePageSize = pageSize === -1 ? Math.max(1, sortedUsers.length) : pageSize;
   const totalPages = Math.max(1, Math.ceil(sortedUsers.length / effectivePageSize));
@@ -1074,8 +1088,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
   const handleFocusFilters = () => {
     setIsCreateModalOpen(false);
     setTimeout(() => {
-      filterBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      searchInputRef.current?.focus();
+      tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 60);
   };
 
@@ -1452,107 +1465,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             <Lock className="w-3.5 h-3.5" />
             <span>Terkunci ({userStats.lockedCount})</span>
           </button>
-
-          {(roleFilter !== 'ALL' || statusFilter !== 'ALL' || areaVendorFilter !== 'ALL' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => {
-                setRoleFilter('ALL');
-                setStatusFilter('ALL');
-                setAreaVendorFilter('ALL');
-                setSearchQuery('');
-              }}
-              className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-[#BA1A1A] dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer flex items-center gap-1"
-            >
-              <X className="w-3 h-3" />
-              <span>Reset Filter</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* USERS DIRECTORY LIST (Stays mounted behind centered modal with backdrop blur) */}
-      <div className="space-y-4">
-          {/* 4-Column Debossed Filter Bar */}
-          <div ref={filterBarRef} className="card-3d-lavender rounded-2xl p-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-              {/* 1. Search Input */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Cari Nama / Email / Username / Mitra..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="tactile-debossed-input w-full min-h-[40px] pl-9 pr-8 py-2 bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/30 dark:focus:ring-[#7135B5]/30"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492A5] hover:text-[#26364A] dark:hover:text-white cursor-pointer"
-                    aria-label="Hapus pencarian"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* 2. Role Select */}
-              <select
-                value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
-                className="tactile-debossed-input w-full min-h-[40px] px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/30 dark:focus:ring-[#7135B5]/30"
-              >
-                <option value="ALL">Semua Role ({users.length})</option>
-                <option value="super_admin">1. Superadmin ({userStats.byRole.super_admin})</option>
-                <option value="dispatch">2. Dispatch ({userStats.byRole.dispatch})</option>
-                <option value="leader">3. Leader Area ({userStats.byRole.leader})</option>
-                <option value="installer">4. Installer / Teknisi ({userStats.byRole.installer})</option>
-              </select>
-
-              {/* 3. Area / Vendor Select */}
-              <select
-                value={areaVendorFilter}
-                onChange={e => setAreaVendorFilter(e.target.value)}
-                className="tactile-debossed-input w-full min-h-[40px] px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/30 dark:focus:ring-[#7135B5]/30"
-              >
-                <option value="ALL">Semua Area / Vendor</option>
-                {areaVendorOptions.areas.length > 0 && (
-                  <optgroup label="Coverage Area / Basecamp">
-                    {areaVendorOptions.areas.map(area => (
-                      <option key={`area-${area}`} value={`area:${area}`}>
-                        Area: {area}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {areaVendorOptions.vendors.length > 0 && (
-                  <optgroup label="Mitra Kontraktor">
-                    {areaVendorOptions.vendors.map(vendor => (
-                      <option key={`vendor-${vendor}`} value={`vendor:${vendor}`}>
-                        Mitra: {vendor}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-
-              {/* 4. Status Akun Select */}
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value as any)}
-                className="tactile-debossed-input w-full min-h-[40px] px-3 py-2 text-xs bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#6657C8]/30 dark:focus:ring-[#7135B5]/30"
-              >
-                <option value="ALL">Semua Status Akun</option>
-                <option value="active">Aktif ({userStats.activeCount})</option>
-                <option value="inactive">Nonaktif ({userStats.inactiveCount})</option>
-                <option value="locked">Terkunci ({userStats.lockedCount})</option>
-              </select>
-            </div>
-          </div>
-
+      {/* USERS DIRECTORY LIST (Embedded Interactive Column Headers) */}
+      <div className="space-y-4" ref={tableContainerRef}>
           {/* 8/4 Asymmetric Grid: User Directory Table (Left 8) + Live Operator & Area Insights (Right 4) */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             <div className="xl:col-span-8 card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4">
@@ -1577,6 +1494,20 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
               sortKey={sortState.column}
               sortDirection={sortState.direction}
               onSort={handleSort}
+              activeFilterCount={
+                (searchQuery.trim() ? 1 : 0) +
+                (contactSearchQuery.trim() ? 1 : 0) +
+                (roleFilter !== 'ALL' ? 1 : 0) +
+                (areaVendorFilter !== 'ALL' ? 1 : 0) +
+                (statusFilter !== 'ALL' ? 1 : 0)
+              }
+              onResetFilters={() => {
+                setRoleFilter('ALL');
+                setStatusFilter('ALL');
+                setAreaVendorFilter('ALL');
+                setSearchQuery('');
+                setContactSearchQuery('');
+              }}
               mobileTitle={u => (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
@@ -1627,6 +1558,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Nama & ID User',
                   priority: 'hidden_mobile',
                   sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: searchQuery,
+                    onChange: setSearchQuery,
+                    placeholder: 'Cari Nama / Username / ID...'
+                  },
                   render: u => {
                     const isDarkAvatar =
                       u.role === 'super_admin' || u.role === 'dispatch' || u.role === 'leader';
@@ -1664,6 +1601,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Email & No. WhatsApp',
                   priority: 'hidden_mobile',
                   sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: contactSearchQuery,
+                    onChange: setContactSearchQuery,
+                    placeholder: 'Cari Email / No. WA...'
+                  },
                   render: u => (
                     <div className="space-y-0.5">
                       <div className="text-xs font-medium text-[#26364A] dark:text-[#F5EEFF]">
@@ -1680,6 +1623,19 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Role',
                   priority: 'hidden_mobile',
                   sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: roleFilter,
+                    defaultValue: 'ALL',
+                    allLabel: `Semua Role (${users.length})`,
+                    options: [
+                      { value: 'super_admin', label: 'Superadmin', count: userStats.byRole.super_admin },
+                      { value: 'dispatch', label: 'Dispatch', count: userStats.byRole.dispatch },
+                      { value: 'leader', label: 'Leader Area', count: userStats.byRole.leader },
+                      { value: 'installer', label: 'Installer / Teknisi', count: userStats.byRole.installer }
+                    ],
+                    onChange: setRoleFilter
+                  },
                   render: u => getRoleBadge(u.role)
                 },
                 {
@@ -1687,6 +1643,17 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Area / Basecamp Mitra',
                   priority: 'primary',
                   sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: areaVendorFilter,
+                    defaultValue: 'ALL',
+                    allLabel: 'Semua Area / Vendor',
+                    options: [
+                      ...areaVendorOptions.areas.map(area => ({ value: `area:${area}`, label: `Area: ${area}` })),
+                      ...areaVendorOptions.vendors.map(vendor => ({ value: `vendor:${vendor}`, label: `Mitra: ${vendor}` }))
+                    ],
+                    onChange: setAreaVendorFilter
+                  },
                   render: u =>
                     isCentralOpsRole(u.role) ? (
                       <span className="text-[11px] font-semibold text-[#8492A5] dark:text-[#A79BC0]">
@@ -1708,6 +1675,18 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   label: 'Status Akun',
                   priority: 'hidden_mobile',
                   sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: statusFilter,
+                    defaultValue: 'ALL',
+                    allLabel: 'Semua Status Akun',
+                    options: [
+                      { value: 'active', label: 'Aktif', count: userStats.activeCount },
+                      { value: 'inactive', label: 'Nonaktif', count: userStats.inactiveCount },
+                      { value: 'locked', label: 'Terkunci', count: userStats.lockedCount }
+                    ],
+                    onChange: val => setStatusFilter(val as any)
+                  },
                   render: u => {
                     const locked = isUserLocked(u);
                     return (
@@ -2052,24 +2031,30 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
           </div>
       </div>
 
-      {/* STITCH HIGH-PRECISION CENTERED MODAL: TAMBAH AKUN USER BARU (ALL 6 ROLES) */}
-      {isCreateModalOpen && (
-        <div
-          style={createModalVv.keyboardInset > 0 ? { paddingBottom: `${createModalVv.keyboardInset}px` } : undefined}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/45 dark:bg-[#0D0518]/75 backdrop-blur-[6px]"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="create-user-modal-title"
-          onClick={e => {
-            if (e.target === e.currentTarget && !isCreatingUser) {
-              setIsCreateModalOpen(false);
-            }
-          }}
-        >
+      {/* STITCH HIGH-PRECISION CENTERED MODAL: TAMBAH AKUN USER BARU (4 ROLES) */}
+      {isCreateModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            style={createModalVv.isKeyboardOpen ? { maxHeight: `${Math.max(280, createModalVv.viewportHeight - 16)}px` } : undefined}
-            className="mj-sheet-enter relative w-full max-w-[700px] sm:my-auto bg-white dark:bg-[#1E1238] rounded-t-2xl sm:rounded-2xl shadow-[0_25px_60px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(197,190,239,0.55)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.72),0_0_0_1px_rgba(167,139,250,0.3)] overflow-hidden flex flex-col max-h-[94dvh]"
+            style={{
+              zIndex: createModalLayer.zIndex,
+              ...(createModalVv.keyboardInset > 0 ? { paddingBottom: `${createModalVv.keyboardInset}px` } : {})
+            }}
+            className="fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/45 dark:bg-[#0D0518]/75 backdrop-blur-[6px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-user-modal-title"
+            onClick={e => {
+              if (e.target === e.currentTarget && !isCreatingUser) {
+                setIsCreateModalOpen(false);
+              }
+            }}
           >
+            <div
+              ref={createModalVv.containerRef}
+              style={createModalVv.isKeyboardOpen ? { maxHeight: `${Math.max(280, createModalVv.viewportHeight - 16)}px` } : undefined}
+              className="mj-sheet-enter relative w-full max-w-[700px] sm:my-auto bg-white dark:bg-[#1E1238] rounded-t-2xl sm:rounded-2xl shadow-[0_25px_60px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(197,190,239,0.55)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.72),0_0_0_1px_rgba(167,139,250,0.3)] overflow-hidden flex flex-col max-h-[94dvh]"
+            >
             {/* Top Crystal Specular Rim Line */}
             <div className="h-1.5 w-full bg-gradient-to-r from-[#5145A6] via-[#2E7D8B] to-[#6657C8] dark:from-[#58149C] dark:via-[#A380FE] dark:to-[#58149C] shrink-0" />
 
@@ -2585,23 +2570,23 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             </form>
 
             {/* Modal Footer (MoraJaws 3D Mechanical Action Buttons) */}
-            <div className="px-5 sm:px-7 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#F4F7FB] dark:bg-[#160D29] border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+            <div className="px-5 sm:px-7 py-3.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] bg-[#F4F7FB] dark:bg-[#160D29] border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 disabled={isCreatingUser}
                 onClick={resetCreateForm}
-                className="btn-3d-ceramic px-3.5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="btn-3d-ceramic w-full sm:w-auto px-3.5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset Form</span>
               </button>
 
-              <div className="flex items-center gap-2.5 ml-auto">
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 sm:ml-auto w-full sm:w-auto">
                 <button
                   type="button"
                   disabled={isCreatingUser}
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="btn-3d-lilac px-4 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  className="btn-3d-lilac w-full sm:w-auto px-4 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -2609,7 +2594,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   type="submit"
                   form="addUserStitchForm"
                   disabled={isCreatingUser}
-                  className="btn-3d-darkpurple px-5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-extrabold tracking-wide flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="btn-3d-darkpurple w-full sm:w-auto px-5 py-2 min-h-[44px] sm:min-h-[40px] rounded-xl text-xs font-extrabold tracking-wide flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <UserPlus className="w-4 h-4 text-[#EAE8FF] dark:text-[#DAB9FF]" />
                   <span>
@@ -2623,7 +2608,8 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* REVOKE SESSIONS CONFIRMATION MODAL (No window.confirm) */}

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import {
   ShieldCheck,
   Shield,
@@ -37,7 +39,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const vv = useVisualViewportModal(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const vv = useVisualViewportModal(isOpen, dialogRef);
+  const layerZ = useModalLayer(isOpen, { tier: 'modal' });
+
+  useEffect(() => {
+    if (!isOpen || !onClose) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, loading, onClose]);
 
   if (!isOpen) return null;
 
@@ -66,14 +79,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-slate-950/70 p-0 sm:p-4 backdrop-blur-xs">
+  const modalContent = (
+    <div
+      style={{
+        zIndex: layerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      onClick={() => {
+        if (onClose && !loading) onClose();
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-slate-950/70 p-0 sm:p-4 backdrop-blur-xs"
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        onClick={e => e.stopPropagation()}
         style={
           vv.viewportHeight
-            ? { maxHeight: `${Math.max(320, vv.viewportHeight - (vv.isKeyboardOpen ? 8 : 20))}px` }
+            ? { maxHeight: `${Math.max(300, vv.viewportHeight - (vv.isKeyboardOpen ? 8 : 20))}px` }
             : undefined
         }
         className="bg-white dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
@@ -179,11 +203,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 shrink-0">
+        <div className="px-5 sm:px-6 py-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 shrink-0">
           <span>Sesi Aktif: 8 Jam (Token Berenkripsi)</span>
           <span>Audit Log Login: Tercatat Otomatis</span>
         </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

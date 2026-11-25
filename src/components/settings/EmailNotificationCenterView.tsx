@@ -15,17 +15,23 @@ import {
   Smartphone,
   Save,
   Loader2,
-  Search,
   Play,
   Zap,
   Database,
   Lock,
-  Calendar,
   XCircle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { getAuthHeaders } from '../../services/authService';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 type EmailSubTab = 'general' | 'rules' | 'templates' | 'logs';
 
@@ -234,6 +240,57 @@ export const EmailNotificationCenterView: React.FC = () => {
     status: 'ALL',
     search: ''
   });
+  const [logSort, setLogSort] = useState<SortState>({ column: null, direction: null });
+
+  const sortedLogs = React.useMemo(
+    () =>
+      sortDataArray(logs, logSort, (log, col) => {
+        switch (col) {
+          case 'createdAt':
+            return log.createdAt ? new Date(log.createdAt) : null;
+          case 'recipient':
+            return log.recipientName || log.recipientEmail || null;
+          case 'event':
+            return eventTypeLabel(log.notificationType) || log.relatedWoNumber || null;
+          case 'subject':
+            return log.subject || null;
+          case 'status':
+            return log.deliveryStatus || null;
+          case 'provider':
+            return log.providerMessageId || log.errorMessage || null;
+          default:
+            return null;
+        }
+      }),
+    [logs, logSort]
+  );
+
+  const activeLogFilterCount =
+    (logFilters.dateFrom ? 1 : 0) +
+    (logFilters.dateTo ? 1 : 0) +
+    (logFilters.role !== 'ALL' ? 1 : 0) +
+    (logFilters.notificationType !== 'ALL' ? 1 : 0) +
+    (logFilters.status !== 'ALL' ? 1 : 0) +
+    (logFilters.search.trim() ? 1 : 0);
+
+  const handleResetLogFilters = () => {
+    setLogFilters({
+      dateFrom: '',
+      dateTo: '',
+      role: 'ALL',
+      notificationType: 'ALL',
+      status: 'ALL',
+      search: ''
+    });
+    setLogSort({ column: null, direction: null });
+  };
+
+  const handleToggleLogSort = (col: string) => {
+    setLogSort(prev => ({
+      column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+      direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+    }));
+  };
 
   const loadConfigAndTemplates = useCallback(async () => {
     if (!isSuperadmin) return;
@@ -1407,7 +1464,7 @@ export const EmailNotificationCenterView: React.FC = () => {
           {subTab === 'logs' && (
             <div className="space-y-4">
               {/* Queue Summary & Actions */}
-              <div className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className="card-3d-lavender rounded-2xl p-4 sm:p-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {[
@@ -1428,6 +1485,10 @@ export const EmailNotificationCenterView: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <TableResetFilterButton
+                      activeCount={activeLogFilterCount}
+                      onReset={handleResetLogFilters}
+                    />
                     <button
                       type="button"
                       disabled={isProcessingQueue}
@@ -1448,175 +1509,201 @@ export const EmailNotificationCenterView: React.FC = () => {
                     </button>
                   </div>
                 </div>
-
-                {/* Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
-                  <div className="lg:col-span-2 relative">
-                    <Search className="w-3.5 h-3.5 text-[#8492A5] absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={logFilters.search}
-                      onChange={e => setLogFilters(prev => ({ ...prev, search: e.target.value }))}
-                      placeholder="Cari WO Number, email, provider ID..."
-                      className="w-full pl-8 pr-3 py-2 rounded-xl tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-xs font-semibold text-[#26364A] dark:text-white focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#8492A5] shrink-0" />
-                    <input
-                      type="date"
-                      value={logFilters.dateFrom}
-                      onChange={e => setLogFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                      className="w-full px-2.5 py-2 rounded-xl tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-xs font-mono text-[#26364A] dark:text-white"
-                      title="Tanggal Mulai"
-                    />
-                  </div>
-
-                  <select
-                    value={logFilters.role}
-                    onChange={e => setLogFilters(prev => ({ ...prev, role: e.target.value }))}
-                    className="px-2.5 py-2 rounded-xl text-xs font-bold bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#35105E]"
-                  >
-                    <option value="ALL">Semua Role</option>
-                    <option value="leader">Leader</option>
-                    <option value="installer">Installer</option>
-                    <option value="super_admin">Superadmin</option>
-                  </select>
-
-                  <select
-                    value={logFilters.notificationType}
-                    onChange={e => setLogFilters(prev => ({ ...prev, notificationType: e.target.value }))}
-                    className="px-2.5 py-2 rounded-xl text-xs font-bold bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#35105E]"
-                  >
-                    <option value="ALL">Semua Jenis Event</option>
-                    <option value="daily_reset">Daily Reset</option>
-                    <option value="new_wo_leader">New WO Leader</option>
-                    <option value="wo_assigned_installer">WO Assignment</option>
-                    <option value="wo_reassigned">WO Reassignment</option>
-                    <option value="daily_summary">Daily Summary</option>
-                    <option value="test_email">Test Email</option>
-                  </select>
-
-                  <select
-                    value={logFilters.status}
-                    onChange={e => setLogFilters(prev => ({ ...prev, status: e.target.value }))}
-                    className="px-2.5 py-2 rounded-xl text-xs font-bold bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#35105E]"
-                  >
-                    <option value="ALL">Semua Status</option>
-                    <option value="queued">Queued</option>
-                    <option value="processing">Processing</option>
-                    <option value="sent">Sent</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="retry_pending">Retry Pending</option>
-                    <option value="failed">Failed</option>
-                    <option value="skipped">Skipped</option>
-                  </select>
-                </div>
               </div>
 
-              {/* Logs Table */}
+              {/* Logs Table with Embedded Header Controls */}
               <div className="card-3d-lavender rounded-2xl overflow-hidden">
                 {isLoadingLogs ? (
                   <div className="p-10 flex items-center justify-center gap-2 text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF]">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Memuat Email Delivery Logs...</span>
                   </div>
-                ) : logs.length === 0 ? (
-                  <div className="p-10 text-center space-y-2">
-                    <Mail className="w-8 h-8 text-[#8492A5] mx-auto" />
-                    <div className="text-xs font-bold text-[#26364A] dark:text-white">
-                      Belum ada riwayat pengiriman email yang sesuai filter
-                    </div>
-                    <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
-                      Aktifkan modul email notification atau kirim test email untuk memantau log secara real-time.
-                    </p>
-                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-[#F4F7FB] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-extrabold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
-                          <th className="py-3 px-4">Waktu (WIB)</th>
-                          <th className="py-3 px-4">Penerima &amp; Role</th>
-                          <th className="py-3 px-4">Event / WO</th>
-                          <th className="py-3 px-4">Subject</th>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4">Provider ID / Error</th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderDateSortFilterPopover
+                              label="Waktu (WIB)"
+                              sortActive={logSort.column === 'createdAt'}
+                              sortDir={logSort.column === 'createdAt' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('createdAt')}
+                              exactDate=""
+                              dateFrom={logFilters.dateFrom}
+                              dateTo={logFilters.dateTo}
+                              onChangeDates={next =>
+                                setLogFilters(prev => ({
+                                  ...prev,
+                                  dateFrom: next.dateFrom,
+                                  dateTo: next.dateTo
+                                }))
+                              }
+                              supportsExactDate={false}
+                            />
+                          </th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderCategoryDropdown
+                              label="Penerima & Role"
+                              value={logFilters.role}
+                              allLabel="Semua Role"
+                              options={[
+                                { value: 'leader', label: 'Leader' },
+                                { value: 'installer', label: 'Installer' },
+                                { value: 'super_admin', label: 'Superadmin' }
+                              ]}
+                              onChange={val => setLogFilters(prev => ({ ...prev, role: val }))}
+                              sortActive={logSort.column === 'recipient'}
+                              sortDir={logSort.column === 'recipient' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('recipient')}
+                            />
+                          </th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderCategoryDropdown
+                              label="Event / WO"
+                              value={logFilters.notificationType}
+                              allLabel="Semua Jenis Event"
+                              options={[
+                                { value: 'daily_reset', label: 'Daily Reset' },
+                                { value: 'new_wo_leader', label: 'New WO Leader' },
+                                { value: 'wo_assigned_installer', label: 'WO Assignment' },
+                                { value: 'wo_reassigned', label: 'WO Reassignment' },
+                                { value: 'daily_summary', label: 'Daily Summary' },
+                                { value: 'test_email', label: 'Test Email' }
+                              ]}
+                              onChange={val => setLogFilters(prev => ({ ...prev, notificationType: val }))}
+                              sortActive={logSort.column === 'event'}
+                              sortDir={logSort.column === 'event' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('event')}
+                            />
+                          </th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderSearchPopover
+                              label="Subject"
+                              value={logFilters.search}
+                              onChange={val => setLogFilters(prev => ({ ...prev, search: val }))}
+                              placeholder="Cari WO Number, email, provider ID..."
+                              sortActive={logSort.column === 'subject'}
+                              sortDir={logSort.column === 'subject' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('subject')}
+                            />
+                          </th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderCategoryDropdown
+                              label="Status"
+                              value={logFilters.status}
+                              allLabel="Semua Status"
+                              options={[
+                                { value: 'queued', label: 'Queued' },
+                                { value: 'processing', label: 'Processing' },
+                                { value: 'sent', label: 'Sent' },
+                                { value: 'delivered', label: 'Delivered' },
+                                { value: 'retry_pending', label: 'Retry Pending' },
+                                { value: 'failed', label: 'Failed' },
+                                { value: 'skipped', label: 'Skipped' }
+                              ]}
+                              onChange={val => setLogFilters(prev => ({ ...prev, status: val }))}
+                              sortActive={logSort.column === 'status'}
+                              sortDir={logSort.column === 'status' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('status')}
+                            />
+                          </th>
+                          <th className="py-3 px-4 whitespace-nowrap">
+                            <HeaderSortButton
+                              label="Provider ID / Error"
+                              sortActive={logSort.column === 'provider'}
+                              sortDir={logSort.column === 'provider' ? logSort.direction : null}
+                              onCycleSort={() => handleToggleLogSort('provider')}
+                            />
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#35105E]">
-                        {logs.map(log => {
-                          const badge = statusBadgeMeta(log.deliveryStatus);
-                          return (
-                            <tr key={log.id} className="hover:bg-[#F8FAFD] dark:hover:bg-[#22123F]/60">
-                              <td className="py-3 px-4 font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap">
-                                {new Date(log.createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="font-bold text-[#26364A] dark:text-white">
-                                  {log.recipientName || '-'}
-                                </div>
-                                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
-                                  {log.recipientEmail || '(tanpa email)'} ·{' '}
-                                  <span className="uppercase font-mono">{log.recipientRole || '-'}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">
-                                  {eventTypeLabel(log.notificationType)}
-                                </div>
-                                {log.relatedWoNumber && (
-                                  <div className="text-[11px] font-mono text-[#26364A] dark:text-white">
-                                    {log.relatedWoNumber}
+                        {sortedLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="p-10 text-center space-y-2">
+                              <Mail className="w-8 h-8 text-[#8492A5] mx-auto" />
+                              <div className="text-xs font-bold text-[#26364A] dark:text-white">
+                                Belum ada riwayat pengiriman email yang sesuai filter
+                              </div>
+                              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                                Aktifkan modul email notification, kirim test email, atau reset filter pada header kolom.
+                              </p>
+                            </td>
+                          </tr>
+                        ) : (
+                          sortedLogs.map(log => {
+                            const badge = statusBadgeMeta(log.deliveryStatus);
+                            return (
+                              <tr key={log.id} className="hover:bg-[#F8FAFD] dark:hover:bg-[#22123F]/60">
+                                <td className="py-3 px-4 font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap">
+                                  {new Date(log.createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-[#26364A] dark:text-white">
+                                    {log.recipientName || '-'}
                                   </div>
-                                )}
-                                {(log.metadata?.previousInstaller || log.metadata?.newInstaller) && (
-                                  <div className="text-[10px] text-[#52647A] dark:text-[#CEC0E8]">
-                                    {log.metadata?.previousInstaller ? `${log.metadata.previousInstaller} → ` : ''}
-                                    {log.metadata?.newInstaller || '-'}
+                                  <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                                    {log.recipientEmail || '(tanpa email)'} ·{' '}
+                                    <span className="uppercase font-mono">{log.recipientRole || '-'}</span>
                                   </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 max-w-[260px]">
-                                <div className="truncate font-semibold text-[#26364A] dark:text-white" title={log.subject}>
-                                  {log.subject}
-                                </div>
-                                {log.metadata?.eventId && (
-                                  <div className="text-[10px] font-mono text-[#8492A5] truncate" title={String(log.metadata.eventId)}>
-                                    Evt: {String(log.metadata.eventId)}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">
+                                    {eventTypeLabel(log.notificationType)}
                                   </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${badge.cls}`}>
-                                  {badge.label}
-                                </span>
-                                {log.metadata?.processedAt && (
-                                  <div className="text-[9.5px] font-mono text-[#8492A5] mt-0.5">
-                                    {new Date(log.metadata.processedAt).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
+                                  {log.relatedWoNumber && (
+                                    <div className="text-[11px] font-mono text-[#26364A] dark:text-white">
+                                      {log.relatedWoNumber}
+                                    </div>
+                                  )}
+                                  {(log.metadata?.previousInstaller || log.metadata?.newInstaller) && (
+                                    <div className="text-[10px] text-[#52647A] dark:text-[#CEC0E8]">
+                                      {log.metadata?.previousInstaller ? `${log.metadata.previousInstaller} → ` : ''}
+                                      {log.metadata?.newInstaller || '-'}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 max-w-[260px]">
+                                  <div className="truncate font-semibold text-[#26364A] dark:text-white" title={log.subject}>
+                                    {log.subject}
                                   </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 max-w-[240px]">
-                                {log.providerMessageId && (
-                                  <div className="text-[10.5px] font-mono text-emerald-700 dark:text-emerald-300 truncate">
-                                    ID: {log.providerMessageId}
-                                  </div>
-                                )}
-                                {log.errorMessage && (
-                                  <div className="text-[10.5px] text-rose-600 dark:text-rose-300 flex items-start gap-1">
-                                    <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                                    <span className="line-clamp-2">{log.errorMessage}</span>
-                                  </div>
-                                )}
-                                {!log.providerMessageId && !log.errorMessage && (
-                                  <span className="text-[11px] text-[#8492A5]">-</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                  {log.metadata?.eventId && (
+                                    <div className="text-[10px] font-mono text-[#8492A5] truncate" title={String(log.metadata.eventId)}>
+                                      Evt: {String(log.metadata.eventId)}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${badge.cls}`}>
+                                    {badge.label}
+                                  </span>
+                                  {log.metadata?.processedAt && (
+                                    <div className="text-[9.5px] font-mono text-[#8492A5] mt-0.5">
+                                      {new Date(log.metadata.processedAt).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 max-w-[240px]">
+                                  {log.providerMessageId && (
+                                    <div className="text-[10.5px] font-mono text-emerald-700 dark:text-emerald-300 truncate">
+                                      ID: {log.providerMessageId}
+                                    </div>
+                                  )}
+                                  {log.errorMessage && (
+                                    <div className="text-[10.5px] text-rose-600 dark:text-rose-300 flex items-start gap-1">
+                                      <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-2">{log.errorMessage}</span>
+                                    </div>
+                                  )}
+                                  {!log.providerMessageId && !log.errorMessage && (
+                                    <span className="text-[11px] text-[#8492A5]">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>

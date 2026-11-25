@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
+import { useHasOpenModal } from '../../hooks/useModalLayer';
 import {
   LayoutDashboard,
   Ticket as TicketIcon,
@@ -25,6 +26,9 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
   const { scopedTickets, currentUser, totalLiveChatUnreadCount } = useApp();
   const unreadMessages = totalLiveChatUnreadCount;
   const { config } = useUIConfig();
+  const hasOpenModal = useHasOpenModal();
+
+  if (hasOpenModal) return null;
 
   const totalActiveTickets = scopedTickets.filter(t => !t.isArchived && !t.isDeleted).length;
   const isSuperOrDispatch = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';

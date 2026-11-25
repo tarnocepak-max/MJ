@@ -1,7 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
+import type { ModalLayerTier } from '../../utils/modalStack';
 
 export interface ResponsiveModalProps {
   isOpen: boolean;
@@ -17,6 +20,8 @@ export interface ResponsiveModalProps {
   children: React.ReactNode;
   closeOnBackdropClick?: boolean;
   zIndexClass?: string;
+  layerTier?: ModalLayerTier;
+  hidesBottomNav?: boolean;
   variant?: 'default' | 'dark_purple';
 }
 
@@ -41,11 +46,15 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
   footer,
   children,
   closeOnBackdropClick = true,
-  zIndexClass = 'z-60',
+  zIndexClass,
+  layerTier = 'modal',
+  hidesBottomNav = true,
   variant = 'default'
 }) => {
   const { isCompactUI } = useResponsiveViewport();
-  const vvMetrics = useVisualViewportModal(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const vvMetrics = useVisualViewportModal(isOpen, dialogRef);
+  const layerZ = useModalLayer(isOpen, { tier: layerTier, hidesBottomNav });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,14 +73,17 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
 
   const modalHeightStyle: React.CSSProperties | undefined = vvMetrics.isKeyboardOpen
     ? {
-        maxHeight: `${Math.max(280, vvMetrics.viewportHeight - (isFullscreenMobile ? 0 : 12))}px`
+        maxHeight: `${Math.max(260, vvMetrics.viewportHeight - (isFullscreenMobile ? 0 : 12))}px`
       }
     : undefined;
 
-  return (
+  const content = (
     <div
-      style={vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : undefined}
-      className={`fixed inset-0 ${zIndexClass} flex ${
+      style={{
+        ...(zIndexClass ? {} : { zIndex: layerZ }),
+        ...(vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : {})
+      }}
+      className={`fixed inset-0 ${zIndexClass || ''} flex ${
         isSheetMobile
           ? 'items-end justify-center p-0'
           : isFullscreenMobile
@@ -83,6 +95,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         style={modalHeightStyle}
@@ -127,11 +140,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
               )}
               <div className="min-w-0">
                 {title && (
-                  <h2
-                    className={`font-display font-extrabold text-sm sm:text-base truncate ${
-                      isDarkTech ? 'text-[#26364A] dark:text-white' : 'text-[#26364A] dark:text-white'
-                    }`}
-                  >
+                  <h2 className="font-display font-extrabold text-sm sm:text-base truncate text-[#26364A] dark:text-white">
                     {title}
                   </h2>
                 )}
@@ -188,11 +197,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
 
         {footer && (
           <div
-            className={`px-4 sm:px-5 py-3 border-t flex flex-wrap items-center justify-end gap-2 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
-              isDarkTech
-                ? 'border-[#DDE6F0] bg-[#F8FAFD]/95 dark:border-[#3D1D72] dark:bg-[#190C30]'
-                : 'border-[#DDE6F0] dark:border-[#3D1D72] bg-[#F8FAFD]/95 dark:bg-[#190C30]'
-            }`}
+            className="px-4 sm:px-5 py-3 border-t flex flex-col-reverse sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pb-[max(0.85rem,env(safe-area-inset-bottom))] border-[#DDE6F0] bg-[#F8FAFD]/95 dark:border-[#3D1D72] dark:bg-[#190C30]"
           >
             {footer}
           </div>
@@ -200,4 +205,6 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };

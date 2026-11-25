@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import { Ticket } from '../../types/index.ts';
 import {
@@ -6,14 +7,10 @@ import {
   AlertTriangle,
   X,
   CheckCircle2,
-  Database,
-  Lock,
-  Building2,
-  Calendar,
-  MapPin,
-  UserCheck
+  Lock
 } from 'lucide-react';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 
 interface ManagementDataDeleteModalProps {
   isOpen: boolean;
@@ -38,7 +35,9 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   const [confirmPhrase, setConfirmPhrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const vv = useVisualViewportModal(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const vv = useVisualViewportModal(isOpen, dialogRef);
+  const layerZ = useModalLayer(isOpen, { tier: 'confirm' });
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +47,15 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
       setIsSubmitting(false);
     }
   }, [isOpen, ticket?.id, selectedTickets.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -101,12 +109,22 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
-      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-slate-950/75 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in"
+      style={{
+        zIndex: layerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-slate-950/75 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in"
+      onClick={() => {
+        if (!isSubmitting) onClose();
+      }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
         style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
         className="bg-white dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden"
       >
@@ -263,7 +281,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
         </div>
 
         {/* Modal Actions */}
-        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -277,7 +295,7 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
               type="button"
               onClick={handleExecuteDelete}
               disabled={isSubmitting || !reason.trim() || confirmPhrase.trim().toUpperCase() !== 'HAPUS'}
-              className="px-4 py-2 min-h-[44px] sm:min-h-0 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              className="px-4 py-2 min-h-[44px] sm:min-h-0 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Memproses...' : 'Konfirmasi Hapus WO'}</span>
@@ -287,4 +305,6 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

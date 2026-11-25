@@ -4,6 +4,8 @@ import { Ticket } from '../../types/index.ts';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
+import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 import {
   Database,
   FileSpreadsheet,
@@ -57,15 +59,19 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wo_data' | 'import_validation' | 'quality_monitoring'>('dashboard');
 
-  // Search & Filter state for WO Data tab (Defaults to active today WIB)
+  // Search & Filter state for WO Data tab
   const [searchWo, setSearchWo] = useState('');
   const [searchCustomerId, setSearchCustomerId] = useState('');
   const [searchCustomerName, setSearchCustomerName] = useState('');
   const [selectedContractor, setSelectedContractor] = useState('ALL');
   const [selectedArea, setSelectedArea] = useState('ALL');
-  const [dateFilterMode, setDateFilterMode] = useState<ScheduleDateFilterMode>('today');
+  const [exactAppointmentDate, setExactAppointmentDate] = useState('');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
+  const [canonicalSearch, setCanonicalSearch] = useState('');
+  const [canonicalCategoryFilter, setCanonicalCategoryFilter] = useState('ALL');
+  const [canonicalSortState, setCanonicalSortState] = useState<SortState>({ column: null, direction: null });
   const [woPage, setWoPage] = useState(1);
   const [woPageSize, setWoPageSize] = useState(20);
 
@@ -179,48 +185,115 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       }
 
       if (selectedContractor !== 'ALL') {
-        const contr = String(t.contactorName || t.contractorName || '').toLowerCase();
-        if (!contr.includes(selectedContractor.toLowerCase())) return false;
+        const contr = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+        if (contr !== selectedContractor.toLowerCase()) return false;
       }
 
       if (selectedArea !== 'ALL' && t.area !== selectedArea) {
         return false;
       }
 
-      // Schedule appointment date filter
-      if (dateFilterMode !== 'all') {
-        const matches = matchesScheduleDateFilter(
-          t.appointmentDate,
-          dateFilterMode,
-          operationalDate,
-          { start: customStartDate, end: customEndDate }
-        );
-        if (!matches) return false;
+      if (exactAppointmentDate || customStartDate || customEndDate) {
+        const parsed = parseAppointmentDate(t.appointmentDate);
+        const ticketDate = parsed.date || '';
+        if (!ticketDate) return false;
+        if (exactAppointmentDate && ticketDate !== exactAppointmentDate) return false;
+        if (customStartDate && ticketDate < customStartDate) return false;
+        if (customEndDate && ticketDate > customEndDate) return false;
       }
 
       return true;
     });
-  }, [tickets, searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, dateFilterMode, operationalDate, customStartDate, customEndDate]);
+  }, [tickets, searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, exactAppointmentDate, customStartDate, customEndDate]);
 
-  // Unique areas
+  const sortedTickets = useMemo(() => {
+    return sortDataArray(filteredTickets, sortState, (t: Ticket, col: string) => {
+      if (col === 'woNumber') return t.woNumber;
+      if (col === 'customerId') return t.idCustomer || t.customerId || null;
+      if (col === 'customerName') return t.customerName || null;
+      if (col === 'appointmentDate') {
+        const parsed = parseAppointmentDate(t.appointmentDate);
+        return parsed.date || t.appointmentDate || null;
+      }
+      if (col === 'slotTime') return t.slotTime || null;
+      if (col === 'contractor') return t.contactorName || t.contractorName || null;
+      if (col === 'area') return t.area || null;
+      if (col === 'statusAgent') return t.statusWOAgent || null;
+      if (col === 'statusInstaller') return t.statusWOInstaller || null;
+      return (t as any)[col];
+    });
+  }, [filteredTickets, sortState]);
+
+  const handleSortWo = (colKey: string) => {
+    setSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, colKey);
+      return { column: nextDir ? colKey : null, direction: nextDir };
+    });
+    setWoPage(1);
+  };
+
+  const woActiveFilterCount =
+    (searchWo.trim() ? 1 : 0) +
+    (searchCustomerId.trim() ? 1 : 0) +
+    (searchCustomerName.trim() ? 1 : 0) +
+    (selectedContractor !== 'ALL' ? 1 : 0) +
+    (selectedArea !== 'ALL' ? 1 : 0) +
+    (exactAppointmentDate || customStartDate || customEndDate ? 1 : 0);
+
+  const resetWoFilters = () => {
+    setSearchWo('');
+    setSearchCustomerId('');
+    setSearchCustomerName('');
+    setSelectedContractor('ALL');
+    setSelectedArea('ALL');
+    setExactAppointmentDate('');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setWoPage(1);
+  };
+
+  // Unique areas & contractors from live data
   const areas = useMemo(() => {
     const set = new Set<string>();
-    tickets.forEach(t => { if (t.area) set.add(t.area); });
-    return Array.from(set);
+    tickets.forEach(t => { if (t.area?.trim()) set.add(t.area.trim()); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [tickets]);
+
+  const contractorOptions = useMemo(() => {
+    const set = new Set<string>();
+    contractors.forEach(c => { if (c.name?.trim()) set.add(c.name.trim()); });
+    tickets.forEach(t => {
+      const name = (t.contactorName || t.contractorName || '').trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b)).map(name => ({ value: name, label: name }));
+  }, [contractors, tickets]);
 
   useEffect(() => {
     setWoPage(1);
-  }, [searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, dateFilterMode, customStartDate, customEndDate]);
+  }, [searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, exactAppointmentDate, customStartDate, customEndDate]);
 
-  const effectiveWoPageSize = woPageSize === -1 ? Math.max(1, filteredTickets.length) : woPageSize;
-  const totalWoPages = Math.max(1, Math.ceil(filteredTickets.length / effectiveWoPageSize));
+  const effectiveWoPageSize = woPageSize === -1 ? Math.max(1, sortedTickets.length) : woPageSize;
+  const totalWoPages = Math.max(1, Math.ceil(sortedTickets.length / effectiveWoPageSize));
   const safeWoPage = Math.min(woPage, totalWoPages);
   const paginatedWoTickets = useMemo(() => {
-    if (woPageSize === -1) return filteredTickets;
+    if (woPageSize === -1) return sortedTickets;
     const start = (safeWoPage - 1) * woPageSize;
-    return filteredTickets.slice(start, start + woPageSize);
-  }, [filteredTickets, safeWoPage, woPageSize]);
+    return sortedTickets.slice(start, start + woPageSize);
+  }, [sortedTickets, safeWoPage, woPageSize]);
+
+  const filteredCanonicalFields = useMemo(() => {
+    const q = canonicalSearch.trim().toLowerCase();
+    const list = canonicalFields.filter(f => {
+      if (canonicalCategoryFilter !== 'ALL' && f.category !== canonicalCategoryFilter) return false;
+      if (q) {
+        const hay = `${f.canonicalField} ${f.displayLabel} ${f.aliases.join(' ')}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    return sortDataArray(list, canonicalSortState, (f, col) => (f as any)[col] ?? null);
+  }, [canonicalFields, canonicalSearch, canonicalCategoryFilter, canonicalSortState]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -391,125 +464,39 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {/* 2. TAB: DATA WO */}
       {activeTab === 'wo_data' && (
         <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
-          {/* Search Filters Row */}
-          <div className={`grid gap-2.5 sm:gap-3 text-xs ${isCompactUI ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'}`}>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari WO Number..."
-                value={searchWo}
-                onChange={e => setSearchWo(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-              />
-            </div>
-
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Cari Customer ID (7 digit)..."
-                value={searchCustomerId}
-                onChange={e => setSearchCustomerId(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-              />
-            </div>
-
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Cari Nama Pelanggan..."
-                value={searchCustomerName}
-                onChange={e => setSearchCustomerName(e.target.value)}
-                className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-              />
-            </div>
-
-            <select
-              value={selectedContractor}
-              onChange={e => setSelectedContractor(e.target.value)}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-            >
-              <option value="ALL">Semua Mitra Kontraktor</option>
-              {contractors.map((c, cIdx) => (
-                <option key={`mgmt-contractor-${c.id || c.name}-${cIdx}`} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-
-            <select
-              value={dateFilterMode}
-              onChange={e => setDateFilterMode(e.target.value as ScheduleDateFilterMode)}
-              className="w-full min-h-[44px] sm:min-h-[38px] px-3 py-2 bg-slate-50 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-            >
-              <option value="all">Semua Tanggal Appointment</option>
-              <option value="today">Hari Ini ({operationalDate})</option>
-              <option value="previous">Sebelumnya (Lewat)</option>
-              <option value="upcoming">Mendatang</option>
-              <option value="custom">Rentang Tanggal Khusus</option>
-            </select>
-          </div>
-
-          {/* Custom Date Range if mode is custom */}
-          {dateFilterMode === 'custom' && (
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-              <Calendar className="w-4 h-4 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
-              <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">Mulai:</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={e => setCustomStartDate(e.target.value)}
-                  className="w-full min-h-[44px] sm:min-h-[38px] px-2.5 py-1 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
-                />
-              </div>
-              <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">Sampai:</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={e => setCustomEndDate(e.target.value)}
-                  className="w-full min-h-[44px] sm:min-h-[38px] px-2.5 py-1 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Bulk Action Bar redirecting to Centralized Data Deletion */}
-          {selectedIds.size > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#EAE8FF] dark:bg-[#27104A]/70 border border-[#D4CEFA] dark:border-[#4A2580] rounded-xl text-xs">
-              <span className="font-bold text-[#5145A6] dark:text-[#D8B4FE]">
-                {selectedIds.size} Work Order terpilih — penghapusan data dipusatkan di Database Application → Data Deletion
-              </span>
-              <div className="flex items-center gap-2">
+          <ResponsiveDataTable<Ticket>
+            data={paginatedWoTickets}
+            getRowKey={t => t.id}
+            sortKey={sortState.column}
+            sortDirection={sortState.direction}
+            onSort={handleSortWo}
+            activeFilterCount={woActiveFilterCount}
+            onResetFilters={resetWoFilters}
+            selectionToolbar={
+              <TableSelectionToolbar
+                selectedCount={selectedIds.size}
+                itemLabel="Work Order"
+                onClearSelection={() => setSelectedIds(new Set())}
+                className="mb-1"
+              >
                 <button
                   type="button"
                   onClick={() => {
-                    const selectedList = filteredTickets.filter(t => selectedIds.has(t.id));
+                    const selectedList = sortedTickets.filter(t => selectedIds.has(t.id));
                     navigateToDataDeletion({
                       category: 'work_orders',
                       mode: 'soft_delete',
                       search: selectedList.length === 1 ? selectedList[0].woNumber : ''
                     });
                   }}
-                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 font-bold text-white bg-[#6657C8] hover:bg-[#5145A6] dark:bg-[#7135b5] dark:hover:bg-[#58149C] rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  className="btn-3d-primary min-h-[36px] px-3.5 py-1.5 font-bold rounded-lg flex items-center gap-1.5 text-xs cursor-pointer"
                 >
                   <Database className="w-3.5 h-3.5" />
                   <span>Kelola di Data Deletion</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="min-h-[44px] sm:min-h-[38px] px-3 py-1 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-lg cursor-pointer"
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
-          )}
-
-          <ResponsiveDataTable<Ticket>
-            data={paginatedWoTickets}
-            getRowKey={t => t.id}
+              </TableSelectionToolbar>
+            }
             selectable
             selectedKeys={selectedIds}
             onToggleSelect={key => {
@@ -578,12 +565,26 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'woNumber',
                 label: 'WO Number',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: searchWo,
+                  onChange: setSearchWo,
+                  placeholder: 'Cari WO Number...'
+                },
                 render: t => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{t.woNumber}</span>
               },
               {
                 key: 'customerId',
                 label: 'Customer ID',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: searchCustomerId,
+                  onChange: setSearchCustomerId,
+                  placeholder: 'Cari Customer ID...'
+                },
                 render: t => {
                   const cid = (t.idCustomer || t.customerId || '').trim();
                   const isCid7 = /^[0-9]{7}$/.test(cid);
@@ -594,12 +595,32 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'customerName',
                 label: 'Nama Pelanggan',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: searchCustomerName,
+                  onChange: setSearchCustomerName,
+                  placeholder: 'Cari Nama Pelanggan...'
+                },
                 render: t => <span className="font-semibold text-slate-800 dark:text-slate-200">{t.customerName}</span>
               },
               {
                 key: 'appointmentDate',
                 label: 'Appointment Date',
                 priority: 'primary',
+                sortable: true,
+                headerControl: {
+                  kind: 'date',
+                  exactDate: exactAppointmentDate,
+                  dateFrom: customStartDate,
+                  dateTo: customEndDate,
+                  supportsExactDate: true,
+                  onChangeDates: next => {
+                    setExactAppointmentDate(next.exactDate);
+                    setCustomStartDate(next.dateFrom);
+                    setCustomEndDate(next.dateTo);
+                  }
+                },
                 render: t => {
                   const appDateParsed = parseAppointmentDate(t.appointmentDate);
                   return appDateParsed.date ? (
@@ -615,30 +636,51 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'slotTime',
                 label: 'Slot Time',
                 priority: 'primary',
+                sortable: true,
                 render: t => <span className="text-slate-500 whitespace-nowrap">{t.slotTime || '-'}</span>
               },
               {
                 key: 'contractor',
                 label: 'Kontraktor',
                 priority: 'secondary',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: selectedContractor,
+                  defaultValue: 'ALL',
+                  allLabel: 'Semua Kontraktor',
+                  options: contractorOptions,
+                  onChange: setSelectedContractor
+                },
                 render: t => <span className="text-slate-700 dark:text-slate-300">{t.contactorName || t.contractorName || '-'}</span>
               },
               {
                 key: 'area',
                 label: 'Area',
                 priority: 'secondary',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: selectedArea,
+                  defaultValue: 'ALL',
+                  allLabel: 'Semua Area',
+                  options: areas.map(a => ({ value: a, label: a })),
+                  onChange: setSelectedArea
+                },
                 render: t => <span className="text-slate-500">{t.area || '-'}</span>
               },
               {
                 key: 'statusAgent',
                 label: 'Status Agent',
                 priority: 'hidden_mobile',
+                sortable: true,
                 render: t => <StatusAgentBadge status={t.statusWOAgent} />
               },
               {
                 key: 'statusInstaller',
                 label: 'Status Lapangan',
                 priority: 'hidden_mobile',
+                sortable: true,
                 render: t => <StatusInstallerBadge status={t.statusWOInstaller} />
               },
               {
@@ -722,9 +764,22 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
           </div>
 
           <ResponsiveDataTable
-            data={canonicalFields}
+            data={filteredCanonicalFields}
             getRowKey={f => f.canonicalField}
             maxTableHeightClass="max-h-96"
+            sortKey={canonicalSortState.column}
+            sortDirection={canonicalSortState.direction}
+            onSort={colKey => {
+              setCanonicalSortState(prev => {
+                const nextDir = getNextSortDirection(prev.column, prev.direction, colKey);
+                return { column: nextDir ? colKey : null, direction: nextDir };
+              });
+            }}
+            activeFilterCount={(canonicalSearch.trim() ? 1 : 0) + (canonicalCategoryFilter !== 'ALL' ? 1 : 0)}
+            onResetFilters={() => {
+              setCanonicalSearch('');
+              setCanonicalCategoryFilter('ALL');
+            }}
             mobileTitle={f => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{f.canonicalField}</span>}
             mobileSubtitle={f => f.displayLabel}
             mobileStatus={f =>
@@ -743,30 +798,52 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
                 key: 'canonicalField',
                 label: 'Field Canonical',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: canonicalSearch,
+                  onChange: setCanonicalSearch,
+                  placeholder: 'Cari field / alias...'
+                },
                 render: f => <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8]">{f.canonicalField}</span>
               },
               {
                 key: 'displayLabel',
                 label: 'Display Label',
                 priority: 'hidden_mobile',
+                sortable: true,
                 render: f => <span className="font-medium text-slate-800 dark:text-slate-200">{f.displayLabel}</span>
               },
               {
                 key: 'category',
                 label: 'Kategori',
                 priority: 'primary',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: canonicalCategoryFilter,
+                  defaultValue: 'ALL',
+                  allLabel: 'Semua Kategori',
+                  options: Array.from(new Set(canonicalFields.map(cf => cf.category).filter(Boolean))).map(c => ({
+                    value: c,
+                    label: c
+                  })),
+                  onChange: setCanonicalCategoryFilter
+                },
                 render: f => <span className="capitalize text-slate-500">{f.category}</span>
               },
               {
                 key: 'dataType',
                 label: 'Tipe Data',
                 priority: 'primary',
+                sortable: true,
                 render: f => <span className="font-mono text-slate-500">{f.dataType}</span>
               },
               {
                 key: 'required',
                 label: 'Status',
                 priority: 'hidden_mobile',
+                sortable: true,
                 render: f =>
                   f.required ? (
                     <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded text-[10px] font-bold">

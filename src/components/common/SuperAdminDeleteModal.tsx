@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import {
   ShieldAlert,
@@ -6,10 +7,10 @@ import {
   Trash2,
   Archive,
   X,
-  CheckCircle2,
   Lock
 } from 'lucide-react';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 
 export type DeleteTargetType = 'customer' | 'user';
 
@@ -39,7 +40,18 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
   const [confirmPhrase, setConfirmPhrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const vv = useVisualViewportModal(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const vv = useVisualViewportModal(isOpen, dialogRef);
+  const layerZ = useModalLayer(isOpen, { tier: 'confirm' });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -94,12 +106,22 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      style={vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : undefined}
-      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center bg-[#26364A]/40 dark:bg-slate-950/70 p-0 sm:p-4 backdrop-blur-sm"
+      style={{
+        zIndex: layerZ,
+        ...(vv.keyboardInset > 0 ? { paddingBottom: `${vv.keyboardInset}px` } : {})
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-[#26364A]/40 dark:bg-slate-950/70 p-0 sm:p-4 backdrop-blur-sm"
+      onClick={() => {
+        if (!isSubmitting) onClose();
+      }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
         style={vv.isKeyboardOpen ? { maxHeight: `${Math.max(280, vv.viewportHeight - 16)}px` } : undefined}
         className="bg-white/95 backdrop-blur-xl dark:backdrop-blur-none dark:bg-slate-900 rounded-t-[24px] sm:rounded-2xl shadow-2xl border border-[#F3C5CA] dark:border-rose-900/80 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
       >
@@ -252,17 +274,17 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#EDF3F8]/85 dark:bg-slate-800/60 border-t border-[#DDE6F0] dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-4 sm:px-5 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-[#EDF3F8]/85 dark:bg-slate-800/60 border-t border-[#DDE6F0] dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 shrink-0">
           <div className="text-[11px] text-[#8492A5] dark:text-slate-400 font-medium">
             Operator: <span className="font-semibold text-[#26364A] dark:text-slate-300">{currentUser.name}</span>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:ml-auto w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="btn-3d-secondary px-3.5 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-semibold cursor-pointer"
+              className="btn-3d-secondary px-3.5 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-semibold cursor-pointer justify-center"
             >
               Batal
             </button>
@@ -272,7 +294,7 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
                 type="button"
                 onClick={handleExecuteDelete}
                 disabled={isSubmitting || confirmPhrase.trim().toUpperCase() !== REQUIRED_PHRASE || !reason.trim()}
-                className="btn-3d-danger px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                className="btn-3d-danger px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isSubmitting ? 'Memproses...' : deleteMode === 'permanent' ? 'Hapus Permanen' : 'Eksekusi Soft Delete'}</span>
@@ -283,4 +305,6 @@ export const SuperAdminDeleteModal: React.FC<SuperAdminDeleteModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

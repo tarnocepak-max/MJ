@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, ClipboardList, MessageSquare, MessageCircle } from 'lucide-react';
+import { useHasOpenModal } from '../../hooks/useModalLayer';
 
 interface InstallerBottomNavProps {
   activeTab: string;
@@ -16,6 +17,9 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
   unreadMessagesCount = 0,
   waPendingCount = 0
 }) => {
+  const hasOpenModal = useHasOpenModal();
+  if (hasOpenModal) return null;
+
   const isDashboardActive = activeTab === 'installer_dashboard';
   const isTasksActive =
     activeTab === 'installer_portal' ||

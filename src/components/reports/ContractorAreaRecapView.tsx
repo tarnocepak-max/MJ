@@ -6,23 +6,18 @@ import {
   Building2,
   MapPin,
   Calendar,
-  Search,
-  RotateCcw,
   Printer,
   Layers,
   CheckCircle2,
   Clock,
   XCircle,
   FileSpreadsheet,
-  Filter,
   Radio,
   Gauge,
   PieChart,
   Wrench,
   Home,
   Wifi,
-  ChevronDown,
-  ChevronUp,
   Download,
   Eye,
   TrendingUp,
@@ -37,6 +32,18 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import ftthInspectionImg from '../../assets/images/leader_ftth_inspection_1794890485687.jpg';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import {
+  SortState,
+  getNextSortDirection,
+  sortDataArray
+} from '../../utils/tableSorting';
 
 interface ContractorRowData {
   contractorName: string;
@@ -68,13 +75,15 @@ export const ContractorAreaRecapView: React.FC = () => {
   const todayWIB = contextTodayWIB || getJakartaDateString(0);
 
   // Filters: Default to leader contractor & area if leader role
-  const [selectedArea, setSelectedArea] = useState<string>(() => (isLeader && leaderArea ? leaderArea : 'ALL'));
-  const [selectedContractor, setSelectedContractor] = useState<string>(() => (isLeader && leaderContractor ? leaderContractor : 'ALL'));
+  const defaultArea = isLeader && leaderArea ? leaderArea : 'ALL';
+  const defaultContractor = isLeader && leaderContractor ? leaderContractor : 'ALL';
+  const [selectedArea, setSelectedArea] = useState<string>(defaultArea);
+  const [selectedContractor, setSelectedContractor] = useState<string>(defaultContractor);
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('today');
   const [startDate, setStartDate] = useState<string>(todayWIB);
   const [endDate, setEndDate] = useState<string>(todayWIB);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(() => !isLeader);
+  const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [detailScope, setDetailScope] = useState<{ areaName: string; contractorName?: string } | null>(null);
 
   const wibTimeLabel = useMemo(() => {
@@ -104,15 +113,32 @@ export const ContractorAreaRecapView: React.FC = () => {
     }
   };
 
+  const activeFilterCount =
+    (selectedArea !== defaultArea ? 1 : 0) +
+    (selectedContractor !== defaultContractor ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0) +
+    (periodPreset !== 'today' || startDate !== todayWIB || endDate !== todayWIB ? 1 : 0);
+
   // Handle Reset Filter
   const handleResetFilter = () => {
-    setSelectedArea(isLeader && leaderArea ? leaderArea : 'ALL');
-    setSelectedContractor(isLeader && leaderContractor ? leaderContractor : 'ALL');
+    setSelectedArea(defaultArea);
+    setSelectedContractor(defaultContractor);
     setPeriodPreset('today');
     setStartDate(todayWIB);
     setEndDate(todayWIB);
     setSearchQuery('');
+    setSortState({ column: null, direction: null });
     toast.info('Filter dikembalikan ke pengaturan default (Hari ini WIB).', 'Filter Direset');
+  };
+
+  const handleSort = (columnKey: string) => {
+    setSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, columnKey);
+      return {
+        column: nextDir ? columnKey : null,
+        direction: nextDir
+      };
+    });
   };
 
   // Base list of active, non-deleted tickets
@@ -228,47 +254,61 @@ export const ContractorAreaRecapView: React.FC = () => {
       else if (isUncomplete) row.uncomplete += 1;
     });
 
-    const result: AreaGroupData[] = [];
+    const areaEntries = Array.from(areaMap.entries()).map(([areaName, contractorsInArea]) => {
+      const rawContractors = Array.from(contractorsInArea.values());
+      const contractors =
+        sortState.column && sortState.direction && sortState.column !== 'areaName'
+          ? sortDataArray(rawContractors, sortState, (c: ContractorRowData, col: string) => {
+              if (col === 'contractorName') return c.contractorName;
+              if (col === 'completionRate') {
+                return c.totalWO > 0 ? c.complete / c.totalWO : 0;
+              }
+              return (c as any)[col] ?? 0;
+            })
+          : rawContractors.sort((a, b) => a.contractorName.localeCompare(b.contractorName));
 
-    Array.from(areaMap.entries())
-      .sort(([a], [b]) => {
-        if (a === 'Belum Ditentukan') return 1;
-        if (b === 'Belum Ditentukan') return -1;
-        return a.localeCompare(b);
-      })
-      .forEach(([areaName, contractorsInArea]) => {
-        const contractors = Array.from(contractorsInArea.values()).sort((a, b) =>
-          a.contractorName.localeCompare(b.contractorName)
-        );
+      const subtotal: ContractorRowData = {
+        contractorName: `Subtotal ${areaName}`,
+        totalWO: 0,
+        assign: 0,
+        unassign: 0,
+        complete: 0,
+        uncomplete: 0,
+        cancel: 0
+      };
 
-        const subtotal: ContractorRowData = {
-          contractorName: `Subtotal ${areaName}`,
-          totalWO: 0,
-          assign: 0,
-          unassign: 0,
-          complete: 0,
-          uncomplete: 0,
-          cancel: 0
-        };
-
-        contractors.forEach(c => {
-          subtotal.totalWO += c.totalWO;
-          subtotal.assign += c.assign;
-          subtotal.unassign += c.unassign;
-          subtotal.complete += c.complete;
-          subtotal.uncomplete += c.uncomplete;
-          subtotal.cancel += c.cancel;
-        });
-
-        result.push({
-          areaName,
-          contractors,
-          subtotal
-        });
+      contractors.forEach(c => {
+        subtotal.totalWO += c.totalWO;
+        subtotal.assign += c.assign;
+        subtotal.unassign += c.unassign;
+        subtotal.complete += c.complete;
+        subtotal.uncomplete += c.uncomplete;
+        subtotal.cancel += c.cancel;
       });
 
-    return result;
-  }, [filteredTickets]);
+      return {
+        areaName,
+        contractors,
+        subtotal
+      };
+    });
+
+    if (sortState.column && sortState.direction) {
+      return sortDataArray(areaEntries, sortState, (g: AreaGroupData, col: string) => {
+        if (col === 'areaName' || col === 'contractorName') return g.areaName;
+        if (col === 'completionRate') {
+          return g.subtotal.totalWO > 0 ? g.subtotal.complete / g.subtotal.totalWO : 0;
+        }
+        return (g.subtotal as any)[col] ?? 0;
+      });
+    }
+
+    return areaEntries.sort((a, b) => {
+      if (a.areaName === 'Belum Ditentukan') return 1;
+      if (b.areaName === 'Belum Ditentukan') return -1;
+      return a.areaName.localeCompare(b.areaName);
+    });
+  }, [filteredTickets, sortState]);
 
   // Grand Total calculation
   const grandTotal = useMemo<ContractorRowData>(() => {
@@ -443,26 +483,42 @@ export const ContractorAreaRecapView: React.FC = () => {
     });
   }, [detailScope, filteredTickets]);
 
-  // List of available areas and contractors from dataset
+  // List of available areas and contractors (strictly scoped when Leader role)
   const availableAreas = useMemo(() => {
     const set = new Set<string>();
     activeTickets.forEach(t => {
       const a = (t.area || '').trim();
-      if (a) set.add(a);
+      if (a) {
+        if (!isLeader || !leaderArea || a.toLowerCase() === leaderArea.toLowerCase()) {
+          set.add(a);
+        }
+      }
     });
-    areasList.forEach(a => set.add(a));
+    if (!isLeader || !leaderArea) {
+      areasList.forEach(a => set.add(a));
+    } else if (leaderArea) {
+      set.add(leaderArea);
+    }
     return Array.from(set).sort();
-  }, [activeTickets, areasList]);
+  }, [activeTickets, areasList, isLeader, leaderArea]);
 
   const availableContractors = useMemo(() => {
     const set = new Set<string>();
     activeTickets.forEach(t => {
       const c = (t.contactorName || t.contractorName || (t as any).contractor || (t as any).vendorName || '').trim();
-      if (c) set.add(c);
+      if (c) {
+        if (!isLeader || !leaderContractor || c.toLowerCase() === leaderContractor.toLowerCase()) {
+          set.add(c);
+        }
+      }
     });
-    contractorsList.forEach(c => set.add(c));
+    if (!isLeader || !leaderContractor) {
+      contractorsList.forEach(c => set.add(c));
+    } else if (leaderContractor) {
+      set.add(leaderContractor);
+    }
     return Array.from(set).sort();
-  }, [activeTickets, contractorsList]);
+  }, [activeTickets, contractorsList, isLeader, leaderContractor]);
 
   // Export to Excel (.xlsx)
   const handleExportExcel = () => {
@@ -559,21 +615,36 @@ export const ContractorAreaRecapView: React.FC = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="tactile-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-[#26364A] dark:text-[#D8B4FE]">
               <span className={`w-2 h-2 rounded-full ${databaseStatus === 'offline' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
               <span>Sinkron {wibTimeLabel} WIB</span>
             </span>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters(prev => !prev)}
-              className="btn-3d-lilac inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-full text-[11px] font-bold cursor-pointer"
-            >
-              <Filter className="w-3 h-3 text-[#5145A6] dark:text-[#D8B4FE]" />
-              <span>Filter</span>
-              {showAdvancedFilters ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
+            <HeaderDateSortFilterPopover
+              label={periodPreset === 'custom' ? `${startDate || '?'}..${endDate || '?'}` : 'Rentang Tanggal'}
+              exactDate={startDate === endDate ? startDate : ''}
+              dateFrom={startDate !== endDate ? startDate : ''}
+              dateTo={startDate !== endDate ? endDate : ''}
+              onChangeDates={({ exactDate, dateFrom, dateTo }) => {
+                if (exactDate) {
+                  setStartDate(exactDate);
+                  setEndDate(exactDate);
+                  setPeriodPreset(exactDate === todayWIB ? 'today' : 'custom');
+                } else {
+                  setStartDate(dateFrom || todayWIB);
+                  setEndDate(dateTo || dateFrom || todayWIB);
+                  setPeriodPreset('custom');
+                }
+              }}
+            />
+
+            <TableResetFilterButton
+              activeCount={activeFilterCount}
+              onReset={handleResetFilter}
+              label="Reset Search/Filter"
+              testId="contractor-recap-reset-filters"
+            />
           </div>
         </div>
 
@@ -615,111 +686,40 @@ export const ContractorAreaRecapView: React.FC = () => {
             {activeScopeSubtitle}
           </span>
         </div>
+
+        {isCompactUI && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#DDE6F0] dark:border-[#361F5E]">
+            <HeaderCategoryDropdown
+              label="Area"
+              value={selectedArea}
+              defaultValue={defaultArea}
+              allLabel="Semua Area"
+              options={[
+                ...(!isLeader || !leaderArea ? [{ value: 'ALL', label: `Semua Area (${availableAreas.length})` }] : []),
+                ...availableAreas.map(area => ({ value: area, label: area }))
+              ]}
+              onChange={val => setSelectedArea(val)}
+            />
+            <HeaderCategoryDropdown
+              label="Kontraktor"
+              value={selectedContractor}
+              defaultValue={defaultContractor}
+              allLabel="Semua Kontraktor"
+              options={[
+                ...(!isLeader || !leaderContractor ? [{ value: 'ALL', label: `Semua Kontraktor (${availableContractors.length})` }] : []),
+                ...availableContractors.map(c => ({ value: c, label: c }))
+              ]}
+              onChange={val => setSelectedContractor(val)}
+            />
+            <HeaderSearchPopover
+              label="Cari WO / Mitra"
+              value={searchQuery}
+              onChange={val => setSearchQuery(val)}
+              placeholder="Cari area, mitra, #WO..."
+            />
+          </div>
+        )}
       </div>
-
-      {/* Collapsible Multi-Role Filter Toolbar (Area, Contractor, Custom Dates, Search) */}
-      {showAdvancedFilters && (
-        <div className="card-3d-lavender p-4 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#DDE6F0] dark:border-[#361F5E] text-xs font-bold text-[#26364A] dark:text-[#E8DDFF]">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
-              <span>Filter Area, Kontraktor & Tanggal Custom</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleResetFilter}
-              className="btn-3d-lilac inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Default</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-            <div>
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
-                Pilih Area
-              </label>
-              <select
-                value={selectedArea}
-                onChange={e => setSelectedArea(e.target.value)}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-semibold"
-              >
-                <option value="ALL">Semua Area ({availableAreas.length})</option>
-                {availableAreas.map(area => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
-                Pilih Kontraktor
-              </label>
-              <select
-                value={selectedContractor}
-                onChange={e => setSelectedContractor(e.target.value)}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-semibold"
-              >
-                <option value="ALL">Semua Kontraktor ({availableContractors.length})</option>
-                {availableContractors.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
-                Tgl Appointment Mulai
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => {
-                  setStartDate(e.target.value);
-                  setPeriodPreset('custom');
-                }}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
-                Tgl Appointment Akhir
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => {
-                  setEndDate(e.target.value);
-                  setPeriodPreset('custom');
-                }}
-                className="tactile-debossed-input w-full px-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#C5B3DF] mb-1">
-                Cari WO / Teknisi / Mitra
-              </label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A493C2] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Area, mitra, #WO..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="tactile-debossed-input w-full pl-8 pr-2.5 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-[#26364A] dark:text-white"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 01 / REKAPITULASI OPERASIONAL: 5-Card Executive KPI Strip */}
       <div className="space-y-3">
@@ -1405,14 +1405,112 @@ export const ContractorAreaRecapView: React.FC = () => {
               <thead>
                 <tr className="bg-[#EDF3F8] dark:bg-[#241145] text-[#26364A] dark:text-white font-bold border-b border-[#DDE6F0] dark:border-[#3F2370]">
                   <th className="py-3 px-4 w-12 text-center">No</th>
-                  <th className="py-3 px-4">Kluster Area &amp; Kontraktor</th>
-                  <th className="py-3 px-3 text-right">Total WO</th>
-                  <th className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-300">Assign</th>
-                  <th className="py-3 px-3 text-right text-amber-700 dark:text-amber-300">Unassign</th>
-                  <th className="py-3 px-3 text-right text-[#5145A6] dark:text-[#DAB9FF]">Complete</th>
-                  <th className="py-3 px-3 text-right text-[#2E7D8B] dark:text-[#D8B4FE]">Pending</th>
-                  <th className="py-3 px-3 text-right text-rose-700 dark:text-rose-300">Cancel</th>
-                  <th className="py-3 px-4 min-w-[165px]">Tingkat Penyelesaian</th>
+                  <th className="py-3 px-4 min-w-[260px]">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <HeaderCategoryDropdown
+                        label="Area"
+                        value={selectedArea}
+                        defaultValue={defaultArea}
+                        allLabel="Semua Area"
+                        options={[
+                          ...(!isLeader || !leaderArea ? [{ value: 'ALL', label: `Semua Area (${availableAreas.length})` }] : []),
+                          ...availableAreas.map(area => ({ value: area, label: area }))
+                        ]}
+                        onChange={val => setSelectedArea(val)}
+                        sortActive={sortState.column === 'areaName'}
+                        sortDir={sortState.column === 'areaName' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('areaName')}
+                      />
+                      <HeaderCategoryDropdown
+                        label="Kontraktor"
+                        value={selectedContractor}
+                        defaultValue={defaultContractor}
+                        allLabel="Semua Kontraktor"
+                        options={[
+                          ...(!isLeader || !leaderContractor ? [{ value: 'ALL', label: `Semua Kontraktor (${availableContractors.length})` }] : []),
+                          ...availableContractors.map(c => ({ value: c, label: c }))
+                        ]}
+                        onChange={val => setSelectedContractor(val)}
+                        sortActive={sortState.column === 'contractorName'}
+                        sortDir={sortState.column === 'contractorName' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('contractorName')}
+                      />
+                      <HeaderSearchPopover
+                        label="Cari"
+                        value={searchQuery}
+                        onChange={val => setSearchQuery(val)}
+                        placeholder="Area, mitra, #WO..."
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Total WO"
+                        active={sortState.column === 'totalWO'}
+                        direction={sortState.column === 'totalWO' ? sortState.direction : null}
+                        onClick={() => handleSort('totalWO')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-300">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Assign"
+                        active={sortState.column === 'assign'}
+                        direction={sortState.column === 'assign' ? sortState.direction : null}
+                        onClick={() => handleSort('assign')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right text-amber-700 dark:text-amber-300">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Unassign"
+                        active={sortState.column === 'unassign'}
+                        direction={sortState.column === 'unassign' ? sortState.direction : null}
+                        onClick={() => handleSort('unassign')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right text-[#5145A6] dark:text-[#DAB9FF]">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Complete"
+                        active={sortState.column === 'complete'}
+                        direction={sortState.column === 'complete' ? sortState.direction : null}
+                        onClick={() => handleSort('complete')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right text-[#2E7D8B] dark:text-[#D8B4FE]">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Pending"
+                        active={sortState.column === 'uncomplete'}
+                        direction={sortState.column === 'uncomplete' ? sortState.direction : null}
+                        onClick={() => handleSort('uncomplete')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-3 text-right text-rose-700 dark:text-rose-300">
+                    <div className="flex justify-end">
+                      <HeaderSortButton
+                        label="Cancel"
+                        active={sortState.column === 'cancel'}
+                        direction={sortState.column === 'cancel' ? sortState.direction : null}
+                        onClick={() => handleSort('cancel')}
+                      />
+                    </div>
+                  </th>
+                  <th className="py-3 px-4 min-w-[165px]">
+                    <HeaderSortButton
+                      label="Tingkat Penyelesaian"
+                      active={sortState.column === 'completionRate'}
+                      direction={sortState.column === 'completionRate' ? sortState.direction : null}
+                      onClick={() => handleSort('completionRate')}
+                    />
+                  </th>
                   <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>

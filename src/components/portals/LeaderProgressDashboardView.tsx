@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Search,
   ChevronDown,
   ChevronRight,
   Eye,
@@ -50,6 +49,17 @@ import { StatusBadge } from '../common/Badge';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { PaginationBar } from '../common/PaginationBar';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
+import {
+  HeaderCategoryDropdown,
+  HeaderSearchPopover,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import {
+  SortState,
+  getNextSortDirection,
+  sortDataArray
+} from '../../utils/tableSorting';
 
 interface LeaderProgressDashboardViewProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -87,12 +97,15 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
   const { isCompactUI } = useResponsiveViewport();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [woSearch, setWoSearch] = useState('');
+  const [installerFilter, setInstallerFilter] = useState<string>('ALL');
+  const [areaFilter, setAreaFilter] = useState<string>('ALL');
+  const [workStatusFilter, setWorkStatusFilter] = useState<string>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<StatCategoryFilter>('all');
   const effectiveViewMode: 'cards' | 'table' = isCompactUI ? 'cards' : 'table';
   const [showLifecycleKpi, setShowLifecycleKpi] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sortField, setSortField] = useState<string>('woNumber');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortState, setSortState] = useState<SortState>({ column: 'woNumber', direction: 'asc' });
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -238,94 +251,167 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
     };
   }, [baseLeaderTickets]);
 
-  // Filtered & Sorted Tickets
+  const scopedInstallerOptions = useMemo(() => {
+    const set = new Set<string>();
+    baseLeaderTickets.forEach(t => {
+      const name = String(t.installerName || '').trim();
+      if (name) set.add(name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [baseLeaderTickets]);
+
+  const scopedAreaOptions = useMemo(() => {
+    const set = new Set<string>();
+    baseLeaderTickets.forEach(t => {
+      const a = String(t.area || '').trim();
+      if (a) set.add(a);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [baseLeaderTickets]);
+
+  const workStatusOptions = useMemo(() => {
+    const set = new Set<string>();
+    baseLeaderTickets.forEach(t => {
+      const ws = getTicketWorkStatus(t).status;
+      if (ws) set.add(ws);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [baseLeaderTickets]);
+
+  // Filtered & Sorted Tickets (with strict NULLS LAST via sortDataArray)
+  const filteredTickets = useMemo(() => {
+    return baseLeaderTickets.filter(t => {
+      if (activeKpiDrilldown) {
+        if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
+          const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
+          const tArea = String(t.area || '').trim().toLowerCase();
+          if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
+        }
+        if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
+      }
+
+      if (selectedCategory !== 'all') {
+        const cat = getTicketCategory(t);
+        if (cat !== selectedCategory) return false;
+      }
+
+      if (installerFilter !== 'ALL') {
+        if (String(t.installerName || '').trim().toLowerCase() !== installerFilter.trim().toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (areaFilter !== 'ALL') {
+        if (String(t.area || '').trim().toLowerCase() !== areaFilter.trim().toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (workStatusFilter !== 'ALL') {
+        if (getTicketWorkStatus(t).status !== workStatusFilter) return false;
+      }
+
+      if (woSearch.trim()) {
+        const q = woSearch.trim().toLowerCase();
+        const hay = `${t.woNumber || ''} ${t.idCustomer || ''} ${t.customerName || ''} ${t.clusterName || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const wo = (t.woNumber || '').toLowerCase();
+        const cid = (t.idCustomer || '').toLowerCase();
+        const cname = (t.customerName || '').toLowerCase();
+        const inst = (t.installerName || '').toLowerCase();
+        const addr = (t.address || t.streetName || '').toLowerCase();
+        const cluster = (t.clusterName || (t as any).cluster || '').toLowerCase();
+        const fdt = `${t.fdtCode || ''} ${t.fatCode || ''}`.toLowerCase();
+        return (
+          wo.includes(q) ||
+          cid.includes(q) ||
+          cname.includes(q) ||
+          inst.includes(q) ||
+          addr.includes(q) ||
+          cluster.includes(q) ||
+          fdt.includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [
+    baseLeaderTickets,
+    activeKpiDrilldown,
+    selectedCategory,
+    installerFilter,
+    areaFilter,
+    workStatusFilter,
+    woSearch,
+    searchQuery
+  ]);
+
+  const handleSort = (field: string) => {
+    setSortState(prev => {
+      const nextDir = getNextSortDirection(prev.column, prev.direction, field);
+      return {
+        column: nextDir ? field : null,
+        direction: nextDir
+      };
+    });
+    setCurrentPage(1);
+  };
+
   const displayTickets = useMemo(() => {
-    return baseLeaderTickets
-      .filter(t => {
-        if (activeKpiDrilldown) {
-          if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
-            const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
-            if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
-          }
-          if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
-            const tArea = String(t.area || '').trim().toLowerCase();
-            if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
-          }
-          if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
-        }
+    if (!sortState.column || !sortState.direction) return filteredTickets;
+    return sortDataArray(filteredTickets, sortState, (t: Ticket, col: string) => {
+      switch (col) {
+        case 'installerName':
+          return t.installerName || '';
+        case 'idCustomer':
+          return t.idCustomer || '';
+        case 'woNumber':
+          return t.woNumber || '';
+        case 'area':
+          return t.area || '';
+        case 'contractor':
+          return t.contactorName || t.contractorName || '';
+        case 'checkInAt':
+          return t.checkInAt || '';
+        case 'checkOutAt':
+          return t.checkOutAt || '';
+        case 'workDuration':
+          return t.workDurationMinutes ?? null;
+        case 'workStatus':
+          return getTicketWorkStatus(t).status;
+        default:
+          return (t as any)[col] ?? '';
+      }
+    });
+  }, [filteredTickets, sortState]);
 
-        if (selectedCategory !== 'all') {
-          const cat = getTicketCategory(t);
-          if (cat !== selectedCategory) return false;
-        }
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (woSearch.trim() ? 1 : 0) +
+    (installerFilter !== 'ALL' ? 1 : 0) +
+    (areaFilter !== 'ALL' ? 1 : 0) +
+    (workStatusFilter !== 'ALL' ? 1 : 0) +
+    (selectedCategory !== 'all' ? 1 : 0) +
+    (activeKpiDrilldown ? 1 : 0);
 
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase().trim();
-          const wo = (t.woNumber || '').toLowerCase();
-          const cid = (t.idCustomer || '').toLowerCase();
-          const cname = (t.customerName || '').toLowerCase();
-          const inst = (t.installerName || '').toLowerCase();
-          const addr = (t.address || t.streetName || '').toLowerCase();
-          const cluster = (t.clusterName || (t as any).cluster || '').toLowerCase();
-          const fdt = `${t.fdtCode || ''} ${t.fatCode || ''}`.toLowerCase();
-          return (
-            wo.includes(q) ||
-            cid.includes(q) ||
-            cname.includes(q) ||
-            inst.includes(q) ||
-            addr.includes(q) ||
-            cluster.includes(q) ||
-            fdt.includes(q)
-          );
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        let valA: any = '';
-        let valB: any = '';
-        if (sortField === 'installerName') {
-          valA = a.installerName || '';
-          valB = b.installerName || '';
-        } else if (sortField === 'idCustomer') {
-          valA = a.idCustomer || '';
-          valB = b.idCustomer || '';
-        } else if (sortField === 'woNumber') {
-          valA = a.woNumber || '';
-          valB = b.woNumber || '';
-        } else if (sortField === 'area') {
-          valA = a.area || '';
-          valB = b.area || '';
-        } else if (sortField === 'contractor') {
-          valA = a.contactorName || a.contractorName || '';
-          valB = b.contactorName || b.contractorName || '';
-        } else if (sortField === 'checkInAt') {
-          valA = a.checkInAt || '';
-          valB = b.checkInAt || '';
-        } else if (sortField === 'checkOutAt') {
-          valA = a.checkOutAt || '';
-          valB = b.checkOutAt || '';
-        } else if (sortField === 'workDuration') {
-          valA = a.workDurationMinutes || 0;
-          valB = b.workDurationMinutes || 0;
-        } else if (sortField === 'workStatus') {
-          valA = getTicketWorkStatus(a).status;
-          valB = getTicketWorkStatus(b).status;
-        } else {
-          valA = String((a as any)[sortField] || '').toLowerCase();
-          valB = String((b as any)[sortField] || '').toLowerCase();
-        }
-
-        if (typeof valA === 'number' && typeof valB === 'number') {
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        valA = String(valA).toLowerCase();
-        valB = String(valB).toLowerCase();
-        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-  }, [baseLeaderTickets, activeKpiDrilldown, selectedCategory, searchQuery, sortField, sortOrder]);
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setWoSearch('');
+    setInstallerFilter('ALL');
+    setAreaFilter('ALL');
+    setWorkStatusFilter('ALL');
+    setSelectedCategory('all');
+    if (activeKpiDrilldown) setActiveKpiDrilldown(null);
+    setSortState({ column: 'woNumber', direction: 'asc' });
+    setCurrentPage(1);
+  };
 
   // Pagination
   const totalPages = rowsPerPage === -1 ? 1 : Math.max(1, Math.ceil(displayTickets.length / rowsPerPage));
@@ -340,15 +426,6 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
       ...prev,
       [id]: !prev[id]
     }));
-  };
-
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
   };
 
   // Export functions
@@ -679,57 +756,87 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         })}
       </div>
 
-      {/* Search Bar & Horizontal Filter Pills */}
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 text-[#8492A5] dark:text-[#7d7484] absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Cari teknisi, No. WO, ID Customer, cluster, atau ODP/FAT..."
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="tactile-debossed-input w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A0E2E] border border-[#DDE6F0] dark:border-purple-900/60 rounded-2xl text-xs sm:text-sm text-[#26364A] dark:text-white placeholder-[#8492A5] dark:placeholder-[#7d7484] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7C3AED]"
+      {/* Horizontal Filter Chips + Compact Reset / Mobile Header Popovers */}
+      <div className="space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-1 min-w-0">
+            {filterChips.map(chip => {
+              const active = selectedCategory === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(chip.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs cursor-pointer ${
+                    active
+                      ? 'mj-btn-leader-secondary mj-btn-xs'
+                      : 'mj-btn-leader-neutral mj-btn-xs'
+                  }`}
+                >
+                  {chip.label} ({chip.count})
+                </button>
+              );
+            })}
+          </div>
+
+          <TableResetFilterButton
+            activeCount={activeFilterCount}
+            onReset={handleResetFilters}
+            label="Reset Search/Filter"
+            testId="leader-progress-reset-filters"
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setCurrentPage(1);
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-              title="Hapus pencarian"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {filterChips.map(chip => {
-            const active = selectedCategory === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(chip.id);
-                  setCurrentPage(1);
-                }}
-                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs cursor-pointer ${
-                  active
-                    ? 'mj-btn-leader-secondary mj-btn-xs'
-                    : 'mj-btn-leader-neutral mj-btn-xs'
-                }`}
-              >
-                {chip.label} ({chip.count})
-              </button>
-            );
-          })}
-        </div>
+        {isCompactUI && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <HeaderSearchPopover
+              label="WO / Pelanggan"
+              value={woSearch}
+              onChange={val => {
+                setWoSearch(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari WO, ID, atau cluster..."
+              sortActive={sortState.column === 'woNumber'}
+              sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+              onCycleSort={() => handleSort('woNumber')}
+            />
+            <HeaderCategoryDropdown
+              label="Teknisi"
+              value={installerFilter}
+              defaultValue="ALL"
+              allLabel="Semua Teknisi"
+              options={[
+                { value: 'ALL', label: 'Semua Teknisi' },
+                ...scopedInstallerOptions.map(name => ({ value: name, label: name }))
+              ]}
+              onChange={val => {
+                setInstallerFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'installerName'}
+              sortDir={sortState.column === 'installerName' ? sortState.direction : null}
+              onCycleSort={() => handleSort('installerName')}
+            />
+            <HeaderCategoryDropdown
+              label="Status"
+              value={workStatusFilter}
+              defaultValue="ALL"
+              allLabel="Semua Status"
+              options={[
+                { value: 'ALL', label: 'Semua Status' },
+                ...workStatusOptions.map(s => ({ value: s, label: s }))
+              ]}
+              onChange={val => {
+                setWorkStatusFilter(val);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* VIEW MODE 1: STITCH LIVE PROGRESS CARDS */}
@@ -1169,59 +1276,92 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
               <thead className="bg-[#EDF3F8] dark:bg-[#251545] text-[#52647A] dark:text-purple-200 uppercase font-bold text-[10.5px] tracking-wider border-b border-[#DDE6F0] dark:border-purple-900/60">
                 <tr>
                   <th className="py-3 px-2 w-8 text-center">#</th>
-                  <th
-                    onClick={() => handleSort('installerName')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[165px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Teknisi &amp; ID</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 min-w-[165px]">
+                    <HeaderCategoryDropdown
+                      label="Teknisi & ID"
+                      value={installerFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Teknisi"
+                      options={[
+                        { value: 'ALL', label: 'Semua Teknisi' },
+                        ...scopedInstallerOptions.map(name => ({ value: name, label: name }))
+                      ]}
+                      onChange={val => {
+                        setInstallerFilter(val);
+                        setCurrentPage(1);
+                      }}
+                      sortActive={sortState.column === 'installerName'}
+                      sortDir={sortState.column === 'installerName' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('installerName')}
+                    />
                   </th>
-                  <th
-                    onClick={() => handleSort('woNumber')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[180px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>No. WO &amp; Pelanggan</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 min-w-[180px]">
+                    <HeaderSearchPopover
+                      label="No. WO & Pelanggan"
+                      value={woSearch}
+                      onChange={val => {
+                        setWoSearch(val);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Cari WO / ID / Pelanggan..."
+                      sortActive={sortState.column === 'woNumber'}
+                      sortDir={sortState.column === 'woNumber' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('woNumber')}
+                    />
                   </th>
-                  <th
-                    onClick={() => handleSort('area')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[130px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Area &amp; Mitra</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 min-w-[130px]">
+                    <HeaderCategoryDropdown
+                      label="Area & Mitra"
+                      value={areaFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Area"
+                      options={[
+                        { value: 'ALL', label: 'Semua Area' },
+                        ...scopedAreaOptions.map(a => ({ value: a, label: a }))
+                      ]}
+                      onChange={val => {
+                        setAreaFilter(val);
+                        setCurrentPage(1);
+                      }}
+                      sortActive={sortState.column === 'area'}
+                      sortDir={sortState.column === 'area' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('area')}
+                    />
                   </th>
-                  <th
-                    onClick={() => handleSort('workStatus')}
-                    className="py-3 px-3 text-center font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Status Saat Ini</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 text-center min-w-[130px]">
+                    <HeaderCategoryDropdown
+                      label="Status Saat Ini"
+                      value={workStatusFilter}
+                      defaultValue="ALL"
+                      allLabel="Semua Status"
+                      options={[
+                        { value: 'ALL', label: 'Semua Status' },
+                        ...workStatusOptions.map(s => ({ value: s, label: s }))
+                      ]}
+                      onChange={val => {
+                        setWorkStatusFilter(val);
+                        setCurrentPage(1);
+                      }}
+                      sortActive={sortState.column === 'workStatus'}
+                      sortDir={sortState.column === 'workStatus' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('workStatus')}
+                    />
                   </th>
-                  <th
-                    onClick={() => handleSort('checkInAt')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[125px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Check-in &amp; Out</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 min-w-[125px]">
+                    <HeaderSortButton
+                      label="Check-in & Out"
+                      active={sortState.column === 'checkInAt'}
+                      direction={sortState.column === 'checkInAt' ? sortState.direction : null}
+                      onClick={() => handleSort('checkInAt')}
+                    />
                   </th>
-                  <th
-                    onClick={() => handleSort('workDuration')}
-                    className="py-3 px-3 font-bold cursor-pointer hover:bg-[#DCE3F2]/60 dark:hover:bg-purple-900/40 select-none min-w-[105px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Durasi Kerja</span>
-                      <ArrowUpDown className="w-3 h-3 text-[#6657C8] dark:text-purple-400" />
-                    </div>
+                  <th className="py-3 px-3 min-w-[105px]">
+                    <HeaderSortButton
+                      label="Durasi Kerja"
+                      active={sortState.column === 'workDuration'}
+                      direction={sortState.column === 'workDuration' ? sortState.direction : null}
+                      onClick={() => handleSort('workDuration')}
+                    />
                   </th>
                   <th className="py-3 px-3 text-center font-bold min-w-[85px]">Bukti Foto</th>
                   <th className="py-3 px-3 text-right font-bold min-w-[135px]">Aksi</th>

@@ -49,12 +49,18 @@ import {
   Folder,
   FileText,
   RefreshCw,
-  Search,
-  Filter,
   ArrowRightLeft,
   ChevronRight
 } from 'lucide-react';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
+import {
+  HeaderSearchPopover,
+  HeaderCategoryDropdown,
+  HeaderSortButton,
+  TableResetFilterButton
+} from '../common/InteractiveTableHeader';
+import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 const AVAILABLE_ICONS: { name: string; label: string; component: React.ElementType }[] = [
   { name: 'LayoutDashboard', label: 'Dashboard', component: LayoutDashboard },
@@ -189,14 +195,18 @@ export const NavigationConfigView: React.FC = () => {
     contractor_area: true
   });
 
-  // Tab 2 (Menu Mandiri) Filter State
+  // Tab 2 (Menu Mandiri) Filter & Sort State
   const [standaloneSearch, setStandaloneSearch] = useState('');
   const [standaloneRoleFilter, setStandaloneRoleFilter] = useState<string>('all');
+  const [standaloneStatusFilter, setStandaloneStatusFilter] = useState<string>('all');
+  const [standaloneSort, setStandaloneSort] = useState<SortState>({ key: null, direction: null });
 
   // Tab 3 (Submenu Items) Filter, Collapse & Batch Move State
   const [submenuSearch, setSubmenuSearch] = useState('');
   const [submenuCategoryFilter, setSubmenuCategoryFilter] = useState<string>('all');
   const [submenuRoleFilter, setSubmenuRoleFilter] = useState<string>('all');
+  const [submenuStatusFilter, setSubmenuStatusFilter] = useState<string>('all');
+  const [submenuSort, setSubmenuSort] = useState<SortState>({ key: null, direction: null });
   const [collapsedSubmenuGroups, setCollapsedSubmenuGroups] = useState<Record<string, boolean>>({
     menu_tambahan: false
   });
@@ -214,7 +224,7 @@ export const NavigationConfigView: React.FC = () => {
 
   const filteredStandaloneMenus = useMemo(() => {
     const q = standaloneSearch.trim().toLowerCase();
-    return sortedStandaloneMenus.filter(menu => {
+    const list = sortedStandaloneMenus.filter(menu => {
       const matchesSearch =
         !q ||
         menu.label.toLowerCase().includes(q) ||
@@ -223,16 +233,56 @@ export const NavigationConfigView: React.FC = () => {
       const matchesRole =
         standaloneRoleFilter === 'all' ||
         (menu.roles || []).includes(standaloneRoleFilter);
-      return matchesSearch && matchesRole;
+      const matchesStatus =
+        standaloneStatusFilter === 'all' ||
+        (standaloneStatusFilter === 'active' ? menu.visible !== false : menu.visible === false);
+      return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [sortedStandaloneMenus, standaloneSearch, standaloneRoleFilter]);
+    return sortDataArray(list, standaloneSort.key, standaloneSort.direction, (row, key) => {
+      if (key === 'order') return row.order ?? 0;
+      if (key === 'label') return row.label;
+      if (key === 'status') return row.visible !== false ? 'Aktif' : 'Nonaktif';
+      return (row as any)[key];
+    });
+  }, [sortedStandaloneMenus, standaloneSearch, standaloneRoleFilter, standaloneStatusFilter, standaloneSort]);
 
-  const isStandaloneFiltered = standaloneSearch.trim() !== '' || standaloneRoleFilter !== 'all';
+  const isStandaloneFiltered =
+    standaloneSearch.trim() !== '' ||
+    standaloneRoleFilter !== 'all' ||
+    standaloneStatusFilter !== 'all' ||
+    Boolean(standaloneSort.direction);
+
+  const standaloneActiveFilterCount =
+    (standaloneSearch.trim() ? 1 : 0) +
+    (standaloneRoleFilter !== 'all' ? 1 : 0) +
+    (standaloneStatusFilter !== 'all' ? 1 : 0) +
+    (standaloneSort.direction ? 1 : 0);
 
   const isSubmenuFiltered =
     submenuSearch.trim() !== '' ||
     submenuCategoryFilter !== 'all' ||
-    submenuRoleFilter !== 'all';
+    submenuRoleFilter !== 'all' ||
+    submenuStatusFilter !== 'all' ||
+    Boolean(submenuSort.direction);
+
+  const submenuActiveFilterCount =
+    (submenuSearch.trim() ? 1 : 0) +
+    (submenuCategoryFilter !== 'all' ? 1 : 0) +
+    (submenuRoleFilter !== 'all' ? 1 : 0) +
+    (submenuStatusFilter !== 'all' ? 1 : 0) +
+    (submenuSort.direction ? 1 : 0);
+
+  const navRoleFilterOptions = [
+    { value: 'super_admin', label: 'Super Admin' },
+    { value: 'dispatch', label: 'Dispatch' },
+    { value: 'leader', label: 'Leader / Korlap' },
+    { value: 'installer', label: 'Teknisi / Installer' }
+  ];
+
+  const navStatusFilterOptions = [
+    { value: 'active', label: 'Aktif' },
+    { value: 'hidden', label: 'Disembunyikan' }
+  ];
 
   // Grouped submenus
   const submenusByCategory = useMemo(() => {
@@ -993,77 +1043,66 @@ export const NavigationConfigView: React.FC = () => {
       {/* TAB 2: MENU MANDIRI / STANDALONE MENUS (STITCH TEMPLATE #2)      */}
       {/* ================================================================ */}
       {activeConfigTab === 'standalone' && (
-        <div className="space-y-4">
-          {/* Action & Search Filter Toolbar */}
-          <div className="card-3d-lavender rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={standaloneSearch}
-                  onChange={e => setStandaloneSearch(e.target.value)}
-                  placeholder="Cari nama menu mandiri, ID /route, atau role..."
-                  className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-xl focus:outline-hidden"
-                />
-              </div>
-
-              <div className="relative min-w-[190px]">
-                <Filter className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <select
-                  value={standaloneRoleFilter}
-                  onChange={e => setStandaloneRoleFilter(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
-                >
-                  <option value="all">Semua Role RBAC ({sortedStandaloneMenus.length})</option>
-                  <option value="super_admin">Super Admin</option>
-                  <option value="dispatch">Dispatch</option>
-                  <option value="leader">Leader / Korlap</option>
-                  <option value="installer">Teknisi / Installer</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-              <span className="text-[11px] font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
-                {filteredStandaloneMenus.length} / {sortedStandaloneMenus.length} Menu Mandiri
-              </span>
-              {isStandaloneFiltered && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStandaloneSearch('');
-                    setStandaloneRoleFilter('all');
-                  }}
-                  className="mj-btn-superadmin-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold gap-1 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Reset Filter</span>
-                </button>
-              )}
-            </div>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            <span className="text-[11px] font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
+              {filteredStandaloneMenus.length} / {sortedStandaloneMenus.length} Menu Mandiri
+            </span>
+            <TableResetFilterButton
+              activeCount={standaloneActiveFilterCount}
+              onReset={() => {
+                setStandaloneSearch('');
+                setStandaloneRoleFilter('all');
+                setStandaloneStatusFilter('all');
+                setStandaloneSort({ key: null, direction: null });
+              }}
+              label="Reset Search/Filter"
+            />
           </div>
 
-          {filteredStandaloneMenus.length === 0 ? (
-            <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-3">
-              <p className="text-xs font-bold text-[#26364A] dark:text-white">
-                Tidak ada Menu Mandiri yang cocok dengan pencarian atau filter role.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setStandaloneSearch('');
-                  setStandaloneRoleFilter('all');
-                }}
-                className="mj-btn-superadmin-lilac px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Tampilkan Semua Menu Mandiri
-              </button>
-            </div>
-          ) : isCompactUI ? (
+          {isCompactUI ? (
             /* Mobile / Compact Responsive Card List */
             <div className="space-y-3">
-              {filteredStandaloneMenus.map(menu => {
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <HeaderSearchPopover
+                  label="Menu & Path"
+                  value={standaloneSearch}
+                  onChange={setStandaloneSearch}
+                  placeholder="Cari menu atau /route..."
+                  sortActive={standaloneSort.key === 'label' && Boolean(standaloneSort.direction)}
+                  sortDir={standaloneSort.key === 'label' ? standaloneSort.direction : null}
+                  onCycleSort={() =>
+                    setStandaloneSort(prev => ({
+                      key: 'label',
+                      direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                    }))
+                  }
+                />
+                <HeaderCategoryDropdown
+                  label="Role RBAC"
+                  value={standaloneRoleFilter}
+                  defaultValue="all"
+                  allLabel={`Semua Role (${sortedStandaloneMenus.length})`}
+                  options={navRoleFilterOptions}
+                  onChange={setStandaloneRoleFilter}
+                />
+                <HeaderCategoryDropdown
+                  label="Status"
+                  value={standaloneStatusFilter}
+                  defaultValue="all"
+                  allLabel="Semua Status"
+                  options={navStatusFilterOptions}
+                  onChange={setStandaloneStatusFilter}
+                />
+              </div>
+              {filteredStandaloneMenus.length === 0 ? (
+                <div className="card-3d-lavender rounded-2xl p-8 text-center space-y-3">
+                  <p className="text-xs font-bold text-[#26364A] dark:text-white">
+                    Tidak ada Menu Mandiri yang cocok dengan pencarian atau filter role.
+                  </p>
+                </div>
+              ) : (
+              filteredStandaloneMenus.map(menu => {
                 const MenuIcon = getIconComp(menu.icon);
                 const actualIndex = sortedStandaloneMenus.findIndex(m => m.id === menu.id);
                 const isEditing = editingStandaloneId === menu.id;
@@ -1212,7 +1251,7 @@ export const NavigationConfigView: React.FC = () => {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
           ) : (
             /* Desktop Clean Table Container matching Stitch Template #2 */
@@ -1221,16 +1260,76 @@ export const NavigationConfigView: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
-                      <th className="py-3 px-4 w-20 text-center">Urutan</th>
-                      <th className="py-3 px-4 min-w-[230px]">Nama Menu &amp; Path ID</th>
+                      <th className="py-3 px-4 w-24 text-center">
+                        <HeaderSortButton
+                          label="Urutan"
+                          sortActive={standaloneSort.key === 'order' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.key === 'order' ? standaloneSort.direction : null}
+                          onCycleSort={() =>
+                            setStandaloneSort(prev => ({
+                              key: 'order',
+                              direction: prev.key === 'order' ? getNextSortDirection(prev.direction) : 'asc'
+                            }))
+                          }
+                        />
+                      </th>
+                      <th className="py-3 px-4 min-w-[230px]">
+                        <HeaderSearchPopover
+                          label="Nama Menu & Path ID"
+                          value={standaloneSearch}
+                          onChange={setStandaloneSearch}
+                          placeholder="Cari nama menu atau /route..."
+                          sortActive={standaloneSort.key === 'label' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.key === 'label' ? standaloneSort.direction : null}
+                          onCycleSort={() =>
+                            setStandaloneSort(prev => ({
+                              key: 'label',
+                              direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                            }))
+                          }
+                        />
+                      </th>
                       <th className="py-3 px-4 w-32">Tipe Engine</th>
-                      <th className="py-3 px-4 min-w-[240px]">Hak Akses RBAC</th>
-                      <th className="py-3 px-4 w-24 text-center">Status</th>
+                      <th className="py-3 px-4 min-w-[240px]">
+                        <HeaderCategoryDropdown
+                          label="Hak Akses RBAC"
+                          value={standaloneRoleFilter}
+                          defaultValue="all"
+                          allLabel={`Semua Role (${sortedStandaloneMenus.length})`}
+                          options={navRoleFilterOptions}
+                          onChange={setStandaloneRoleFilter}
+                        />
+                      </th>
+                      <th className="py-3 px-4 w-28 text-center">
+                        <HeaderCategoryDropdown
+                          label="Status"
+                          value={standaloneStatusFilter}
+                          defaultValue="all"
+                          allLabel="Semua Status"
+                          options={navStatusFilterOptions}
+                          onChange={setStandaloneStatusFilter}
+                          sortActive={standaloneSort.key === 'status' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.key === 'status' ? standaloneSort.direction : null}
+                          onCycleSort={() =>
+                            setStandaloneSort(prev => ({
+                              key: 'status',
+                              direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                            }))
+                          }
+                        />
+                      </th>
                       <th className="py-3 px-4 w-32 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1754] text-xs">
-                    {filteredStandaloneMenus.map(menu => {
+                    {filteredStandaloneMenus.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 px-4 text-center text-xs font-bold text-[#52647A] dark:text-[#CABDE8]">
+                          Tidak ada Menu Mandiri yang cocok dengan pencarian atau filter aktif.
+                        </td>
+                      </tr>
+                    ) : (
+                    filteredStandaloneMenus.map(menu => {
                       const MenuIcon = getIconComp(menu.icon);
                       const actualIndex = sortedStandaloneMenus.findIndex(m => m.id === menu.id);
                       const isEditing = editingStandaloneId === menu.id;
@@ -1410,7 +1509,7 @@ export const NavigationConfigView: React.FC = () => {
                           </td>
                         </tr>
                       );
-                    })}
+                    }))}
                   </tbody>
                 </table>
               </div>
@@ -1424,87 +1523,76 @@ export const NavigationConfigView: React.FC = () => {
       {/* ================================================================ */}
       {activeConfigTab === 'submenus' && (
         <div className="space-y-4">
-          {/* Action & Filter Bar Submenu */}
-          <div className="card-3d-lavender rounded-2xl p-4 space-y-3">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 flex-1">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
+          {/* Compact Top Header Bar (Filter controls live in table headers; batch move appears strictly when >=1 row selected) */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 px-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <HeaderCategoryDropdown
+                label="Filter Kategori"
+                value={submenuCategoryFilter}
+                defaultValue="all"
+                allLabel={`Semua Kategori (${(submenuItems || []).length})`}
+                options={sortedCategories.map(c => ({
+                  value: c.id,
+                  label: c.name,
+                  count: (submenusByCategory.get(c.id) || []).length
+                }))}
+                onChange={setSubmenuCategoryFilter}
+              />
+              {isCompactUI && (
+                <>
+                  <HeaderSearchPopover
+                    label="Submenu & ID"
                     value={submenuSearch}
-                    onChange={e => setSubmenuSearch(e.target.value)}
-                    placeholder="Cari submenu / route ID / kategori..."
-                    className="w-full pl-9 pr-3 py-2 text-xs tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-white rounded-xl focus:outline-hidden"
+                    onChange={setSubmenuSearch}
+                    placeholder="Cari submenu atau /route..."
                   />
-                </div>
-
-                <select
-                  value={submenuCategoryFilter}
-                  onChange={e => setSubmenuCategoryFilter(e.target.value)}
-                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
-                >
-                  <option value="all">Semua Kategori ({(submenuItems || []).length} Items)</option>
-                  {sortedCategories.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({(submenusByCategory.get(c.id) || []).length})
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={submenuRoleFilter}
-                  onChange={e => setSubmenuRoleFilter(e.target.value)}
-                  className="px-3 py-2 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
-                >
-                  <option value="all">Semua Role Access</option>
-                  <option value="super_admin">Super Admin</option>
-                  <option value="dispatch">Dispatch</option>
-                  <option value="leader">Leader / Korlap</option>
-                  <option value="installer">Teknisi / Installer</option>
-                </select>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                {isSubmenuFiltered && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubmenuSearch('');
-                      setSubmenuCategoryFilter('all');
-                      setSubmenuRoleFilter('all');
-                    }}
-                    className="mj-btn-superadmin-lilac px-3 py-2 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Reset Filter</span>
-                  </button>
-                )}
-
-                {isSuperadmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddSubmenuModal(true)}
-                    className="mj-btn-superadmin-primary px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Tambah Submenu Baru</span>
-                  </button>
-                )}
-              </div>
+                  <HeaderCategoryDropdown
+                    label="Role Access"
+                    value={submenuRoleFilter}
+                    defaultValue="all"
+                    allLabel="Semua Role"
+                    options={navRoleFilterOptions}
+                    onChange={setSubmenuRoleFilter}
+                  />
+                </>
+              )}
+              <TableResetFilterButton
+                activeCount={submenuActiveFilterCount}
+                onReset={() => {
+                  setSubmenuSearch('');
+                  setSubmenuCategoryFilter('all');
+                  setSubmenuRoleFilter('all');
+                  setSubmenuStatusFilter('all');
+                  setSubmenuSort({ key: null, direction: null });
+                }}
+                label="Reset Search/Filter"
+              />
             </div>
 
-            {/* Real Batch Category Move Bar when checkboxes are selected */}
-            {isSuperadmin && selectedSubmenuIds.length > 0 && (
-              <div className="pt-3 border-t border-[#E2E8F0] dark:border-[#35105E] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF]">
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>{selectedSubmenuIds.length} submenu dipilih untuk dipindahkan secara batch</span>
-                </div>
+            {isSuperadmin && (
+              <button
+                type="button"
+                onClick={() => setShowAddSubmenuModal(true)}
+                className="mj-btn-superadmin-primary px-4 py-2 min-h-[38px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Submenu Baru</span>
+              </button>
+            )}
+          </div>
+
+          {isSuperadmin && selectedSubmenuIds.length > 0 && (
+            <TableSelectionToolbar
+              selectedCount={selectedSubmenuIds.length}
+              itemLabel="submenu dipilih untuk dipindahkan"
+              onClear={() => setSelectedSubmenuIds([])}
+              clearLabel="Batal"
+              actions={
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={batchTargetCategoryId}
                     onChange={e => setBatchTargetCategoryId(e.target.value)}
+                    aria-label="Target kategori batch move"
                     className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
                   >
                     {sortedCategories.map(c => (
@@ -1516,21 +1604,15 @@ export const NavigationConfigView: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleExecuteBatchMove}
-                    className="mj-btn-superadmin-primary px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
+                    className="mj-btn-superadmin-primary px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    Terapkan Pindah ({selectedSubmenuIds.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSubmenuIds([])}
-                    className="mj-btn-superadmin-lilac px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
-                  >
-                    Batal
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>Terapkan Pindah ({selectedSubmenuIds.length})</span>
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
+              }
+            />
+          )}
 
           {/* Grouped Submenus per Category */}
           {sortedCategories
@@ -1539,7 +1621,7 @@ export const NavigationConfigView: React.FC = () => {
               const CatIcon = getIconComp(cat.icon);
               const allInCat = submenusByCategory.get(cat.id) || [];
               const q = submenuSearch.trim().toLowerCase();
-              const filteredInCat = allInCat.filter(sub => {
+              const filteredRawInCat = allInCat.filter(sub => {
                 const matchesQ =
                   !q ||
                   sub.label.toLowerCase().includes(q) ||
@@ -1548,8 +1630,22 @@ export const NavigationConfigView: React.FC = () => {
                 const matchesRole =
                   submenuRoleFilter === 'all' ||
                   (sub.roles || []).includes(submenuRoleFilter);
-                return matchesQ && matchesRole;
+                const matchesStatus =
+                  submenuStatusFilter === 'all' ||
+                  (submenuStatusFilter === 'active' ? sub.visible !== false : sub.visible === false);
+                return matchesQ && matchesRole && matchesStatus;
               });
+              const filteredInCat = sortDataArray(
+                filteredRawInCat,
+                submenuSort.key,
+                submenuSort.direction,
+                (row, key) => {
+                  if (key === 'order') return row.order ?? 0;
+                  if (key === 'label') return row.label;
+                  if (key === 'status') return row.visible !== false ? 'Aktif' : 'Nonaktif';
+                  return (row as any)[key];
+                }
+              );
 
               if (isSubmenuFiltered && filteredInCat.length === 0) {
                 return null;
@@ -1842,11 +1938,64 @@ export const NavigationConfigView: React.FC = () => {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#EDF3F8] dark:bg-[#160D29] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#A79BC0]">
-                            <th className="py-2.5 px-3 w-20 text-center">Urutan</th>
-                            <th className="py-2.5 px-3 min-w-[200px]">Submenu &amp; Endpoint ID</th>
-                            <th className="py-2.5 px-3 min-w-[180px]">Granular Role Access</th>
+                            <th className="py-2.5 px-3 w-24 text-center">
+                              <HeaderSortButton
+                                label="Urutan"
+                                sortActive={submenuSort.key === 'order' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.key === 'order' ? submenuSort.direction : null}
+                                onCycleSort={() =>
+                                  setSubmenuSort(prev => ({
+                                    key: 'order',
+                                    direction: prev.key === 'order' ? getNextSortDirection(prev.direction) : 'asc'
+                                  }))
+                                }
+                              />
+                            </th>
+                            <th className="py-2.5 px-3 min-w-[200px]">
+                              <HeaderSearchPopover
+                                label="Submenu & Endpoint ID"
+                                value={submenuSearch}
+                                onChange={setSubmenuSearch}
+                                placeholder="Cari submenu atau /route..."
+                                sortActive={submenuSort.key === 'label' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.key === 'label' ? submenuSort.direction : null}
+                                onCycleSort={() =>
+                                  setSubmenuSort(prev => ({
+                                    key: 'label',
+                                    direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                                  }))
+                                }
+                              />
+                            </th>
+                            <th className="py-2.5 px-3 min-w-[180px]">
+                              <HeaderCategoryDropdown
+                                label="Granular Role Access"
+                                value={submenuRoleFilter}
+                                defaultValue="all"
+                                allLabel="Semua Role Access"
+                                options={navRoleFilterOptions}
+                                onChange={setSubmenuRoleFilter}
+                              />
+                            </th>
                             <th className="py-2.5 px-3 w-44">Pindah Kategori</th>
-                            <th className="py-2.5 px-3 w-20 text-center">Status</th>
+                            <th className="py-2.5 px-3 w-24 text-center">
+                              <HeaderCategoryDropdown
+                                label="Status"
+                                value={submenuStatusFilter}
+                                defaultValue="all"
+                                allLabel="Semua Status"
+                                options={navStatusFilterOptions}
+                                onChange={setSubmenuStatusFilter}
+                                sortActive={submenuSort.key === 'status' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.key === 'status' ? submenuSort.direction : null}
+                                onCycleSort={() =>
+                                  setSubmenuSort(prev => ({
+                                    key: 'status',
+                                    direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                                  }))
+                                }
+                              />
+                            </th>
                             <th className="py-2.5 px-3 w-36 text-right">Aksi Manajemen</th>
                           </tr>
                         </thead>

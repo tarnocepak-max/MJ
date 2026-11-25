@@ -17,9 +17,11 @@ import {
   type InstallerGpsUiSnapshot
 } from '../../services/installerGpsTrackingService';
 import { useToast } from '../../context/ToastContext';
+import { useHasOpenModal } from '../../hooks/useModalLayer';
 
 export const InstallerGpsSyncWidget: React.FC = () => {
   const { toast } = useToast();
+  const hasOpenModal = useHasOpenModal();
   const [snap, setSnap] = useState<InstallerGpsUiSnapshot>(() => installerGpsTracker.getSnapshot());
   const [expanded, setExpanded] = useState(false);
 
@@ -58,7 +60,7 @@ export const InstallerGpsSyncWidget: React.FC = () => {
     };
   }, [toast]);
 
-  if (!snap.active) return null;
+  if (!snap.active || hasOpenModal) return null;
 
   const isConnected = snap.stage === 'LOCATION_CONNECTED' && snap.locationStatus === 'Location Fresh';
   const isError =

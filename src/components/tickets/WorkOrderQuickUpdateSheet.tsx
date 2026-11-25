@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Ticket,
   TicketStatusWOInstaller,
@@ -10,6 +11,7 @@ import { isTicketClosed } from '../../services/woLifecycleService';
 import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { supabaseDb } from '../../services/supabaseDb';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 import {
   X,
   MapPin,
@@ -174,7 +176,18 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
     );
   }, [ticket, messages]);
 
-  const { viewportHeight, keyboardInset } = useVisualViewportModal(isOpen);
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const { viewportHeight, keyboardInset } = useVisualViewportModal(isOpen, sheetRef);
+  const layerZ = useModalLayer(isOpen, { tier: 'modal' });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen || !ticket) return null;
 
@@ -389,20 +402,26 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
     }
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="wo-quick-update-title"
-      style={keyboardInset > 0 ? { paddingBottom: `${keyboardInset}px` } : undefined}
-      className="fixed inset-0 z-65 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm"
-      onClick={onClose}
+      style={{
+        zIndex: layerZ,
+        ...(keyboardInset > 0 ? { paddingBottom: `${keyboardInset}px` } : {})
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-[#26364A]/45 dark:bg-[#160D29]/75 backdrop-blur-sm"
+      onClick={() => {
+        if (!isSubmitting) onClose();
+      }}
     >
       <section
+        ref={sheetRef}
         onClick={e => e.stopPropagation()}
         style={
           viewportHeight
-            ? { maxHeight: `${Math.max(320, Math.min(Math.round(viewportHeight * 0.94), window.innerHeight - 12))}px` }
+            ? { maxHeight: `${Math.max(300, Math.min(Math.round(viewportHeight * 0.94), window.innerHeight - 12))}px` }
             : undefined
         }
         className="mj-sheet-enter w-full sm:max-w-lg bg-white/95 dark:bg-[#1E1238] rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-[#DDE6F0] dark:border-[#35105E] max-h-[92dvh] flex flex-col overflow-hidden"
@@ -767,7 +786,7 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
         </form>
 
         {/* Sticky Ergonomic Footer */}
-        <div className="sticky bottom-0 z-30 bg-[#F8FAFD]/95 dark:bg-[#160D29]/95 backdrop-blur-md border-t border-[#DDE6F0] dark:border-[#35105E] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col gap-2 shrink-0">
+        <div className="sticky bottom-0 z-30 bg-[#F8FAFD]/95 dark:bg-[#160D29]/95 backdrop-blur-md border-t border-[#DDE6F0] dark:border-[#35105E] px-4 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex flex-col gap-2 shrink-0">
           {!ticketClosed && !isReadOnlyLeader && (
             <button
               type="submit"
@@ -800,4 +819,6 @@ export const WorkOrderQuickUpdateSheet: React.FC<WorkOrderQuickUpdateSheetProps>
       </section>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

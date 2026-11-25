@@ -69,7 +69,12 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
-import { SortableColumnHeader } from '../common/SortableColumnHeader';
+import {
+  HeaderCategoryDropdown,
+  HeaderDateSortFilterPopover,
+  HeaderSearchPopover,
+  HeaderSortButton
+} from '../common/InteractiveTableHeader';
 import {
   SortState,
   getNextSortDirection,
@@ -371,10 +376,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
   const [notice, setNotice] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
-  // Table Filters & Search
+  // Table Filters & Search (embedded inside table headers)
   const [statusFilter, setStatusFilter] = useState<LeaderStatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [colFilters, setColFilters] = useState({
+    woNumber: '',
+    idCustomer: '',
+    customerName: '',
+    customerPhone: '',
+    streetName: ''
+  });
+  const [areaFilter, setAreaFilter] = useState<string>('ALL');
+  const [contractorFilter, setContractorFilter] = useState<string>('ALL');
+  const [workStatusFilter, setWorkStatusFilter] = useState<string>('ALL');
+  const [exactAppointmentDate, setExactAppointmentDate] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
   const [selectedInstallerFilter, setSelectedInstallerFilter] = useState<string>('ALL');
   const [slotFilter, setSlotFilter] = useState<string>('ALL');
   const [clusterFilter, setClusterFilter] = useState<string>('ALL');
@@ -781,6 +799,33 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [todayContractorTickets]);
 
+  const scopedAreaOptions = useMemo(() => {
+    const set = new Set<string>();
+    todayContractorTickets.forEach(t => {
+      const a = String(t.area || '').trim();
+      if (a) set.add(a);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [todayContractorTickets]);
+
+  const scopedContractorOptions = useMemo(() => {
+    const set = new Set<string>();
+    todayContractorTickets.forEach(t => {
+      const c = String(t.contactorName || t.contractorName || '').trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [todayContractorTickets]);
+
+  const workStatusOptions = useMemo(() => {
+    const set = new Set<string>();
+    todayContractorTickets.forEach(t => {
+      const ws = getTicketWorkStatus(t).status;
+      if (ws) set.add(ws);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [todayContractorTickets]);
+
   const assignCategoryOptions = useMemo(() => {
     const counts = new Map<string, number>();
     todayContractorTickets
@@ -929,6 +974,48 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       const ticketDate = getTicketAppointmentDate(t);
       if (!ticketDate || ticketDate !== todayWIB) return false;
 
+      if (exactAppointmentDate && ticketDate !== exactAppointmentDate) return false;
+      if (dateFrom && ticketDate < dateFrom) return false;
+      if (dateTo && ticketDate > dateTo) return false;
+
+      // Embedded column header filters
+      if (colFilters.woNumber.trim()) {
+        if (!String(t.woNumber ?? '').toLowerCase().includes(colFilters.woNumber.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (colFilters.idCustomer.trim()) {
+        if (!String(t.idCustomer || t.customerId || '').toLowerCase().includes(colFilters.idCustomer.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (colFilters.customerName.trim()) {
+        if (!String(t.customerName || '').toLowerCase().includes(colFilters.customerName.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (colFilters.customerPhone.trim()) {
+        if (!String(t.customerPhone || '').toLowerCase().includes(colFilters.customerPhone.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (colFilters.streetName.trim()) {
+        const addr = `${t.streetName || ''} ${t.streetAlternatif || ''} ${t.clusterName || ''}`.toLowerCase();
+        if (!addr.includes(colFilters.streetName.trim().toLowerCase())) {
+          return false;
+        }
+      }
+      if (areaFilter !== 'ALL') {
+        if (String(t.area || '').trim().toLowerCase() !== areaFilter.trim().toLowerCase()) return false;
+      }
+      if (contractorFilter !== 'ALL') {
+        const cont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+        if (cont !== contractorFilter.trim().toLowerCase()) return false;
+      }
+      if (workStatusFilter !== 'ALL') {
+        if (getTicketWorkStatus(t).status !== workStatusFilter) return false;
+      }
+
       // Search query filter (WO Number, Customer ID, Customer Name, Phone, Installer, Cluster, Street)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -969,6 +1056,13 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     selectedInstallerFilter,
     slotFilter,
     clusterFilter,
+    areaFilter,
+    contractorFilter,
+    workStatusFilter,
+    exactAppointmentDate,
+    dateFrom,
+    dateTo,
+    colFilters,
     todayWIB,
     searchQuery,
     activeKpiDrilldown
@@ -1554,16 +1648,15 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const visibleColumns = useMemo(() => tableColumns.filter(c => c.visible), [tableColumns]);
 
   const renderHeaderCell = (col: ColumnConfig) => {
+    const sortDirFor = (key: string) => (sortState.column === key ? sortState.direction : null);
     switch (col.id) {
       case 'checkbox':
         return (
           <th key={col.id} className="py-2.5 px-3 text-center w-8">
             <input
               type="checkbox"
-              checked={
-                sortedTickets.length > 0 &&
-                selectedTicketIds.length === sortedTickets.length
-              }
+              aria-label="Pilih semua WO di halaman ini"
+              checked={isAllPageSelected}
               onChange={handleSelectAll}
               className="w-4 h-4 accent-[#5145A6] rounded border-[#CBD5E1] dark:border-[#4b386b] cursor-pointer"
             />
@@ -1571,248 +1664,344 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         );
       case 'woNumber':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[135px]">
+            <HeaderSearchPopover
               label="WO Number"
-              columnKey="woNumber"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="wo_number"
-              onSort={handleSort}
+              value={colFilters.woNumber}
+              onChange={val => {
+                setColFilters(prev => ({ ...prev, woNumber: val }));
+                setCurrentPage(1);
+              }}
+              placeholder="Cari WO Number..."
+              sortActive={sortState.column === 'woNumber'}
+              sortDir={sortDirFor('woNumber')}
+              onCycleSort={() => handleSort('woNumber')}
             />
           </th>
         );
       case 'date':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[125px]">
+            <HeaderDateSortFilterPopover
               label="Tanggal WO"
-              columnKey="date"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="date"
-              onSort={handleSort}
+              sortActive={sortState.column === 'date'}
+              sortDir={sortDirFor('date')}
+              onCycleSort={() => handleSort('date')}
+              exactDate={exactAppointmentDate}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                setExactAppointmentDate(exactDate);
+                setDateFrom(df);
+                setDateTo(dt);
+                setCurrentPage(1);
+              }}
             />
           </th>
         );
       case 'idCustomer':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[110px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[115px]">
+            <HeaderSearchPopover
               label="Customer ID"
-              columnKey="idCustomer"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="number"
-              onSort={handleSort}
+              value={colFilters.idCustomer}
+              onChange={val => {
+                setColFilters(prev => ({ ...prev, idCustomer: val }));
+                setCurrentPage(1);
+              }}
+              placeholder="Cari ID Pelanggan..."
+              sortActive={sortState.column === 'idCustomer'}
+              sortDir={sortDirFor('idCustomer')}
+              onCycleSort={() => handleSort('idCustomer')}
             />
           </th>
         );
       case 'customerName':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[150px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[155px]">
+            <HeaderSearchPopover
               label="Nama Pelanggan"
-              columnKey="customerName"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={colFilters.customerName}
+              onChange={val => {
+                setColFilters(prev => ({ ...prev, customerName: val }));
+                setCurrentPage(1);
+              }}
+              placeholder="Cari Nama Pelanggan..."
+              sortActive={sortState.column === 'customerName'}
+              sortDir={sortDirFor('customerName')}
+              onCycleSort={() => handleSort('customerName')}
             />
           </th>
         );
       case 'customerPhone':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[125px]">
+            <HeaderSearchPopover
               label="Kontak"
-              columnKey="customerPhone"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={colFilters.customerPhone}
+              onChange={val => {
+                setColFilters(prev => ({ ...prev, customerPhone: val }));
+                setCurrentPage(1);
+              }}
+              placeholder="Cari No HP..."
+              sortActive={sortState.column === 'customerPhone'}
+              sortDir={sortDirFor('customerPhone')}
+              onCycleSort={() => handleSort('customerPhone')}
             />
           </th>
         );
       case 'area':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[100px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[115px]">
+            <HeaderCategoryDropdown
               label="Area"
-              columnKey="area"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={areaFilter}
+              defaultValue="ALL"
+              allLabel="Semua Area"
+              options={[
+                { value: 'ALL', label: 'Semua Area' },
+                ...scopedAreaOptions.map(a => ({ value: a, label: a }))
+              ]}
+              onChange={val => {
+                setAreaFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'area'}
+              sortDir={sortDirFor('area')}
+              onCycleSort={() => handleSort('area')}
             />
           </th>
         );
       case 'clusterName':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[135px]">
+            <HeaderCategoryDropdown
               label="Cluster"
-              columnKey="clusterName"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={clusterFilter}
+              defaultValue="ALL"
+              allLabel="Semua Cluster"
+              options={[
+                { value: 'ALL', label: 'Semua Cluster' },
+                ...clusterOptions.map(c => ({ value: c, label: c }))
+              ]}
+              onChange={val => {
+                setClusterFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'clusterName'}
+              sortDir={sortDirFor('clusterName')}
+              onCycleSort={() => handleSort('clusterName')}
             />
           </th>
         );
       case 'streetName':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[180px]">
-            <SortableColumnHeader
+            <HeaderSearchPopover
               label="Alamat / Street Name"
-              columnKey="streetName"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={colFilters.streetName}
+              onChange={val => {
+                setColFilters(prev => ({ ...prev, streetName: val }));
+                setCurrentPage(1);
+              }}
+              placeholder="Cari Alamat / Jalan..."
+              sortActive={sortState.column === 'streetName'}
+              sortDir={sortDirFor('streetName')}
+              onCycleSort={() => handleSort('streetName')}
             />
           </th>
         );
       case 'appointmentDate':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[135px]">
+            <HeaderDateSortFilterPopover
               label="Appointment"
-              columnKey="appointmentDate"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="date"
-              onSort={handleSort}
+              sortActive={sortState.column === 'appointmentDate'}
+              sortDir={sortDirFor('appointmentDate')}
+              onCycleSort={() => handleSort('appointmentDate')}
+              exactDate={exactAppointmentDate}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onChangeDates={({ exactDate, dateFrom: df, dateTo: dt }) => {
+                setExactAppointmentDate(exactDate);
+                setDateFrom(df);
+                setDateTo(dt);
+                setCurrentPage(1);
+              }}
             />
           </th>
         );
       case 'slotTime':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[120px] whitespace-nowrap">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[125px] whitespace-nowrap">
+            <HeaderCategoryDropdown
               label="Slot Time"
-              columnKey="slotTime"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="time_slot"
-              onSort={handleSort}
+              value={slotFilter}
+              defaultValue="ALL"
+              allLabel="Semua Slot"
+              options={[
+                { value: 'ALL', label: 'Semua Slot' },
+                { value: '1', label: 'Slot 1 (09:00 - 11:00)' },
+                { value: '2', label: 'Slot 2 (11:00 - 13:00)' },
+                { value: '3', label: 'Slot 3 (13:00 - 15:00)' },
+                { value: '4', label: 'Slot 4 (15:00 - 17:00)' }
+              ]}
+              onChange={val => {
+                setSlotFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'slotTime'}
+              sortDir={sortDirFor('slotTime')}
+              onCycleSort={() => handleSort('slotTime')}
             />
           </th>
         );
       case 'contractor':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[135px]">
+            <HeaderCategoryDropdown
               label="Kontraktor"
-              columnKey="contractor"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={contractorFilter}
+              defaultValue="ALL"
+              allLabel="Semua Kontraktor"
+              options={[
+                { value: 'ALL', label: 'Semua Kontraktor' },
+                ...scopedContractorOptions.map(c => ({ value: c, label: c }))
+              ]}
+              onChange={val => {
+                setContractorFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'contractor'}
+              sortDir={sortDirFor('contractor')}
+              onCycleSort={() => handleSort('contractor')}
             />
           </th>
         );
       case 'installer':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[170px]">
-            <SortableColumnHeader
+            <HeaderCategoryDropdown
               label="Teknisi / Installer"
-              columnKey="installer"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={selectedInstallerFilter}
+              defaultValue="ALL"
+              allLabel="Semua Teknisi"
+              options={[
+                { value: 'ALL', label: 'Semua Teknisi' },
+                ...myInstallers.map(u => ({ value: u.name, label: u.name }))
+              ]}
+              onChange={val => {
+                setSelectedInstallerFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'installer'}
+              sortDir={sortDirFor('installer')}
+              onCycleSort={() => handleSort('installer')}
             />
           </th>
         );
       case 'status':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[135px]">
+            <HeaderCategoryDropdown
               label="Status WO"
-              columnKey="status"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="status"
-              onSort={handleSort}
+              value={statusFilter}
+              defaultValue="all"
+              allLabel="Semua Status"
+              options={[
+                { value: 'all', label: 'Semua Status' },
+                { value: 'unassigned', label: 'Unassigned' },
+                { value: 'assigned', label: 'Assigned' },
+                { value: 'waiting', label: 'Menunggu' },
+                { value: 'in_progress', label: 'In Progress' },
+                { value: 'completed', label: 'Selesai' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'problem', label: 'Kendala' }
+              ]}
+              onChange={val => {
+                setStatusFilter(val as LeaderStatusFilter);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'status'}
+              sortDir={sortDirFor('status')}
+              onCycleSort={() => handleSort('status')}
             />
           </th>
         );
       case 'workStatus':
         return (
-          <th key={col.id} className="py-2.5 px-3 min-w-[120px] text-center">
-            <SortableColumnHeader
+          <th key={col.id} className="py-2.5 px-3 min-w-[125px] text-center">
+            <HeaderCategoryDropdown
               label="Status Kerja"
-              columnKey="workStatus"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="text"
-              onSort={handleSort}
+              value={workStatusFilter}
+              defaultValue="ALL"
+              allLabel="Semua Status Kerja"
+              options={[
+                { value: 'ALL', label: 'Semua Status Kerja' },
+                ...workStatusOptions.map(ws => ({ value: ws, label: ws }))
+              ]}
+              onChange={val => {
+                setWorkStatusFilter(val);
+                setCurrentPage(1);
+              }}
+              sortActive={sortState.column === 'workStatus'}
+              sortDir={sortDirFor('workStatus')}
+              onCycleSort={() => handleSort('workStatus')}
             />
           </th>
         );
       case 'checkInAt':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
-            <SortableColumnHeader
+            <HeaderSortButton
               label="Check-in"
-              columnKey="checkInAt"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="date"
-              onSort={handleSort}
+              active={sortState.column === 'checkInAt'}
+              direction={sortDirFor('checkInAt')}
+              onClick={() => handleSort('checkInAt')}
             />
           </th>
         );
       case 'checkOutAt':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
-            <SortableColumnHeader
+            <HeaderSortButton
               label="Check-out"
-              columnKey="checkOutAt"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="date"
-              onSort={handleSort}
+              active={sortState.column === 'checkOutAt'}
+              direction={sortDirFor('checkOutAt')}
+              onClick={() => handleSort('checkOutAt')}
             />
           </th>
         );
       case 'workDuration':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[110px]">
-            <SortableColumnHeader
+            <HeaderSortButton
               label="Durasi Kerja"
-              columnKey="workDuration"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="number"
-              onSort={handleSort}
+              active={sortState.column === 'workDuration'}
+              direction={sortDirFor('workDuration')}
+              onClick={() => handleSort('workDuration')}
             />
           </th>
         );
       case 'progress':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
-            <SortableColumnHeader
+            <HeaderSortButton
               label="Progress"
-              columnKey="progress"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="number"
-              onSort={handleSort}
+              active={sortState.column === 'progress'}
+              direction={sortDirFor('progress')}
+              onClick={() => handleSort('progress')}
             />
           </th>
         );
       case 'lastUpdate':
         return (
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
-            <SortableColumnHeader
+            <HeaderSortButton
               label="Update"
-              columnKey="lastUpdate"
-              currentSortColumn={sortState.column}
-              currentDirection={sortState.direction}
-              dataType="date"
-              onSort={handleSort}
+              active={sortState.column === 'lastUpdate'}
+              direction={sortDirFor('lastUpdate')}
+              onClick={() => handleSort('lastUpdate')}
             />
           </th>
         );
@@ -2615,8 +2804,33 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setSelectedInstallerFilter(inst);
                   setCurrentPage(1);
                 }}
+                extraFilterCount={
+                  (colFilters.woNumber.trim() ? 1 : 0) +
+                  (colFilters.idCustomer.trim() ? 1 : 0) +
+                  (colFilters.customerName.trim() ? 1 : 0) +
+                  (colFilters.customerPhone.trim() ? 1 : 0) +
+                  (colFilters.streetName.trim() ? 1 : 0) +
+                  (areaFilter !== 'ALL' ? 1 : 0) +
+                  (contractorFilter !== 'ALL' ? 1 : 0) +
+                  (workStatusFilter !== 'ALL' ? 1 : 0) +
+                  (exactAppointmentDate ? 1 : 0) +
+                  (dateFrom || dateTo ? 1 : 0)
+                }
                 onResetFilters={() => {
                   setSearchQuery('');
+                  setColFilters({
+                    woNumber: '',
+                    idCustomer: '',
+                    customerName: '',
+                    customerPhone: '',
+                    streetName: ''
+                  });
+                  setAreaFilter('ALL');
+                  setContractorFilter('ALL');
+                  setWorkStatusFilter('ALL');
+                  setExactAppointmentDate('');
+                  setDateFrom('');
+                  setDateTo('');
                   setSlotFilter('ALL');
                   setStatusFilter('all');
                   setCategoryFilter('ALL');
@@ -2626,22 +2840,22 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                   setSortState({ column: null, direction: null });
                   setCurrentPage(1);
                 }}
-              selectedTicketIds={selectedTicketIds}
-              onToggleSelectTicket={handleToggleSelectTicket}
-              onSelectAllUnassigned={checked => {
-                const unassignedIds = filteredTickets.filter(t => !t.installerName).map(t => t.id);
-                if (checked) {
-                  setSelectedTicketIds(prev => Array.from(new Set([...prev, ...unassignedIds])));
-                } else {
-                  const idSet = new Set(unassignedIds);
-                  setSelectedTicketIds(prev => prev.filter(id => !idSet.has(id)));
-                }
-              }}
-              onClearSelection={() => setSelectedTicketIds([])}
-              bulkQuickInstaller={bulkQuickInstaller}
-              onBulkQuickInstallerChange={setBulkQuickInstaller}
-              onExecuteBulkQuickAssign={handleExecuteBulkQuickAssign}
-              onExecuteAutoBalance={handleExecuteAutoBalance}
+                selectedTicketIds={selectedTicketIds}
+                onToggleSelectTicket={handleToggleSelectTicket}
+                onSelectAllUnassigned={checked => {
+                  const unassignedPageIds = paginatedTickets.filter(t => !t.installerName).map(t => t.id);
+                  if (checked) {
+                    setSelectedTicketIds(prev => Array.from(new Set([...prev, ...unassignedPageIds])));
+                  } else {
+                    const idSet = new Set(unassignedPageIds);
+                    setSelectedTicketIds(prev => prev.filter(id => !idSet.has(id)));
+                  }
+                }}
+                onClearSelection={() => setSelectedTicketIds([])}
+                bulkQuickInstaller={bulkQuickInstaller}
+                onBulkQuickInstallerChange={setBulkQuickInstaller}
+                onExecuteBulkQuickAssign={handleExecuteBulkQuickAssign}
+                onExecuteAutoBalance={handleExecuteAutoBalance}
               isLeaderRole={isLeaderRole}
               isSubmittingAssign={isSubmittingAssign}
               onInlineAssign={(ticket, installerName) => {

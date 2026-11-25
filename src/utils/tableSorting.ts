@@ -1,12 +1,21 @@
 /**
  * Universal Global Table Sorting Utility for MoraJaws Enterprise
  * Supports 3-state cycling: 'asc' -> 'desc' -> null (unsorted / default)
- * Supports data types: 'text' | 'number' | 'date' | 'time' | 'wo_number' | 'status'
+ * Supports data types: 'text' | 'number' | 'date' | 'time' | 'time_slot' | 'wo_number' | 'status'
+ * Guarantees strict NULLS LAST behavior across both 'asc' and 'desc' directions.
  */
 
 export type SortDirection = 'asc' | 'desc' | null;
 
-export type SortDataType = 'text' | 'number' | 'date' | 'time' | 'time_slot' | 'wo_number' | 'status' | 'auto';
+export type SortDataType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'time'
+  | 'time_slot'
+  | 'wo_number'
+  | 'status'
+  | 'auto';
 
 export interface SortState {
   column: string | null;
@@ -26,7 +35,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   'pending technical': 50,
   'failed / cancelled': 40,
   'unassigned': 30,
-  
+
   // Agent statuses
   'closed': 100,
   'resolved': 90,
@@ -54,7 +63,9 @@ export function extractMinutesFromTimeSlot(slotStr: string): number {
   if (match) {
     const hours = parseInt(match[1], 10);
     const minutes = parseInt(match[2], 10);
-    return hours * 60 + minutes;
+    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+      return hours * 60 + minutes;
+    }
   }
   return 999999;
 }
@@ -64,59 +75,117 @@ export function extractMinutesFromTimeSlot(slotStr: string): number {
  * E.g. "WO-123" -> ["WO-", 123]
  */
 export function compareNaturalWoNumbers(a: string, b: string): number {
-  if (!a && !b) return 0;
-  if (!a) return -1;
-  if (!b) return 1;
+  const normA = (a || '').trim();
+  const normB = (b || '').trim();
+  if (!normA && !normB) return 0;
+  if (!normA) return 1;
+  if (!normB) return -1;
 
-  // Use Intl.Collator with numeric collation for high-performance natural sorting
-  return a.localeCompare(b, 'id-ID', { numeric: true, sensitivity: 'base' });
+  return normA.localeCompare(normB, 'id-ID', { numeric: true, sensitivity: 'base' });
 }
 
 /**
- * Parse any date representation into timestamp
+ * Parse any date representation into timestamp (ms).
+ * Returns 0 when empty, invalid, or unparseable.
  */
 export function parseDateToTimestamp(val: any): number {
-  if (!val) return 0;
-  if (val instanceof Date) return val.getTime();
-  if (typeof val === 'number') return val;
+  if (val === null || val === undefined || val === '') return 0;
+  if (val instanceof Date) {
+    const ts = val.getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+  if (typeof val === 'number') {
+    return Number.isFinite(val) ? val : 0;
+  }
 
   const str = String(val).trim();
-  if (!str) return 0;
+  if (!str || str === '-' || str === '—' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+    return 0;
+  }
 
-  // Check DD/MM/YYYY
-  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  // Check DD/MM/YYYY or DD-MM-YYYY (with optional HH:mm[:ss])
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?)?/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
     const month = parseInt(dmyMatch[2], 10) - 1;
     const year = parseInt(dmyMatch[3], 10);
-    return new Date(year, month, day).getTime();
+    const hours = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+    const mins = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+    const secs = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+    const dt = new Date(year, month, day, hours, mins, secs);
+    if (dt.getFullYear() === year && dt.getMonth() === month && dt.getDate() === day) {
+      return dt.getTime();
+    }
+    return 0;
   }
 
-  // Check YYYY-MM-DD
-  const ymdMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  if (ymdMatch) {
-    const year = parseInt(ymdMatch[1], 10);
-    const month = parseInt(ymdMatch[2], 10) - 1;
-    const day = parseInt(ymdMatch[3], 10);
-    return new Date(year, month, day).getTime();
+  // Check YYYY-MM-DD (or YYYY/MM/DD) date-only or datetime
+  const ymdDateOnly = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymdDateOnly) {
+    const year = parseInt(ymdDateOnly[1], 10);
+    const month = parseInt(ymdDateOnly[2], 10) - 1;
+    const day = parseInt(ymdDateOnly[3], 10);
+    const dt = new Date(year, month, day);
+    if (dt.getFullYear() === year && dt.getMonth() === month && dt.getDate() === day) {
+      return dt.getTime();
+    }
+    return 0;
   }
 
   const parsed = Date.parse(str);
-  return isNaN(parsed) ? 0 : parsed;
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 /**
- * Core comparator function for two values given a data type
+ * Determine whether a cell value should be treated as NULL/empty for NULLS LAST sorting.
+ */
+export function isEmptySortValue(val: any, type: SortDataType = 'auto'): boolean {
+  if (val === null || val === undefined) return true;
+  if (typeof val === 'number') {
+    return !Number.isFinite(val);
+  }
+  if (val instanceof Date) {
+    return Number.isNaN(val.getTime());
+  }
+
+  const str = String(val).trim();
+  if (!str || str === '-' || str === '—') return true;
+  const lower = str.toLowerCase();
+  if (lower === 'null' || lower === 'undefined' || lower === 'n/a') return true;
+
+  if (type === 'date') {
+    return parseDateToTimestamp(val) === 0;
+  }
+  if (type === 'time' || type === 'time_slot') {
+    return extractMinutesFromTimeSlot(str) === 999999;
+  }
+  if (type === 'number') {
+    const cleaned = str.replace(/[^0-9.-]/g, '');
+    if (!cleaned || cleaned === '-' || cleaned === '.') return true;
+    return Number.isNaN(parseFloat(cleaned));
+  }
+
+  return false;
+}
+
+/**
+ * Core comparator function for two non-empty values given a data type.
+ * If called directly with empty values, empty values naturally sort last in ascending order.
  */
 export function compareTableValues(a: any, b: any, type: SortDataType = 'auto'): number {
-  if (a === null || a === undefined) a = '';
-  if (b === null || b === undefined) b = '';
+  const emptyA = isEmptySortValue(a, type);
+  const emptyB = isEmptySortValue(b, type);
+  if (emptyA && emptyB) return 0;
+  if (emptyA) return 1;
+  if (emptyB) return -1;
 
   // Detect type if auto
   let effectiveType = type;
   if (effectiveType === 'auto') {
     if (typeof a === 'number' && typeof b === 'number') {
       effectiveType = 'number';
+    } else if (a instanceof Date && b instanceof Date) {
+      effectiveType = 'date';
     } else {
       effectiveType = 'text';
     }
@@ -124,8 +193,11 @@ export function compareTableValues(a: any, b: any, type: SortDataType = 'auto'):
 
   switch (effectiveType) {
     case 'number': {
-      const numA = typeof a === 'number' ? a : parseFloat(String(a).replace(/[^0-9.-]/g, '')) || 0;
-      const numB = typeof b === 'number' ? b : parseFloat(String(b).replace(/[^0-9.-]/g, '')) || 0;
+      const numA = typeof a === 'number' ? a : parseFloat(String(a).replace(/[^0-9.-]/g, ''));
+      const numB = typeof b === 'number' ? b : parseFloat(String(b).replace(/[^0-9.-]/g, ''));
+      if (Number.isNaN(numA) && Number.isNaN(numB)) return 0;
+      if (Number.isNaN(numA)) return 1;
+      if (Number.isNaN(numB)) return -1;
       return numA - numB;
     }
 
@@ -136,6 +208,9 @@ export function compareTableValues(a: any, b: any, type: SortDataType = 'auto'):
     case 'date': {
       const timeA = parseDateToTimestamp(a);
       const timeB = parseDateToTimestamp(b);
+      if (timeA === 0 && timeB === 0) return 0;
+      if (timeA === 0) return 1;
+      if (timeB === 0) return -1;
       return timeA - timeB;
     }
 
@@ -192,7 +267,7 @@ export function getNextSortDirection(
 }
 
 /**
- * Universal flexible sortDataArray
+ * Universal flexible sortDataArray with strict NULLS LAST in both 'asc' and 'desc'.
  * Supports both function signatures:
  * 1. sortDataArray(data, sortState, customAccessor)
  * 2. sortDataArray(data, sortField, sortDirection, dataTypeMapOrAccessor)
@@ -238,6 +313,14 @@ export function sortDataArray<T>(
   return [...data].sort((itemA, itemB) => {
     const valA = accessor ? accessor(itemA, sortColumn!) : (itemA as any)?.[sortColumn!];
     const valB = accessor ? accessor(itemB, sortColumn!) : (itemB as any)?.[sortColumn!];
+
+    const emptyA = isEmptySortValue(valA, effectiveType);
+    const emptyB = isEmptySortValue(valB, effectiveType);
+
+    // Enforce NULLS LAST in BOTH asc and desc
+    if (emptyA && emptyB) return 0;
+    if (emptyA) return 1;
+    if (emptyB) return -1;
 
     const cmp = compareTableValues(valA, valB, effectiveType);
     return sortDirection === 'asc' ? cmp : -cmp;

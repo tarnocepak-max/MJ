@@ -3,13 +3,17 @@ import { useApp } from '../../context/AppContext';
 import { KeyRound } from 'lucide-react';
 import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
-import { FilterToolbar } from '../common/FilterToolbar';
 import { AuditLog } from '../../types';
 
 export const LoginLogView: React.FC = () => {
   const { auditLogs } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [detailsSearch, setDetailsSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'success' | 'failed'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  const [exactDate, setExactDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [sortState, setSortState] = useState<SortState>({ column: 'timestamp', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'ALL'>(25);
@@ -26,28 +30,62 @@ export const LoginLogView: React.FC = () => {
     return auditLogs.filter(l => l.entity === 'auth' || String(l.action || '').toLowerCase().includes('login'));
   }, [auditLogs]);
 
+  const roleOptions = useMemo(() => {
+    const roles = new Set<string>();
+    loginLogs.forEach(l => {
+      if (l.userRole) roles.add(String(l.userRole));
+    });
+    return Array.from(roles).sort();
+  }, [loginLogs]);
+
   const filteredLogs = useMemo(() => {
     return loginLogs.filter(log => {
       const isSuccess = String(log.action || '').toLowerCase().includes('success');
       if (statusFilter === 'success' && !isSuccess) return false;
       if (statusFilter === 'failed' && isSuccess) return false;
+      if (roleFilter !== 'ALL' && String(log.userRole || '') !== roleFilter) return false;
 
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase().trim();
-        const m1 = String(log.performedBy || '').toLowerCase().includes(q);
-        const m2 = String(log.details || '').toLowerCase().includes(q);
-        const m3 = String(log.action || '').toLowerCase().includes(q);
-        if (!m1 && !m2 && !m3) return false;
+      const logDate = String(log.timestamp || '').slice(0, 10);
+      if (exactDate && logDate !== exactDate) return false;
+      if (dateFrom && (!logDate || logDate < dateFrom)) return false;
+      if (dateTo && (!logDate || logDate > dateTo)) return false;
+
+      if (userSearch.trim()) {
+        const q = userSearch.toLowerCase().trim();
+        if (!String(log.performedBy || '').toLowerCase().includes(q)) return false;
+      }
+      if (detailsSearch.trim()) {
+        const q = detailsSearch.toLowerCase().trim();
+        const hay = `${log.details || ''} ${log.action || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [loginLogs, statusFilter, searchTerm]);
+  }, [loginLogs, statusFilter, roleFilter, exactDate, dateFrom, dateTo, userSearch, detailsSearch]);
 
   const sortedLogs = useMemo(() => {
     return sortDataArray(filteredLogs, sortState, (log, col) => {
       return (log as any)[col];
     });
   }, [filteredLogs, sortState]);
+
+  const activeFilterCount =
+    (statusFilter !== 'ALL' ? 1 : 0) +
+    (roleFilter !== 'ALL' ? 1 : 0) +
+    (exactDate || dateFrom || dateTo ? 1 : 0) +
+    (userSearch.trim() ? 1 : 0) +
+    (detailsSearch.trim() ? 1 : 0);
+
+  const resetFilters = () => {
+    setStatusFilter('ALL');
+    setRoleFilter('ALL');
+    setExactDate('');
+    setDateFrom('');
+    setDateTo('');
+    setUserSearch('');
+    setDetailsSearch('');
+    setCurrentPage(1);
+  };
 
   const totalPages = useMemo(() => {
     if (pageSize === 'ALL') return 1;
@@ -70,6 +108,18 @@ export const LoginLogView: React.FC = () => {
         priority: 'secondary',
         numeric: true,
         tdClassName: 'text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap font-mono tabular-nums',
+        headerControl: {
+          type: 'date',
+          exactDate,
+          dateFrom,
+          dateTo,
+          onChangeDates: ({ exactDate: ed, dateFrom: df, dateTo: dt }) => {
+            setExactDate(ed);
+            setDateFrom(df);
+            setDateTo(dt);
+            setCurrentPage(1);
+          }
+        },
         render: log => new Date(log.timestamp).toLocaleString('id-ID')
       },
       {
@@ -78,6 +128,21 @@ export const LoginLogView: React.FC = () => {
         sortable: true,
         priority: 'hidden_mobile',
         tdClassName: 'whitespace-nowrap',
+        headerControl: {
+          type: 'select',
+          value: statusFilter,
+          defaultValue: 'ALL',
+          allLabel: 'Semua Hasil Login',
+          options: [
+            { value: 'ALL', label: 'Semua Hasil Login' },
+            { value: 'success', label: 'Login Berhasil' },
+            { value: 'failed', label: 'Login Gagal / Diblokir' }
+          ],
+          onChange: v => {
+            setStatusFilter(v as any);
+            setCurrentPage(1);
+          }
+        },
         render: log => {
           const isSuccess = String(log.action || '').toLowerCase().includes('success');
           return (
@@ -99,6 +164,15 @@ export const LoginLogView: React.FC = () => {
         sortable: true,
         priority: 'hidden_mobile',
         tdClassName: 'font-bold text-[#26364A] dark:text-white whitespace-nowrap',
+        headerControl: {
+          type: 'search',
+          value: userSearch,
+          onChange: v => {
+            setUserSearch(v);
+            setCurrentPage(1);
+          },
+          placeholder: 'Cari nama pengguna...'
+        },
         render: log => log.performedBy
       },
       {
@@ -107,6 +181,20 @@ export const LoginLogView: React.FC = () => {
         sortable: true,
         priority: 'secondary',
         tdClassName: 'capitalize font-mono text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap',
+        headerControl: {
+          type: 'select',
+          value: roleFilter,
+          defaultValue: 'ALL',
+          allLabel: 'Semua Role',
+          options: [
+            { value: 'ALL', label: 'Semua Role' },
+            ...roleOptions.map(r => ({ value: r, label: r.replace('_', ' ') }))
+          ],
+          onChange: v => {
+            setRoleFilter(v);
+            setCurrentPage(1);
+          }
+        },
         render: log => String(log.userRole || '').replace('_', ' ')
       },
       {
@@ -115,10 +203,19 @@ export const LoginLogView: React.FC = () => {
         sortable: true,
         priority: 'primary',
         tdClassName: 'text-[#52647A] dark:text-[#D9CCF2] max-w-md break-words',
+        headerControl: {
+          type: 'search',
+          value: detailsSearch,
+          onChange: v => {
+            setDetailsSearch(v);
+            setCurrentPage(1);
+          },
+          placeholder: 'Cari detail aktivitas...'
+        },
         render: log => <span className="break-words">{log.details}</span>
       }
     ],
-    []
+    [exactDate, dateFrom, dateTo, statusFilter, userSearch, roleFilter, roleOptions, detailsSearch]
   );
 
   return (
@@ -146,46 +243,10 @@ export const LoginLogView: React.FC = () => {
             </p>
           </div>
         </div>
+        <span className="self-start sm:self-center px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2A174B] border border-[#C5BEEF] dark:border-[#4A2580] text-[#5145A6] dark:text-[#E8DDFF] font-mono text-[11px] font-bold tabular-nums shrink-0">
+          {filteredLogs.length} Catatan
+        </span>
       </div>
-
-      {/* Filter Toolbar */}
-      <FilterToolbar
-        searchValue={searchTerm}
-        onSearchChange={val => {
-          setSearchTerm(val);
-          setCurrentPage(1);
-        }}
-        searchPlaceholder="Cari user / rincian login..."
-        activeFilterCount={statusFilter !== 'ALL' ? 1 : 0}
-        onResetFilters={() => {
-          setSearchTerm('');
-          setStatusFilter('ALL');
-          setCurrentPage(1);
-        }}
-        actions={
-          <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2A174B] border border-[#C5BEEF] dark:border-[#4A2580] text-[#5145A6] dark:text-[#E8DDFF] font-mono text-[11px] font-bold tabular-nums">
-            {filteredLogs.length} Catatan
-          </span>
-        }
-      >
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8] shrink-0">
-            Hasil:
-          </label>
-          <select
-            value={statusFilter}
-            onChange={e => {
-              setStatusFilter(e.target.value as any);
-              setCurrentPage(1);
-            }}
-            className="tactile-debossed-input flex-1 sm:w-52 px-3 py-2 min-h-[44px] sm:min-h-[38px] rounded-xl text-xs font-semibold text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135B5]"
-          >
-            <option value="ALL">Semua Hasil Login</option>
-            <option value="success">Login Berhasil</option>
-            <option value="failed">Login Gagal / Diblokir</option>
-          </select>
-        </div>
-      </FilterToolbar>
 
       {/* Responsive Table / Mobile Priority Cards */}
       <ResponsiveDataTable<AuditLog>
@@ -195,6 +256,8 @@ export const LoginLogView: React.FC = () => {
         sortKey={sortState.column}
         sortDirection={sortState.direction}
         onSort={handleSort}
+        activeFilterCount={activeFilterCount}
+        onResetFilters={activeFilterCount > 0 ? resetFilters : undefined}
         mobileTitle={log => log.performedBy}
         mobileSubtitle={log => new Date(log.timestamp).toLocaleString('id-ID')}
         mobileStatus={log => {

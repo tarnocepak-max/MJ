@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity,
   AlertTriangle,
@@ -61,6 +62,7 @@ import { getSafePreviewUrl } from '../../services/storageCompatibility';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 
 interface DispatchVerificationDeskProps {
   onNavigate: (tab: string) => void;
@@ -221,7 +223,9 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [hotDeskModalOpen, setHotDeskModalOpen] = useState(false);
-  const hotDeskViewport = useVisualViewportModal(hotDeskModalOpen);
+  const hotDeskDialogRef = useRef<HTMLDivElement | null>(null);
+  const hotDeskViewport = useVisualViewportModal(hotDeskModalOpen, hotDeskDialogRef);
+  const hotDeskLayerZ = useModalLayer(hotDeskModalOpen, { tier: 'modal' });
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [isRefreshingNow, setIsRefreshingNow] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState('');
@@ -247,7 +251,22 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
   });
   const [queueLimit, setQueueLimit] = useState(12);
   const [zoomPhoto, setZoomPhoto] = useState<ZoomedPhotoState | null>(null);
+  const lightboxLayerZ = useModalLayer(Boolean(zoomPhoto), { tier: 'nested' });
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!hotDeskModalOpen && !zoomPhoto) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (zoomPhoto) {
+        setZoomPhoto(null);
+      } else if (hotDeskModalOpen) {
+        setHotDeskModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hotDeskModalOpen, zoomPhoto]);
 
   const studioRef = useRef<HTMLDivElement>(null);
   const notesInputRef = useRef<HTMLTextAreaElement>(null);
@@ -2258,28 +2277,37 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
       </div>
 
       {/* Stitch AI Hot Desk QC Verifikasi Modal */}
-      {hotDeskModalOpen && selectedTicket && selectedProof && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Hot Desk QC Verifikasi — Review & Validasi Tiket Selesai Lapangan"
-          onClick={() => setHotDeskModalOpen(false)}
-          className="fixed inset-0 z-50 bg-[#26364A]/45 dark:bg-[#090414]/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={
-              hotDeskViewport.viewportHeight
-                ? {
-                    maxHeight: `${Math.max(
-                      360,
-                      hotDeskViewport.viewportHeight - (hotDeskViewport.isKeyboardOpen ? 8 : 24)
-                    )}px`
-                  }
-                : undefined
-            }
-            className="relative w-full max-w-[1120px] max-h-[94dvh] bg-white/95 dark:bg-[#1e1238] rounded-t-[24px] sm:rounded-2xl shadow-[0_24px_50px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(207,220,232,0.85)] dark:shadow-[0_24px_50px_-12px_rgba(22,13,41,0.35),0_0_0_1px_rgba(113,53,181,0.18)] flex flex-col overflow-hidden"
-          >
+      {hotDeskModalOpen && selectedTicket && selectedProof &&
+        (() => {
+          const hotDeskContent = (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Hot Desk QC Verifikasi — Review & Validasi Tiket Selesai Lapangan"
+              onClick={() => setHotDeskModalOpen(false)}
+              style={{
+                zIndex: hotDeskLayerZ,
+                ...(hotDeskViewport.keyboardInset > 0
+                  ? { paddingBottom: `${hotDeskViewport.keyboardInset}px` }
+                  : {})
+              }}
+              className="fixed inset-0 bg-[#26364A]/45 dark:bg-[#090414]/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
+            >
+              <div
+                ref={hotDeskDialogRef}
+                onClick={e => e.stopPropagation()}
+                style={
+                  hotDeskViewport.viewportHeight
+                    ? {
+                        maxHeight: `${Math.max(
+                          320,
+                          hotDeskViewport.viewportHeight - (hotDeskViewport.isKeyboardOpen ? 8 : 24)
+                        )}px`
+                      }
+                    : undefined
+                }
+                className="relative w-full max-w-[1120px] max-h-[94dvh] bg-white/95 dark:bg-[#1e1238] rounded-t-[24px] sm:rounded-2xl shadow-[0_24px_50px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(207,220,232,0.85)] dark:shadow-[0_24px_50px_-12px_rgba(22,13,41,0.35),0_0_0_1px_rgba(113,53,181,0.18)] flex flex-col overflow-hidden"
+              >
             {/* Top Specular Bevel Line */}
             <div className="h-[2px] w-full bg-gradient-to-r from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-cyan-400 dark:via-[#7135b5] dark:to-[#a380fe] opacity-95 shrink-0" />
 
@@ -3302,71 +3330,78 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
           </div>
         </div>
-      )}
+          );
+          return typeof document !== 'undefined' ? createPortal(hotDeskContent, document.body) : hotDeskContent;
+        })()}
 
       {/* Lightbox Photo Preview Modal */}
-      {zoomPhoto && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={zoomPhoto.title}
-          onClick={() => setZoomPhoto(null)}
-          className="fixed inset-0 z-[70] bg-[#26364A]/65 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-[#1e1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3b1d78] max-w-3xl w-full max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl"
-          >
-            <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-3 shrink-0">
-              <div className="min-w-0">
-                <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white truncate">
-                  {zoomPhoto.title}
-                </h3>
-                <p className="text-xs font-mono text-[#8492A5] dark:text-[#cabde8] truncate">
-                  {zoomPhoto.subtitle}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setZoomPhoto(null)}
-                className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-lg cursor-pointer shrink-0 flex items-center justify-center"
-                aria-label="Tutup preview foto"
+      {zoomPhoto &&
+        (() => {
+          const zoomContent = (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={zoomPhoto.title}
+              onClick={() => setZoomPhoto(null)}
+              style={{ zIndex: lightboxLayerZ }}
+              className="fixed inset-0 bg-[#26364A]/65 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                className="bg-white dark:bg-[#1e1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3b1d78] max-w-3xl w-full max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl"
               >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+                <div className="px-4 py-3 border-b border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-3 shrink-0">
+                  <div className="min-w-0">
+                    <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-white truncate">
+                      {zoomPhoto.title}
+                    </h3>
+                    <p className="text-xs font-mono text-[#8492A5] dark:text-[#cabde8] truncate">
+                      {zoomPhoto.subtitle}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setZoomPhoto(null)}
+                    className="btn-3d-icon w-11 h-11 min-w-[44px] min-h-[44px] sm:w-9 sm:h-9 sm:min-w-0 sm:min-h-0 rounded-lg cursor-pointer shrink-0 flex items-center justify-center"
+                    aria-label="Tutup preview foto"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-            <div className="bg-[#EDF3F8] dark:bg-[#160d29] flex items-center justify-center min-h-0 flex-1 overflow-auto p-2">
-              <img
-                src={zoomPhoto.url}
-                alt={zoomPhoto.title}
-                referrerPolicy="no-referrer"
-                className="max-h-[65dvh] w-auto object-contain"
-              />
-            </div>
+                <div className="bg-[#EDF3F8] dark:bg-[#160d29] flex items-center justify-center min-h-0 flex-1 overflow-auto p-2">
+                  <img
+                    src={zoomPhoto.url}
+                    alt={zoomPhoto.title}
+                    referrerPolicy="no-referrer"
+                    className="max-h-[65dvh] w-auto object-contain"
+                  />
+                </div>
 
-            {isValidCoordinatePair(zoomPhoto.latitude, zoomPhoto.longitude) && (
-              <div className="px-4 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2 text-xs font-mono shrink-0">
-                <span className="text-[#26364A] dark:text-white">
-                  GPS: {formatCoordinates(zoomPhoto.latitude!, zoomPhoto.longitude!)}
-                  {typeof zoomPhoto.gpsAccuracyMeters === 'number'
-                    ? ` (±${Math.round(zoomPhoto.gpsAccuracyMeters)}m)`
-                    : ''}
-                </span>
-                <a
-                  href={buildGoogleMapsCoordinateUrl(zoomPhoto.latitude!, zoomPhoto.longitude!)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#5145A6] dark:text-[#dab9ff] font-bold underline inline-flex items-center gap-1"
-                >
-                  <span>Buka di Google Maps</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                {isValidCoordinatePair(zoomPhoto.latitude, zoomPhoto.longitude) && (
+                  <div className="px-4 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#F8FAFD] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2 text-xs font-mono shrink-0">
+                    <span className="text-[#26364A] dark:text-white">
+                      GPS: {formatCoordinates(zoomPhoto.latitude!, zoomPhoto.longitude!)}
+                      {typeof zoomPhoto.gpsAccuracyMeters === 'number'
+                        ? ` (±${Math.round(zoomPhoto.gpsAccuracyMeters)}m)`
+                        : ''}
+                    </span>
+                    <a
+                      href={buildGoogleMapsCoordinateUrl(zoomPhoto.latitude!, zoomPhoto.longitude!)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#5145A6] dark:text-[#dab9ff] font-bold underline inline-flex items-center gap-1"
+                    >
+                      <span>Buka di Google Maps</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          );
+          return typeof document !== 'undefined' ? createPortal(zoomContent, document.body) : zoomContent;
+        })()}
     </section>
   );
 };

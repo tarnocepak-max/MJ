@@ -26,6 +26,7 @@ import { WOKpiFilterKey, WOKpiSummary } from '../../types';
 import { computeClientKpiSummary } from '../../services/woLifecycleService';
 import { StatusBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 interface DashboardKpiSummaryCardsProps {
   onDrillDown: (
@@ -90,6 +91,19 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     defaultPerspective
   );
 
+  // Interactive table header search/filter/sort state for breakdown tables
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [vendorSort, setVendorSort] = useState<SortState>({ key: null, direction: null });
+  const [areaSearch, setAreaSearch] = useState('');
+  const [areaSort, setAreaSort] = useState<SortState>({ key: null, direction: null });
+  const [leaderSearch, setLeaderSearch] = useState('');
+  const [leaderVendorFilter, setLeaderVendorFilter] = useState('ALL');
+  const [leaderSort, setLeaderSort] = useState<SortState>({ key: null, direction: null });
+  const [installerSearch, setInstallerSearch] = useState('');
+  const [installerVendorFilter, setInstallerVendorFilter] = useState('ALL');
+  const [installerAreaFilter, setInstallerAreaFilter] = useState('ALL');
+  const [installerSort, setInstallerSort] = useState<SortState>({ key: null, direction: null });
+
   const isGlobalRole =
     currentUser.role === 'super_admin' ||
     currentUser.role === 'dispatch';
@@ -117,6 +131,73 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
   }, [kpiSummary, tickets, currentUser, todayWIB, kpiContractorFilter, kpiAreaFilter]);
 
   const c = effectiveSummary.counts;
+
+  const filteredVendors = useMemo(() => {
+    const q = vendorSearch.trim().toLowerCase();
+    const list = (effectiveSummary.byVendor || []).filter(v =>
+      !q || v.contractorName.toLowerCase().includes(q)
+    );
+    return sortDataArray(list, vendorSort.key, vendorSort.direction, (row, key) => (row as any)[key]);
+  }, [effectiveSummary.byVendor, vendorSearch, vendorSort]);
+
+  const filteredAreas = useMemo(() => {
+    const q = areaSearch.trim().toLowerCase();
+    const list = (effectiveSummary.byArea || []).filter(a =>
+      !q || a.area.toLowerCase().includes(q)
+    );
+    return sortDataArray(list, areaSort.key, areaSort.direction, (row, key) => {
+      if (key === 'progress') return row.checkedInProgress;
+      return (row as any)[key];
+    });
+  }, [effectiveSummary.byArea, areaSearch, areaSort]);
+
+  const leaderVendorOptions = useMemo(
+    () =>
+      Array.from(new Set((effectiveSummary.byLeader || []).map(l => l.contractorName).filter(Boolean)))
+        .sort()
+        .map(v => ({ value: v, label: v })),
+    [effectiveSummary.byLeader]
+  );
+
+  const filteredLeaders = useMemo(() => {
+    const q = leaderSearch.trim().toLowerCase();
+    const list = (effectiveSummary.byLeader || []).filter(l => {
+      if (q && !l.leaderName.toLowerCase().includes(q)) return false;
+      if (leaderVendorFilter !== 'ALL' && l.contractorName !== leaderVendorFilter) return false;
+      return true;
+    });
+    return sortDataArray(list, leaderSort.key, leaderSort.direction, (row, key) => (row as any)[key]);
+  }, [effectiveSummary.byLeader, leaderSearch, leaderVendorFilter, leaderSort]);
+
+  const installerVendorOptions = useMemo(
+    () =>
+      Array.from(new Set((effectiveSummary.byInstaller || []).map(i => i.contractorName).filter(Boolean)))
+        .sort()
+        .map(v => ({ value: v, label: v })),
+    [effectiveSummary.byInstaller]
+  );
+
+  const installerAreaOptions = useMemo(
+    () =>
+      Array.from(new Set((effectiveSummary.byInstaller || []).map(i => i.area).filter(Boolean)))
+        .sort()
+        .map(a => ({ value: a, label: a })),
+    [effectiveSummary.byInstaller]
+  );
+
+  const filteredInstallers = useMemo(() => {
+    const q = installerSearch.trim().toLowerCase();
+    const list = (effectiveSummary.byInstaller || []).filter(i => {
+      if (q && !i.installerName.toLowerCase().includes(q)) return false;
+      if (installerVendorFilter !== 'ALL' && i.contractorName !== installerVendorFilter) return false;
+      if (installerAreaFilter !== 'ALL' && i.area !== installerAreaFilter) return false;
+      return true;
+    });
+    return sortDataArray(list, installerSort.key, installerSort.direction, (row, key) => {
+      if (key === 'progress') return row.checkedInProgress;
+      return (row as any)[key];
+    });
+  }, [effectiveSummary.byInstaller, installerSearch, installerVendorFilter, installerAreaFilter, installerSort]);
 
   const allCards: KpiCardDef[] = useMemo(
     () => [
@@ -576,8 +657,21 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           </div>
 
           <ResponsiveDataTable
-            data={effectiveSummary.byVendor}
+            data={filteredVendors}
             getRowKey={row => row.contractorName}
+            sortKey={vendorSort.key}
+            sortDirection={vendorSort.direction}
+            onSort={key =>
+              setVendorSort(prev => ({
+                key,
+                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+              }))
+            }
+            activeFilterCount={(vendorSearch.trim() ? 1 : 0) + (vendorSort.direction ? 1 : 0)}
+            onResetFilters={() => {
+              setVendorSearch('');
+              setVendorSort({ key: null, direction: null });
+            }}
             mobileTitle={row => row.contractorName}
             mobileSubtitle={row => `${row.total} Total WO • ${row.closed} Closed`}
             mobileStatus={row =>
@@ -614,7 +708,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             ]}
             emptyState={{
               title: 'Belum ada data Work Order',
-              description: `Belum ada data Work Order untuk tanggal operasional ${todayWIB}.`
+              description: `Belum ada data Work Order yang cocok untuk tanggal operasional ${todayWIB}.`
             }}
             columns={
               [
@@ -622,6 +716,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   key: 'contractorName',
                   label: 'Vendor / Kontraktor',
                   priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: vendorSearch,
+                    onChange: setVendorSearch,
+                    placeholder: 'Cari nama vendor...'
+                  },
                   tdClassName: 'font-semibold text-[#26364A] dark:text-white',
                   render: row => (
                     <button
@@ -643,6 +744,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Total',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: row => (
                     <button
@@ -659,6 +761,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Belum Assign',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -675,6 +778,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Progress',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: row => (
                     <button
@@ -691,6 +795,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Pending',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -707,6 +812,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Complete',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -723,6 +829,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Reschedule',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -739,6 +846,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Cancel',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -755,6 +863,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Butuh Approval',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: row => (
                     <button
@@ -771,6 +880,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Approved',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -787,6 +897,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Revisi',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: row => (
                     <button
@@ -803,6 +914,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Closed',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: row => (
                     <button
@@ -829,8 +941,21 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             </h3>
           </div>
           <ResponsiveDataTable
-            data={effectiveSummary.byArea}
+            data={filteredAreas}
             getRowKey={a => a.area}
+            sortKey={areaSort.key}
+            sortDirection={areaSort.direction}
+            onSort={key =>
+              setAreaSort(prev => ({
+                key,
+                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+              }))
+            }
+            activeFilterCount={(areaSearch.trim() ? 1 : 0) + (areaSort.direction ? 1 : 0)}
+            onResetFilters={() => {
+              setAreaSearch('');
+              setAreaSort({ key: null, direction: null });
+            }}
             mobileTitle={a => a.area}
             mobileSubtitle={a => `${a.total} Total WO • ${a.closed} Closed`}
             onRowClick={a => onDrillDown('total_today', { area: a.area })}
@@ -844,6 +969,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   key: 'area',
                   label: 'Area',
                   priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: areaSearch,
+                    onChange: setAreaSearch,
+                    placeholder: 'Cari nama area...'
+                  },
                   render: a => (
                     <button
                       type="button"
@@ -854,13 +986,14 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     </button>
                   )
                 },
-                { key: 'total', label: 'Total', align: 'right', numeric: true, priority: 'primary', render: a => <strong>{a.total}</strong> },
-                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, priority: 'secondary', render: a => a.unassigned },
+                { key: 'total', label: 'Total', align: 'right', numeric: true, sortable: true, priority: 'primary', render: a => <strong>{a.total}</strong> },
+                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: a => a.unassigned },
                 {
                   key: 'progress',
                   label: 'Progress',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: a => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{a.checkedInProgress}</span>
                 },
@@ -869,6 +1002,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Butuh Approval',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: a => <span className="text-[#C88735] dark:text-orange-300 font-bold">{a.butuhApproval}</span>
                 },
@@ -877,10 +1011,11 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   label: 'Approved',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'secondary',
                   render: a => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{a.approved}</span>
                 },
-                { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: a => <strong>{a.closed}</strong> }
+                { key: 'closed', label: 'Closed', align: 'right', numeric: true, sortable: true, priority: 'primary', render: a => <strong>{a.closed}</strong> }
               ] as ResponsiveColumn<(typeof effectiveSummary.byArea)[number]>[]
             }
           />
@@ -896,8 +1031,22 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             </h3>
           </div>
           <ResponsiveDataTable
-            data={effectiveSummary.byLeader}
+            data={filteredLeaders}
             getRowKey={(l, idx) => `${l.leaderName}_${idx}`}
+            sortKey={leaderSort.key}
+            sortDirection={leaderSort.direction}
+            onSort={key =>
+              setLeaderSort(prev => ({
+                key,
+                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+              }))
+            }
+            activeFilterCount={(leaderSearch.trim() ? 1 : 0) + (leaderVendorFilter !== 'ALL' ? 1 : 0) + (leaderSort.direction ? 1 : 0)}
+            onResetFilters={() => {
+              setLeaderSearch('');
+              setLeaderVendorFilter('ALL');
+              setLeaderSort({ key: null, direction: null });
+            }}
             mobileTitle={l => l.leaderName}
             mobileSubtitle={l => l.contractorName}
             emptyState={{
@@ -906,14 +1055,42 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             }}
             columns={
               [
-                { key: 'leaderName', label: 'Leader', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#26364A] dark:text-white', render: l => l.leaderName },
-                { key: 'contractorName', label: 'Vendor', priority: 'hidden_mobile', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: l => l.contractorName },
-                { key: 'total', label: 'Total', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.total}</strong> },
-                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, priority: 'secondary', render: l => l.unassigned },
-                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, priority: 'secondary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE]">{l.assigned}</span> },
-                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{l.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: l => <span className="text-[#C88735] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
-                { key: 'closed', label: 'Closed', align: 'right', numeric: true, priority: 'primary', render: l => <strong>{l.closed}</strong> }
+                {
+                  key: 'leaderName',
+                  label: 'Leader',
+                  priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: leaderSearch,
+                    onChange: setLeaderSearch,
+                    placeholder: 'Cari nama leader...'
+                  },
+                  tdClassName: 'font-semibold text-[#26364A] dark:text-white',
+                  render: l => l.leaderName
+                },
+                {
+                  key: 'contractorName',
+                  label: 'Vendor',
+                  priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: leaderVendorFilter,
+                    defaultValue: 'ALL',
+                    allLabel: 'Semua Vendor',
+                    options: leaderVendorOptions,
+                    onChange: setLeaderVendorFilter
+                  },
+                  tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]',
+                  render: l => l.contractorName
+                },
+                { key: 'total', label: 'Total', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <strong>{l.total}</strong> },
+                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: l => l.unassigned },
+                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE]">{l.assigned}</span> },
+                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{l.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <span className="text-[#C88735] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
+                { key: 'closed', label: 'Closed', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <strong>{l.closed}</strong> }
               ] as ResponsiveColumn<(typeof effectiveSummary.byLeader)[number]>[]
             }
           />
@@ -929,8 +1106,28 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             </h3>
           </div>
           <ResponsiveDataTable
-            data={effectiveSummary.byInstaller}
+            data={filteredInstallers}
             getRowKey={(inst, idx) => `${inst.installerName}_${idx}`}
+            sortKey={installerSort.key}
+            sortDirection={installerSort.direction}
+            onSort={key =>
+              setInstallerSort(prev => ({
+                key,
+                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+              }))
+            }
+            activeFilterCount={
+              (installerSearch.trim() ? 1 : 0) +
+              (installerVendorFilter !== 'ALL' ? 1 : 0) +
+              (installerAreaFilter !== 'ALL' ? 1 : 0) +
+              (installerSort.direction ? 1 : 0)
+            }
+            onResetFilters={() => {
+              setInstallerSearch('');
+              setInstallerVendorFilter('ALL');
+              setInstallerAreaFilter('ALL');
+              setInstallerSort({ key: null, direction: null });
+            }}
             mobileTitle={inst => inst.installerName}
             mobileSubtitle={inst => `${inst.contractorName} • ${inst.area}`}
             mobileStatus={inst => <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />}
@@ -940,19 +1137,63 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
             }}
             columns={
               [
-                { key: 'installerName', label: 'Teknisi / Installer', priority: 'hidden_mobile', tdClassName: 'font-semibold text-[#26364A] dark:text-white', render: inst => inst.installerName },
-                { key: 'contractorName', label: 'Vendor', priority: 'secondary', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: inst => inst.contractorName },
-                { key: 'area', label: 'Area', priority: 'secondary', tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]', render: inst => inst.area },
-                { key: 'total', label: 'Total WO', align: 'right', numeric: true, priority: 'primary', render: inst => <strong>{inst.total}</strong> },
-                { key: 'progress', label: 'Progress', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{inst.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, priority: 'primary', render: inst => <span className="text-[#C88735] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
-                { key: 'approved', label: 'Approved', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
-                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, priority: 'secondary', render: inst => <span className="text-[#9B2C37] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
+                {
+                  key: 'installerName',
+                  label: 'Teknisi / Installer',
+                  priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: installerSearch,
+                    onChange: setInstallerSearch,
+                    placeholder: 'Cari nama teknisi...'
+                  },
+                  tdClassName: 'font-semibold text-[#26364A] dark:text-white',
+                  render: inst => inst.installerName
+                },
+                {
+                  key: 'contractorName',
+                  label: 'Vendor',
+                  priority: 'secondary',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: installerVendorFilter,
+                    defaultValue: 'ALL',
+                    allLabel: 'Semua Vendor',
+                    options: installerVendorOptions,
+                    onChange: setInstallerVendorFilter
+                  },
+                  tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]',
+                  render: inst => inst.contractorName
+                },
+                {
+                  key: 'area',
+                  label: 'Area',
+                  priority: 'secondary',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: installerAreaFilter,
+                    defaultValue: 'ALL',
+                    allLabel: 'Semua Area',
+                    options: installerAreaOptions,
+                    onChange: setInstallerAreaFilter
+                  },
+                  tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]',
+                  render: inst => inst.area
+                },
+                { key: 'total', label: 'Total WO', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <strong>{inst.total}</strong> },
+                { key: 'progress', label: 'Progress', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{inst.checkedInProgress}</span> },
+                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <span className="text-[#C88735] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
+                { key: 'approved', label: 'Approved', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: inst => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
+                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: inst => <span className="text-[#9B2C37] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
                 {
                   key: 'closed',
                   label: 'Closed',
                   align: 'right',
                   numeric: true,
+                  sortable: true,
                   priority: 'primary',
                   render: inst => (
                     <div className="inline-flex items-center gap-1.5">

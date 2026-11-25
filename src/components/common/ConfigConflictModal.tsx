@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, RefreshCw, UploadCloud, X } from 'lucide-react';
 import { GlobalConfigConflictDetails } from '../../services/globalConfigService';
+import { useModalLayer } from '../../hooks/useModalLayer';
 
 interface ConfigConflictModalProps {
   conflict: GlobalConfigConflictDetails | null;
@@ -19,14 +21,29 @@ export const ConfigConflictModal: React.FC<ConfigConflictModalProps> = ({
   onForceOverwrite,
   onClose
 }) => {
+  const isOpen = Boolean(conflict);
+  const layerZ = useModalLayer(isOpen, { tier: 'confirm' });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isResolving) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, isResolving, onClose]);
+
   if (!conflict) return null;
 
   const formattedTime = conflict.updatedAt
     ? new Date(conflict.updatedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
     : 'Baru saja';
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[#26364A]/35 dark:bg-slate-950/60 p-0 sm:p-4 backdrop-blur-sm">
+  const content = (
+    <div
+      style={{ zIndex: layerZ }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-[#26364A]/35 dark:bg-slate-950/60 p-0 sm:p-4 backdrop-blur-sm"
+    >
       <div
         role="dialog"
         aria-modal="true"
@@ -113,4 +130,6 @@ export const ConfigConflictModal: React.FC<ConfigConflictModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };

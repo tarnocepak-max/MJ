@@ -11,13 +11,13 @@ import {
   Sliders,
   CheckCircle2,
   AlertCircle,
-  Search,
   Users
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { getAuthHeaders } from '../../services/authService';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 interface SessionManagementModalProps {
   isOpen?: boolean;
@@ -47,6 +47,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [searchUser, setSearchUser] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'expired' | 'revoked'>('ALL');
+  const [sessionSort, setSessionSort] = useState<SortState>({ column: null, direction: null });
 
   const fetchSessionsAndConfig = async () => {
     setIsLoading(true);
@@ -141,8 +142,8 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
 
   const filteredSessions = sessions.filter(s => {
     if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
-    if (searchUser) {
-      const q = searchUser.toLowerCase();
+    if (searchUser.trim()) {
+      const q = searchUser.trim().toLowerCase();
       return (
         String(s.name || '').toLowerCase().includes(q) ||
         String(s.username || '').toLowerCase().includes(q) ||
@@ -151,6 +152,34 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
     }
     return true;
   });
+
+  const sortedSessions = sortDataArray(filteredSessions, sessionSort, (s, col) => {
+    switch (col) {
+      case 'user':
+        return s.name || s.username || null;
+      case 'loginAt':
+        return s.loginAt ? new Date(s.loginAt) : null;
+      case 'lastActivityAt':
+        return s.lastActivityAt ? new Date(s.lastActivityAt) : null;
+      case 'expiresAt':
+        return s.expiresAt ? new Date(s.expiresAt) : null;
+      case 'device':
+        return s.ipAddress || s.deviceType || null;
+      case 'status':
+        return s.status || null;
+      default:
+        return null;
+    }
+  });
+
+  const sessionFilterCount = (searchUser.trim() ? 1 : 0) + (statusFilter !== 'ALL' ? 1 : 0);
+
+  const handleToggleSessionSort = (col: string) => {
+    setSessionSort(prev => ({
+      column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+      direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+    }));
+  };
 
   return (
     <ResponsiveModal
@@ -202,44 +231,30 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
         {/* Body Content */}
         {activeTab === 'monitoring' && (
           <div className="space-y-3">
-            {/* Search & Status Filter */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="relative flex-1 sm:max-w-sm">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8492A5] dark:text-[#A78BFA]" />
-                <input
-                  type="text"
-                  placeholder="Cari nama staf atau username..."
-                  value={searchUser}
-                  onChange={e => setSearchUser(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 min-h-[38px] tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white rounded-xl focus:outline-none"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as any)}
-                  className="flex-1 sm:flex-none py-1.5 px-3 min-h-[38px] tactile-debossed-input bg-[#F4F7FB] dark:bg-[#160D29] rounded-xl text-[#26364A] dark:text-[#D8B4FE] font-semibold focus:outline-none"
-                >
-                  <option value="ALL">Semua Sesi</option>
-                  <option value="active">Aktif Saja</option>
-                  <option value="expired">Kedaluwarsa</option>
-                  <option value="revoked">Dicabut</option>
-                </select>
+            <ResponsiveDataTable<SessionMetadata>
+              data={sortedSessions}
+              getRowKey={s => s.sessionId}
+              isLoading={isLoading}
+              sortKey={sessionSort.column}
+              sortDirection={sessionSort.direction}
+              onSort={handleToggleSessionSort}
+              activeFilterCount={sessionFilterCount}
+              onResetFilters={() => {
+                setSearchUser('');
+                setStatusFilter('ALL');
+                setSessionSort({ column: null, direction: null });
+              }}
+              headerActions={
                 <button
                   type="button"
                   onClick={fetchSessionsAndConfig}
-                  className="btn-3d-icon min-w-[38px] min-h-[38px] cursor-pointer"
-                  title="Refresh"
+                  className="btn-3d-icon min-w-[36px] min-h-[36px] px-2.5 inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+                  title="Muat ulang daftar sesi"
                 >
-                  <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
                 </button>
-              </div>
-            </div>
-
-            <ResponsiveDataTable<SessionMetadata>
-              data={filteredSessions}
-              getRowKey={s => s.sessionId}
-              isLoading={isLoading}
+              }
               emptyState={{
                 icon: <Users className="w-7 h-7" />,
                 title: 'Tidak ada sesi staf ditemukan',
@@ -269,6 +284,13 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'user',
                   label: 'Pengguna & Peran',
                   priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'search',
+                    value: searchUser,
+                    onChange: setSearchUser,
+                    placeholder: 'Cari nama staf atau username...'
+                  },
                   render: s => (
                     <div>
                       <div className="font-bold text-[#26364A] dark:text-white">{s.name}</div>
@@ -282,6 +304,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'loginAt',
                   label: 'Waktu Login',
                   priority: 'primary',
+                  sortable: true,
                   render: s => (
                     <span className="text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.loginAt).toLocaleTimeString('id-ID')} WIB
@@ -292,6 +315,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'lastActivityAt',
                   label: 'Aktivitas Terakhir',
                   priority: 'secondary',
+                  sortable: true,
                   render: s => (
                     <span className="text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.lastActivityAt).toLocaleTimeString('id-ID')} WIB
@@ -302,6 +326,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'expiresAt',
                   label: 'Kedaluwarsa',
                   priority: 'secondary',
+                  sortable: true,
                   render: s => (
                     <span className="text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums whitespace-nowrap text-[11px]">
                       {new Date(s.expiresAt).toLocaleTimeString('id-ID')} WIB
@@ -312,6 +337,7 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'device',
                   label: 'Perangkat',
                   priority: 'primary',
+                  sortable: true,
                   render: s => (
                     <div className="flex items-center gap-1.5 text-[#52647A] dark:text-[#CEC0E8] font-mono text-[11px]">
                       {s.deviceType === 'mobile' ? <Smartphone className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" /> : <Laptop className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#D8B4FE]" />}
@@ -323,6 +349,18 @@ export const SessionManagementModal: React.FC<SessionManagementModalProps> = ({ 
                   key: 'status',
                   label: 'Status',
                   priority: 'hidden_mobile',
+                  sortable: true,
+                  headerControl: {
+                    kind: 'select',
+                    value: statusFilter,
+                    allLabel: 'Semua Sesi',
+                    options: [
+                      { value: 'active', label: 'Aktif Saja' },
+                      { value: 'expired', label: 'Kedaluwarsa' },
+                      { value: 'revoked', label: 'Dicabut' }
+                    ],
+                    onChange: val => setStatusFilter(val as 'ALL' | 'active' | 'expired' | 'revoked')
+                  },
                   render: s => (
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

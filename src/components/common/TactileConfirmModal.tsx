@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, ShieldAlert, X, CheckCircle2, Info } from 'lucide-react';
 import { NotificationInline } from '../notification/NotificationInline';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
+import { useModalLayer } from '../../hooks/useModalLayer';
 
 export interface EscalationReasonOption {
   id: string;
@@ -47,7 +49,9 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
   const [selectedId, setSelectedId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
-  const vvMetrics = useVisualViewportModal(isOpen);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const vvMetrics = useVisualViewportModal(isOpen, formRef);
+  const layerZ = useModalLayer(isOpen, { tier: 'confirm' });
 
   useEffect(() => {
     if (isOpen) {
@@ -89,16 +93,20 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
 
   const IconComp = isDanger ? ShieldAlert : isWarning ? AlertTriangle : Info;
 
-  return (
+  const content = (
     <div
       role="dialog"
       aria-modal="true"
-      style={vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : undefined}
-      className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-150"
+      style={{
+        zIndex: layerZ,
+        ...(vvMetrics.keyboardInset > 0 ? { paddingBottom: `${vvMetrics.keyboardInset}px` } : {})
+      }}
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#26364A]/35 dark:bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-150"
     >
       <div className="absolute inset-0" onClick={() => !isSubmitting && onClose()} />
 
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
         style={vvMetrics.isKeyboardOpen ? { maxHeight: `${Math.max(260, vvMetrics.viewportHeight - 12)}px` } : undefined}
         className="mj-sheet-enter mj-notif-glass-panel relative z-10 w-full sm:max-w-lg max-h-[92dvh] rounded-t-[22px] sm:rounded-[22px] flex flex-col overflow-hidden"
@@ -257,4 +265,6 @@ export const TactileConfirmModal: React.FC<TactileConfirmModalProps> = ({
       </form>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };

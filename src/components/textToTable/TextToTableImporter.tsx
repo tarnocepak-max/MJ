@@ -49,7 +49,6 @@ import {
   Calendar,
   Lock,
   Unlock,
-  Search,
   X,
   RotateCcw,
   FileWarning,
@@ -65,6 +64,7 @@ import { useToast } from '../../context/ToastContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 interface TextToTableImporterProps {
   onImportSuccess: () => void;
@@ -166,10 +166,22 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [autoRegisterNewContractors, setAutoRegisterNewContractors] = useState<boolean>(true);
   const [duplicatePolicy, setDuplicatePolicy] = useState<'skip' | 'update_allowed'>('skip');
 
-  // Preview filters
+  // Preview & catalog filters (embedded inside table headers)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'VALID' | 'DUPLICATE' | 'ERROR'>('ALL');
   const [previewCategoryFilter, setPreviewCategoryFilter] = useState<string>('ALL');
-  const [previewCategorySearch, setPreviewCategorySearch] = useState<string>('');
+  const [previewWoSearch, setPreviewWoSearch] = useState<string>('');
+  const [previewCustomerSearch, setPreviewCustomerSearch] = useState<string>('');
+  const [previewAreaSearch, setPreviewAreaSearch] = useState<string>('');
+  const [previewExactDate, setPreviewExactDate] = useState<string>('');
+  const [previewDateFrom, setPreviewDateFrom] = useState<string>('');
+  const [previewDateTo, setPreviewDateTo] = useState<string>('');
+  const [previewSort, setPreviewSort] = useState<SortState>({ key: null, direction: null });
+
+  const [catalogFieldSearch, setCatalogFieldSearch] = useState<string>('');
+  const [catalogLabelSearch, setCatalogLabelSearch] = useState<string>('');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('ALL');
+  const [catalogRequiredFilter, setCatalogRequiredFilter] = useState<string>('ALL');
+  const [catalogSort, setCatalogSort] = useState<SortState>({ key: null, direction: null });
 
   // Validation counts derived strictly from parseResult
   const validationSummary = useMemo(() => {
@@ -288,10 +300,38 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     return Array.from(set).sort();
   }, [parseResult]);
 
-  // Filtered rows for pre-import table preview
+  const catalogCategoryOptions = useMemo(
+    () =>
+      Array.from(new Set(MASTER_CANONICAL_FIELDS.map(f => f.category).filter(Boolean)))
+        .sort()
+        .map(c => ({ value: c, label: c })),
+    []
+  );
+
+  const filteredCatalogFields = useMemo(() => {
+    const qField = catalogFieldSearch.trim().toLowerCase();
+    const qLabel = catalogLabelSearch.trim().toLowerCase();
+    const list = MASTER_CANONICAL_FIELDS.filter(f => {
+      if (qField && !f.canonicalField.toLowerCase().includes(qField)) return false;
+      if (qLabel && !f.displayLabel.toLowerCase().includes(qLabel)) return false;
+      if (catalogCategoryFilter !== 'ALL' && f.category !== catalogCategoryFilter) return false;
+      if (catalogRequiredFilter === 'REQUIRED' && !f.required) return false;
+      if (catalogRequiredFilter === 'OPTIONAL' && f.required) return false;
+      return true;
+    });
+    return sortDataArray(list, catalogSort.key, catalogSort.direction, (row, key) => {
+      if (key === 'required') return row.required ? 'Wajib' : 'Opsional';
+      return (row as any)[key];
+    });
+  }, [catalogFieldSearch, catalogLabelSearch, catalogCategoryFilter, catalogRequiredFilter, catalogSort]);
+
+  // Filtered & sorted rows for pre-import table preview
   const displayedPreviewRows = useMemo(() => {
     if (!parseResult) return [];
-    return parseResult.parsedRows.filter(row => {
+    const qWo = previewWoSearch.trim().toLowerCase();
+    const qCust = previewCustomerSearch.trim().toLowerCase();
+    const qArea = previewAreaSearch.trim().toLowerCase();
+    const filtered = parseResult.parsedRows.filter(row => {
       if (statusFilter === 'VALID' && (!row.isValid || row.isDuplicate)) return false;
       if (statusFilter === 'DUPLICATE' && !row.isDuplicate && row.statusType !== 'WO DUPLIKAT') return false;
       if (statusFilter === 'ERROR' && (row.isValid || row.isDuplicate || row.statusType === 'WO DUPLIKAT')) return false;
@@ -299,17 +339,55 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       if (previewCategoryFilter !== 'ALL') {
         if ((row.mapped.ticketCategory || '') !== previewCategoryFilter) return false;
       }
-      if (previewCategorySearch.trim()) {
-        const q = previewCategorySearch.toLowerCase().trim();
-        const matchCat = (row.mapped.ticketCategory || '').toLowerCase().includes(q);
-        const matchWo = (row.mapped.woNumber || '').toLowerCase().includes(q);
-        const matchCust = (row.mapped.customerName || '').toLowerCase().includes(q);
-        const matchCont = (row.mapped.contactorName || row.mapped.contractorName || '').toLowerCase().includes(q);
-        if (!matchCat && !matchWo && !matchCust && !matchCont) return false;
+      if (qWo && !(row.mapped.woNumber || '').toLowerCase().includes(qWo)) return false;
+      if (qCust) {
+        const custHay = [row.mapped.customerName, row.mapped.idCustomer, row.mapped.customerPhone]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!custHay.includes(qCust)) return false;
       }
+      if (qArea) {
+        const areaHay = [
+          row.mapped.area,
+          row.mapped.clusterName,
+          row.mapped.contactorName || row.mapped.contractorName,
+          row.mapped.ticketCategory
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!areaHay.includes(qArea)) return false;
+      }
+      const appt = (row.mapped.appointmentDate || '').trim();
+      if (previewExactDate && appt !== previewExactDate) return false;
+      if (previewDateFrom && (!appt || appt < previewDateFrom)) return false;
+      if (previewDateTo && (!appt || appt > previewDateTo)) return false;
       return true;
     });
-  }, [parseResult, statusFilter, previewCategoryFilter, previewCategorySearch]);
+
+    return sortDataArray(filtered, previewSort.key, previewSort.direction, (row, key) => {
+      if (key === 'rowIndex') return row.rowIndex;
+      if (key === 'woNumber') return row.mapped.woNumber || null;
+      if (key === 'customer') return row.mapped.customerName || null;
+      if (key === 'areaCluster') return row.mapped.area || row.mapped.contactorName || null;
+      if (key === 'appointmentDate') return row.mapped.appointmentDate || null;
+      if (key === 'status') return row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
+      if (key === 'streetName') return row.mapped.streetName || null;
+      return null;
+    });
+  }, [
+    parseResult,
+    statusFilter,
+    previewCategoryFilter,
+    previewWoSearch,
+    previewCustomerSearch,
+    previewAreaSearch,
+    previewExactDate,
+    previewDateFrom,
+    previewDateTo,
+    previewSort
+  ]);
 
   const totalPreviewPages = useMemo(
     () => Math.max(1, Math.ceil(displayedPreviewRows.length / previewPageSize)),
@@ -325,7 +403,18 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
   useEffect(() => {
     setPreviewPage(1);
-  }, [statusFilter, previewCategoryFilter, previewCategorySearch, parseResult?.totalDetected]);
+  }, [
+    statusFilter,
+    previewCategoryFilter,
+    previewWoSearch,
+    previewCustomerSearch,
+    previewAreaSearch,
+    previewExactDate,
+    previewDateFrom,
+    previewDateTo,
+    previewSort,
+    parseResult?.totalDetected
+  ]);
 
   const refreshImportMonitorState = useCallback(async () => {
     if (currentUser.role !== 'super_admin' && currentUser.role !== 'dispatch') return;
@@ -725,7 +814,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setImportReport(null);
     setStatusFilter('ALL');
     setPreviewCategoryFilter('ALL');
-    setPreviewCategorySearch('');
+    setPreviewWoSearch('');
+    setPreviewCustomerSearch('');
+    setPreviewAreaSearch('');
+    setPreviewExactDate('');
+    setPreviewDateFrom('');
+    setPreviewDateTo('');
+    setPreviewSort({ key: null, direction: null });
     setEditingRowIndex(null);
     setSourceFileName('Belum ada berkas');
     setShowConfirmModal(false);
@@ -1505,9 +1600,31 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               </div>
 
               <ResponsiveDataTable
-                data={MASTER_CANONICAL_FIELDS}
+                data={filteredCatalogFields}
                 getRowKey={f => f.canonicalField}
                 maxTableHeightClass="max-h-72"
+                sortKey={catalogSort.key}
+                sortDirection={catalogSort.direction}
+                onSort={key =>
+                  setCatalogSort(prev => ({
+                    key,
+                    direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                  }))
+                }
+                activeFilterCount={
+                  (catalogFieldSearch.trim() ? 1 : 0) +
+                  (catalogLabelSearch.trim() ? 1 : 0) +
+                  (catalogCategoryFilter !== 'ALL' ? 1 : 0) +
+                  (catalogRequiredFilter !== 'ALL' ? 1 : 0) +
+                  (catalogSort.direction ? 1 : 0)
+                }
+                onResetFilters={() => {
+                  setCatalogFieldSearch('');
+                  setCatalogLabelSearch('');
+                  setCatalogCategoryFilter('ALL');
+                  setCatalogRequiredFilter('ALL');
+                  setCatalogSort({ key: null, direction: null });
+                }}
                 mobileTitle={f => <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
                 mobileSubtitle={f => f.displayLabel}
                 mobileStatus={f =>
@@ -1534,18 +1651,41 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     label: 'Canonical Field',
                     priority: 'primary',
                     numeric: true,
+                    sortable: true,
+                    headerControl: {
+                      kind: 'search',
+                      value: catalogFieldSearch,
+                      onChange: setCatalogFieldSearch,
+                      placeholder: 'Cari field...'
+                    },
                     render: f => <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{f.canonicalField}</span>
                   },
                   {
                     key: 'displayLabel',
                     label: 'Display Label',
                     priority: 'primary',
+                    sortable: true,
+                    headerControl: {
+                      kind: 'search',
+                      value: catalogLabelSearch,
+                      onChange: setCatalogLabelSearch,
+                      placeholder: 'Cari display label...'
+                    },
                     render: f => <span className="text-[#26364A] dark:text-white">{f.displayLabel}</span>
                   },
                   {
                     key: 'category',
                     label: 'Kategori',
                     priority: 'secondary',
+                    sortable: true,
+                    headerControl: {
+                      kind: 'select',
+                      value: catalogCategoryFilter,
+                      defaultValue: 'ALL',
+                      allLabel: 'Semua Kategori',
+                      options: catalogCategoryOptions,
+                      onChange: setCatalogCategoryFilter
+                    },
                     render: f => <span className="capitalize text-[#52647A] dark:text-[#CABDE8]">{f.category}</span>
                   },
                   {
@@ -1553,12 +1693,25 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     label: 'Tipe Data',
                     priority: 'secondary',
                     numeric: true,
+                    sortable: true,
                     render: f => <span className="text-[#52647A] dark:text-[#CABDE8]">{f.dataType}</span>
                   },
                   {
                     key: 'required',
                     label: 'Wajib',
                     priority: 'hidden_mobile',
+                    sortable: true,
+                    headerControl: {
+                      kind: 'select',
+                      value: catalogRequiredFilter,
+                      defaultValue: 'ALL',
+                      allLabel: 'Semua',
+                      options: [
+                        { value: 'REQUIRED', label: 'Wajib' },
+                        { value: 'OPTIONAL', label: 'Opsional' }
+                      ],
+                      onChange: setCatalogRequiredFilter
+                    },
                     render: f =>
                       f.required ? (
                         <span className="text-[#BA1A1A] font-bold">Wajib</span>
@@ -1842,60 +1995,59 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   </div>
                 )}
 
-                {/* Search & Category Filter Toolbar */}
-                <div className="p-3 bg-[#F4F7FB] dark:bg-[#160d29] rounded-xl border border-[#DDE6F0] dark:border-[#3b1d78] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
-                    <div className="relative flex-1 max-w-sm">
-                      <Search className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Cari Kategori Tiket, WO, Pelanggan, Mitra..."
-                        value={previewCategorySearch}
-                        onChange={e => setPreviewCategorySearch(e.target.value)}
-                        className="tactile-debossed-input w-full pl-8.5 pr-3 py-1.5 text-xs bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CABDE8] shrink-0">
-                        Kategori:
-                      </span>
-                      <select
-                        value={previewCategoryFilter}
-                        onChange={e => setPreviewCategoryFilter(e.target.value)}
-                        className="tactile-debossed-input px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl text-[#26364A] dark:text-white"
-                      >
-                        <option value="ALL">Semua Kategori ({detectedTicketCategories.length})</option>
-                        {detectedTicketCategories.map((cat: string) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                      {(previewCategoryFilter !== 'ALL' || previewCategorySearch || statusFilter !== 'ALL') && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreviewCategoryFilter('ALL');
-                            setPreviewCategorySearch('');
-                            setStatusFilter('ALL');
-                          }}
-                          className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer"
-                        >
-                          Reset Filter
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-[#52647A] dark:text-[#CABDE8] shrink-0 self-end sm:self-auto font-mono tabular-nums">
-                    Hal. <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{safePreviewPage}/{totalPreviewPages}</span> • Menampilkan <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{paginatedPreviewRows.length}</span> dari {displayedPreviewRows.length} baris
-                  </div>
-                </div>
-
-                {/* Responsive Preview Table (Paginated 50 rows/page to keep 3,000-10,000 WO previews instant) */}
+                {/* Responsive Preview Table (Paginated 50 rows/page; filters & sorting live in table headers) */}
                 <ResponsiveDataTable<ParsedRowData>
                   data={paginatedPreviewRows}
                   getRowKey={row => String(row.rowIndex)}
                   maxTableHeightClass="max-h-96"
+                  sortKey={previewSort.key}
+                  sortDirection={previewSort.direction}
+                  onSort={key =>
+                    setPreviewSort(prev => ({
+                      key,
+                      direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                    }))
+                  }
+                  activeFilterCount={
+                    (statusFilter !== 'ALL' ? 1 : 0) +
+                    (previewCategoryFilter !== 'ALL' ? 1 : 0) +
+                    (previewWoSearch.trim() ? 1 : 0) +
+                    (previewCustomerSearch.trim() ? 1 : 0) +
+                    (previewAreaSearch.trim() ? 1 : 0) +
+                    (previewExactDate || previewDateFrom || previewDateTo ? 1 : 0) +
+                    (previewSort.direction ? 1 : 0)
+                  }
+                  onResetFilters={() => {
+                    setStatusFilter('ALL');
+                    setPreviewCategoryFilter('ALL');
+                    setPreviewWoSearch('');
+                    setPreviewCustomerSearch('');
+                    setPreviewAreaSearch('');
+                    setPreviewExactDate('');
+                    setPreviewDateFrom('');
+                    setPreviewDateTo('');
+                    setPreviewSort({ key: null, direction: null });
+                  }}
+                  headerActions={
+                    <div className="flex flex-wrap items-center gap-2">
+                      {detectedTicketCategories.length > 0 && (
+                        <select
+                          aria-label="Filter Kategori Tiket"
+                          value={previewCategoryFilter}
+                          onChange={e => setPreviewCategoryFilter(e.target.value)}
+                          className="tactile-debossed-input px-2.5 py-1 text-[11px] font-semibold bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] rounded-lg text-[#26364A] dark:text-white cursor-pointer"
+                        >
+                          <option value="ALL">Kategori: Semua ({detectedTicketCategories.length})</option>
+                          {detectedTicketCategories.map((cat: string) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      )}
+                      <span className="text-[11px] text-[#52647A] dark:text-[#CABDE8] font-mono tabular-nums">
+                        Hal. <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{safePreviewPage}/{totalPreviewPages}</span> • <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">{paginatedPreviewRows.length}</span>/{displayedPreviewRows.length} baris
+                      </span>
+                    </div>
+                  }
                   getRowClassName={row =>
                     !row.isValid || row.isDuplicate ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
                   }
@@ -1948,6 +2100,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         label: 'NO',
                         priority: 'hidden_mobile',
                         numeric: true,
+                        sortable: true,
                         render: row => (
                           <span className="font-mono text-[#8492A5] dark:text-[#A79BC0] font-bold">
                             {String(row.rowIndex + 1).padStart(2, '0')}
@@ -1959,6 +2112,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         label: 'WO NUMBER',
                         priority: 'primary',
                         numeric: true,
+                        sortable: true,
+                        headerControl: {
+                          kind: 'search',
+                          value: previewWoSearch,
+                          onChange: setPreviewWoSearch,
+                          placeholder: 'Cari WO Number...'
+                        },
                         render: row =>
                           editingRowIndex === row.rowIndex ? (
                             <input
@@ -1981,6 +2141,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         key: 'customer',
                         label: 'PELANGGAN',
                         priority: 'primary',
+                        sortable: true,
+                        headerControl: {
+                          kind: 'search',
+                          value: previewCustomerSearch,
+                          onChange: setPreviewCustomerSearch,
+                          placeholder: 'Cari nama / ID 7 digit...'
+                        },
                         render: row =>
                           editingRowIndex === row.rowIndex ? (
                             <div className="space-y-1">
@@ -2019,6 +2186,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         key: 'areaCluster',
                         label: 'AREA / CLUSTER & MITRA',
                         priority: 'secondary',
+                        sortable: true,
+                        headerControl: {
+                          kind: 'search',
+                          value: previewAreaSearch,
+                          onChange: setPreviewAreaSearch,
+                          placeholder: 'Cari area, cluster, mitra...'
+                        },
                         render: row =>
                           editingRowIndex === row.rowIndex ? (
                             <div className="space-y-1">
@@ -2061,6 +2235,19 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         key: 'appointmentDate',
                         label: 'TANGGAL JANJI',
                         priority: 'secondary',
+                        sortable: true,
+                        headerControl: {
+                          kind: 'date',
+                          exactDate: previewExactDate,
+                          dateFrom: previewDateFrom,
+                          dateTo: previewDateTo,
+                          supportsExactDate: true,
+                          onChangeDates: next => {
+                            setPreviewExactDate(next.exactDate);
+                            setPreviewDateFrom(next.dateFrom);
+                            setPreviewDateTo(next.dateTo);
+                          }
+                        },
                         render: row =>
                           editingRowIndex === row.rowIndex ? (
                             <input
@@ -2084,6 +2271,19 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         key: 'status',
                         label: 'STATUS VALIDASI',
                         priority: 'hidden_mobile',
+                        sortable: true,
+                        headerControl: {
+                          kind: 'select',
+                          value: statusFilter,
+                          defaultValue: 'ALL',
+                          allLabel: 'Semua Status',
+                          options: [
+                            { value: 'VALID', label: 'Valid' },
+                            { value: 'DUPLICATE', label: 'WO Duplikat' },
+                            { value: 'ERROR', label: 'Error / Kosong' }
+                          ],
+                          onChange: val => setStatusFilter(val as 'ALL' | 'VALID' | 'DUPLICATE' | 'ERROR')
+                        },
                         render: row => {
                           const status = row.statusType || (row.isDuplicate ? 'WO DUPLIKAT' : row.isValid ? 'VALID' : 'DATA KOSONG');
                           return status === 'VALID' ? (
@@ -2133,6 +2333,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                         key: 'streetName',
                         label: 'ALAMAT',
                         priority: 'secondary',
+                        sortable: true,
                         render: row =>
                           editingRowIndex === row.rowIndex ? (
                             <input

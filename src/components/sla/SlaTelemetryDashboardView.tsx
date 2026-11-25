@@ -51,6 +51,7 @@ import {
 } from './SlaActionModals';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { DropdownActionItem } from '../common/ActionDropdownMenu';
+import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
 export type SlaDashboardContext = 'dashboard_monitoring' | 'sla_monitoring';
 
@@ -155,6 +156,9 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
   const [drilldownVendor, setDrilldownVendor] = useState<SlaVendorRow | null>(null);
   const [actionModalCtx, setActionModalCtx] = useState<SlaActionModalContext | null>(null);
   const [showLogsDrawer, setShowLogsDrawer] = useState<boolean>(false);
+  const [vendorSearch, setVendorSearch] = useState<string>('');
+  const [vendorStatusFilter, setVendorStatusFilter] = useState<string>('ALL');
+  const [vendorSort, setVendorSort] = useState<SortState>({ column: null, direction: null });
   const { isCompactUI } = useResponsiveViewport();
 
   const loadTelemetry = useCallback(
@@ -973,20 +977,74 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
         </div>
 
         {/* High Density Vendor Data Table (Desktop) & Priority Cards (Mobile) */}
-        <ResponsiveDataTable<SlaVendorRow>
-          data={vendorLeaderboard}
-          getRowKey={v => v.contractorId}
-          stickyHeader
-          mobileTitle={v => (
-            <div className="flex items-center gap-2 min-w-0">
-              <span
-                className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold font-mono text-[11px] shrink-0 ${getTierStyles(v.slaStatus).rank}`}
-              >
-                #{v.rank}
-              </span>
-              <span className="truncate">{v.contractorName}</span>
-            </div>
-          )}
+        {(() => {
+          const q = vendorSearch.trim().toLowerCase();
+          const filteredVendors = vendorLeaderboard.filter(v => {
+            if (vendorStatusFilter !== 'ALL' && v.slaStatus !== vendorStatusFilter) return false;
+            if (q) {
+              return (
+                String(v.contractorName || '').toLowerCase().includes(q) ||
+                String(v.contractorCode || '').toLowerCase().includes(q) ||
+                String(v.primaryArea || '').toLowerCase().includes(q) ||
+                String(v.leaderName || '').toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
+          const sortedVendors = sortDataArray(filteredVendors, vendorSort, (v, col) => {
+            switch (col) {
+              case 'rank':
+                return v.rank;
+              case 'contractorName':
+                return v.contractorName || null;
+              case 'slaStatus':
+                return v.slaStatus || null;
+              case 'slaRate':
+                return v.slaRate;
+              case 'volumeWo':
+                return v.volumeWo;
+              case 'onTimeRate':
+                return v.onTimeRate;
+              case 'ftrRate':
+                return v.ftrRate;
+              case 'avgResponseMinutes':
+                return v.avgResponseMinutes;
+              case 'quota':
+                return v.quotaUtilizationRate;
+              default:
+                return null;
+            }
+          });
+          const vendorFilterCount = (vendorSearch.trim() ? 1 : 0) + (vendorStatusFilter !== 'ALL' ? 1 : 0);
+          return (
+            <ResponsiveDataTable<SlaVendorRow>
+              data={sortedVendors}
+              getRowKey={v => v.contractorId}
+              stickyHeader
+              sortKey={vendorSort.column}
+              sortDirection={vendorSort.direction}
+              onSort={col =>
+                setVendorSort(prev => ({
+                  column: prev.column === col && getNextSortDirection(prev.direction) === null ? null : col,
+                  direction: prev.column === col ? getNextSortDirection(prev.direction) : 'asc'
+                }))
+              }
+              activeFilterCount={vendorFilterCount}
+              onResetFilters={() => {
+                setVendorSearch('');
+                setVendorStatusFilter('ALL');
+                setVendorSort({ column: null, direction: null });
+              }}
+              mobileTitle={v => (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold font-mono text-[11px] shrink-0 ${getTierStyles(v.slaStatus).rank}`}
+                  >
+                    #{v.rank}
+                  </span>
+                  <span className="truncate">{v.contractorName}</span>
+                </div>
+              )}
           mobileSubtitle={v => `Area: ${v.primaryArea} • ${v.activeTechniciansCount} Teknisi Aktif`}
           mobileStatus={v => {
             const styles = getTierStyles(v.slaStatus);
@@ -1130,6 +1188,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 priority: 'hidden_mobile',
                 widthClass: 'w-14',
+                sortable: true,
                 render: vendor => (
                   <span
                     className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold font-mono ${getTierStyles(vendor.slaStatus).rank}`}
@@ -1142,6 +1201,13 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 key: 'contractorName',
                 label: 'Mitra Kontraktor & Area Kerja',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'search',
+                  value: vendorSearch,
+                  onChange: setVendorSearch,
+                  placeholder: 'Cari mitra, kode, area, leader...'
+                },
                 render: vendor => {
                   const styles = getTierStyles(vendor.slaStatus);
                   return (
@@ -1170,6 +1236,20 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 label: 'Status SLA',
                 align: 'center',
                 priority: 'hidden_mobile',
+                sortable: true,
+                headerControl: {
+                  kind: 'select',
+                  value: vendorStatusFilter,
+                  allLabel: 'Semua Tier SLA',
+                  options: [
+                    { value: 'EXCELLENT', label: 'EXCELLENT' },
+                    { value: 'GOOD', label: 'GOOD' },
+                    { value: 'WARNING', label: 'WARNING' },
+                    { value: 'CRITICAL', label: 'CRITICAL' },
+                    { value: 'NO_DATA', label: 'NO DATA' }
+                  ],
+                  onChange: setVendorStatusFilter
+                },
                 render: vendor => (
                   <span
                     className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider inline-block ${getTierStyles(vendor.slaStatus).badge}`}
@@ -1183,6 +1263,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 label: 'SLA Achievement',
                 priority: 'primary',
                 widthClass: 'w-56',
+                sortable: true,
                 render: vendor => {
                   const styles = getTierStyles(vendor.slaStatus);
                   const slaWidth = vendor.slaRate !== null ? Math.min(100, Math.max(0, vendor.slaRate)) : 0;
@@ -1214,6 +1295,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 numeric: true,
                 priority: 'primary',
+                sortable: true,
                 render: vendor => (
                   <span className="font-mono font-semibold text-[#26364A] dark:text-white">{vendor.volumeWo} WO</span>
                 )
@@ -1224,6 +1306,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 numeric: true,
                 priority: 'secondary',
+                sortable: true,
                 render: vendor => (
                   <span className={`font-mono font-bold ${getTierStyles(vendor.slaStatus).text}`}>
                     {vendor.onTimeRate !== null ? `${vendor.onTimeRate.toFixed(1)}%` : '-'}
@@ -1236,6 +1319,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 numeric: true,
                 priority: 'secondary',
+                sortable: true,
                 render: vendor => (
                   <span className="font-mono font-semibold text-[#26364A] dark:text-white">
                     {vendor.ftrRate !== null ? `${vendor.ftrRate.toFixed(1)}%` : '-'}
@@ -1248,6 +1332,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 numeric: true,
                 priority: 'secondary',
+                sortable: true,
                 render: vendor => (
                   <span
                     className={
@@ -1267,6 +1352,7 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
                 align: 'center',
                 numeric: true,
                 priority: 'secondary',
+                sortable: true,
                 render: vendor =>
                   vendor.quotaTotal > 0 ? (
                     <div>
@@ -1284,6 +1370,8 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
             ] as ResponsiveColumn<SlaVendorRow>[]
           }
         />
+          );
+        })()}
 
         <div className="px-4 py-2.5 bg-white/85 dark:bg-[#1E1238] border-t border-[#DDE6F0] dark:border-[#35105E] flex flex-col sm:flex-row items-center justify-between text-[#52647A] dark:text-[#A78BFA] text-xs gap-2">
           <span>
