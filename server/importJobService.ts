@@ -37,18 +37,183 @@ export const ALLOWED_IMPORT_TEMPLATE_TYPES = new Set([
   'JSON'
 ]);
 
+export type ImportSchemaDiagnosticCode =
+  | 'TABLE_MISSING'
+  | 'RPC_MISSING'
+  | 'RPC_SIGNATURE_MISMATCH'
+  | 'PERMISSION_DENIED'
+  | 'DATABASE_UNAVAILABLE'
+  | 'INVALID_SCHEMA';
+
+export interface ImportSchemaDiagnosticResult {
+  code: string;
+  diagnosticCode: ImportSchemaDiagnosticCode;
+  statusCode: number;
+  retryable: boolean;
+  diagnosticTarget: string;
+  safeMessage: string;
+}
+
 export class ImportServiceError extends Error {
   code: string;
   statusCode: number;
   retryable: boolean;
+  diagnosticCode?: ImportSchemaDiagnosticCode;
+  diagnosticTarget?: string;
 
-  constructor(message: string, code = 'IMPORT_ERROR', statusCode = 400, retryable = false) {
+  constructor(
+    message: string,
+    code = 'IMPORT_ERROR',
+    statusCode = 400,
+    retryable = false,
+    diagnosticCode?: ImportSchemaDiagnosticCode,
+    diagnosticTarget?: string
+  ) {
     super(message);
     this.name = 'ImportServiceError';
     this.code = code;
     this.statusCode = statusCode;
     this.retryable = retryable;
+    if (diagnosticCode) this.diagnosticCode = diagnosticCode;
+    if (diagnosticTarget) this.diagnosticTarget = diagnosticTarget;
   }
+}
+
+export function classifyImportSchemaDiagnostic(
+  error: any,
+  target: string,
+  operation: string
+): ImportSchemaDiagnosticResult | null {
+  const safeTarget = /^[A-Za-z0-9_]{1,80}$/.test(target) ? target : 'import_schema';
+  const isRpc =
+    operation === 'rpc' ||
+    operation === 'rpc_probe' ||
+    safeTarget.startsWith('morajaws_');
+
+  if (!error) {
+    return null;
+  }
+
+  const code = String(error?.code || '').trim().toUpperCase();
+  const msg = String(error?.message || '').trim();
+  const details = String(error?.details || '').trim();
+  const hint = String(error?.hint || '').trim();
+  const combinedLower = `${msg} ${details} ${hint}`.toLowerCase();
+
+  // 1. Database privilege / credential / RLS rejection
+  if (
+    code === '42501' ||
+    code === 'PGRST301' ||
+    code === '28P01' ||
+    code === '28000' ||
+    /permission denied|insufficient privilege|unauthorized|forbidden|invalid api key|jwt/i.test(combinedLower)
+  ) {
+    return {
+      code: 'PERMISSION_DENIED',
+      diagnosticCode: 'PERMISSION_DENIED',
+      statusCode: 503,
+      retryable: false,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Akses database untuk "${safeTarget}" ditolak (PERMISSION_DENIED). Periksa kredensial service_role dan hak akses Migration 020.`
+    };
+  }
+
+  // 2. Database connectivity / network / instance unavailable
+  const classified = classifySupabaseError(error, { table: safeTarget, operation });
+  if (
+    classified.isConnectionError ||
+    code === 'NOT_CONFIGURED' ||
+    code === '57P01' ||
+    code === '57P03' ||
+    code === '08001' ||
+    code === '08006' ||
+    /enotfound|econnrefused|etimedout|econnreset|eai_again|fetch failed|failed to fetch|network|unreachable|connection refused/i.test(
+      combinedLower
+    )
+  ) {
+    return {
+      code: 'DATABASE_UNAVAILABLE',
+      diagnosticCode: 'DATABASE_UNAVAILABLE',
+      statusCode: 503,
+      retryable: true,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Koneksi database PostgreSQL/Supabase tidak tersedia saat memeriksa "${safeTarget}" (DATABASE_UNAVAILABLE).`
+    };
+  }
+
+  // 3. RPC parameter / overload / type signature mismatch (must check before RPC_MISSING)
+  if (
+    isRpc &&
+    (code === 'PGRST203' ||
+      code === '42804' ||
+      code === '22P02' ||
+      /perhaps you meant to call|signature mismatch|overload|argument types|wrong number of arguments|parameter .* mismatch|invalid input syntax/i.test(
+        combinedLower
+      ))
+  ) {
+    return {
+      code: 'MIGRATION_020_REQUIRED',
+      diagnosticCode: 'RPC_SIGNATURE_MISMATCH',
+      statusCode: 503,
+      retryable: false,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Skema/RPC Enterprise Import (Migration 020) tidak kompatibel: signature parameter RPC "${safeTarget}" tidak cocok (RPC_SIGNATURE_MISMATCH).`
+    };
+  }
+
+  // 4. Missing RPC function in PostgreSQL or PostgREST schema cache
+  if (
+    code === '42883' ||
+    code === 'PGRST202' ||
+    (isRpc && /could not find the function|function .* does not exist|schema cache/i.test(combinedLower)) ||
+    /could not find the function|function .* does not exist/i.test(combinedLower)
+  ) {
+    return {
+      code: 'MIGRATION_020_REQUIRED',
+      diagnosticCode: 'RPC_MISSING',
+      statusCode: 503,
+      retryable: false,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Skema/RPC Enterprise Import (Migration 020) belum tersedia: fungsi RPC "${safeTarget}" tidak ditemukan pada PostgreSQL (RPC_MISSING).`
+    };
+  }
+
+  // 5. Missing Migration 020 table in PostgreSQL or PostgREST schema cache
+  if (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    /could not find the table|relation .* does not exist|table .* does not exist/i.test(combinedLower)
+  ) {
+    return {
+      code: 'MIGRATION_020_REQUIRED',
+      diagnosticCode: 'TABLE_MISSING',
+      statusCode: 503,
+      retryable: false,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Skema/RPC Enterprise Import (Migration 020) belum tersedia: tabel "${safeTarget}" tidak ditemukan pada PostgreSQL (TABLE_MISSING).`
+    };
+  }
+
+  // 6. Missing column / invalid schema structure / unexpected schema probe failure
+  if (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    code === '42P10' ||
+    operation === 'schema_probe' ||
+    operation === 'rpc_probe' ||
+    /could not find the .* column|column .* does not exist|schema cache|invalid schema/i.test(combinedLower)
+  ) {
+    return {
+      code: 'MIGRATION_020_REQUIRED',
+      diagnosticCode: 'INVALID_SCHEMA',
+      statusCode: 503,
+      retryable: false,
+      diagnosticTarget: safeTarget,
+      safeMessage: `Skema/RPC Enterprise Import (Migration 020) belum lengkap pada "${safeTarget}" (INVALID_SCHEMA).`
+    };
+  }
+
+  return null;
 }
 
 export interface ImportOperatorUser {
@@ -1115,7 +1280,9 @@ class ProductionImportStore implements ImportPersistenceStore {
         'Database authoritative PostgreSQL/Supabase belum dikonfigurasi pada server.',
         'DATABASE_UNAVAILABLE',
         503,
-        true
+        true,
+        'DATABASE_UNAVAILABLE',
+        'supabase_client'
       );
     }
     return client;
@@ -1124,27 +1291,9 @@ class ProductionImportStore implements ImportPersistenceStore {
   private wrapDbError(error: any, target: string, operation: string): ImportServiceError {
     if (error instanceof ImportServiceError) return error;
 
-    const code = String(error?.code || '').trim();
+    const safeTarget = /^[A-Za-z0-9_]{1,80}$/.test(target) ? target : 'import_schema';
+    const code = String(error?.code || '').trim().toUpperCase();
     const rawMsg = String(error?.message || error?.details || error?.hint || error || '').trim();
-
-    // Missing Migration 020 tables, columns, or RPC functions
-    if (
-      code === '42P01' ||
-      code === '42883' ||
-      code === '42703' ||
-      code === 'PGRST202' ||
-      code === 'PGRST204' ||
-      code === 'PGRST205' ||
-      /could not find the (function|table)|does not exist|schema cache/i.test(rawMsg)
-    ) {
-      this.schemaVerified = false;
-      return new ImportServiceError(
-        `Skema/RPC Enterprise Import (Migration 020) belum tersedia atau belum lengkap pada PostgreSQL (${target}/${operation}): ${rawMsg}. Jalankan migrations/020_enterprise_import_architecture.sql terlebih dahulu.`,
-        'MIGRATION_020_REQUIRED',
-        503,
-        false
-      );
-    }
 
     // Explicit PL/pgSQL domain exceptions from Migration 020 RPCs
     if (rawMsg.includes('IMPORT_JOB_NOT_FOUND')) {
@@ -1163,9 +1312,26 @@ class ProductionImportStore implements ImportPersistenceStore {
       return new ImportServiceError('Lock pemrosesan batch dipegang worker lain atau telah kedaluwarsa.', 'IMPORT_BATCH_LOCK_LOST', 409, false);
     }
 
-    const classified = classifySupabaseError(error, { table: target, operation });
+    // Schema / RPC / Permission / Connectivity diagnostic classification (zero raw DB leak to browser)
+    const schemaDiag = classifyImportSchemaDiagnostic(error, safeTarget, operation);
+    if (schemaDiag) {
+      this.schemaVerified = false;
+      console.error(
+        `[EnterpriseImport][${schemaDiag.diagnosticCode}] target=${schemaDiag.diagnosticTarget} op=${operation} dbCode=${code || 'UNKNOWN'}`
+      );
+      return new ImportServiceError(
+        schemaDiag.safeMessage,
+        schemaDiag.code,
+        schemaDiag.statusCode,
+        schemaDiag.retryable,
+        schemaDiag.diagnosticCode,
+        schemaDiag.diagnosticTarget
+      );
+    }
+
+    const classified = classifySupabaseError(error, { table: safeTarget, operation });
     const isTransient =
-      classified.isUnavailable ||
+      classified.isConnectionError ||
       code === '57P01' ||
       code === '57P03' ||
       code === '40001' ||
@@ -1174,17 +1340,23 @@ class ProductionImportStore implements ImportPersistenceStore {
       code === '08001' ||
       /timeout|timed out|etimedout|econnreset|econnrefused|fetch failed|502|503|504|connection|pool/i.test(rawMsg);
 
+    console.error(
+      `[EnterpriseImport][DB_ERROR] target=${safeTarget} op=${operation} dbCode=${code || 'UNKNOWN'} transient=${isTransient}`
+    );
+
     if (isTransient) {
       return new ImportServiceError(
-        classified.message || `Gangguan koneksi sementara ke database (${operation}): ${rawMsg}`,
+        `Gangguan koneksi sementara ke database saat menjalankan operasi "${operation}". Silakan coba lagi.`,
         'DATABASE_TRANSIENT_ERROR',
         503,
-        true
+        true,
+        'DATABASE_UNAVAILABLE',
+        safeTarget
       );
     }
 
     return new ImportServiceError(
-      classified.message || rawMsg || `Operasi database ${target}.${operation} gagal.`,
+      `Operasi database pada "${safeTarget}" (${operation}) gagal diproses.`,
       code || 'DATABASE_ERROR',
       500,
       false
@@ -1194,22 +1366,40 @@ class ProductionImportStore implements ImportPersistenceStore {
   async ensureSchemaReady(): Promise<void> {
     if (this.schemaVerified) return;
     const client = this.getRequiredClient();
+    const probeJobId = '__morajaws_migration_020_schema_probe_nonexistent__';
+    const isExpectedProbeNotFound = (err: any): boolean => {
+      const msg = String(err?.message || err?.details || err || '');
+      return msg.includes('IMPORT_JOB_NOT_FOUND');
+    };
 
-    // 1. Verify all 5 Migration 020 tables are reachable
-    const tables = ['import_jobs', 'import_batches', 'import_staging_rows', 'import_row_errors', 'import_history'] as const;
-    for (const tbl of tables) {
-      const { error } = await client.from(tbl).select('id').limit(1);
+    // 1. Verify all 5 Migration 020 tables & essential columns exist
+    const tableColumnProbes: Array<{ table: string; columns: string }> = [
+      { table: 'import_jobs', columns: 'id, updated_rows, metadata, created_by_id, status' },
+      { table: 'import_batches', columns: 'id, locked_by, lock_expires_at, updated_rows, status' },
+      { table: 'import_staging_rows', columns: 'id, batch_number, validation_status, processing_status' },
+      { table: 'import_row_errors', columns: 'id, batch_number, error_code' },
+      { table: 'import_history', columns: 'id, original_job_id, status' }
+    ];
+
+    for (const probe of tableColumnProbes) {
+      const { error } = await client.from(probe.table).select(probe.columns).limit(1);
       if (error) {
-        throw this.wrapDbError(error, tbl, 'schema_probe');
+        throw this.wrapDbError(error, probe.table, 'schema_probe');
       }
     }
 
-    // 2. Verify Migration 020 RPC functions & updated_rows/locked_by schema are deployed
-    const [batchColProbe, historyColProbe, rpcProbe, dupLookupProbe] = await Promise.all([
-      client.from('import_batches').select('id, locked_by, lock_expires_at, updated_rows').limit(1),
-      client.from('import_history').select('id, original_job_id').limit(1),
+    // 2. Verify all 7 Migration 020 transactional RPCs exist, match signatures, and grant EXECUTE to service_role (zero writes)
+    const [
+      claimProbe,
+      dupLookupProbe,
+      syncStagedProbe,
+      commitBatchProbe,
+      failBatchProbe,
+      cancelJobProbe,
+      retryJobProbe
+    ] = await Promise.all([
       client.rpc('morajaws_claim_import_batch', {
-        p_job_id: '__migration_020_schema_probe__',
+        p_job_id: probeJobId,
         p_worker_id: 'schema_probe',
         p_batch_number: null,
         p_retry_failed: false,
@@ -1217,13 +1407,58 @@ class ProductionImportStore implements ImportPersistenceStore {
       }),
       client.rpc('morajaws_find_existing_wo_numbers', {
         p_wo_numbers: []
+      }),
+      client.rpc('morajaws_sync_staged_count', {
+        p_job_id: probeJobId
+      }),
+      client.rpc('morajaws_commit_import_batch_atomic', {
+        p_job_id: probeJobId,
+        p_batch_number: 1,
+        p_worker_id: 'schema_probe',
+        p_wo_rows: [],
+        p_duplicate_policy: 'skip',
+        p_duration_ms: 1,
+        p_imported_by: 'schema_probe',
+        p_imported_by_id: null
+      }),
+      client.rpc('morajaws_fail_claimed_batch_atomic', {
+        p_job_id: probeJobId,
+        p_batch_number: 1,
+        p_worker_id: 'schema_probe',
+        p_error_message: 'schema_probe',
+        p_duration_ms: 1
+      }),
+      client.rpc('morajaws_cancel_import_job_atomic', {
+        p_job_id: probeJobId,
+        p_cancelled_by: 'schema_probe',
+        p_cancelled_by_id: null
+      }),
+      client.rpc('morajaws_retry_import_job_atomic', {
+        p_job_id: probeJobId
       })
     ]);
 
-    if (batchColProbe.error) throw this.wrapDbError(batchColProbe.error, 'import_batches', 'schema_probe');
-    if (historyColProbe.error) throw this.wrapDbError(historyColProbe.error, 'import_history', 'schema_probe');
-    if (rpcProbe.error) throw this.wrapDbError(rpcProbe.error, 'morajaws_claim_import_batch', 'rpc_probe');
-    if (dupLookupProbe.error) throw this.wrapDbError(dupLookupProbe.error, 'morajaws_find_existing_wo_numbers', 'rpc_probe');
+    if (claimProbe.error) {
+      throw this.wrapDbError(claimProbe.error, 'morajaws_claim_import_batch', 'rpc_probe');
+    }
+    if (dupLookupProbe.error) {
+      throw this.wrapDbError(dupLookupProbe.error, 'morajaws_find_existing_wo_numbers', 'rpc_probe');
+    }
+    if (syncStagedProbe.error && !isExpectedProbeNotFound(syncStagedProbe.error)) {
+      throw this.wrapDbError(syncStagedProbe.error, 'morajaws_sync_staged_count', 'rpc_probe');
+    }
+    if (commitBatchProbe.error && !isExpectedProbeNotFound(commitBatchProbe.error)) {
+      throw this.wrapDbError(commitBatchProbe.error, 'morajaws_commit_import_batch_atomic', 'rpc_probe');
+    }
+    if (failBatchProbe.error && !isExpectedProbeNotFound(failBatchProbe.error)) {
+      throw this.wrapDbError(failBatchProbe.error, 'morajaws_fail_claimed_batch_atomic', 'rpc_probe');
+    }
+    if (cancelJobProbe.error && !isExpectedProbeNotFound(cancelJobProbe.error)) {
+      throw this.wrapDbError(cancelJobProbe.error, 'morajaws_cancel_import_job_atomic', 'rpc_probe');
+    }
+    if (retryJobProbe.error && !isExpectedProbeNotFound(retryJobProbe.error)) {
+      throw this.wrapDbError(retryJobProbe.error, 'morajaws_retry_import_job_atomic', 'rpc_probe');
+    }
 
     this.schemaVerified = true;
   }
@@ -2462,6 +2697,7 @@ export class EnterpriseImportEngine {
           batchErr.code === 'IMPORT_BATCH_LOCK_LOST' ||
           batchErr.code === 'IMPORT_BATCH_ALREADY_COMPLETED' ||
           batchErr.code === 'MIGRATION_020_REQUIRED' ||
+          batchErr.code === 'PERMISSION_DENIED' ||
           batchErr.code === 'DATABASE_UNAVAILABLE')
       ) {
         throw batchErr;

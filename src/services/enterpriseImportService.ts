@@ -55,12 +55,23 @@ class ImportApiError extends Error {
   status: number;
   code: string;
   retryable: boolean;
-  constructor(message: string, status: number, code: string, retryable = false) {
+  diagnosticCode?: string;
+  target?: string;
+  constructor(
+    message: string,
+    status: number,
+    code: string,
+    retryable = false,
+    diagnosticCode?: string,
+    target?: string
+  ) {
     super(message);
     this.name = 'ImportApiError';
     this.status = status;
     this.code = code;
     this.retryable = retryable;
+    if (diagnosticCode) this.diagnosticCode = diagnosticCode;
+    if (target) this.target = target;
   }
 }
 
@@ -105,10 +116,16 @@ function isTransientImportError(err: unknown): boolean {
   if (err instanceof ImportApiError) {
     if (
       err.code === 'MIGRATION_020_REQUIRED' ||
+      err.code === 'PERMISSION_DENIED' ||
       err.code === 'DATABASE_UNAVAILABLE' ||
       err.code === 'IMPORT_JOB_CANCELLED' ||
       err.code === 'IMPORT_STAGING_INCOMPLETE' ||
-      err.code === 'INVALID_JOB_STATE'
+      err.code === 'INVALID_JOB_STATE' ||
+      err.diagnosticCode === 'TABLE_MISSING' ||
+      err.diagnosticCode === 'RPC_MISSING' ||
+      err.diagnosticCode === 'RPC_SIGNATURE_MISMATCH' ||
+      err.diagnosticCode === 'PERMISSION_DENIED' ||
+      err.diagnosticCode === 'INVALID_SCHEMA'
     ) {
       return false;
     }
@@ -188,12 +205,31 @@ async function apiRequest<T>(
       if (!res.ok || json?.success === false) {
         const errMsg = json?.error?.message || json?.error || `HTTP ${res.status}`;
         const errCode = String(json?.error?.code || json?.code || `HTTP_${res.status}`);
-        const retryable = Boolean(json?.error?.retryable) || res.status === 408 || res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504;
+        const diagnosticCode = typeof json?.error?.diagnosticCode === 'string' ? json.error.diagnosticCode : undefined;
+        const target = typeof json?.error?.target === 'string' ? json.error.target : undefined;
+        const isSchemaOrPermissionError =
+          errCode === 'MIGRATION_020_REQUIRED' ||
+          errCode === 'PERMISSION_DENIED' ||
+          diagnosticCode === 'TABLE_MISSING' ||
+          diagnosticCode === 'RPC_MISSING' ||
+          diagnosticCode === 'RPC_SIGNATURE_MISMATCH' ||
+          diagnosticCode === 'PERMISSION_DENIED' ||
+          diagnosticCode === 'INVALID_SCHEMA';
+        const retryable = isSchemaOrPermissionError
+          ? false
+          : Boolean(json?.error?.retryable) ||
+            res.status === 408 ||
+            res.status === 429 ||
+            res.status === 502 ||
+            res.status === 503 ||
+            res.status === 504;
         throw new ImportApiError(
           typeof errMsg === 'string' ? errMsg : 'Permintaan import server gagal.',
           res.status,
           errCode,
-          retryable
+          retryable,
+          diagnosticCode,
+          target
         );
       }
       return json.data as T;

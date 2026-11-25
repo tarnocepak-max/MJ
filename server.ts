@@ -127,6 +127,8 @@ import {
   hasUserSentProgressMessage,
   isContractorMatch,
   isAreaMatch,
+  doesContractorScopeMatch,
+  doesAreaScopeMatch,
   mapSupabaseMessageToModel
 } from './server/appFlowHelpers.ts';
 import {
@@ -318,18 +320,13 @@ export function resolveUserContractorId(user?: any): string | null | undefined {
 
 export function isLeaderAllowedToManageInstaller(leader: any, installer: any): boolean {
   if (!leader || !installer) return false;
-  const lContrId = String(leader.contractorId || '').trim().toLowerCase();
-  const iContrId = String(installer.contractorId || '').trim().toLowerCase();
-  const lContrName = String(leader.contractor || '').trim();
-  const iContrName = String(installer.contractor || '').trim();
-
-  if (lContrId) {
-    if (!iContrId || lContrId !== iContrId) return false;
-  } else if (lContrName && iContrName) {
-    if (!isContractorMatch(lContrName, iContrName)) return false;
-  } else {
-    return false;
-  }
+  const contrOk = doesContractorScopeMatch({
+    userContractorId: leader.contractorId,
+    userContractorName: leader.contractor,
+    targetContractorId: installer.contractorId,
+    targetContractorName: installer.contractor
+  });
+  if (!contrOk) return false;
 
   const lArea = String(leader.area || '').trim();
   const iArea = String(installer.area || '').trim();
@@ -2948,37 +2945,15 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
   // - Contractor (ID atau Nama) user wajib tersedia dan cocok dengan Contractor WO
   // - Jika user.area diset, area WO wajib cocok; jika user.area kosong (Contractor-level Leader), cakupan berlaku per Contractor
   if (user.role === 'leader') {
-    const leaderContrId = String(user.contractorId || '').trim().toLowerCase();
-    const leaderContrName = String(user.contractor || '').trim().toLowerCase();
-    const leaderArea = String(user.area || '').trim();
-    if (!leaderContrId && !leaderContrName) return false;
-
-    const ticketContrId = String(ticket.contractorId || '').trim().toLowerCase();
-    const ticketContrName = String(ticket.contractorName || ticket.contactorName || '').trim().toLowerCase();
-    if (!ticketContrId && !ticketContrName) return false;
-
-    let matchContr = false;
-    if (leaderContrId && ticketContrId && leaderContrId === ticketContrId) {
-      matchContr = true;
-    } else if (leaderContrName && ticketContrName && isContractorMatch(leaderContrName, ticketContrName)) {
-      matchContr = true;
-    } else if (leaderContrId && ticketContrName && isContractorMatch(leaderContrId, ticketContrName)) {
-      matchContr = true;
-    } else if (leaderContrName && ticketContrId && isContractorMatch(leaderContrName, ticketContrId)) {
-      matchContr = true;
-    } else if (!leaderContrId && leaderContrName && ticketContrName && isContractorMatch(leaderContrName, ticketContrName)) {
-      matchContr = true;
-    }
+    const matchContr = doesContractorScopeMatch({
+      userContractorId: user.contractorId,
+      userContractorName: user.contractor,
+      targetContractorId: ticket.contractorId,
+      targetContractorName: ticket.contractorName || ticket.contactorName
+    });
     if (!matchContr) return false;
 
-    if (leaderArea) {
-      const ticketArea = String(ticket.area || '').trim();
-      if (!ticketArea) return false;
-      return isAreaMatch(ticketArea, leaderArea);
-    }
-
-    // Contractor-level leader without area restriction: check either leaderId matches or contractor matches cleanly
-    return true;
+    return doesAreaScopeMatch(user.area, ticket.area);
   }
 
   // 2. Installer RBAC:
@@ -5541,30 +5516,47 @@ export async function createExpressApp(options?: {
 
   // Assign Ticket Personnel (Strictly Leader Role ONLY)
   app.post('/api/tickets/assign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
-    const { ticketId, ticketIds, woNumber, installerId, installerName, slotTime, remarks, reason } = req.body;
-    const effInstallerInput = (installerName || installerId || '').trim();
+    const requestId = `req_assign_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const { ticketId, ticketIds, woNumber, installerId, installerName, slotTime, remarks, reason } = req.body || {};
+    const effInstallerInput = String(installerName || installerId || '').trim();
     if (!effInstallerInput) {
-      return res.status(400).json({ success: false, error: 'ID atau nama teknisi tujuan wajib diisi.', code: 'INVALID_INPUT' });
+      return res.status(400).json({ success: false, error: 'ID atau nama teknisi tujuan wajib diisi.', code: 'INVALID_INPUT', requestId });
     }
 
     if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
       return res.status(503).json({
         success: false,
         error: 'Supabase belum dikonfigurasi dan mode lokal JSON dilarang di lingkungan produksi.',
-        code: 'SUPABASE_NOT_CONFIGURED'
+        code: 'SUPABASE_NOT_CONFIGURED',
+        requestId
       });
     }
 
-    const assignedIds: string[] = ticketIds || (ticketId ? [ticketId] : (woNumber ? [woNumber] : []));
+    const rawIds: string[] = Array.isArray(ticketIds)
+      ? ticketIds.map(x => String(x || '').trim()).filter(Boolean)
+      : ticketId
+      ? [String(ticketId).trim()]
+      : woNumber
+      ? [String(woNumber).trim()]
+      : [];
+    const assignedIds = Array.from(new Set(rawIds));
     if (assignedIds.length === 0) {
-      return res.status(400).json({ success: false, error: 'Daftar ID atau nomor WO wajib disertakan.', code: 'INVALID_ID' });
+      return res.status(400).json({ success: false, error: 'Daftar ID atau nomor WO wajib disertakan.', code: 'INVALID_ID', requestId });
     }
 
     const now = new Date().toISOString();
 
     if (isSupabaseMode()) {
       const results: any[] = [];
-      const errors: Array<{ id: string; error: string; code?: string; isUnavailable?: boolean; details?: any }> = [];
+      const errors: Array<{
+        id: string;
+        woNumber?: string;
+        error: string;
+        code?: string;
+        stage?: string;
+        isUnavailable?: boolean;
+        details?: any;
+      }> = [];
       const prevTicketsById = new Map<string, any>();
 
       for (const id of assignedIds) {
@@ -5583,18 +5575,23 @@ export async function createExpressApp(options?: {
           performedBy: req.user!.name,
           performedByRole: req.user!.role,
           performedById: req.user!.id,
-          userContractor: req.user!.contractorId || req.user!.contractor,
+          userContractor: req.user!.contractor,
+          userContractorId: req.user!.contractorId,
           userArea: req.user!.area,
-          userRole: req.user!.role
+          userRole: req.user!.role,
+          requestId
         });
 
         if (assignRes.success && assignRes.data) {
           results.push(assignRes.data);
         } else {
+          const preSnap = prevTicketsById.get(id);
           errors.push({
             id,
+            woNumber: assignRes.error?.details?.woNumber || preSnap?.woNumber,
             error: assignRes.error?.message || 'Gagal menugaskan Work Order',
             code: assignRes.error?.code,
+            stage: assignRes.error?.details?.stage,
             isUnavailable: assignRes.error?.isUnavailable,
             details: assignRes.error?.details
           });
@@ -5607,13 +5604,18 @@ export async function createExpressApp(options?: {
           const status = err.isUnavailable ? 503
             : (err.code === 'SCOPE_MISMATCH' || err.code === 'REQUIRE_LEADER_ROLE' || err.code === 'PROTECTED_RECORD' || err.code === 'PROTECTED_PRODUCTION_RECORD') ? 403
             : err.code === 'NOT_FOUND' ? 404
+            : err.code === 'WO_DELETED_OR_ARCHIVED' ? 409
             : (err.code === 'INVALID_INPUT' || err.code === 'INVALID_ID') ? 400
             : (err.code === 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT') ? 500
             : 500;
+          console.warn(`[WO_ASSIGN_HTTP] req=${requestId} endpoint=/api/tickets/assign status=${status} code=${err.code} wo=${err.woNumber || err.id} stage=${err.stage || '-'}`);
           return res.status(status).json({
             success: false,
             error: err.error,
             code: err.code || 'ASSIGNMENT_ERROR',
+            stage: err.stage,
+            requestId,
+            failed: errors,
             details: err.details
           });
         }
@@ -5622,20 +5624,27 @@ export async function createExpressApp(options?: {
       if (results.length === 0 && errors.length > 0 && !isLocalJsonModeAllowed()) {
         const hasUnavailable = errors.some(e => e.isUnavailable);
         const hasScope = errors.some(e => e.code === 'SCOPE_MISMATCH');
+        const hasInvalid = errors.some(e => e.code === 'INVALID_INPUT' || e.code === 'INVALID_ID');
         const hasPartialFailure = errors.some(e => e.code === 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT');
-        return res.status(hasUnavailable ? 503 : (hasScope ? 403 : 500)).json({
+        const status = hasUnavailable ? 503 : hasScope ? 403 : hasInvalid ? 400 : 500;
+        const topErr = hasPartialFailure
+          ? 'Penugasan Work Order mengalami kegagalan sebagian (partial failure) dan rollback gagal.'
+          : errors[0]?.error || 'Seluruh penugasan Work Order gagal diproses di Supabase.';
+        const topCode = hasUnavailable ? 'DATABASE_UNAVAILABLE' : (hasScope ? 'SCOPE_MISMATCH' : (hasPartialFailure ? 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT' : (errors[0]?.code || 'ASSIGNMENT_BATCH_FAILED')));
+        console.warn(`[WO_ASSIGN_HTTP] req=${requestId} endpoint=/api/tickets/assign status=${status} code=${topCode} failedCount=${errors.length}`);
+        return res.status(status).json({
           success: false,
-          error: hasPartialFailure
-            ? 'Penugasan Work Order mengalami kegagalan sebagian (partial failure) dan rollback gagal.'
-            : (hasScope ? errors[0].error : 'Seluruh penugasan Work Order gagal diproses di Supabase.'),
-          code: hasUnavailable ? 'DATABASE_UNAVAILABLE' : (hasScope ? 'SCOPE_MISMATCH' : (hasPartialFailure ? 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT' : 'ASSIGNMENT_BATCH_FAILED')),
+          error: topErr,
+          code: topCode,
+          stage: errors[0]?.stage,
+          requestId,
           failed: errors
         });
       }
 
       if (results.length > 0) {
         for (const r of results) {
-          if (r?.workOrder) {
+          if (r?.workOrder && !r.idempotent) {
             const prevRecord = prevTicketsById.get(String(r.workOrder.id)) || prevTicketsById.get(String(r.workOrder.woNumber));
             broadcastSupabaseChange('work_orders', 'UPDATE', r.workOrder, prevRecord ? { previousRecord: prevRecord } : undefined);
             void dispatchWoAssignmentChangeNotification({
@@ -5663,15 +5672,19 @@ export async function createExpressApp(options?: {
 
       if (!isLocalJsonModeAllowed()) {
         const resolvedInstallerLabel = results[0]?.workOrder?.installerName || effInstallerInput;
+        const updatedWorkOrders = results.map(r => r.workOrder).filter(Boolean);
         if (errors.length > 0) {
           const hasUnavailable = errors.some(e => e.isUnavailable);
           const hasPartialFailure = errors.some(e => e.code === 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT');
           const statusCode = hasUnavailable ? 503 : (hasPartialFailure ? 500 : 422);
           return res.status(statusCode).json({
             success: false,
-            message: `Menugaskan ${results.length} WO berhasil, ${errors.length} gagal diproses`,
+            error: errors[0]?.error,
+            message: `Menugaskan ${results.length} WO berhasil, ${errors.length} gagal: ${errors[0]?.error || 'Kesalahan server'}`,
             assignedIds: results.map(r => r.workOrder?.id || r.workOrder?.woNumber),
+            workOrders: updatedWorkOrders,
             failed: errors,
+            requestId,
             installerName: resolvedInstallerLabel,
             slotTime,
             assignedAt: now
@@ -5682,9 +5695,12 @@ export async function createExpressApp(options?: {
           success: true,
           message: `Berhasil menugaskan ${results.length} Work Order ke teknisi ${resolvedInstallerLabel}`,
           assignedIds: results.map(r => r.workOrder?.id || r.workOrder?.woNumber),
+          workOrders: updatedWorkOrders,
+          ticket: updatedWorkOrders.length === 1 ? updatedWorkOrders[0] : undefined,
           installerName: resolvedInstallerLabel,
           slotTime,
-          assignedAt: now
+          assignedAt: now,
+          requestId
         });
       }
     }
@@ -5805,13 +5821,20 @@ export async function createExpressApp(options?: {
         req.user
       );
 
+      const updatedWorkOrders = targets
+        .map(t => db.tickets.find(item => item.id === t.id))
+        .filter(Boolean);
+
       return res.json({
         success: true,
         message: `Berhasil menugaskan ${targets.length} Work Order ke teknisi ${targetInstaller.name}`,
         assignedIds: targets.map(t => t.id),
+        workOrders: updatedWorkOrders,
+        ticket: updatedWorkOrders.length === 1 ? updatedWorkOrders[0] : undefined,
         installerName: targetInstaller.name,
         slotTime,
-        assignedAt: now
+        assignedAt: now,
+        requestId
       });
     }
 
@@ -5861,7 +5884,8 @@ export async function createExpressApp(options?: {
         performedBy: req.user!.name,
         performedByRole: req.user!.role,
         performedById: req.user!.id,
-        userContractor: req.user!.contractorId || req.user!.contractor,
+        userContractor: req.user!.contractor,
+        userContractorId: req.user!.contractorId,
         userArea: req.user!.area,
         userRole: req.user!.role
       });
@@ -5872,6 +5896,7 @@ export async function createExpressApp(options?: {
           const status = reassignRes.error?.isUnavailable ? 503
             : (errCode === 'SCOPE_MISMATCH' || errCode === 'REQUIRE_LEADER_ROLE' || errCode === 'PROTECTED_RECORD' || errCode === 'PROTECTED_PRODUCTION_RECORD') ? 403
             : errCode === 'NOT_FOUND' ? 404
+            : errCode === 'WO_DELETED_OR_ARCHIVED' ? 409
             : (errCode === 'INVALID_INPUT' || errCode === 'INVALID_REASON') ? 400
             : (errCode === 'REASSIGN_PARTIAL_FAILURE_INCONSISTENT') ? 500
             : 500;
@@ -12451,12 +12476,19 @@ export async function createExpressApp(options?: {
     if (err instanceof ImportServiceError) {
       return res.status(err.statusCode).json({
         success: false,
-        error: { code: err.code, message: err.message, retryable: err.retryable }
+        error: {
+          code: err.code,
+          ...(err.diagnosticCode ? { diagnosticCode: err.diagnosticCode } : {}),
+          ...(err.diagnosticTarget ? { target: err.diagnosticTarget } : {}),
+          message: err.message,
+          retryable: err.retryable
+        }
       });
     }
+    console.error(`[EnterpriseImport][RouteError] code=${fallbackCode}`);
     return res.status(500).json({
       success: false,
-      error: { code: fallbackCode, message: err?.message || fallbackMessage }
+      error: { code: fallbackCode, message: fallbackMessage }
     });
   };
 
@@ -12730,11 +12762,10 @@ export async function createExpressApp(options?: {
 
       // RBAC Scoping for User List
       if (user.role === 'leader') {
-        const leaderContr = (user.contractorId || user.contractor || '').toLowerCase().trim();
         users = users.filter(u => {
           if (u.id === user.id) return true;
-          const uContr = (u.contractorId || u.contractor || '').toLowerCase().trim();
-          return u.role === 'installer' && uContr === leaderContr;
+          if (String(u.role || '').trim().toLowerCase() !== 'installer') return false;
+          return isLeaderAllowedToManageInstaller(user, u);
         });
       } else if (user.role === 'installer') {
         users = users.filter(u => u.id === user.id);
@@ -14852,7 +14883,7 @@ export async function createExpressApp(options?: {
           lightweight: phase === 'critical',
           userRole: req.user!.role,
           userId: req.user!.id,
-          userContractor: req.user!.contractor
+          userContractor: req.user!.contractor || req.user!.contractorId
         });
 
         if (pagedRes.success && pagedRes.data) {
@@ -15104,7 +15135,8 @@ export async function createExpressApp(options?: {
         performedBy: req.user!.name,
         performedByRole: req.user!.role,
         performedById: req.user!.id,
-        userContractor: req.user!.contractorId || req.user!.contractor,
+        userContractor: req.user!.contractor,
+        userContractorId: req.user!.contractorId,
         userArea: req.user!.area,
         userRole: req.user!.role
       });
@@ -15115,6 +15147,7 @@ export async function createExpressApp(options?: {
           const status = assignRes.error?.isUnavailable ? 503
             : (errCode === 'SCOPE_MISMATCH' || errCode === 'REQUIRE_LEADER_ROLE' || errCode === 'PROTECTED_RECORD' || errCode === 'PROTECTED_PRODUCTION_RECORD') ? 403
             : errCode === 'NOT_FOUND' ? 404
+            : errCode === 'WO_DELETED_OR_ARCHIVED' ? 409
             : errCode === 'INVALID_INPUT' ? 400
             : 500;
           return res.status(status).json({
@@ -15258,7 +15291,8 @@ export async function createExpressApp(options?: {
         performedBy: req.user!.name,
         performedByRole: req.user!.role,
         performedById: req.user!.id,
-        userContractor: req.user!.contractorId || req.user!.contractor,
+        userContractor: req.user!.contractor,
+        userContractorId: req.user!.contractorId,
         userArea: req.user!.area,
         userRole: req.user!.role
       });
@@ -15269,6 +15303,7 @@ export async function createExpressApp(options?: {
           const status = reassignRes.error?.isUnavailable ? 503
             : (errCode === 'SCOPE_MISMATCH' || errCode === 'REQUIRE_LEADER_ROLE' || errCode === 'PROTECTED_RECORD' || errCode === 'PROTECTED_PRODUCTION_RECORD') ? 403
             : errCode === 'NOT_FOUND' ? 404
+            : errCode === 'WO_DELETED_OR_ARCHIVED' ? 409
             : (errCode === 'INVALID_INPUT' || errCode === 'INVALID_REASON') ? 400
             : 500;
           return res.status(status).json({
@@ -16310,7 +16345,8 @@ export async function createExpressApp(options?: {
           performedBy: user.name,
           performedByRole: user.role,
           performedById: user.id,
-          userContractor: user.contractorId || user.contractor,
+          userContractor: user.contractor,
+          userContractorId: user.contractorId,
           userArea: user.area,
           userRole: user.role
         });

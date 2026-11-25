@@ -284,9 +284,16 @@ export function resetSupabaseBackendClientForTesting(): void {
  * - 'disconnected': network unreachable / failure to fetch.
  */
 export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
+  const activeEnv = getAppEnvironment();
+  const envCfg = getEnvironmentConfig(activeEnv);
+  const supabaseUrl = (envCfg.supabaseUrl || process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (
+    envCfg.supabaseServiceRoleKey ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    ''
+  ).trim();
+  const anonKey = (envCfg.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || '').trim();
 
   const urlConfigured = isValidSupabaseUrl(supabaseUrl);
   const serviceRoleConfigured = isValidSupabaseSecretKey(serviceRoleKey);
@@ -465,7 +472,13 @@ export function getLastSupabaseHealthStatus(): SupabaseHealthResult {
  * Returns true if both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are configured with valid formats.
  */
 export function isSupabaseConfigured(): boolean {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)?.trim();
+  const envCfg = getEnvironmentConfig(getAppEnvironment());
+  const supabaseUrl = (envCfg.supabaseUrl || process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (
+    envCfg.supabaseServiceRoleKey ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    ''
+  ).trim();
   return Boolean(supabaseUrl && serviceRoleKey && isValidSupabaseUrl(supabaseUrl) && isValidSupabaseSecretKey(serviceRoleKey));
 }

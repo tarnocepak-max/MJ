@@ -42,6 +42,14 @@ import {
 } from '../services/woClassificationService';
 import { installerGpsTracker } from '../services/installerGpsTrackingService';
 import {
+  AssignmentActionResult,
+  buildAssignmentPatchPlan,
+  formatAssignmentFailureMessage,
+  isContractorScopeMatchClient,
+  isTicketInLeaderScope,
+  resolveTargetInstallerClient
+} from '../services/assignmentClientHelpers';
+import {
   dedupedFetch,
   getWoCache,
   setWoCache,
@@ -366,8 +374,8 @@ interface AppContextType {
   getTicketById: (id: string) => Ticket | undefined;
   createTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>) => Ticket;
   updateTicket: (id: string, updates: Partial<Ticket>, reason?: string) => { success: boolean; error?: string };
-  assignTicketPersonnel: (ticketId: string, leaderName?: string, installerName?: string) => void;
-  bulkAssignPersonnel: (ticketIds: string[], leaderName?: string, installerName?: string, slotTime?: string, remarks?: string) => { success: boolean; count: number };
+  assignTicketPersonnel: (ticketId: string, leaderName?: string, installerName?: string, installerId?: string) => Promise<AssignmentActionResult>;
+  bulkAssignPersonnel: (ticketIds: string[], leaderName?: string, installerName?: string, slotTime?: string, remarks?: string, installerId?: string) => Promise<AssignmentActionResult>;
   reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string) => { success: boolean; error?: string; historyEntry?: WOAssignmentHistory };
   updateTicketStatus: (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => void;
   reopenTicket: (ticketId: string, reason: string) => { success: boolean; error?: string };
@@ -787,6 +795,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromIndexedDb();
   }, []);
 
+  const inFlightAssignmentKeysRef = useRef<Set<string>>(new Set());
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
       const stored = safeLocalStorageGet('morajaws_logged_in');
@@ -3193,21 +3202,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const ticketContractor = String(t.contactorName || t.contractorName || '').toLowerCase().trim();
       const ticketArea = String(t.area || '').toLowerCase().trim();
 
-      // 2. Leader / Korlap: Strictly limited to their contractor and area
+      // 2. Leader / Korlap: Strictly limited to their contractor (ID or name) and area
       if (currentUser.role === 'leader') {
-        const leaderContractor = String(currentUser.contractor || '').toLowerCase().trim();
-        const leaderArea = String(currentUser.area || '').toLowerCase().trim();
-
-        if (!leaderContractor) return false;
-        const matchContractor = Boolean(
-          ticketContractor === leaderContractor ||
-          (ticketContractor && leaderContractor && (ticketContractor.includes(leaderContractor) || leaderContractor.includes(ticketContractor)))
-        );
-        const matchArea = !leaderArea || Boolean(
-          ticketArea === leaderArea ||
-          (ticketArea && leaderArea && (ticketArea.includes(leaderArea) || leaderArea.includes(ticketArea)))
-        );
-        return matchContractor && matchArea;
+        return isTicketInLeaderScope(t, currentUser);
       }
 
       // 3. Installer / Teknisi: STRICTLY LIMITED to tickets explicitly assigned to this technician!
@@ -6115,242 +6112,445 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  const assignTicketPersonnel = (ticketId: string, _leaderName?: string, installerName?: string) => {
+  const assignTicketPersonnel = async (
+    ticketId: string,
+    _leaderName?: string,
+    installerName?: string,
+    installerId?: string
+  ): Promise<AssignmentActionResult> => {
     // App Flow 2: Strictly ONLY Leader can assign WO to technician
     if (currentUser.role !== 'leader') {
+      const errMsg = 'Akses Ditolak: Hanya Leader yang berwenang melakukan assignment teknisi.';
       addAuditLog(
         'Unauthorized Technician Assignment Blocked',
         'ticket',
         ticketId,
         `Penugasan teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
       );
-      toast.error('Akses Ditolak: Hanya Leader yang berwenang melakukan assignment teknisi.', 'Otoritas Dibatasi');
-      return;
+      toast.error(errMsg, 'Otoritas Dibatasi');
+      return { success: false, count: 0, error: errMsg };
     }
 
     const targetTicket = getTicketById(ticketId);
-    if (!targetTicket) return;
-
-    // Verify Contractor & Area scope of Leader
-    const norm = (v?: string) => String(v || '').toLowerCase().trim();
-    const leaderContr = norm(currentUser.contractor);
-    const woContr = norm(targetTicket.contactorName || targetTicket.contractorName);
-    if (leaderContr && woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) {
-      toast.error(`Akses Ditolak: WO ${targetTicket.woNumber} berada di luar cakupan Contractor Anda (${currentUser.contractor}).`, 'Di Luar Cakupan');
-      return;
+    if (!targetTicket) {
+      const errMsg = `Work Order (${ticketId}) tidak ditemukan di state lokal.`;
+      toast.error(errMsg, 'Penugasan Gagal');
+      return { success: false, count: 0, error: errMsg };
     }
-    const leaderArea = norm(currentUser.area);
-    const woArea = norm(targetTicket.area);
-    if (leaderArea && woArea && !woArea.includes(leaderArea) && !leaderArea.includes(woArea)) {
-      toast.error(`Akses Ditolak: WO ${targetTicket.woNumber} berada di luar wilayah Anda (${currentUser.area}).`, 'Di Luar Wilayah');
-      return;
+
+    if (targetTicket.isDeleted || targetTicket.isArchived) {
+      const errMsg = `Work Order ${targetTicket.woNumber} sudah dihapus atau diarsipkan.`;
+      toast.error(errMsg, 'Penugasan Ditolak');
+      return { success: false, count: 0, error: errMsg };
+    }
+
+    // Verify Contractor (ID or free-text name) & Area scope of Leader
+    if (!isTicketInLeaderScope(targetTicket, currentUser)) {
+      const errMsg = `Akses Ditolak: WO ${targetTicket.woNumber} berada di luar cakupan Contractor/Area Anda (${currentUser.contractor || currentUser.contractorId || '-'}).`;
+      toast.error(errMsg, 'Di Luar Cakupan');
+      return { success: false, count: 0, error: errMsg };
     }
 
     // Validate active installer in Leader scope
-    const cleanInstName = (installerName || '').trim();
-    const matchedInstaller = users.find(
-      u => u.role === 'installer' && norm(u.name) === norm(cleanInstName)
+    const cleanInstName = String(installerName || '').trim();
+    if (!cleanInstName && !installerId) {
+      const errMsg = 'Nama atau ID teknisi tujuan wajib dipilih.';
+      toast.error(errMsg, 'Validasi Gagal');
+      return { success: false, count: 0, error: errMsg };
+    }
+
+    const matchedInstaller = resolveTargetInstallerClient(
+      users,
+      cleanInstName,
+      currentUser.contractorId,
+      currentUser.contractor,
+      installerId
     );
-    if (cleanInstName && matchedInstaller && !matchedInstaller.active) {
-      toast.error(`Teknisi ${matchedInstaller.name} sedang tidak aktif di sistem.`, 'Teknisi Nonaktif');
-      return;
+    if (matchedInstaller && (!matchedInstaller.active || matchedInstaller.isDeleted)) {
+      const errMsg = `Teknisi ${matchedInstaller.name} sedang tidak aktif atau dihapus dari sistem.`;
+      toast.error(errMsg, 'Teknisi Nonaktif');
+      return { success: false, count: 0, error: errMsg };
     }
-    if (cleanInstName && matchedInstaller && leaderContr && matchedInstaller.contractor) {
-      const instContr = norm(matchedInstaller.contractor);
-      if (!instContr.includes(leaderContr) && !leaderContr.includes(instContr)) {
-        toast.error(`Teknisi ${matchedInstaller.name} berasal dari vendor lain (${matchedInstaller.contractor}).`, 'Di Luar Cakupan');
-        return;
-      }
+    if (
+      matchedInstaller &&
+      (currentUser.contractorId || currentUser.contractor) &&
+      !isContractorScopeMatchClient(
+        currentUser.contractorId,
+        currentUser.contractor,
+        matchedInstaller.contractorId,
+        matchedInstaller.contractor
+      )
+    ) {
+      const errMsg = `Teknisi ${matchedInstaller.name} berasal dari vendor lain (${matchedInstaller.contractor || matchedInstaller.contractorId || '-'}).`;
+      toast.error(errMsg, 'Di Luar Cakupan');
+      return { success: false, count: 0, error: errMsg };
     }
+
+    const norm = (v?: string) => String(v || '').toLowerCase().trim();
+    const resolvedInstName = matchedInstaller?.name || cleanInstName;
+    const resolvedInstId = matchedInstaller?.id || installerId;
 
     // Guard: skip redundant request/notification if already assigned to the exact same installer
     if (
-      cleanInstName &&
-      norm(targetTicket.installerName) === norm(cleanInstName) &&
-      (!matchedInstaller?.id || !targetTicket.installerId || targetTicket.installerId === matchedInstaller.id)
+      resolvedInstName &&
+      norm(targetTicket.installerName) === norm(resolvedInstName) &&
+      (!resolvedInstId || !targetTicket.installerId || targetTicket.installerId === resolvedInstId) &&
+      norm(targetTicket.statusWOInstaller) !== 'unassigned'
     ) {
-      return;
+      return { success: true, count: 1, workOrders: [targetTicket] };
     }
 
-    let updatedTicketItem: Ticket = {
-      ...targetTicket,
-      installerName: cleanInstName || undefined,
-      installerId: matchedInstaller?.id || targetTicket.installerId,
-      installerContact: matchedInstaller?.phone || targetTicket.installerContact,
-      leaderName: targetTicket.leaderName || currentUser.name,
-      leaderId: targetTicket.leaderId || currentUser.id,
-      statusWOInstaller: cleanInstName ? (targetTicket.checkInAt ? targetTicket.statusWOInstaller : 'Assigned') : 'Unassigned',
-      updatedAt: new Date().toISOString(),
-      updatedBy: currentUser.name
-    };
+    if (inFlightAssignmentKeysRef.current.has(ticketId)) {
+      const errMsg = `Penugasan untuk WO ${targetTicket.woNumber} sedang diproses. Mohon tunggu hingga selesai.`;
+      toast.info(errMsg, 'Sedang Diproses');
+      return { success: false, count: 0, error: errMsg };
+    }
 
-    if (cleanInstName) {
-      const res = executeWorkflowsOnTicket(updatedTicketItem, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
-      updatedTicketItem = res.ticket;
-      if (res.logs.length > 0) {
-        setTicketActivities(act => [...res.logs, ...act]);
+    inFlightAssignmentKeysRef.current.add(ticketId);
+    const nowIso = new Date().toISOString();
+    const plan = buildAssignmentPatchPlan({
+      allTickets: ticketsRef.current,
+      targetIds: [ticketId],
+      installer: matchedInstaller,
+      installerNameInput: resolvedInstName,
+      leader: currentUser,
+      nowIso
+    });
+
+    const optimisticTicket = plan.updatedTicketsList[0];
+    let finalTicketItem: Ticket = optimisticTicket || targetTicket;
+    if (resolvedInstName && optimisticTicket) {
+      const wfRes = executeWorkflowsOnTicket(
+        optimisticTicket,
+        'installer_assigned',
+        workflowRules,
+        templates,
+        currentUser.name,
+        currentUser.role
+      );
+      finalTicketItem = wfRes.ticket;
+      if (wfRes.logs.length > 0) {
+        setTicketActivities(act => [...wfRes.logs, ...act]);
       }
     }
 
-    setTickets(prev => prev.map(t => (t.id === ticketId ? updatedTicketItem : t)));
-
+    setTickets(prev => prev.map(t => (t.id === ticketId ? finalTicketItem : t)));
     setSyncStatus('SYNCING');
-    fetch('/api/tickets/assign', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        ticketId: updatedTicketItem.id,
-        installerName: cleanInstName,
-        installerId: matchedInstaller?.id,
-        installerContact: matchedInstaller?.phone
-      })
-    })
-      .then(async res => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error || `Penugasan gagal (${res.status})`);
-        }
-        if (json.ticket && json.ticket.id) {
-          setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
-        }
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        addAuditLog('Personnel Assigned', 'ticket', ticketId, `Leader ${currentUser.name} assigned Installer: ${cleanInstName || '-'}`);
-        if (cleanInstName) {
-          toast.success(`Teknisi ${cleanInstName} berhasil ditugaskan ke WO ${targetTicket.woNumber}!`, 'Penugasan Berhasil');
-        }
-      })
-      .catch(err => {
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+    try {
+      const res = await fetch('/api/tickets/assign', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          ticketId: finalTicketItem.id,
+          woNumber: finalTicketItem.woNumber,
+          installerName: resolvedInstName,
+          installerId: resolvedInstId,
+          installerContact: matchedInstaller?.phone
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        const detailedErr = formatAssignmentFailureMessage({
+          failed: json?.failed,
+          topLevelError: json?.error,
+          topLevelMessage: json?.message,
+          topLevelCode: json?.code,
+          requestId: json?.requestId,
+          totalCount: 1,
+          httpStatus: res.status
+        });
         setTickets(prev => prev.map(t => (t.id === ticketId ? targetTicket : t)));
         setSyncStatus('ERROR');
-        toast.error('Gagal menyimpan penugasan ke server: ' + (err?.message || err), 'Penugasan Gagal');
-      });
+        toast.error(detailedErr, 'Penugasan Gagal');
+        return {
+          success: false,
+          count: 0,
+          failedCount: 1,
+          error: detailedErr,
+          requestId: json?.requestId,
+          failed: json?.failed
+        };
+      }
+
+      const authoritativeWo: Ticket | undefined =
+        json.ticket ||
+        (Array.isArray(json.workOrders) ? json.workOrders.find((w: any) => w?.id === ticketId) : undefined);
+
+      if (authoritativeWo && authoritativeWo.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...authoritativeWo } : t)));
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      addAuditLog(
+        'Personnel Assigned',
+        'ticket',
+        ticketId,
+        `Leader ${currentUser.name} assigned Installer: ${authoritativeWo?.installerName || resolvedInstName || '-'}`
+      );
+      toast.success(
+        `Teknisi ${authoritativeWo?.installerName || resolvedInstName} berhasil ditugaskan ke WO ${targetTicket.woNumber}!`,
+        'Penugasan Berhasil'
+      );
+      return {
+        success: true,
+        count: 1,
+        requestId: json?.requestId,
+        workOrders: authoritativeWo ? [authoritativeWo] : [finalTicketItem]
+      };
+    } catch (err: any) {
+      setTickets(prev => prev.map(t => (t.id === ticketId ? targetTicket : t)));
+      setSyncStatus('ERROR');
+      const errMsg =
+        err?.name === 'AbortError'
+          ? 'Permintaan penugasan timeout (melebihi 25 detik). Periksa koneksi lalu coba lagi.'
+          : err?.message || 'Gagal menghubungi server penugasan.';
+      toast.error(errMsg, 'Penugasan Gagal');
+      return { success: false, count: 0, failedCount: 1, error: errMsg };
+    } finally {
+      window.clearTimeout(timeoutId);
+      inFlightAssignmentKeysRef.current.delete(ticketId);
+    }
   };
 
-  const bulkAssignPersonnel = (
+  const bulkAssignPersonnel = async (
     ticketIds: string[],
     _leaderName?: string,
     installerName?: string,
     slotTime?: string,
-    remarks?: string
-  ): { success: boolean; count: number } => {
+    remarks?: string,
+    installerId?: string
+  ): Promise<AssignmentActionResult> => {
     // App Flow 2: Strictly ONLY Leader can assign WO to technician
     if (currentUser.role !== 'leader') {
+      const errMsg = 'Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.';
       addAuditLog(
         'Unauthorized Bulk Technician Assignment Blocked',
         'ticket',
         'bulk',
         `Penugasan massal teknisi ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi. Operator: ${currentUser.name} (${currentUser.role})`
       );
-      toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.', 'Otoritas Dibatasi');
-      return { success: false, count: 0 };
+      toast.error(errMsg, 'Otoritas Dibatasi');
+      return { success: false, count: 0, error: errMsg };
     }
 
-    const norm = (v?: string) => String(v || '').toLowerCase().trim();
-    const cleanInstName = (installerName || '').trim();
-    const matchedInstaller = cleanInstName
-      ? users.find(u => u.role === 'installer' && norm(u.name) === norm(cleanInstName))
-      : undefined;
-
-    if (cleanInstName && matchedInstaller && !matchedInstaller.active) {
-      toast.error(`Teknisi ${matchedInstaller.name} sedang tidak aktif di sistem.`, 'Teknisi Nonaktif');
-      return { success: false, count: 0 };
+    const cleanIds = Array.from(new Set((ticketIds || []).map(id => String(id || '').trim()).filter(Boolean)));
+    if (cleanIds.length === 0) {
+      const errMsg = 'Pilih minimal 1 Work Order yang akan ditugaskan.';
+      toast.warning(errMsg, 'Pilih Work Order');
+      return { success: false, count: 0, error: errMsg };
     }
 
-    const leaderContr = norm(currentUser.contractor);
-    const leaderArea = norm(currentUser.area);
+    const cleanInstName = String(installerName || '').trim();
+    if (!cleanInstName && !installerId) {
+      const errMsg = 'Teknisi tujuan penugasan wajib dipilih.';
+      toast.error(errMsg, 'Validasi Gagal');
+      return { success: false, count: 0, error: errMsg };
+    }
 
-    const targetSet = new Set(ticketIds);
-    const now = new Date().toISOString();
-    const prevSnapshots = new Map<string, Ticket>();
-    const updatedTicketsList: Ticket[] = [];
-
-    setTickets(prev =>
-      prev.map(t => {
-        if (!targetSet.has(t.id)) return t;
-        const woContr = norm(t.contactorName || t.contractorName);
-        const woArea = norm(t.area);
-        if (leaderContr && woContr && !woContr.includes(leaderContr) && !leaderContr.includes(woContr)) return t;
-        if (leaderArea && woArea && !woArea.includes(leaderArea) && !leaderArea.includes(woArea)) return t;
-
-        prevSnapshots.set(t.id, t);
-        let updated: Ticket = {
-          ...t,
-          installerName: cleanInstName !== '' ? cleanInstName : t.installerName,
-          installerId: matchedInstaller?.id || t.installerId,
-          installerContact: matchedInstaller?.phone || t.installerContact,
-          slotTime: slotTime !== undefined && slotTime !== '' ? slotTime : t.slotTime,
-          statusWOInstaller: cleanInstName ? (t.checkInAt ? t.statusWOInstaller : 'Assigned') : t.statusWOInstaller,
-          remarksWOInstaller: remarks ? (t.remarksWOInstaller ? `${t.remarksWOInstaller}; ${remarks}` : remarks) : t.remarksWOInstaller,
-          updatedAt: now,
-          updatedBy: currentUser.name
-        };
-
-        if (cleanInstName) {
-          const res = executeWorkflowsOnTicket(updated, 'installer_assigned', workflowRules, templates, currentUser.name, currentUser.role);
-          updated = res.ticket;
-          if (res.logs.length > 0) {
-            setTicketActivities(act => [...res.logs, ...act]);
-          }
-        }
-
-        updatedTicketsList.push(updated);
-        return updated;
-      })
+    const matchedInstaller = resolveTargetInstallerClient(
+      users,
+      cleanInstName,
+      currentUser.contractorId,
+      currentUser.contractor,
+      installerId
     );
-
-    if (updatedTicketsList.length === 0) {
-      toast.warning('Tidak ada tiket dalam cakupan Contractor & Area Anda untuk ditugaskan.', 'Di Luar Cakupan');
-      return { success: false, count: 0 };
+    if (matchedInstaller && (!matchedInstaller.active || matchedInstaller.isDeleted)) {
+      const errMsg = `Teknisi ${matchedInstaller.name} sedang tidak aktif atau dihapus dari sistem.`;
+      toast.error(errMsg, 'Teknisi Nonaktif');
+      return { success: false, count: 0, error: errMsg };
+    }
+    if (
+      matchedInstaller &&
+      (currentUser.contractorId || currentUser.contractor) &&
+      !isContractorScopeMatchClient(
+        currentUser.contractorId,
+        currentUser.contractor,
+        matchedInstaller.contractorId,
+        matchedInstaller.contractor
+      )
+    ) {
+      const errMsg = `Teknisi ${matchedInstaller.name} berasal dari vendor lain (${matchedInstaller.contractor || matchedInstaller.contractorId || '-'}).`;
+      toast.error(errMsg, 'Di Luar Cakupan');
+      return { success: false, count: 0, error: errMsg };
     }
 
-    setSyncStatus('SYNCING');
-    Promise.all(
-      updatedTicketsList.map(t =>
-        fetch('/api/tickets/assign', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            ticketId: t.id,
-            installerName: t.installerName,
-            installerId: t.installerId,
-            installerContact: t.installerContact,
-            slotTime: t.slotTime,
-            remarksWOInstaller: t.remarksWOInstaller
-          })
-        }).then(async r => ({ id: t.id, ok: r.ok, json: await r.json().catch(() => ({})) }))
-      )
-    )
-      .then(results => {
-        const failedIds = new Set(results.filter(r => !r.ok || !r.json?.success).map(r => r.id));
-        if (failedIds.size > 0) {
-          setTickets(prev => prev.map(t => (failedIds.has(t.id) && prevSnapshots.get(t.id)) ? prevSnapshots.get(t.id)! : t));
-          setSyncStatus('ERROR');
-          const okCount = updatedTicketsList.length - failedIds.size;
-          toast.error(
-            `${failedIds.size} dari ${updatedTicketsList.length} penugasan gagal disimpan ke server.${okCount > 0 ? ` (${okCount} berhasil)` : ''}`,
-            'Penugasan Massal Gagal'
-          );
-          return;
-        }
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        scheduleKpiRefreshRef.current?.();
-        addAuditLog(
-          'Bulk Personnel Assigned',
-          'ticket',
-          `${updatedTicketsList.length} tickets`,
-          `Bulk assigned ${updatedTicketsList.length} tickets by Leader ${currentUser.name}. Installer: ${cleanInstName || '-'}, Slot: ${slotTime || 'Original'}`
-        );
-        toast.success(`Berhasil memperbarui penugasan untuk ${updatedTicketsList.length} tiket.`, 'Penugasan Massal Sukses');
-      })
-      .catch(err => {
-        setTickets(prev => prev.map(t => prevSnapshots.get(t.id) || t));
-        setSyncStatus('ERROR');
-        toast.error('Gagal menyimpan penugasan massal ke server: ' + (err?.message || err), 'Gagal');
-      });
+    const lockedId = cleanIds.find(id => inFlightAssignmentKeysRef.current.has(id));
+    if (lockedId) {
+      const errMsg = 'Penugasan untuk sebagian Work Order terpilih masih sedang diproses. Mohon tunggu sebentar.';
+      toast.info(errMsg, 'Sedang Diproses');
+      return { success: false, count: 0, error: errMsg };
+    }
 
-    return { success: true, count: updatedTicketsList.length };
+    const resolvedInstName = matchedInstaller?.name || cleanInstName;
+    const resolvedInstId = matchedInstaller?.id || installerId;
+    const nowIso = new Date().toISOString();
+
+    const plan = buildAssignmentPatchPlan({
+      allTickets: ticketsRef.current,
+      targetIds: cleanIds,
+      installer: matchedInstaller,
+      installerNameInput: resolvedInstName,
+      leader: currentUser,
+      slotTime,
+      remarks,
+      nowIso
+    });
+
+    if (plan.updatedTicketsList.length === 0) {
+      const errMsg = 'Tidak ada tiket dalam cakupan Contractor & Area Anda untuk ditugaskan.';
+      toast.warning(errMsg, 'Di Luar Cakupan');
+      return { success: false, count: 0, error: errMsg };
+    }
+
+    const workflowLogs: TicketActivity[] = [];
+    const finalUpdatedById = new Map<string, Ticket>();
+    for (const item of plan.updatedTicketsList) {
+      if (resolvedInstName) {
+        const wfRes = executeWorkflowsOnTicket(
+          item,
+          'installer_assigned',
+          workflowRules,
+          templates,
+          currentUser.name,
+          currentUser.role
+        );
+        finalUpdatedById.set(item.id, wfRes.ticket);
+        if (wfRes.logs.length > 0) workflowLogs.push(...wfRes.logs);
+      } else {
+        finalUpdatedById.set(item.id, item);
+      }
+    }
+
+    const updatedTicketsList = Array.from(finalUpdatedById.values());
+    updatedTicketsList.forEach(t => inFlightAssignmentKeysRef.current.add(t.id));
+
+    if (workflowLogs.length > 0) {
+      setTicketActivities(act => [...workflowLogs, ...act]);
+    }
+    setTickets(prev => prev.map(t => finalUpdatedById.get(t.id) || t));
+    setSyncStatus('SYNCING');
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+
+    try {
+      const res = await fetch('/api/tickets/assign', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          ticketIds: updatedTicketsList.map(t => t.id),
+          installerName: resolvedInstName,
+          installerId: resolvedInstId,
+          installerContact: matchedInstaller?.phone,
+          slotTime,
+          remarks
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      const returnedWorkOrders: Ticket[] = Array.isArray(json.workOrders)
+        ? json.workOrders
+        : json.ticket
+        ? [json.ticket]
+        : [];
+      const returnedById = new Map<string, Ticket>(
+        returnedWorkOrders.filter(w => w?.id).map(w => [w.id, w])
+      );
+
+      if (!res.ok || !json.success) {
+        const failedEntries = Array.isArray(json.failed) ? json.failed : [];
+        const failedIds = new Set<string>(
+          failedEntries.length > 0
+            ? failedEntries.map((f: any) => String(f.id || '')).filter(Boolean)
+            : updatedTicketsList
+                .filter(t => !returnedById.has(t.id))
+                .map(t => t.id)
+        );
+        if (failedIds.size === 0) {
+          updatedTicketsList.forEach(t => failedIds.add(t.id));
+        }
+
+        // Revert only failed tickets, preserve authoritative DB state for any succeeded tickets
+        setTickets(prev =>
+          prev.map(t => {
+            if (returnedById.has(t.id)) return { ...t, ...returnedById.get(t.id)! };
+            if (failedIds.has(t.id) && plan.prevSnapshots.has(t.id)) {
+              return plan.prevSnapshots.get(t.id)!;
+            }
+            return t;
+          })
+        );
+        setSyncStatus('ERROR');
+
+        const okCount = Math.max(0, updatedTicketsList.length - failedIds.size);
+        const detailedError = formatAssignmentFailureMessage({
+          failed: failedEntries,
+          topLevelError: json?.error,
+          topLevelMessage: json?.message,
+          topLevelCode: json?.code,
+          requestId: json?.requestId,
+          totalCount: updatedTicketsList.length,
+          successCount: okCount,
+          httpStatus: res.status
+        });
+        toast.error(detailedError, 'Penugasan Massal Gagal');
+        return {
+          success: false,
+          count: okCount,
+          failedCount: failedIds.size,
+          error: detailedError,
+          requestId: json?.requestId,
+          workOrders: returnedWorkOrders,
+          failed: failedEntries
+        };
+      }
+
+      if (returnedById.size > 0) {
+        setTickets(prev => prev.map(t => (returnedById.has(t.id) ? { ...t, ...returnedById.get(t.id)! } : t)));
+      }
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      addAuditLog(
+        'Bulk Personnel Assigned',
+        'ticket',
+        `${updatedTicketsList.length} tickets`,
+        `Bulk assigned ${updatedTicketsList.length} tickets by Leader ${currentUser.name}. Installer: ${resolvedInstName || '-'}, Slot: ${slotTime || 'Original'}`
+      );
+      toast.success(
+        `Berhasil menyimpan penugasan ${updatedTicketsList.length} Work Order ke teknisi ${resolvedInstName}.`,
+        'Penugasan Berhasil'
+      );
+      return {
+        success: true,
+        count: updatedTicketsList.length,
+        failedCount: 0,
+        requestId: json?.requestId,
+        workOrders: returnedWorkOrders.length > 0 ? returnedWorkOrders : updatedTicketsList
+      };
+    } catch (err: any) {
+      setTickets(prev => prev.map(t => plan.prevSnapshots.get(t.id) || t));
+      setSyncStatus('ERROR');
+      const errMsg =
+        err?.name === 'AbortError'
+          ? 'Permintaan penugasan massal timeout (melebihi 30 detik). Silakan cek daftar WO dan ulangi.'
+          : err?.message || 'Gagal menghubungi server penugasan.';
+      toast.error('Gagal menyimpan penugasan ke server: ' + errMsg, 'Penugasan Massal Gagal');
+      return {
+        success: false,
+        count: 0,
+        failedCount: updatedTicketsList.length,
+        error: errMsg
+      };
+    } finally {
+      window.clearTimeout(timeoutId);
+      updatedTicketsList.forEach(t => inFlightAssignmentKeysRef.current.delete(t.id));
+    }
   };
 
   const reassignTicketPersonnel = (ticketId: string, newInstallerName: string, reason: string): { success: boolean; error?: string; historyEntry?: WOAssignmentHistory } => {

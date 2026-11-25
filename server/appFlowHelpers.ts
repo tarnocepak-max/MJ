@@ -47,6 +47,53 @@ export function isAreaMatch(a?: string | null, b?: string | null): boolean {
   return na === nb || na.includes(nb) || nb.includes(na);
 }
 
+export interface ContractorScopeInput {
+  userContractorId?: string | null;
+  userContractorName?: string | null;
+  targetContractorId?: string | null;
+  targetContractorName?: string | null;
+}
+
+/**
+ * Matches contractor scope using BOTH contractorId and contractorName (free-text or canonical).
+ * Fails closed when either side has no contractor identity at all.
+ */
+export function doesContractorScopeMatch(input: ContractorScopeInput): boolean {
+  const uId = norm(input.userContractorId);
+  const uName = norm(input.userContractorName);
+  const tId = norm(input.targetContractorId);
+  const tName = norm(input.targetContractorName);
+
+  if (!uId && !uName) return false;
+  if (!tId && !tName) return false;
+
+  if (uId && tId && uId === tId) return true;
+  if (uName && tName && isContractorMatch(uName, tName)) return true;
+  if (uId && tName && isContractorMatch(uId, tName)) return true;
+  if (uName && tId && isContractorMatch(uName, tId)) return true;
+
+  return false;
+}
+
+/**
+ * Matches Area scope: if userArea is empty (Contractor-level Leader), area is unrestricted.
+ * When userArea is set, targetArea must be non-empty and match.
+ */
+export function doesAreaScopeMatch(userArea?: string | null, targetArea?: string | null): boolean {
+  const ua = norm(userArea);
+  if (!ua) return true;
+  const ta = norm(targetArea);
+  if (!ta) return false;
+  return isAreaMatch(ta, ua);
+}
+
+export function formatScopeLabel(contractorName?: string | null, contractorId?: string | null): string {
+  const name = String(contractorName || '').trim();
+  const id = String(contractorId || '').trim();
+  if (name && id && norm(name) !== norm(id)) return `${name} (${id})`;
+  return name || id || '-';
+}
+
 function userMatchesContractor(
   user: any,
   contractorObj: any | undefined,

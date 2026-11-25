@@ -982,16 +982,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
     setIsSubmittingAssign(true);
     try {
-      if (modalSlotTime && modalSlotTime !== targetTicket.slotTime) {
-        bulkAssignPersonnel([targetTicket.id], currentUser.name, modalInstallerName, modalSlotTime);
-      } else {
-        assignTicketPersonnel(targetTicket.id, currentUser.name, modalInstallerName);
+      const res =
+        modalSlotTime && modalSlotTime !== targetTicket.slotTime
+          ? await bulkAssignPersonnel([targetTicket.id], currentUser.name, modalInstallerName, modalSlotTime)
+          : await assignTicketPersonnel(targetTicket.id, currentUser.name, modalInstallerName);
+      if (res.success) {
+        setAssignModalOpen(false);
       }
-      toast.success(
-        `WO ${targetTicket.woNumber} berhasil didisposisikan ke ${modalInstallerName}.`,
-        'Disposisi Berhasil'
-      );
-      setAssignModalOpen(false);
     } finally {
       setIsSubmittingAssign(false);
     }
@@ -1008,14 +1005,36 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     }
     setIsSubmittingAssign(true);
     try {
+      const grouped = new Map<string, { installerId: string; installerName: string; ids: string[] }>();
       autoBalancePlan.planned.forEach(item => {
-        assignTicketPersonnel(item.ticket.id, currentUser.name, item.installer.name);
+        const entry = grouped.get(item.installer.id) || {
+          installerId: item.installer.id,
+          installerName: item.installer.name,
+          ids: []
+        };
+        entry.ids.push(item.ticket.id);
+        grouped.set(item.installer.id, entry);
       });
-      toast.success(
-        `${autoBalancePlan.planned.length} Work Order berhasil didistribusikan otomatis ke tim teknisi.`,
-        'Auto-Balance Sukses'
-      );
-      setAssignModalOpen(false);
+
+      let okCount = 0;
+      let failCount = 0;
+      for (const group of grouped.values()) {
+        const r = await bulkAssignPersonnel(
+          group.ids,
+          currentUser.name,
+          group.installerName,
+          undefined,
+          undefined,
+          group.installerId
+        );
+        okCount += r.count || 0;
+        if (!r.success) {
+          failCount += r.failedCount ?? group.ids.length;
+        }
+      }
+      if (failCount === 0 && okCount > 0) {
+        setAssignModalOpen(false);
+      }
     } finally {
       setIsSubmittingAssign(false);
     }

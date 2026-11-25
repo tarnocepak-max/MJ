@@ -763,7 +763,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     });
   };
 
-  const handleApplyBulkAssign = () => {
+  const handleApplyBulkAssign = async () => {
     if (currentUser.role !== 'leader') {
       toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO ke teknisi.');
       return;
@@ -772,7 +772,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       toast.error('Pilih teknisi terlebih dahulu.');
       return;
     }
-    const res = bulkAssignPersonnel(Array.from(selectedIds), currentUser.name, bulkInstaller);
+    const res = await bulkAssignPersonnel(Array.from(selectedIds), currentUser.name, bulkInstaller);
     if (res.success) {
       setSelectedIds(new Set());
       setBulkInstaller('');

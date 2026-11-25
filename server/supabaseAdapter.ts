@@ -1,6 +1,13 @@
 import { getSupabaseBackendClient } from './supabaseClient.ts';
 import type { ServerUser } from '../server.ts';
-import { isAreaMatch, isContractorMatch, mapSupabaseMessageToModel } from './appFlowHelpers.ts';
+import {
+  doesAreaScopeMatch,
+  doesContractorScopeMatch,
+  formatScopeLabel,
+  isAreaMatch,
+  isContractorMatch,
+  mapSupabaseMessageToModel
+} from './appFlowHelpers.ts';
 import {
   attachClassificationMetadata,
   classifyWorkOrderServer,
@@ -1586,7 +1593,7 @@ export async function getWorkOrdersFromSupabasePaginated(
   const orderCol = sortColMap[String(options.sortBy || 'updatedAt')] || 'updated_at';
   const ascending = options.sortDir === 'asc';
 
-  const applyFilters = (baseQuery: any) => {
+  const applyFilters = (baseQuery: any, useExtendedInstallerCols = true) => {
     let q = baseQuery;
     if (!options.includeDeleted) {
       q = q.eq('is_deleted', false);
@@ -1632,7 +1639,11 @@ export async function getWorkOrdersFromSupabasePaginated(
     // DB-level role scoping pushdown (defense-in-depth alongside scopeTicketsForUser)
     if (options.userRole === 'installer' && options.userId) {
       const safeUid = sanitizePostgrestQuotedValue(options.userId);
-      q = q.or(`installer_id.eq.${safeUid},installer_uid.eq.${safeUid},assigned_to_uid.eq.${safeUid}`);
+      if (useExtendedInstallerCols) {
+        q = q.or(`installer_id.eq.${safeUid},installer_uid.eq.${safeUid},assigned_to_uid.eq.${safeUid}`);
+      } else {
+        q = q.eq('installer_id', options.userId);
+      }
     } else if (options.userRole === 'leader' && options.userContractor) {
       const lc = sanitizePostgrestIlikeTerm(options.userContractor);
       if (lc) {
@@ -1645,14 +1656,16 @@ export async function getWorkOrdersFromSupabasePaginated(
   try {
     const selectCols = options.lightweight !== false ? WORK_ORDER_LIST_COLUMNS : '*';
     let query = applyFilters(
-      client.from('work_orders').select(selectCols, { count: 'exact' })
+      client.from('work_orders').select(selectCols, { count: 'exact' }),
+      true
     );
     query = query.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
 
     let { data, count, error } = await query;
-    if (error && options.lightweight !== false && isMissingSchemaObjectError(error)) {
+    if (error && isMissingSchemaObjectError(error)) {
       let fallback = applyFilters(
-        client.from('work_orders').select('*', { count: 'exact' })
+        client.from('work_orders').select('*', { count: 'exact' }),
+        false
       );
       fallback = fallback.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
       const fbRes = await fallback;
@@ -2307,7 +2320,7 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
       updateRow.appointment_type = updates.appointmentType ?? updates.appointment_type;
     }
     if (updates.slotTime !== undefined || updates.slot_time !== undefined) {
-      updateRow.slot_time = updates.slotTime ?? updates.slot_time;
+      updateRow.slot_time = updates.slotTime !== undefined ? updates.slotTime : updates.slot_time;
     }
     if (updates.ticketCategory !== undefined || updates.ticket_category !== undefined) {
       updateRow.ticket_category = updates.ticketCategory ?? updates.ticket_category;
@@ -2390,72 +2403,87 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
       updateRow.corlap_contact = updates.corlapContact ?? updates.corlap_contact;
     }
     if (updates.installerId !== undefined || updates.installer_id !== undefined) {
-      updateRow.installer_id = updates.installerId ?? updates.installer_id;
+      updateRow.installer_id = updates.installerId !== undefined ? updates.installerId : updates.installer_id;
     }
     if (updates.installerUid !== undefined || updates.installer_uid !== undefined) {
-      updateRow.installer_uid = updates.installerUid ?? updates.installer_uid;
+      updateRow.installer_uid = updates.installerUid !== undefined ? updates.installerUid : updates.installer_uid;
     }
     if (updates.assignedTo !== undefined || updates.assigned_to !== undefined) {
-      updateRow.assigned_to = updates.assignedTo ?? updates.assigned_to;
+      updateRow.assigned_to = updates.assignedTo !== undefined ? updates.assignedTo : updates.assigned_to;
     }
     if (updates.assignedToUid !== undefined || updates.assigned_to_uid !== undefined) {
-      updateRow.assigned_to_uid = updates.assignedToUid ?? updates.assigned_to_uid;
+      updateRow.assigned_to_uid = updates.assignedToUid !== undefined ? updates.assignedToUid : updates.assigned_to_uid;
     }
     if (updates.installerName !== undefined || updates.installer_name !== undefined) {
-      updateRow.installer_name = updates.installerName ?? updates.installer_name;
+      updateRow.installer_name = updates.installerName !== undefined ? updates.installerName : updates.installer_name;
     }
     if (updates.installerContact !== undefined || updates.installer_contact !== undefined) {
-      updateRow.installer_contact = updates.installerContact ?? updates.installer_contact;
+      updateRow.installer_contact = updates.installerContact !== undefined ? updates.installerContact : updates.installer_contact;
     }
     if (updates.installerContact2 !== undefined || updates.installer_contact2 !== undefined) {
-      updateRow.installer_contact2 = updates.installerContact2 ?? updates.installer_contact2;
+      updateRow.installer_contact2 = updates.installerContact2 !== undefined ? updates.installerContact2 : updates.installer_contact2;
     }
     if (updates.installerEmail !== undefined || updates.installer_email !== undefined) {
-      updateRow.installer_email = updates.installerEmail ?? updates.installer_email;
+      updateRow.installer_email = updates.installerEmail !== undefined ? updates.installerEmail : updates.installer_email;
     }
     if (updates.dateAssignAgent !== undefined || updates.date_assign_agent !== undefined) {
-      updateRow.date_assign_agent = updates.dateAssignAgent ?? updates.date_assign_agent;
+      updateRow.date_assign_agent = updates.dateAssignAgent !== undefined ? updates.dateAssignAgent : updates.date_assign_agent;
     }
     if (updates.dateAssignTechnician !== undefined || updates.date_assign_technician !== undefined) {
-      updateRow.date_assign_technician = updates.dateAssignTechnician ?? updates.date_assign_technician;
+      updateRow.date_assign_technician = updates.dateAssignTechnician !== undefined ? updates.dateAssignTechnician : updates.date_assign_technician;
     }
     if (updates.assignedAt !== undefined || updates.assigned_at !== undefined) {
-      updateRow.assigned_at = updates.assignedAt ?? updates.assigned_at;
+      updateRow.assigned_at = updates.assignedAt !== undefined ? updates.assignedAt : updates.assigned_at;
     }
     if (updates.assignedBy !== undefined || updates.assigned_by !== undefined) {
-      updateRow.assigned_by = updates.assignedBy ?? updates.assigned_by;
+      updateRow.assigned_by = updates.assignedBy !== undefined ? updates.assignedBy : updates.assigned_by;
     }
     if (updates.reassignedAt !== undefined || updates.reassigned_at !== undefined) {
-      updateRow.reassigned_at = updates.reassignedAt ?? updates.reassigned_at;
+      updateRow.reassigned_at = updates.reassignedAt !== undefined ? updates.reassignedAt : updates.reassigned_at;
     }
     if (updates.reassignedBy !== undefined || updates.reassigned_by !== undefined) {
-      updateRow.reassigned_by = updates.reassignedBy ?? updates.reassigned_by;
+      updateRow.reassigned_by = updates.reassignedBy !== undefined ? updates.reassignedBy : updates.reassigned_by;
     }
     if (updates.reassignmentReason !== undefined || updates.reassignment_reason !== undefined) {
-      updateRow.reassignment_reason = updates.reassignmentReason ?? updates.reassignment_reason;
+      updateRow.reassignment_reason = updates.reassignmentReason !== undefined ? updates.reassignmentReason : updates.reassignment_reason;
     }
 
     // Operational statuses (never altered automatically)
     if (updates.distributionStatus !== undefined || updates.distribution_status !== undefined) {
-      updateRow.distribution_status = updates.distributionStatus ?? updates.distribution_status;
+      updateRow.distribution_status = updates.distributionStatus !== undefined ? updates.distributionStatus : updates.distribution_status;
     }
     if (updates.distributionNotes !== undefined || updates.distribution_notes !== undefined) {
-      updateRow.distribution_notes = updates.distributionNotes ?? updates.distribution_notes;
+      updateRow.distribution_notes = updates.distributionNotes !== undefined ? updates.distributionNotes : updates.distribution_notes;
     }
     if (updates.statusWOAgent !== undefined || updates.statusWoAgent !== undefined || updates.status_wo_agent !== undefined) {
-      updateRow.status_wo_agent = updates.statusWOAgent ?? updates.statusWoAgent ?? updates.status_wo_agent;
+      updateRow.status_wo_agent =
+        updates.statusWOAgent !== undefined
+          ? updates.statusWOAgent
+          : updates.statusWoAgent !== undefined
+          ? updates.statusWoAgent
+          : updates.status_wo_agent;
     }
     if (updates.statusWOInstaller !== undefined || updates.statusWoInstaller !== undefined || updates.status_wo_installer !== undefined) {
-      updateRow.status_wo_installer = updates.statusWOInstaller ?? updates.statusWoInstaller ?? updates.status_wo_installer;
+      updateRow.status_wo_installer =
+        updates.statusWOInstaller !== undefined
+          ? updates.statusWOInstaller
+          : updates.statusWoInstaller !== undefined
+          ? updates.statusWoInstaller
+          : updates.status_wo_installer;
     }
     if (updates.statusWhatsApp !== undefined || updates.status_whatsapp !== undefined) {
-      updateRow.status_whatsapp = updates.statusWhatsApp ?? updates.status_whatsapp;
+      updateRow.status_whatsapp = updates.statusWhatsApp !== undefined ? updates.statusWhatsApp : updates.status_whatsapp;
     }
     if (updates.remarksWOInstaller !== undefined || updates.remarksWoInstaller !== undefined || updates.remarks_wo_installer !== undefined) {
-      updateRow.remarks_wo_installer = updates.remarksWOInstaller ?? updates.remarksWoInstaller ?? updates.remarks_wo_installer;
+      updateRow.remarks_wo_installer =
+        updates.remarksWOInstaller !== undefined
+          ? updates.remarksWOInstaller
+          : updates.remarksWoInstaller !== undefined
+          ? updates.remarksWoInstaller
+          : updates.remarks_wo_installer;
     }
     if (updates.remarksAgent !== undefined || updates.remarks_agent !== undefined) {
-      updateRow.remarks_agent = updates.remarksAgent ?? updates.remarks_agent;
+      updateRow.remarks_agent = updates.remarksAgent !== undefined ? updates.remarksAgent : updates.remarks_agent;
     }
     if (updates.remarks !== undefined) updateRow.remarks = updates.remarks;
 
@@ -2554,7 +2582,7 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
       };
     }
     if (updates.updatedBy !== undefined || updates.updated_by !== undefined) {
-      updateRow.updated_by = updates.updatedBy ?? updates.updated_by;
+      updateRow.updated_by = updates.updatedBy !== undefined ? updates.updatedBy : updates.updated_by;
     }
 
     // JSONB payload merging (safely retains untouched custom data)
@@ -2611,23 +2639,66 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
 
     updateRow.payload = mergedPayload;
 
-    // 3. Execute partial update
-    const { data, error } = await client
+    // 3. Execute partial update (with safe schema-compatibility retry for optional unmigrated columns
+    // whose values are already preserved in JSONB payload)
+    let { data, error } = await client
       .from('work_orders')
       .update(updateRow)
       .eq('id', cleanId)
       .select('*')
       .single();
 
+    if (error && isMissingSchemaObjectError(error)) {
+      const OPTIONAL_COMPAT_COLS = [
+        'installer_uid',
+        'assigned_to',
+        'assigned_to_uid',
+        'installer_id',
+        'chat_category',
+        'leader_id',
+        'leader_contact',
+        'distributed_at',
+        'distributed_by'
+      ];
+      const msgLower = String(error?.message || '').toLowerCase();
+      const compatUpdateRow: Record<string, any> = { ...updateRow };
+      const strippedCols: string[] = [];
+
+      // First strip any specifically mentioned optional column, or all unmigrated 009 compat columns
+      for (const col of OPTIONAL_COMPAT_COLS) {
+        if (
+          col in compatUpdateRow &&
+          (msgLower.includes(col) || col === 'installer_uid' || col === 'assigned_to' || col === 'assigned_to_uid')
+        ) {
+          delete compatUpdateRow[col];
+          strippedCols.push(col);
+        }
+      }
+
+      if (strippedCols.length > 0) {
+        console.warn(
+          `[Supabase DAL] updateWorkOrder(${cleanId}) schema mismatch (${error?.code || 'ERR'}): retrying without optional columns [${strippedCols.join(', ')}] (canonical values preserved in payload)`
+        );
+        const retryRes = await client
+          .from('work_orders')
+          .update(compatUpdateRow)
+          .eq('id', cleanId)
+          .select('*')
+          .single();
+        data = retryRes.data;
+        error = retryRes.error;
+      }
+    }
+
     if (error) {
-      const classified = classifySupabaseError(error);
-      console.error('[Supabase DAL] updateWorkOrder error:', classified.message);
+      const classified = classifySupabaseError(error, { table: 'work_orders', operation: 'UPDATE' });
+      console.error('[Supabase DAL] updateWorkOrder error:', classified.code, classified.message);
       return { success: false, error: classified };
     }
 
     return { success: true, data: postgresRowToTicket(data) };
   } catch (err: any) {
-    const classified = classifySupabaseError(err);
+    const classified = classifySupabaseError(err, { table: 'work_orders', operation: 'UPDATE' });
     return { success: false, error: classified };
   }
 }
@@ -5156,8 +5227,10 @@ export interface AssignTicketOptions {
   performedByRole?: string;
   performedById?: string;
   userContractor?: string | null;
+  userContractorId?: string | null;
   userArea?: string | null;
   userRole?: string;
+  requestId?: string;
 }
 
 export interface ReassignTicketOptions {
@@ -5174,13 +5247,16 @@ export interface ReassignTicketOptions {
   performedByRole?: string;
   performedById?: string;
   userContractor?: string | null;
+  userContractorId?: string | null;
   userArea?: string | null;
   userRole?: string;
+  requestId?: string;
 }
 
 export interface ConsistentAssignmentResult {
   workOrder: any;
   history: any;
+  idempotent?: boolean;
 }
 
 /**
@@ -5202,43 +5278,75 @@ export async function assignTicketInSupabase(
     performedByRole,
     performedById,
     userContractor,
+    userContractorId,
     userArea,
-    userRole
+    userRole,
+    requestId
   } = options;
 
-  if (userRole && userRole !== 'leader') {
+  const logFail = (stage: string, code: string, message: string, extra?: Record<string, any>) => {
+    console.warn(
+      `[WO_ASSIGN] req=${requestId || '-'} stage=${stage} code=${code} leader=${performedById || performedBy} wo=${workOrderIdOrWoNumber || ticketIdOrWoNumber || '-'} inst=${installerId || installerName || '-'} msg=${message}`,
+      extra ? JSON.stringify(extra) : ''
+    );
+  };
+
+  if (userRole && String(userRole).trim().toLowerCase() !== 'leader') {
+    const msg = 'Akses Ditolak: Hanya role Leader yang berwenang melakukan assignment WO ke teknisi.';
+    logFail('ROLE_CHECK', 'REQUIRE_LEADER_ROLE', msg);
     return {
       success: false,
       error: {
         code: 'REQUIRE_LEADER_ROLE',
-        message: 'Akses Ditolak: Hanya role Leader yang berwenang melakukan assignment WO ke teknisi.'
+        httpStatus: 403,
+        message: msg,
+        details: { stage: 'ROLE_CHECK', requestId }
       }
     };
   }
 
   const effInstallerName = (installerName || installerId || '').trim();
   if (!effInstallerName) {
-    return { success: false, error: { code: 'INVALID_INPUT', message: 'Nama teknisi tujuan wajib diisi.' } };
+    const msg = 'Nama atau ID teknisi tujuan wajib diisi.';
+    logFail('VALIDATION', 'INVALID_INPUT', msg);
+    return {
+      success: false,
+      error: { code: 'INVALID_INPUT', httpStatus: 400, message: msg, details: { stage: 'VALIDATION', requestId } }
+    };
   }
 
   const cleanKey = (workOrderIdOrWoNumber || ticketIdOrWoNumber || '').trim();
   if (!cleanKey) {
-    return { success: false, error: { code: 'INVALID_ID', message: 'ID atau nomor WO wajib diisi.' } };
+    const msg = 'ID atau nomor WO wajib diisi.';
+    logFail('VALIDATION', 'INVALID_ID', msg);
+    return {
+      success: false,
+      error: { code: 'INVALID_ID', httpStatus: 400, message: msg, details: { stage: 'VALIDATION', requestId } }
+    };
   }
 
   if (PROTECTED_PRODUCTION_WO_IDS.has(cleanKey)) {
+    const msg = 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.';
+    logFail('PROTECTED_CHECK', 'PROTECTED_PRODUCTION_RECORD', msg);
     return {
       success: false,
       error: {
         code: 'PROTECTED_PRODUCTION_RECORD',
-        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.'
+        httpStatus: 403,
+        message: msg,
+        details: { stage: 'PROTECTED_CHECK', requestId }
       }
     };
   }
 
   const client = getSupabaseBackendClient();
   if (!client) {
-    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', isUnavailable: true } };
+    const msg = 'Supabase client belum dikonfigurasi.';
+    logFail('DB_CLIENT', 'NOT_CONFIGURED', msg);
+    return {
+      success: false,
+      error: { code: 'NOT_CONFIGURED', httpStatus: 503, message: msg, isUnavailable: true, details: { stage: 'DB_CLIENT', requestId } }
+    };
   }
 
   // 1. Fetch current WO from Supabase
@@ -5252,40 +5360,84 @@ export async function assignTicketInSupabase(
       targetWO = supaByWo.data;
     } else {
       if (supaRes.error?.isUnavailable || supaByWo.error?.isUnavailable) {
-        return { success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.', isUnavailable: true } };
+        const msg = 'Database authoritative Supabase tidak tersedia.';
+        logFail('WO_LOOKUP', 'DATABASE_UNAVAILABLE', msg);
+        return {
+          success: false,
+          error: { code: 'DATABASE_UNAVAILABLE', httpStatus: 503, message: msg, isUnavailable: true, details: { stage: 'WO_LOOKUP', requestId } }
+        };
       }
-      return { success: false, error: { code: 'NOT_FOUND', isNotFound: true, message: `Work Order "${cleanKey}" tidak ditemukan di database Supabase.` } };
+      const msg = `Work Order "${cleanKey}" tidak ditemukan di database Supabase.`;
+      logFail('WO_LOOKUP', 'NOT_FOUND', msg);
+      return {
+        success: false,
+        error: { code: 'NOT_FOUND', httpStatus: 404, isNotFound: true, message: msg, details: { stage: 'WO_LOOKUP', requestId } }
+      };
     }
   }
 
   if (PROTECTED_PRODUCTION_WO_IDS.has(targetWO.id) || PROTECTED_PRODUCTION_WO_IDS.has(targetWO.woNumber)) {
+    const msg = 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.';
+    logFail('PROTECTED_CHECK', 'PROTECTED_RECORD', msg);
     return {
       success: false,
       error: {
         code: 'PROTECTED_RECORD',
-        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.'
+        httpStatus: 403,
+        message: msg,
+        details: { stage: 'PROTECTED_CHECK', workOrderId: targetWO.id, woNumber: targetWO.woNumber, requestId }
       }
     };
   }
 
-  // 2. Validate Leader contractor & area scope (fail closed when WO contractor/area is empty)
-  const woContr = String(targetWO.contactorName || targetWO.contractorName || '').trim();
+  if (targetWO.isDeleted || targetWO.isArchived) {
+    const msg = `Work Order ${targetWO.woNumber || targetWO.id} sudah dihapus atau diarsipkan sehingga tidak dapat ditugaskan.`;
+    logFail('WO_STATE_CHECK', 'WO_DELETED_OR_ARCHIVED', msg);
+    return {
+      success: false,
+      error: {
+        code: 'WO_DELETED_OR_ARCHIVED',
+        httpStatus: 409,
+        message: msg,
+        details: { stage: 'WO_STATE_CHECK', workOrderId: targetWO.id, woNumber: targetWO.woNumber, requestId }
+      }
+    };
+  }
+
+  // 2. Validate Leader contractor & area scope (supports both contractorId & free-text contractor name; fails closed when empty)
+  const woContrName = String(targetWO.contactorName || targetWO.contractorName || '').trim();
+  const woContrId = String(targetWO.contractorId || '').trim();
+  const leaderScopeLabel = formatScopeLabel(userContractor, userContractorId);
   if (userRole === 'leader') {
-    if (!userContractor || !woContr || !isContractorMatch(woContr, userContractor)) {
+    const contractorOk = doesContractorScopeMatch({
+      userContractorId,
+      userContractorName: userContractor,
+      targetContractorId: woContrId,
+      targetContractorName: woContrName
+    });
+    if (!contractorOk) {
+      const msg = `Akses Ditolak: WO ${targetWO.woNumber || targetWO.id} (Mitra: ${formatScopeLabel(woContrName, woContrId)}) berada di luar cakupan mitra kontraktor Anda (${leaderScopeLabel}).`;
+      logFail('WO_SCOPE_CHECK', 'SCOPE_MISMATCH', msg, { woContrId, woContrName, userContractorId, userContractor });
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Anda hanya dapat menugaskan Work Order dalam cakupan mitra kontraktor Anda (${userContractor || '-'}).`
+          httpStatus: 403,
+          message: msg,
+          details: { stage: 'WO_SCOPE_CHECK', workOrderId: targetWO.id, woNumber: targetWO.woNumber, requestId }
         }
       };
     }
-    if (userArea && (!targetWO.area || !isAreaMatch(targetWO.area, userArea))) {
+    if (!doesAreaScopeMatch(userArea, targetWO.area)) {
+      const msg = `Akses Ditolak: Work Order ${targetWO.woNumber} berada di area "${targetWO.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`;
+      logFail('WO_AREA_CHECK', 'SCOPE_MISMATCH', msg);
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Work Order ${targetWO.woNumber} berada di area "${targetWO.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`
+          httpStatus: 403,
+          message: msg,
+          details: { stage: 'WO_AREA_CHECK', workOrderId: targetWO.id, woNumber: targetWO.woNumber, requestId }
         }
       };
     }
@@ -5296,80 +5448,157 @@ export async function assignTicketInSupabase(
   let resolvedInstallerName = effInstallerName;
   const usersRes = await getUsersFromSupabase(false);
   if (!usersRes.success || !Array.isArray(usersRes.data)) {
+    const msg = 'Gagal memverifikasi akun Installer dari database Supabase.';
+    logFail('INSTALLER_LOOKUP', 'DATABASE_UNAVAILABLE', msg);
     return {
       success: false,
       error: {
         code: 'DATABASE_UNAVAILABLE',
-        message: 'Gagal memverifikasi akun Installer dari database Supabase.',
-        isUnavailable: true
+        httpStatus: 503,
+        message: msg,
+        isUnavailable: true,
+        details: { stage: 'INSTALLER_LOOKUP', requestId }
       }
     };
   }
 
-  const allInstallers = usersRes.data.filter(u => u.role === 'installer');
+  const allInstallers = usersRes.data.filter(u => String(u.role || '').trim().toLowerCase() === 'installer');
   let matchedInstaller: any = null;
   if (resolvedInstallerId) {
     matchedInstaller = allInstallers.find(u => u.id === resolvedInstallerId) || null;
   } else {
     const cleanNeedle = effInstallerName.toLowerCase();
-    const byUsername = allInstallers.filter(u => !u.isDeleted && u.username.trim().toLowerCase() === cleanNeedle);
+    const byUsername = allInstallers.filter(u => !u.isDeleted && String(u.username || '').trim().toLowerCase() === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
-      const byName = allInstallers.filter(u => !u.isDeleted && u.name.trim().toLowerCase() === cleanNeedle);
-      if (byName.length > 1) {
+      const activeByName = allInstallers.filter(
+        u => !u.isDeleted && u.active !== false && String(u.name || '').trim().toLowerCase() === cleanNeedle
+      );
+      const scopedActiveByName = (userContractor || userContractorId)
+        ? activeByName.filter(u =>
+            doesContractorScopeMatch({
+              userContractorId,
+              userContractorName: userContractor,
+              targetContractorId: u.contractorId,
+              targetContractorName: u.contractor
+            })
+          )
+        : activeByName;
+
+      const candidateList = scopedActiveByName.length > 0 ? scopedActiveByName : activeByName;
+      if (candidateList.length > 1) {
+        const msg = `Nama teknisi "${effInstallerName}" ambigu (${candidateList.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`;
+        logFail('INSTALLER_LOOKUP', 'INVALID_INPUT', msg);
         return {
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: `Nama teknisi "${effInstallerName}" ambigu (${byName.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`
+            httpStatus: 400,
+            message: msg,
+            details: { stage: 'INSTALLER_LOOKUP', requestId }
           }
         };
       }
-      matchedInstaller = byName[0] || allInstallers.find(u => u.name.trim().toLowerCase() === cleanNeedle || u.username.trim().toLowerCase() === cleanNeedle) || null;
+      matchedInstaller =
+        candidateList[0] ||
+        allInstallers.find(
+          u =>
+            String(u.name || '').trim().toLowerCase() === cleanNeedle ||
+            String(u.username || '').trim().toLowerCase() === cleanNeedle
+        ) ||
+        null;
     }
   }
 
   if (!matchedInstaller) {
+    const msg = `Akun teknisi "${effInstallerName}" tidak ditemukan di direktori Installer.`;
+    logFail('INSTALLER_LOOKUP', 'INVALID_INPUT', msg);
     return {
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: `Akun teknisi "${effInstallerName}" tidak ditemukan di direktori Installer.`
+        httpStatus: 400,
+        message: msg,
+        details: { stage: 'INSTALLER_LOOKUP', requestId }
       }
     };
   }
   if (!matchedInstaller.active || matchedInstaller.isDeleted) {
+    const msg = `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`;
+    logFail('INSTALLER_STATUS_CHECK', 'INVALID_INPUT', msg);
     return {
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`
+        httpStatus: 400,
+        message: msg,
+        details: { stage: 'INSTALLER_STATUS_CHECK', installerId: matchedInstaller.id, requestId }
       }
     };
   }
-  const instContr = String(matchedInstaller.contractorId || matchedInstaller.contractor || '').trim();
-  const instContrName = String(matchedInstaller.contractor || '').trim();
-  if (userContractor && (!instContr || (!isContractorMatch(instContr, userContractor) && (!instContrName || !isContractorMatch(instContrName, userContractor))))) {
-    return {
-      success: false,
-      error: {
-        code: 'SCOPE_MISMATCH',
-        message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
-      }
-    };
+
+  if (userContractor || userContractorId) {
+    const instContrOk = doesContractorScopeMatch({
+      userContractorId,
+      userContractorName: userContractor,
+      targetContractorId: matchedInstaller.contractorId,
+      targetContractorName: matchedInstaller.contractor
+    });
+    if (!instContrOk) {
+      const msg = `Teknisi "${matchedInstaller.name}" (${formatScopeLabel(matchedInstaller.contractor, matchedInstaller.contractorId)}) berada di luar cakupan Contractor Anda (${leaderScopeLabel}).`;
+      logFail('INSTALLER_SCOPE_CHECK', 'SCOPE_MISMATCH', msg);
+      return {
+        success: false,
+        error: {
+          code: 'SCOPE_MISMATCH',
+          httpStatus: 403,
+          message: msg,
+          details: { stage: 'INSTALLER_SCOPE_CHECK', installerId: matchedInstaller.id, requestId }
+        }
+      };
+    }
   }
   if (userArea && matchedInstaller.area && !isAreaMatch(matchedInstaller.area, userArea)) {
+    const msg = `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`;
+    logFail('INSTALLER_AREA_CHECK', 'SCOPE_MISMATCH', msg);
     return {
       success: false,
       error: {
         code: 'SCOPE_MISMATCH',
-        message: `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`
+        httpStatus: 403,
+        message: msg,
+        details: { stage: 'INSTALLER_AREA_CHECK', installerId: matchedInstaller.id, requestId }
       }
     };
   }
+
   resolvedInstallerId = matchedInstaller.id;
   resolvedInstallerName = matchedInstaller.name;
+
+  // 2c. Safe idempotency guard against accidental duplicate clicks for exact same active assignment
+  const existingInstallerId = String(targetWO.installerId || targetWO.installerUid || targetWO.assignedToUid || '').trim();
+  const existingInstallerName = String(targetWO.installerName || '').trim().toLowerCase();
+  const requestedSlot = String(slotTime || '').trim();
+  const existingSlot = String(targetWO.slotTime || '').trim();
+  const hasNewRemarks = Boolean(remarks && String(remarks).trim());
+  if (
+    resolvedInstallerId &&
+    existingInstallerId === resolvedInstallerId &&
+    existingInstallerName === resolvedInstallerName.trim().toLowerCase() &&
+    (!requestedSlot || requestedSlot === existingSlot) &&
+    !hasNewRemarks &&
+    String(targetWO.statusWOInstaller || '').trim().toLowerCase() !== 'unassigned'
+  ) {
+    return {
+      success: true,
+      data: {
+        workOrder: targetWO,
+        history: null,
+        idempotent: true
+      }
+    };
+  }
 
   // 3. Snapshot original state for rollback compensation
   const originalState: Record<string, any> = {
@@ -5417,9 +5646,20 @@ export async function assignTicketInSupabase(
   // 4. Update Work Order in Supabase
   const updateRes = await updateWorkOrderInSupabase(targetWO.id, woUpdates);
   if (!updateRes.success) {
+    const errObj = updateRes.error || { code: 'WO_UPDATE_FAILED', message: 'Gagal memperbarui data penugasan Work Order di Supabase.' };
+    logFail('WO_UPDATE', errObj.code, errObj.message, { workOrderId: targetWO.id, woNumber: targetWO.woNumber });
     return {
       success: false,
-      error: updateRes.error || { code: 'WO_UPDATE_FAILED', message: 'Gagal memperbarui data penugasan Work Order di Supabase.' }
+      error: {
+        ...errObj,
+        details: {
+          ...(typeof errObj.details === 'object' && errObj.details ? errObj.details : { rawDetails: errObj.details }),
+          stage: 'WO_UPDATE',
+          workOrderId: targetWO.id,
+          woNumber: targetWO.woNumber,
+          requestId
+        }
+      }
     };
   }
 
@@ -5427,11 +5667,13 @@ export async function assignTicketInSupabase(
   const historyEntry = {
     workOrderId: targetWO.id,
     woNumber: targetWO.woNumber,
-    contractorName: targetWO.contactorName || targetWO.contractorName || userContractor || 'MoraJaws Partner',
+    contractorId: woContrId || matchedInstaller.contractorId || userContractorId || null,
+    contractorName: woContrName || userContractor || matchedInstaller.contractor || 'MoraJaws Partner',
     leaderName: performedBy,
     leaderId: performedById || null,
     previousInstallerName: targetWO.installerName || null,
     installerName: resolvedInstallerName,
+    installerContact: matchedInstaller.phone || null,
     slotTime: slotTime || targetWO.slotTime,
     appointmentDate: targetWO.appointmentDate,
     sourceAction: 'initial_assignment',
@@ -5439,6 +5681,7 @@ export async function assignTicketInSupabase(
     newStatus: nextStatus,
     reason: reason || 'Penugasan awal oleh Leader',
     notes: remarks || null,
+    performedById: performedById || null,
     performedBy,
     performedByRole
   };
@@ -5447,13 +5690,16 @@ export async function assignTicketInSupabase(
   if (!histRes.success) {
     const rollbackRes = await updateWorkOrderInSupabase(targetWO.id, originalState);
     if (!rollbackRes.success) {
-      console.error(`[CRITICAL PARTIAL FAILURE] WO ${targetWO.id} (${targetWO.woNumber}) assignment update succeeded, but assignment history failed AND compensating rollback failed! Rollback error: ${rollbackRes.error?.message}`);
+      console.error(`[CRITICAL PARTIAL FAILURE] req=${requestId || '-'} WO ${targetWO.id} (${targetWO.woNumber}) assignment update succeeded, but assignment history failed AND compensating rollback failed! Rollback error: ${rollbackRes.error?.message}`);
       return {
         success: false,
         error: {
           code: 'ASSIGNMENT_PARTIAL_FAILURE_INCONSISTENT',
+          httpStatus: 500,
           message: `Gagal menyimpan riwayat penugasan ke database Supabase dan pembatalan (rollback) juga gagal. Work Order ${targetWO.woNumber} berada dalam status inkonsisten (partial failure) dan memerlukan investigasi administrator.`,
           details: {
+            stage: 'ROLLBACK',
+            requestId,
             historyError: histRes.error,
             rollbackSucceeded: false,
             rollbackError: rollbackRes.error,
@@ -5466,13 +5712,16 @@ export async function assignTicketInSupabase(
       };
     }
 
-    console.warn(`[Compensating Rollback] WO update reverted for ${targetWO.id} due to history insert failure: ${histRes.error?.message}. Rollback succeeded.`);
+    console.warn(`[Compensating Rollback] req=${requestId || '-'} WO update reverted for ${targetWO.id} due to history insert failure: ${histRes.error?.message}. Rollback succeeded.`);
     return {
       success: false,
       error: {
         code: 'ASSIGNMENT_HISTORY_FAILED',
-        message: 'Gagal menyimpan riwayat penugasan ke database Supabase. Perubahan Work Order telah berhasil dibatalkan secara kompensatoris.',
+        httpStatus: histRes.error?.isUnavailable ? 503 : 500,
+        message: `Gagal menyimpan riwayat penugasan (${histRes.error?.message || 'error database'}). Perubahan Work Order telah dibatalkan secara kompensatoris.`,
         details: {
+          stage: 'HISTORY_INSERT',
+          requestId,
           historyError: histRes.error,
           rollbackSucceeded: true,
           partialFailure: false,
@@ -5513,32 +5762,36 @@ export async function reassignTicketInSupabase(
     performedByRole,
     performedById,
     userContractor,
+    userContractorId,
     userArea,
-    userRole
+    userRole,
+    requestId
   } = options;
 
-  if (userRole && userRole !== 'leader') {
+  if (userRole && String(userRole).trim().toLowerCase() !== 'leader') {
     return {
       success: false,
       error: {
         code: 'REQUIRE_LEADER_ROLE',
-        message: 'Akses Ditolak: Hanya role Leader yang berwenang melakukan reassign teknisi.'
+        httpStatus: 403,
+        message: 'Akses Ditolak: Hanya role Leader yang berwenang melakukan reassign teknisi.',
+        details: { stage: 'ROLE_CHECK', requestId }
       }
     };
   }
 
   const effNewInstaller = (newInstallerName || options.installerName || newInstallerId || installerId || '').trim();
   if (!effNewInstaller) {
-    return { success: false, error: { code: 'INVALID_INPUT', message: 'Teknisi baru tujuan wajib dipilih.' } };
+    return { success: false, error: { code: 'INVALID_INPUT', httpStatus: 400, message: 'Teknisi baru tujuan wajib dipilih.', details: { stage: 'VALIDATION', requestId } } };
   }
 
   if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
-    return { success: false, error: { code: 'INVALID_REASON', message: 'Alasan reassign wajib diisi minimal 5 karakter untuk keperluan audit.' } };
+    return { success: false, error: { code: 'INVALID_REASON', httpStatus: 400, message: 'Alasan reassign wajib diisi minimal 5 karakter untuk keperluan audit.', details: { stage: 'VALIDATION', requestId } } };
   }
 
   const cleanKey = (workOrderIdOrWoNumber || options.ticketIdOrWoNumber || '').trim();
   if (!cleanKey) {
-    return { success: false, error: { code: 'INVALID_ID', message: 'WO Number atau ID Tiket wajib disertakan.' } };
+    return { success: false, error: { code: 'INVALID_ID', httpStatus: 400, message: 'WO Number atau ID Tiket wajib disertakan.', details: { stage: 'VALIDATION', requestId } } };
   }
 
   if (PROTECTED_PRODUCTION_WO_IDS.has(cleanKey)) {
@@ -5546,14 +5799,16 @@ export async function reassignTicketInSupabase(
       success: false,
       error: {
         code: 'PROTECTED_PRODUCTION_RECORD',
-        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.'
+        httpStatus: 403,
+        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.',
+        details: { stage: 'PROTECTED_CHECK', requestId }
       }
     };
   }
 
   const client = getSupabaseBackendClient();
   if (!client) {
-    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.', isUnavailable: true } };
+    return { success: false, error: { code: 'NOT_CONFIGURED', httpStatus: 503, message: 'Supabase client belum dikonfigurasi.', isUnavailable: true, details: { stage: 'DB_CLIENT', requestId } } };
   }
 
   // 1. Fetch current WO from Supabase
@@ -5567,9 +5822,9 @@ export async function reassignTicketInSupabase(
       targetTicket = supaByWo.data;
     } else {
       if (supaGet.error?.isUnavailable || supaByWo.error?.isUnavailable) {
-        return { success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.', isUnavailable: true } };
+        return { success: false, error: { code: 'DATABASE_UNAVAILABLE', httpStatus: 503, message: 'Database authoritative Supabase tidak tersedia.', isUnavailable: true, details: { stage: 'WO_LOOKUP', requestId } } };
       }
-      return { success: false, error: { code: 'NOT_FOUND', isNotFound: true, message: `Work Order "${cleanKey}" tidak ditemukan di database Supabase.` } };
+      return { success: false, error: { code: 'NOT_FOUND', httpStatus: 404, isNotFound: true, message: `Work Order "${cleanKey}" tidak ditemukan di database Supabase.`, details: { stage: 'WO_LOOKUP', requestId } } };
     }
   }
 
@@ -5578,29 +5833,55 @@ export async function reassignTicketInSupabase(
       success: false,
       error: {
         code: 'PROTECTED_RECORD',
-        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.'
+        httpStatus: 403,
+        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang dimutasi.',
+        details: { stage: 'PROTECTED_CHECK', requestId }
       }
     };
   }
 
-  // 2. Validate contractor & area scope for Leader (fail closed when WO contractor/area is empty)
-  const woContr = String(targetTicket.contactorName || targetTicket.contractorName || contractorName || '').trim();
+  if (targetTicket.isDeleted || targetTicket.isArchived) {
+    return {
+      success: false,
+      error: {
+        code: 'WO_DELETED_OR_ARCHIVED',
+        httpStatus: 409,
+        message: `Work Order ${targetTicket.woNumber || targetTicket.id} sudah dihapus atau diarsipkan sehingga tidak dapat direassign.`,
+        details: { stage: 'WO_STATE_CHECK', requestId }
+      }
+    };
+  }
+
+  // 2. Validate contractor & area scope for Leader (supports both contractorId & free-text contractor name; fails closed when empty)
+  const woContrName = String(targetTicket.contactorName || targetTicket.contractorName || contractorName || '').trim();
+  const woContrId = String(targetTicket.contractorId || '').trim();
+  const leaderScopeLabel = formatScopeLabel(userContractor, userContractorId);
   if (userRole === 'leader') {
-    if (!userContractor || !woContr || !isContractorMatch(woContr, userContractor)) {
+    const contractorOk = doesContractorScopeMatch({
+      userContractorId,
+      userContractorName: userContractor,
+      targetContractorId: woContrId,
+      targetContractorName: woContrName
+    });
+    if (!contractorOk) {
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Anda hanya dapat mereassign Work Order dalam cakupan mitra kontraktor Anda (${userContractor || '-'}).`
+          httpStatus: 403,
+          message: `Akses Ditolak: Anda hanya dapat mereassign Work Order dalam cakupan mitra kontraktor Anda (${leaderScopeLabel}).`,
+          details: { stage: 'WO_SCOPE_CHECK', requestId }
         }
       };
     }
-    if (userArea && (!targetTicket.area || !isAreaMatch(targetTicket.area, userArea))) {
+    if (!doesAreaScopeMatch(userArea, targetTicket.area)) {
       return {
         success: false,
         error: {
           code: 'SCOPE_MISMATCH',
-          message: `Akses Ditolak: Work Order ${targetTicket.woNumber} berada di area "${targetTicket.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`
+          httpStatus: 403,
+          message: `Akses Ditolak: Work Order ${targetTicket.woNumber} berada di area "${targetTicket.area || 'Kosong'}", di luar cakupan wilayah Anda (${userArea}).`,
+          details: { stage: 'WO_AREA_CHECK', requestId }
         }
       };
     }
@@ -5615,33 +5896,57 @@ export async function reassignTicketInSupabase(
       success: false,
       error: {
         code: 'DATABASE_UNAVAILABLE',
+        httpStatus: 503,
         message: 'Gagal memverifikasi akun Installer tujuan dari database Supabase.',
-        isUnavailable: true
+        isUnavailable: true,
+        details: { stage: 'INSTALLER_LOOKUP', requestId }
       }
     };
   }
 
-  const allInstallers = usersRes.data.filter(u => u.role === 'installer');
+  const allInstallers = usersRes.data.filter(u => String(u.role || '').trim().toLowerCase() === 'installer');
   let matchedInstaller: any = null;
   if (resolvedNewInstallerId) {
     matchedInstaller = allInstallers.find(u => u.id === resolvedNewInstallerId) || null;
   } else {
     const cleanNeedle = effNewInstaller.toLowerCase();
-    const byUsername = allInstallers.filter(u => !u.isDeleted && u.username.trim().toLowerCase() === cleanNeedle);
+    const byUsername = allInstallers.filter(u => !u.isDeleted && String(u.username || '').trim().toLowerCase() === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
-      const byName = allInstallers.filter(u => !u.isDeleted && u.name.trim().toLowerCase() === cleanNeedle);
-      if (byName.length > 1) {
+      const activeByName = allInstallers.filter(
+        u => !u.isDeleted && u.active !== false && String(u.name || '').trim().toLowerCase() === cleanNeedle
+      );
+      const scopedActiveByName = (userContractor || userContractorId)
+        ? activeByName.filter(u =>
+            doesContractorScopeMatch({
+              userContractorId,
+              userContractorName: userContractor,
+              targetContractorId: u.contractorId,
+              targetContractorName: u.contractor
+            })
+          )
+        : activeByName;
+      const candidateList = scopedActiveByName.length > 0 ? scopedActiveByName : activeByName;
+      if (candidateList.length > 1) {
         return {
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: `Nama teknisi "${effNewInstaller}" ambigu (${byName.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`
+            httpStatus: 400,
+            message: `Nama teknisi "${effNewInstaller}" ambigu (${candidateList.length} akun ditemukan). Pilih teknisi menggunakan ID akun yang spesifik.`,
+            details: { stage: 'INSTALLER_LOOKUP', requestId }
           }
         };
       }
-      matchedInstaller = byName[0] || allInstallers.find(u => u.name.trim().toLowerCase() === cleanNeedle || u.username.trim().toLowerCase() === cleanNeedle) || null;
+      matchedInstaller =
+        candidateList[0] ||
+        allInstallers.find(
+          u =>
+            String(u.name || '').trim().toLowerCase() === cleanNeedle ||
+            String(u.username || '').trim().toLowerCase() === cleanNeedle
+        ) ||
+        null;
     }
   }
 
@@ -5650,7 +5955,9 @@ export async function reassignTicketInSupabase(
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: `Akun teknisi "${effNewInstaller}" tidak ditemukan di direktori Installer.`
+        httpStatus: 400,
+        message: `Akun teknisi "${effNewInstaller}" tidak ditemukan di direktori Installer.`,
+        details: { stage: 'INSTALLER_LOOKUP', requestId }
       }
     };
   }
@@ -5659,27 +5966,39 @@ export async function reassignTicketInSupabase(
       success: false,
       error: {
         code: 'INVALID_INPUT',
-        message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`
+        httpStatus: 400,
+        message: `Teknisi "${matchedInstaller.name}" sedang tidak aktif atau telah dihapus dari sistem.`,
+        details: { stage: 'INSTALLER_STATUS_CHECK', requestId }
       }
     };
   }
-  const instContr = String(matchedInstaller.contractorId || matchedInstaller.contractor || '').trim();
-  const instContrName = String(matchedInstaller.contractor || '').trim();
-  if (userContractor && (!instContr || (!isContractorMatch(instContr, userContractor) && (!instContrName || !isContractorMatch(instContrName, userContractor))))) {
-    return {
-      success: false,
-      error: {
-        code: 'SCOPE_MISMATCH',
-        message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${userContractor}).`
-      }
-    };
+  if (userContractor || userContractorId) {
+    const instContrOk = doesContractorScopeMatch({
+      userContractorId,
+      userContractorName: userContractor,
+      targetContractorId: matchedInstaller.contractorId,
+      targetContractorName: matchedInstaller.contractor
+    });
+    if (!instContrOk) {
+      return {
+        success: false,
+        error: {
+          code: 'SCOPE_MISMATCH',
+          httpStatus: 403,
+          message: `Teknisi "${matchedInstaller.name}" berada di luar cakupan Contractor Anda (${leaderScopeLabel}).`,
+          details: { stage: 'INSTALLER_SCOPE_CHECK', requestId }
+        }
+      };
+    }
   }
   if (userArea && matchedInstaller.area && !isAreaMatch(matchedInstaller.area, userArea)) {
     return {
       success: false,
       error: {
         code: 'SCOPE_MISMATCH',
-        message: `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`
+        httpStatus: 403,
+        message: `Teknisi "${matchedInstaller.name}" (${matchedInstaller.area}) berada di luar cakupan Area Anda (${userArea}).`,
+        details: { stage: 'INSTALLER_AREA_CHECK', requestId }
       }
     };
   }
@@ -5740,11 +6059,13 @@ export async function reassignTicketInSupabase(
   const historyEntry = {
     workOrderId: targetTicket.id,
     woNumber: targetTicket.woNumber,
-    contractorName: userContractor || targetTicket.contactorName || targetTicket.contractorName || contractorName || 'Mitra Lapangan',
+    contractorId: woContrId || matchedInstaller.contractorId || userContractorId || null,
+    contractorName: woContrName || userContractor || contractorName || 'Mitra Lapangan',
     leaderName: performedBy,
     leaderId: performedById || null,
     previousInstallerName: previousInstallerName?.trim() || targetTicket.installerName || 'Teknisi Sebelumnya',
     installerName: resolvedNewInstallerName,
+    installerContact: matchedInstaller.phone || null,
     slotTime: targetTicket.slotTime,
     appointmentDate: targetTicket.appointmentDate,
     sourceAction: 'reassign',
@@ -5752,6 +6073,7 @@ export async function reassignTicketInSupabase(
     newStatus: preservedStatus,
     reason: reason.trim(),
     notes: reason.trim(),
+    performedById: performedById || null,
     performedBy,
     performedByRole
   };
@@ -5760,13 +6082,16 @@ export async function reassignTicketInSupabase(
   if (!histRes.success) {
     const rollbackRes = await updateWorkOrderInSupabase(targetTicket.id, originalState);
     if (!rollbackRes.success) {
-      console.error(`[CRITICAL PARTIAL FAILURE] WO ${targetTicket.id} (${targetTicket.woNumber}) reassign update succeeded, but assignment history failed AND compensating rollback failed! Rollback error: ${rollbackRes.error?.message}`);
+      console.error(`[CRITICAL PARTIAL FAILURE] req=${requestId || '-'} WO ${targetTicket.id} (${targetTicket.woNumber}) reassign update succeeded, but assignment history failed AND compensating rollback failed! Rollback error: ${rollbackRes.error?.message}`);
       return {
         success: false,
         error: {
           code: 'REASSIGN_PARTIAL_FAILURE_INCONSISTENT',
+          httpStatus: 500,
           message: `Gagal menyimpan riwayat penugasan ke database Supabase dan pembatalan (rollback) juga gagal. Work Order ${targetTicket.woNumber} berada dalam status inkonsisten (partial failure) dan memerlukan rekonsiliasi manual.`,
           details: {
+            stage: 'ROLLBACK',
+            requestId,
             historyError: histRes.error,
             rollbackSucceeded: false,
             rollbackError: rollbackRes.error,
@@ -5779,13 +6104,16 @@ export async function reassignTicketInSupabase(
       };
     }
 
-    console.warn(`[Compensating Rollback] Reassign update reverted for ${targetTicket.id} due to history failure: ${histRes.error?.message}. Rollback succeeded.`);
+    console.warn(`[Compensating Rollback] req=${requestId || '-'} Reassign update reverted for ${targetTicket.id} due to history failure: ${histRes.error?.message}. Rollback succeeded.`);
     return {
       success: false,
       error: {
         code: 'REASSIGN_HISTORY_FAILED',
+        httpStatus: histRes.error?.isUnavailable ? 503 : 500,
         message: 'Gagal menyimpan riwayat penugasan ke database authoritative Supabase. Perubahan Work Order telah berhasil dibatalkan secara kompensatoris.',
         details: {
+          stage: 'HISTORY_INSERT',
+          requestId,
           historyError: histRes.error,
           rollbackSucceeded: true,
           partialFailure: false,

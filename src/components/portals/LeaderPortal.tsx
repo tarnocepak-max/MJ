@@ -97,6 +97,10 @@ import { LeaderReassignView } from './LeaderReassignView';
 import { LeaderTwoStepReassignModal } from './LeaderTwoStepReassignModal';
 import { StitchLeaderCommandHub } from './StitchLeaderCommandHub';
 import {
+  isContractorScopeMatchClient,
+  isTicketInLeaderScope
+} from '../../services/assignmentClientHelpers';
+import {
   fetchLeaderQuotaConfig,
   saveLeaderQuotaConfig,
   fetchLeaderAssignmentFeed,
@@ -421,6 +425,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [isDailyLimitModalOpen, setIsDailyLimitModalOpen] = useState(false);
   const [isBulkReassignModalOpen, setIsBulkReassignModalOpen] = useState(false);
   const [isSubmittingBulkReassign, setIsSubmittingBulkReassign] = useState(false);
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
   const [isAuditTrailModalOpen, setIsAuditTrailModalOpen] = useState(false);
   const [bulkTargetInstaller, setBulkTargetInstaller] = useState<string>('');
   const [bulkSlotTime, setBulkSlotTime] = useState<string>('');
@@ -536,35 +541,38 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
-  // Scoped tickets for this Leader's contractor & area (plus direct leaderId/leaderName match)
+  // Scoped tickets for this Leader's contractor (ID or name) & area (plus direct leaderId/leaderName match)
   const contractorTickets = useMemo(() => {
     return currentUser.role === 'super_admin'
       ? tickets.filter(t => !t.isArchived && !t.isDeleted)
       : tickets.filter(t => {
           if (t.isArchived || t.isDeleted) return false;
+          if (isTicketInLeaderScope(t, currentUser)) return true;
+          const directLeaderAssigned =
+            (t.leaderId && t.leaderId === currentUser.id) ||
+            (t.leaderName && isScopeTextMatch(t.leaderName, currentUser.name));
+          if (!directLeaderAssigned) return false;
           const cName = t.contactorName || t.contractorName || '';
-          const contractorMatched = !leaderContractor || isScopeTextMatch(cName, leaderContractor);
-          if (!contractorMatched) return false;
-          if (leaderArea && t.area && !isScopeTextMatch(t.area, leaderArea)) {
-            const directLeaderAssigned =
-              (t.leaderId && t.leaderId === currentUser.id) ||
-              (t.leaderName && isScopeTextMatch(t.leaderName, currentUser.name));
-            if (!directLeaderAssigned) return false;
-          }
-          return true;
+          if (!leaderContractor && !currentUser.contractorId) return true;
+          return isContractorScopeMatchClient(currentUser.contractorId, leaderContractor, t.contractorId, cName);
         });
-  }, [tickets, currentUser.role, currentUser.id, currentUser.name, leaderContractor, leaderArea]);
+  }, [tickets, currentUser, leaderContractor]);
 
-  // Active installers belonging to this contractor & area scope
+  // Active installers belonging to this contractor (ID or name) & area scope
   const myInstallers = useMemo(() => {
     return users.filter(u => {
-      if (u.role !== 'installer' || u.active === false || u.isArchived) return false;
+      if (String(u.role || '').trim().toLowerCase() !== 'installer' || u.active === false || u.isArchived || u.isDeleted) return false;
       if (currentUser.role === 'super_admin') return true;
-      if (leaderContractor && !isScopeTextMatch(u.contractor, leaderContractor)) return false;
+      if (
+        (currentUser.contractorId || leaderContractor) &&
+        !isContractorScopeMatchClient(currentUser.contractorId, leaderContractor, u.contractorId, u.contractor)
+      ) {
+        return false;
+      }
       if (leaderArea && u.area && !isScopeTextMatch(u.area, leaderArea)) return false;
       return true;
     });
-  }, [users, currentUser.role, leaderContractor, leaderArea]);
+  }, [users, currentUser.role, currentUser.contractorId, leaderContractor, leaderArea]);
 
   const triggerNotice = (type: 'success' | 'error' | 'warning', text: string) => {
     setNotice({ type, text });
@@ -1104,12 +1112,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   };
 
   // Single Ticket Assignment (Leader Only)
-  const handleAssignTicket = (ticket: Ticket, installerName: string, slotTime?: string, bypassWarning = false) => {
+  const handleAssignTicket = async (ticket: Ticket, installerName: string, slotTime?: string, bypassWarning = false) => {
     if (!isLeaderRole) {
       toast.error('Hanya akun dengan peran Leader yang berwenang melakukan assign teknisi.', 'Akses Ditolak');
       return;
     }
-    if (!installerName) return;
+    if (!installerName || isSubmittingAssign) return;
 
     const installerUser = myInstallers.find(
       u => u.name.toLowerCase().trim() === installerName.toLowerCase().trim()
@@ -1138,30 +1146,41 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       }
     }
 
-    assignTicketPersonnel(ticket.id, currentUser.name, installerName);
+    setIsSubmittingAssign(true);
+    try {
+      const res = await assignTicketPersonnel(ticket.id, currentUser.name, installerName, installerUser?.id);
+      if (!res.success) {
+        triggerNotice('error', res.error || `Gagal menugaskan WO ${ticket.woNumber} ke ${installerName}.`);
+        return;
+      }
 
-    triggerNotice(
-      'success',
-      `WO ${ticket.woNumber} berhasil ditugaskan ke teknisi ${installerName}!`
-    );
+      const persistedTicket = res.workOrders?.[0] || ticket;
+      triggerNotice(
+        'success',
+        `WO ${persistedTicket.woNumber} berhasil ditugaskan ke teknisi ${persistedTicket.installerName || installerName}!`
+      );
 
-    if (installerUser) {
-      const msg = buildInstallerAssignmentMessage(ticket, installerUser);
-      setAssignmentNoticeModal({
-        ticket,
-        installer: installerUser,
-        renderedMessage: msg,
-        targetPhone: installerUser.phone || ''
-      });
+      if (installerUser) {
+        const msg = buildInstallerAssignmentMessage(persistedTicket, installerUser);
+        setAssignmentNoticeModal({
+          ticket: persistedTicket,
+          installer: installerUser,
+          renderedMessage: msg,
+          targetPhone: installerUser.phone || ''
+        });
+      }
+    } finally {
+      setIsSubmittingAssign(false);
     }
   };
 
   // Bulk Assign Confirmation Execution (Leader Only)
-  const handleExecuteBulkAssignModal = () => {
+  const handleExecuteBulkAssignModal = async () => {
     if (!isLeaderRole) {
       toast.error('Hanya akun dengan peran Leader yang berwenang melakukan bulk assign teknisi.', 'Akses Ditolak');
       return;
     }
+    if (isSubmittingAssign) return;
     if (!bulkTargetInstaller) {
       toast.error('Pilih teknisi tujuan penugasan.', 'Validasi Gagal');
       return;
@@ -1172,15 +1191,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       return;
     }
 
-    const res = bulkAssignPersonnel(selectedTicketIds, currentUser.name, bulkTargetInstaller, bulkSlotTime || undefined);
-    if (res.success) {
-      toast.success(`Berhasil menugaskan ${res.count} Work Order ke teknisi ${bulkTargetInstaller}.`, 'Penugasan Sukses');
+    const targetInst = myInstallers.find(u => u.name === bulkTargetInstaller);
+    const targetIdsSnapshot = [...selectedTicketIds];
+
+    setIsSubmittingAssign(true);
+    try {
+      const res = await bulkAssignPersonnel(
+        targetIdsSnapshot,
+        currentUser.name,
+        bulkTargetInstaller,
+        bulkSlotTime || undefined,
+        undefined,
+        targetInst?.id
+      );
+      if (!res.success) {
+        triggerNotice('error', res.error || 'Penugasan massal gagal disimpan ke server.');
+        return;
+      }
+
+      triggerNotice('success', `Berhasil menugaskan ${res.count} Work Order ke teknisi ${bulkTargetInstaller}.`);
       setSelectedTicketIds([]);
       setIsBulkAssignModalOpen(false);
 
-      const targetInst = myInstallers.find(u => u.name === bulkTargetInstaller);
-      if (targetInst && selectedTicketIds.length === 1) {
-        const t = contractorTickets.find(item => item.id === selectedTicketIds[0]);
+      if (targetInst && targetIdsSnapshot.length === 1) {
+        const t = res.workOrders?.[0] || contractorTickets.find(item => item.id === targetIdsSnapshot[0]);
         if (t) {
           const msg = buildInstallerAssignmentMessage(t, targetInst);
           setAssignmentNoticeModal({
@@ -1191,15 +1225,18 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           });
         }
       }
+    } finally {
+      setIsSubmittingAssign(false);
     }
   };
 
   // Inline Matrix Bulk Quick Assign
-  const handleExecuteBulkQuickAssign = () => {
+  const handleExecuteBulkQuickAssign = async () => {
     if (!isLeaderRole) {
       toast.error('Akses Ditolak: Hanya Leader yang berwenang menugaskan WO.', 'Akses Ditolak');
       return;
     }
+    if (isSubmittingAssign) return;
     if (!bulkQuickInstaller) {
       toast.warning('Pilih teknisi tujuan dari dropdown terlebih dahulu.', 'Pilih Teknisi');
       return;
@@ -1218,20 +1255,35 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       return;
     }
 
-    const res = bulkAssignPersonnel(selectedTicketIds, currentUser.name, bulkQuickInstaller);
-    if (res.success) {
+    setIsSubmittingAssign(true);
+    try {
+      const res = await bulkAssignPersonnel(
+        selectedTicketIds,
+        currentUser.name,
+        bulkQuickInstaller,
+        undefined,
+        undefined,
+        tech?.installer.id
+      );
+      if (!res.success) {
+        triggerNotice('error', res.error || 'Penugasan massal gagal disimpan ke server.');
+        return;
+      }
       setSelectedTicketIds([]);
       setBulkQuickInstaller('');
       triggerNotice('success', `Berhasil menugaskan ${res.count} Work Order ke ${bulkQuickInstaller}.`);
+    } finally {
+      setIsSubmittingAssign(false);
     }
   };
 
   // Auto-Balance Slot Engine (Leader Only, Real Slot Matching + Quota Check)
-  const handleExecuteAutoBalance = () => {
+  const handleExecuteAutoBalance = async () => {
     if (!isLeaderRole) {
       toast.error('Akses Ditolak: Hanya Leader yang berwenang menjalankan Auto-Balance Slot.', 'Akses Ditolak');
       return;
     }
+    if (isSubmittingAssign) return;
     const targetPool =
       selectedTicketIds.length > 0
         ? filteredTickets.filter(t => selectedTicketIds.includes(t.id) && !t.installerName)
@@ -1257,34 +1309,77 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       return;
     }
 
-    // Group planned tickets by chosen technician and dispatch through real bulkAssignPersonnel API
-    const grouped = new Map<string, string[]>();
+    // Group planned tickets by chosen technician and dispatch sequentially through authoritative API
+    const grouped = new Map<string, { installerId: string; installerName: string; ids: string[] }>();
     plan.planned.forEach(item => {
-      const arr = grouped.get(item.installer.name) || [];
-      arr.push(item.ticket.id);
-      grouped.set(item.installer.name, arr);
+      const existing = grouped.get(item.installer.id) || {
+        installerId: item.installer.id,
+        installerName: item.installer.name,
+        ids: []
+      };
+      existing.ids.push(item.ticket.id);
+      grouped.set(item.installer.id, existing);
     });
 
-    let dispatched = 0;
-    grouped.forEach((ids, instName) => {
-      const r = bulkAssignPersonnel(ids, currentUser.name, instName);
-      if (r.success) dispatched += r.count;
-    });
+    setIsSubmittingAssign(true);
+    try {
+      let dispatched = 0;
+      let failedCount = 0;
+      let firstError = '';
+      for (const group of grouped.values()) {
+        const r = await bulkAssignPersonnel(
+          group.ids,
+          currentUser.name,
+          group.installerName,
+          undefined,
+          undefined,
+          group.installerId
+        );
+        dispatched += r.count || 0;
+        if (!r.success) {
+          failedCount += r.failedCount ?? group.ids.length;
+          if (!firstError && r.error) firstError = r.error;
+        }
+      }
 
-    setSelectedTicketIds([]);
-    const skippedNote = plan.skipped.length > 0 ? ` (${plan.skipped.length} WO dilewati karena kuota penuh)` : '';
-    triggerNotice('success', `Auto-Balance Slot selesai: ${dispatched} WO didistribusikan merata ke teknisi siaga${skippedNote}.`);
-    toast.success(`${dispatched} WO berhasil di-balance berdasarkan slot & sisa kuota${skippedNote}.`, 'Auto-Balance Slot');
+      const skippedNote = plan.skipped.length > 0 ? ` (${plan.skipped.length} WO dilewati karena kuota penuh)` : '';
+      if (failedCount > 0) {
+        triggerNotice(
+          'error',
+          `Auto-Balance selesai sebagian: ${dispatched} WO berhasil, ${failedCount} gagal.${firstError ? ` Penyebab: ${firstError}` : ''}`
+        );
+        return;
+      }
+
+      setSelectedTicketIds([]);
+      triggerNotice('success', `Auto-Balance Slot selesai: ${dispatched} WO didistribusikan merata ke teknisi siaga${skippedNote}.`);
+    } finally {
+      setIsSubmittingAssign(false);
+    }
   };
 
   // Direct Assign from Right Sidebar Technician Card
-  const handleDirectAssignToTechnician = (installer: User) => {
-    if (!isLeaderRole) return;
+  const handleDirectAssignToTechnician = async (installer: User) => {
+    if (!isLeaderRole || isSubmittingAssign) return;
     if (selectedTicketIds.length > 0) {
-      const res = bulkAssignPersonnel(selectedTicketIds, currentUser.name, installer.name);
-      if (res.success) {
+      setIsSubmittingAssign(true);
+      try {
+        const res = await bulkAssignPersonnel(
+          selectedTicketIds,
+          currentUser.name,
+          installer.name,
+          undefined,
+          undefined,
+          installer.id
+        );
+        if (!res.success) {
+          triggerNotice('error', res.error || `Gagal menugaskan WO ke ${installer.name}.`);
+          return;
+        }
         setSelectedTicketIds([]);
         triggerNotice('success', `${res.count} WO terpilih berhasil ditugaskan langsung ke ${installer.name}.`);
+      } finally {
+        setIsSubmittingAssign(false);
       }
       return;
     }
@@ -1293,7 +1388,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       toast.info('Tidak ada WO Unassigned yang tersedia untuk ditugaskan saat ini.', 'Semua Terjadwal');
       return;
     }
-    handleAssignTicket(firstUnassigned, installer.name, firstUnassigned.slotTime);
+    await handleAssignTicket(firstUnassigned, installer.name, firstUnassigned.slotTime);
   };
 
   // Bulk Reassign Execution via POST /api/tickets/bulk-reassign
@@ -2527,8 +2622,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               onExecuteBulkQuickAssign={handleExecuteBulkQuickAssign}
               onExecuteAutoBalance={handleExecuteAutoBalance}
               isLeaderRole={isLeaderRole}
+              isSubmittingAssign={isSubmittingAssign}
               onInlineAssign={(ticket, installerName) => {
-                handleAssignTicket(ticket, installerName, ticket.slotTime);
+                void handleAssignTicket(ticket, installerName, ticket.slotTime);
               }}
               onOpenReassignModal={handleOpenReassignModal}
               onOpenWhatsAppModal={ticket => {
@@ -2971,12 +3067,12 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </button>
                 <button
                   type="button"
-                  disabled={!bulkTargetInstaller}
-                  onClick={handleExecuteBulkAssignModal}
-                  className="mj-btn-leader-primary px-5 py-2 text-xs flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={!bulkTargetInstaller || isSubmittingAssign}
+                  onClick={() => void handleExecuteBulkAssignModal()}
+                  className="mj-btn-leader-primary px-5 py-2 text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Konfirmasi Penugasan</span>
+                  <span>{isSubmittingAssign ? 'Menyimpan...' : 'Konfirmasi Penugasan'}</span>
                 </button>
               </div>
             }
@@ -3182,14 +3278,15 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </button>
               <button
                 type="button"
+                disabled={isSubmittingAssign}
                 onClick={() => {
                   const { ticket, installerName, slotTime } = quotaWarningModal;
                   setQuotaWarningModal(null);
-                  handleAssignTicket(ticket, installerName, slotTime, true);
+                  void handleAssignTicket(ticket, installerName, slotTime, true);
                 }}
-                className="mj-btn-leader-warning px-4 py-2 text-xs cursor-pointer"
+                className="mj-btn-leader-warning px-4 py-2 text-xs cursor-pointer disabled:opacity-50"
               >
-                Tetap Tugaskan
+                {isSubmittingAssign ? 'Menyimpan...' : 'Tetap Tugaskan'}
               </button>
             </div>
           ) : undefined
@@ -3239,15 +3336,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         onClose={() => setIsUploadAssignModalOpen(false)}
         contractorTickets={contractorTickets}
         myInstallers={myInstallers}
-        onExecuteBulkAssign={assignments => {
+        onExecuteBulkAssign={async assignments => {
           if (!isLeaderRole) {
             toast.error('Hanya akun dengan peran Leader yang berwenang melakukan assign teknisi.', 'Akses Ditolak');
             return;
           }
-          assignments.forEach(a => {
-            assignTicketPersonnel(a.ticketId, currentUser.name, a.installerName);
-          });
-          toast.success(`Berhasil memproses penugasan untuk ${assignments.length} Work Order.`, 'Upload Assign Sukses');
+          if (isSubmittingAssign) return;
+          setIsSubmittingAssign(true);
+          try {
+            let okCount = 0;
+            let failCount = 0;
+            for (const a of assignments) {
+              const inst = myInstallers.find(u => u.name.toLowerCase().trim() === a.installerName.toLowerCase().trim());
+              const r = await assignTicketPersonnel(a.ticketId, currentUser.name, a.installerName, inst?.id);
+              if (r.success) okCount += r.count || 1;
+              else failCount += 1;
+            }
+            if (failCount === 0 && okCount > 0) {
+              triggerNotice('success', `Berhasil menyimpan penugasan untuk ${okCount} Work Order.`);
+            } else if (failCount > 0) {
+              triggerNotice('error', `${okCount} WO berhasil disimpan, ${failCount} gagal disimpan ke server.`);
+            }
+          } finally {
+            setIsSubmittingAssign(false);
+          }
         }}
       />
 

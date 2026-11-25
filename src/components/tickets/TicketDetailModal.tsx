@@ -1395,9 +1395,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                         {currentUser.role === 'leader' && (
                           <select
                             value={ticket.installerName || ''}
-                            onChange={e => {
+                            onChange={async e => {
                               if (e.target.value !== ticket.installerName) {
-                                assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
+                                await assignTicketPersonnel(ticket.id, currentUser.name, e.target.value);
                               }
                             }}
                             className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded font-semibold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer"

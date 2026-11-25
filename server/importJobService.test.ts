@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  classifyImportSchemaDiagnostic,
   createInMemoryImportTestStore,
   EnterpriseImportEngine,
   ImportServiceError
 } from './importJobService';
+import {
+  resetSupabaseBackendClientForTesting,
+  setSupabaseBackendClientForTesting
+} from './supabaseClient';
 
 function makeSyntheticRows(count: number, prefix = 'WO-UNIT') {
   const rows = [];
@@ -476,4 +481,203 @@ test('Scale contract harness processes 5,000 rows in 500-row batches consistentl
   assert.equal(latest.successfulRows, 5000);
   assert.equal(latest.completedBatches, 10);
   assert.equal(store.getCommittedCount(), 5000);
+});
+
+test('classifyImportSchemaDiagnostic classifies all 6 diagnostic codes cleanly without leaking raw PostgreSQL internals', () => {
+  const secretHostNoise = 'postgres://secret:pw@db.internal.local:5432 SELECT * FROM users';
+
+  const tableMissing = classifyImportSchemaDiagnostic(
+    { code: 'PGRST205', message: `Could not find the table 'public.import_jobs' in the schema cache ${secretHostNoise}` },
+    'import_jobs',
+    'schema_probe'
+  );
+  assert.equal(tableMissing?.diagnosticCode, 'TABLE_MISSING');
+  assert.equal(tableMissing?.code, 'MIGRATION_020_REQUIRED');
+  assert.equal(tableMissing?.diagnosticTarget, 'import_jobs');
+  assert.ok(!tableMissing?.safeMessage.includes(secretHostNoise));
+
+  const rpcMissing = classifyImportSchemaDiagnostic(
+    { code: 'PGRST202', message: `Could not find the function public.morajaws_commit_import_batch_atomic in the schema cache ${secretHostNoise}` },
+    'morajaws_commit_import_batch_atomic',
+    'rpc_probe'
+  );
+  assert.equal(rpcMissing?.diagnosticCode, 'RPC_MISSING');
+  assert.equal(rpcMissing?.code, 'MIGRATION_020_REQUIRED');
+  assert.ok(!rpcMissing?.safeMessage.includes(secretHostNoise));
+
+  const rpcSigMismatch = classifyImportSchemaDiagnostic(
+    {
+      code: 'PGRST202',
+      message: 'Could not find the function public.morajaws_claim_import_batch(p_bad) in the schema cache',
+      hint: `Perhaps you meant to call the function public.morajaws_claim_import_batch(p_job_id) ${secretHostNoise}`
+    },
+    'morajaws_claim_import_batch',
+    'rpc_probe'
+  );
+  assert.equal(rpcSigMismatch?.diagnosticCode, 'RPC_SIGNATURE_MISMATCH');
+  assert.equal(rpcSigMismatch?.code, 'MIGRATION_020_REQUIRED');
+  assert.ok(!rpcSigMismatch?.safeMessage.includes(secretHostNoise));
+
+  const permDenied = classifyImportSchemaDiagnostic(
+    { code: '42501', message: `permission denied for function morajaws_claim_import_batch ${secretHostNoise}` },
+    'morajaws_claim_import_batch',
+    'rpc_probe'
+  );
+  assert.equal(permDenied?.diagnosticCode, 'PERMISSION_DENIED');
+  assert.equal(permDenied?.code, 'PERMISSION_DENIED');
+  assert.equal(permDenied?.retryable, false);
+  assert.ok(!permDenied?.safeMessage.includes(secretHostNoise));
+
+  const dbUnavailable = classifyImportSchemaDiagnostic(
+    { code: 'ENOTFOUND', message: `getaddrinfo ENOTFOUND db.internal.local ${secretHostNoise}` },
+    'import_jobs',
+    'schema_probe'
+  );
+  assert.equal(dbUnavailable?.diagnosticCode, 'DATABASE_UNAVAILABLE');
+  assert.equal(dbUnavailable?.code, 'DATABASE_UNAVAILABLE');
+  assert.equal(dbUnavailable?.retryable, true);
+  assert.ok(!dbUnavailable?.safeMessage.includes(secretHostNoise));
+
+  const invalidSchema = classifyImportSchemaDiagnostic(
+    { code: '42703', message: `column import_batches.locked_by does not exist ${secretHostNoise}` },
+    'import_batches',
+    'schema_probe'
+  );
+  assert.equal(invalidSchema?.diagnosticCode, 'INVALID_SCHEMA');
+  assert.equal(invalidSchema?.code, 'MIGRATION_020_REQUIRED');
+  assert.ok(!invalidSchema?.safeMessage.includes(secretHostNoise));
+});
+
+test('ProductionImportStore.ensureSchemaReady probes all 5 tables and all 7 RPCs and handles IMPORT_JOB_NOT_FOUND probe cleanly', async () => {
+  const probedTables: string[] = [];
+  const probedRpcs: string[] = [];
+
+  const createStubSupabaseClient = (opts?: {
+    failTable?: { name: string; error: any };
+    failRpc?: { name: string; error: any };
+  }) => ({
+    from(table: string) {
+      probedTables.push(table);
+      return {
+        select(_cols: string) {
+          return {
+            limit(_n: number) {
+              if (opts?.failTable?.name === table) {
+                return Promise.resolve({ data: null, error: opts.failTable.error });
+              }
+              return Promise.resolve({ data: [], error: null });
+            }
+          };
+        }
+      };
+    },
+    rpc(fnName: string, _args: Record<string, any>) {
+      probedRpcs.push(fnName);
+      if (opts?.failRpc?.name === fnName) {
+        return Promise.resolve({ data: null, error: opts.failRpc.error });
+      }
+      if (fnName === 'morajaws_claim_import_batch') {
+        return Promise.resolve({ data: { claimed: false, reason: 'JOB_NOT_FOUND' }, error: null });
+      }
+      if (fnName === 'morajaws_find_existing_wo_numbers') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      // All 5 mutating/lifecycle RPCs raise P0001 IMPORT_JOB_NOT_FOUND when invoked with nonexistent probe ID
+      return Promise.resolve({
+        data: null,
+        error: { code: 'P0001', message: 'IMPORT_JOB_NOT_FOUND: __morajaws_migration_020_schema_probe_nonexistent__' }
+      });
+    }
+  });
+
+  try {
+    // 1. Happy path: all 5 tables and all 7 RPCs pass
+    probedTables.length = 0;
+    probedRpcs.length = 0;
+    setSupabaseBackendClientForTesting(createStubSupabaseClient());
+    const okEngine = new EnterpriseImportEngine();
+    await (okEngine as any).store.ensureSchemaReady();
+    assert.deepEqual(
+      probedTables,
+      ['import_jobs', 'import_batches', 'import_staging_rows', 'import_row_errors', 'import_history']
+    );
+    assert.deepEqual(probedRpcs.sort(), [
+      'morajaws_cancel_import_job_atomic',
+      'morajaws_claim_import_batch',
+      'morajaws_commit_import_batch_atomic',
+      'morajaws_fail_claimed_batch_atomic',
+      'morajaws_find_existing_wo_numbers',
+      'morajaws_retry_import_job_atomic',
+      'morajaws_sync_staged_count'
+    ]);
+
+    // 2. Missing table fails cleanly with TABLE_MISSING
+    setSupabaseBackendClientForTesting(
+      createStubSupabaseClient({
+        failTable: {
+          name: 'import_jobs',
+          error: { code: 'PGRST205', message: "Could not find the table 'public.import_jobs' in the schema cache" }
+        }
+      })
+    );
+    const missingTableEngine = new EnterpriseImportEngine();
+    await assert.rejects(
+      () => missingTableEngine.createImportJob({ sourceFile: 'prod.xlsx', totalRows: 2796 }, { id: 'u1', name: 'Dispatch', role: 'dispatch' }),
+      (err: any) => {
+        assert.ok(err instanceof ImportServiceError);
+        assert.equal(err.code, 'MIGRATION_020_REQUIRED');
+        assert.equal(err.diagnosticCode, 'TABLE_MISSING');
+        assert.equal(err.diagnosticTarget, 'import_jobs');
+        assert.equal(err.statusCode, 503);
+        return true;
+      }
+    );
+
+    // 3. Missing 5th/lifecycle RPC (previously unprobed!) is now caught upfront with RPC_MISSING
+    setSupabaseBackendClientForTesting(
+      createStubSupabaseClient({
+        failRpc: {
+          name: 'morajaws_commit_import_batch_atomic',
+          error: { code: '42883', message: 'function public.morajaws_commit_import_batch_atomic(...) does not exist' }
+        }
+      })
+    );
+    const missingRpcEngine = new EnterpriseImportEngine();
+    await assert.rejects(
+      () => missingRpcEngine.createImportJob({ sourceFile: 'prod.xlsx', totalRows: 2796 }, { id: 'u1', name: 'Dispatch', role: 'dispatch' }),
+      (err: any) => {
+        assert.ok(err instanceof ImportServiceError);
+        assert.equal(err.code, 'MIGRATION_020_REQUIRED');
+        assert.equal(err.diagnosticCode, 'RPC_MISSING');
+        assert.equal(err.diagnosticTarget, 'morajaws_commit_import_batch_atomic');
+        assert.equal(err.statusCode, 503);
+        return true;
+      }
+    );
+
+    // 4. Permission denied fails cleanly with PERMISSION_DENIED and retryable=false
+    setSupabaseBackendClientForTesting(
+      createStubSupabaseClient({
+        failRpc: {
+          name: 'morajaws_retry_import_job_atomic',
+          error: { code: '42501', message: 'permission denied for function morajaws_retry_import_job_atomic' }
+        }
+      })
+    );
+    const permEngine = new EnterpriseImportEngine();
+    await assert.rejects(
+      () => permEngine.createImportJob({ sourceFile: 'prod.xlsx', totalRows: 2796 }, { id: 'u1', name: 'Dispatch', role: 'dispatch' }),
+      (err: any) => {
+        assert.ok(err instanceof ImportServiceError);
+        assert.equal(err.code, 'PERMISSION_DENIED');
+        assert.equal(err.diagnosticCode, 'PERMISSION_DENIED');
+        assert.equal(err.diagnosticTarget, 'morajaws_retry_import_job_atomic');
+        assert.equal(err.retryable, false);
+        assert.equal(err.statusCode, 503);
+        return true;
+      }
+    );
+  } finally {
+    resetSupabaseBackendClientForTesting();
+  }
 });

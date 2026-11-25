@@ -74,6 +74,7 @@ interface LeaderAssignMatrixPanelProps {
 
   // Per-card actions
   isLeaderRole: boolean;
+  isSubmittingAssign?: boolean;
   onInlineAssign: (ticket: Ticket, installerName: string) => void;
   onOpenReassignModal: (ticket: Ticket) => void;
   onOpenWhatsAppModal: (ticket: Ticket) => void;
@@ -219,6 +220,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   onExecuteBulkQuickAssign,
   onExecuteAutoBalance,
   isLeaderRole,
+  isSubmittingAssign = false,
   onInlineAssign,
   onOpenReassignModal,
   onOpenWhatsAppModal,
@@ -551,19 +553,20 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
 
               <button
                 type="button"
-                disabled={!bulkQuickInstaller || selectedTicketIds.length === 0}
+                disabled={!bulkQuickInstaller || selectedTicketIds.length === 0 || isSubmittingAssign}
                 onClick={onExecuteBulkQuickAssign}
-                className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>Tugaskan</span>
+                <span>{isSubmittingAssign ? 'Menyimpan...' : 'Tugaskan'}</span>
               </button>
 
               <button
                 type="button"
+                disabled={isSubmittingAssign}
                 onClick={onExecuteAutoBalance}
                 title="Auto-Balance Slot: distribusikan otomatis WO Unassigned sesuai slot waktu & sisa kuota terendah"
-                className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-[#5145A6] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5"
+                className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-[#5145A6] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Wand2 className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-bold">Auto-Balance</span>
@@ -855,9 +858,9 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled={!chosenInstallerName}
+                          disabled={!chosenInstallerName || isSubmittingAssign}
                           onClick={() => {
-                            if (!chosenInstallerName) return;
+                            if (!chosenInstallerName || isSubmittingAssign) return;
                             onInlineAssign(t, chosenInstallerName);
                             setPendingInlineChoice(prev => {
                               const next = { ...prev };
@@ -865,11 +868,15 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                               return next;
                             });
                           }}
-                          className="mj-btn-leader-primary flex-1 py-2.5 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="mj-btn-leader-primary flex-1 py-2.5 px-3 text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Zap className="w-3.5 h-3.5" />
                           <span>
-                            {chosenFirstName ? `Assign Cepat ke ${chosenFirstName}` : 'Assign Teknisi'}
+                            {isSubmittingAssign
+                              ? 'Menyimpan...'
+                              : chosenFirstName
+                              ? `Assign Cepat ke ${chosenFirstName}`
+                              : 'Assign Teknisi'}
                           </span>
                         </button>
 
