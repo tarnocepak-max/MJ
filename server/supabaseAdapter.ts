@@ -2034,7 +2034,10 @@ export async function getWorkOrderByIdFromSupabase(id: string): Promise<Supabase
  * Fetches a single Work Order by WO Number.
  * Searches with case-insensitive whitespace-trimmed query.
  */
-export async function getWorkOrderByWoNumberFromSupabase(woNumber: string): Promise<SupabaseOpResult<any | null>> {
+export async function getWorkOrderByWoNumberFromSupabase(
+  woNumber: string,
+  options: { includeDeleted?: boolean } = {}
+): Promise<SupabaseOpResult<any | null>> {
   const client = getSupabaseBackendClient();
   if (!client) {
     return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
@@ -2046,10 +2049,18 @@ export async function getWorkOrderByWoNumberFromSupabase(woNumber: string): Prom
   }
 
   try {
-    const { data, error } = await client
+    let query = client
       .from('work_orders')
       .select('*')
-      .ilike('wo_number', cleanWo)
+      .ilike('wo_number', cleanWo);
+
+    if (!options.includeDeleted) {
+      query = query.eq('is_deleted', false);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -2067,16 +2078,27 @@ export async function getWorkOrderByWoNumberFromSupabase(woNumber: string): Prom
 /**
  * Fetches a single Work Order by ID or WO Number from Supabase.
  */
-export async function getWorkOrderByIdOrWoNumberFromSupabase(identifier: string): Promise<SupabaseOpResult<any | null>> {
+export async function getWorkOrderByIdOrWoNumberFromSupabase(
+  identifier: string,
+  options: { includeDeleted?: boolean } = {}
+): Promise<SupabaseOpResult<any | null>> {
   if (!identifier || typeof identifier !== 'string' || !identifier.trim()) {
     return { success: false, error: { code: 'INVALID_ID', message: 'ID atau Nomor WO wajib diisi.' } };
   }
   const clean = identifier.trim();
   const byId = await getWorkOrderByIdFromSupabase(clean);
   if (byId.success && byId.data) {
+    if (!options.includeDeleted && byId.data.isDeleted) {
+      // Fall through to check if an active re-imported WO exists with same WO number when active-only is requested;
+      // otherwise return byId if caller handles deleted state or when no active replacement exists.
+      const byActiveWo = await getWorkOrderByWoNumberFromSupabase(clean, options);
+      if (byActiveWo.success && byActiveWo.data) {
+        return byActiveWo;
+      }
+    }
     return byId;
   }
-  return await getWorkOrderByWoNumberFromSupabase(clean);
+  return await getWorkOrderByWoNumberFromSupabase(clean, options);
 }
 
 /**
@@ -3125,6 +3147,8 @@ export async function deleteWorkOrderFromSupabase(
   }
 
   const cleanId = id.trim();
+  const actor = String(deletedBy || '').trim() || 'Superadmin';
+  const cleanReason = String(reason || '').trim() || 'Soft deleted via Superadmin';
 
   if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
     return {
@@ -3137,13 +3161,40 @@ export async function deleteWorkOrderFromSupabase(
   }
 
   try {
-    const { data: existingCheck } = await client
+    let { data: existingCheck, error: lookupError } = await client
       .from('work_orders')
-      .select('id, wo_number')
+      .select('id, wo_number, is_deleted')
       .eq('id', cleanId)
       .maybeSingle();
 
-    if (existingCheck && (PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.id) || PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.wo_number))) {
+    if (!lookupError && !existingCheck) {
+      const normWo = normalizeWoNumber(cleanId);
+      if (normWo) {
+        const byWo = await client
+          .from('work_orders')
+          .select('id, wo_number, is_deleted')
+          .ilike('wo_number', normWo)
+          .eq('is_deleted', false)
+          .limit(1)
+          .maybeSingle();
+        if (!byWo.error && byWo.data) {
+          existingCheck = byWo.data;
+        }
+      }
+    }
+
+    if (lookupError) {
+      return { success: false, error: classifySupabaseError(lookupError) };
+    }
+
+    if (!existingCheck) {
+      return {
+        success: false,
+        error: { code: 'NOT_FOUND', isNotFound: true, message: `Work Order dengan ID "${cleanId}" tidak ditemukan.` }
+      };
+    }
+
+    if (PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.id) || PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.wo_number)) {
       return {
         success: false,
         error: {
@@ -3153,16 +3204,18 @@ export async function deleteWorkOrderFromSupabase(
       };
     }
 
+    const nowIso = new Date().toISOString();
     const { data, error } = await client
       .from('work_orders')
       .update({
         is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: deletedBy || 'System',
-        deletion_reason: reason || 'Soft deleted via Super Admin',
-        updated_at: new Date().toISOString()
+        deleted_at: nowIso,
+        deleted_by: actor,
+        deletion_reason: cleanReason,
+        updated_at: nowIso,
+        updated_by: actor
       })
-      .eq('id', cleanId)
+      .eq('id', existingCheck.id)
       .select('*');
 
     if (error) {
@@ -3273,6 +3326,7 @@ export async function restoreWorkOrderInSupabase(id: string, restoredBy?: string
   }
 
   const cleanId = id.trim();
+  const actor = String(restoredBy || '').trim() || 'Superadmin';
 
   if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
     return {
@@ -3285,13 +3339,40 @@ export async function restoreWorkOrderInSupabase(id: string, restoredBy?: string
   }
 
   try {
-    const { data: existingCheck } = await client
+    let { data: existingCheck, error: lookupError } = await client
       .from('work_orders')
-      .select('id, wo_number')
+      .select('id, wo_number, is_deleted, is_archived')
       .eq('id', cleanId)
       .maybeSingle();
 
-    if (existingCheck && (PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.id) || PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.wo_number))) {
+    if (!lookupError && !existingCheck) {
+      const normWo = normalizeWoNumber(cleanId);
+      if (normWo) {
+        const byWo = await client
+          .from('work_orders')
+          .select('id, wo_number, is_deleted, is_archived')
+          .ilike('wo_number', normWo)
+          .order('deleted_at', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
+        if (!byWo.error && byWo.data) {
+          existingCheck = byWo.data;
+        }
+      }
+    }
+
+    if (lookupError) {
+      return { success: false, error: classifySupabaseError(lookupError) };
+    }
+
+    if (!existingCheck) {
+      return {
+        success: false,
+        error: { code: 'NOT_FOUND', isNotFound: true, message: `Work Order dengan ID "${cleanId}" tidak ditemukan.` }
+      };
+    }
+
+    if (PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.id) || PROTECTED_PRODUCTION_WO_IDS.has(existingCheck.wo_number)) {
       return {
         success: false,
         error: {
@@ -3301,6 +3382,31 @@ export async function restoreWorkOrderInSupabase(id: string, restoredBy?: string
       };
     }
 
+    // Check if restoring a soft-deleted WO would collide with an already re-imported active WO
+    const normExistingWo = normalizeWoNumber(existingCheck.wo_number || '');
+    if (existingCheck.is_deleted && normExistingWo) {
+      const { data: activeConflict } = await client
+        .from('work_orders')
+        .select('id, wo_number')
+        .eq('is_deleted', false)
+        .ilike('wo_number', normExistingWo)
+        .neq('id', existingCheck.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (activeConflict) {
+        return {
+          success: false,
+          error: {
+            code: 'DUPLICATE_ACTIVE_WO',
+            isDuplicate: true,
+            message: `Tidak dapat memulihkan WO ${existingCheck.wo_number} karena sudah terdapat WO aktif dengan nomor yang sama (${activeConflict.id}).`
+          }
+        };
+      }
+    }
+
+    const nowIso = new Date().toISOString();
     const { data, error } = await client
       .from('work_orders')
       .update({
@@ -3311,10 +3417,10 @@ export async function restoreWorkOrderInSupabase(id: string, restoredBy?: string
         is_archived: false,
         archived_at: null,
         archived_by: null,
-        updated_at: new Date().toISOString(),
-        updated_by: restoredBy || 'System'
+        updated_at: nowIso,
+        updated_by: actor
       })
-      .eq('id', cleanId)
+      .eq('id', existingCheck.id)
       .select('*');
 
     if (error) {
@@ -3333,6 +3439,56 @@ export async function restoreWorkOrderInSupabase(id: string, restoredBy?: string
   } catch (err: any) {
     const classified = classifySupabaseError(err);
     return { success: false, error: classified };
+  }
+}
+
+/**
+ * Fetches soft-deleted Work Orders for Superadmin Recovery / Restore Console.
+ */
+export async function getDeletedWorkOrdersFromSupabase(
+  options: { limit?: number; search?: string } = {}
+): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+
+  const limit = Math.min(1000, Math.max(1, Number(options.limit || 200) || 200));
+  const cleanSearch = sanitizePostgrestIlikeTerm(options.search || '');
+
+  const buildQuery = (cols: string) => {
+    let q = client
+      .from('work_orders')
+      .select(cols)
+      .eq('is_deleted', true);
+
+    if (cleanSearch) {
+      q = q.or(
+        `wo_number.ilike.%${cleanSearch}%,id_customer.ilike.%${cleanSearch}%,customer_name.ilike.%${cleanSearch}%,area.ilike.%${cleanSearch}%,contractor_name.ilike.%${cleanSearch}%`
+      );
+    }
+
+    return q
+      .order('deleted_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
+      .limit(limit);
+  };
+
+  try {
+    let { data, error } = await buildQuery(WORK_ORDER_LIST_COLUMNS);
+    if (error && isMissingSchemaObjectError(error)) {
+      const fb = await buildQuery('*');
+      data = fb.data as any;
+      error = fb.error;
+    }
+
+    if (error) {
+      return { success: false, error: classifySupabaseError(error) };
+    }
+
+    return { success: true, data: (data || []).map(postgresRowToTicket) };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
   }
 }
 
@@ -3531,6 +3687,7 @@ export async function bulkImportWorkOrdersToSupabase(
       const { data: existingRows, error: searchError } = await client
         .from('work_orders')
         .select('wo_number')
+        .eq('is_deleted', false)
         .in('wo_number', sliceWoList);
 
       if (searchError) {

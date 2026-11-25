@@ -582,7 +582,10 @@ export class SupabaseRepository {
         isArchived: false,
         isDeleted: false,
         archivedAt: undefined,
+        archivedBy: undefined,
         deletedAt: undefined,
+        deletedBy: undefined,
+        deletionReason: undefined,
         updatedAt: new Date().toISOString()
       };
       SANDBOX_STORE.workOrders.set(id, restored);
@@ -604,6 +607,53 @@ export class SupabaseRepository {
       return {
         success: false,
         error: normalizeProxyError(status, json, 'RESTORE', 'work_orders', 'Gagal memulihkan Work Order')
+      };
+    }
+    return json;
+  }
+
+  /**
+   * LIST SOFT-DELETED WORK ORDERS: Strictly Superadmin-authorized backend endpoint
+   */
+  async getDeletedWorkOrders(
+    options: { search?: string; limit?: number } = {},
+    isSandbox = false
+  ): Promise<SupabaseResponse<Ticket[]>> {
+    if (isSandbox) {
+      const q = String(options.search || '').trim().toLowerCase();
+      let list = Array.from(SANDBOX_STORE.workOrders.values()).filter(t => t.isDeleted === true);
+      if (q) {
+        list = list.filter(t =>
+          String(t.woNumber || '').toLowerCase().includes(q) ||
+          String(t.customerName || '').toLowerCase().includes(q) ||
+          String(t.idCustomer || t.customerId || '').toLowerCase().includes(q) ||
+          String(t.contactorName || t.contractorName || '').toLowerCase().includes(q) ||
+          String(t.area || '').toLowerCase().includes(q) ||
+          String(t.deletedBy || '').toLowerCase().includes(q)
+        );
+      }
+      list.sort((a, b) => String(b.deletedAt || b.updatedAt || '').localeCompare(String(a.deletedAt || a.updatedAt || '')));
+      return { success: true, data: list.slice(0, options.limit || 200) };
+    }
+
+    const qs = new URLSearchParams();
+    if (options.search && options.search.trim()) qs.set('search', options.search.trim());
+    if (options.limit) qs.set('limit', String(options.limit));
+    const url = `/api/supabase/work-orders/deleted${qs.toString() ? `?${qs.toString()}` : ''}`;
+
+    const { ok, status, json, networkError } = await fetchJsonSafe(url, {
+      headers: getAuthHeaders()
+    });
+    if (networkError) {
+      return {
+        success: false,
+        error: { code: 'NETWORK_ERROR', message: networkError }
+      };
+    }
+    if (!ok || !json || json.success !== true) {
+      return {
+        success: false,
+        error: normalizeProxyError(status, json, 'SELECT', 'work_orders', 'Gagal mengambil daftar WO terhapus')
       };
     }
     return json;

@@ -13,7 +13,6 @@ import {
   MapPin,
   UserCheck
 } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 
 interface ManagementDataDeleteModalProps {
@@ -34,7 +33,6 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
   onSuccess
 }) => {
   const { currentUser, deleteTicket, bulkDeleteTickets } = useApp();
-  const { toast } = useToast();
 
   const [reason, setReason] = useState('');
   const [confirmPhrase, setConfirmPhrase] = useState('');
@@ -82,7 +80,6 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
         const ids = selectedTickets.map(t => t.id);
         const res = await bulkDeleteTickets(ids, reason.trim());
         if (res.success) {
-          toast.success(`Berhasil menghapus ${res.count || ids.length} Work Order.`, 'Hapus WO Berhasil');
           onSuccess?.();
           onClose();
         } else {
@@ -91,7 +88,6 @@ export const ManagementDataDeleteModal: React.FC<ManagementDataDeleteModalProps>
       } else if (ticket) {
         const res = await deleteTicket(ticket.id, reason.trim(), false);
         if (res.success) {
-          toast.success(`Work Order ${ticket.woNumber} berhasil dihapus.`, 'Hapus WO Berhasil');
           onSuccess?.();
           onClose();
         } else {

@@ -160,6 +160,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [showPurgeModal, setShowPurgeModal] = useState<boolean>(false);
   const [dateToPurge, setDateToPurge] = useState<string | null>(null);
   const [purgeCount, setPurgeCount] = useState<number>(0);
+  const [isPurging, setIsPurging] = useState<boolean>(false);
 
   // Policies
   const [autoRegisterNewContractors, setAutoRegisterNewContractors] = useState<boolean>(true);
@@ -2679,7 +2680,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   <button
                     type="button"
                     onClick={() => {
-                      const count = tickets.filter(t => (t.importDate === selectedPurgeDate || t.date === selectedPurgeDate) && !t.isArchived).length;
+                      const count = tickets.filter(t => (t.importDate === selectedPurgeDate || t.date === selectedPurgeDate) && !t.isArchived && !t.isDeleted).length;
                       if (count === 0) {
                         showToast(`Tidak ada data tiket hasil import pada tanggal ${selectedPurgeDate}.`, 'info');
                         return;
@@ -2726,7 +2727,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               {(() => {
                 const dateMap: Record<string, number> = {};
                 for (const t of tickets) {
-                  if (t.isArchived) continue;
+                  if (t.isArchived || t.isDeleted) continue;
                   const d = t.importDate || t.date || new Date().toISOString().slice(0, 10);
                   dateMap[d] = (dateMap[d] || 0) + 1;
                 }
@@ -2847,31 +2848,36 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             <div className="w-full flex items-center justify-end gap-2">
               <button
                 type="button"
+                disabled={isPurging}
                 onClick={() => {
+                  if (isPurging) return;
                   setShowPurgeModal(false);
                   setDateToPurge(null);
                 }}
-                className="btn-3d-lilac px-3.5 py-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                className="btn-3d-lilac px-3.5 py-1.5 text-xs font-bold rounded-xl cursor-pointer disabled:opacity-40"
               >
                 Batal
               </button>
               <button
                 type="button"
-                disabled={!purgeReason.trim() || purgeConfirmPhrase.trim() !== 'HAPUS IMPORT'}
-                onClick={() => {
-                  const res = deleteImportedTicketsByDate(dateToPurge, purgeReason.trim());
-                  if (res.success) {
-                    showToast(`Berhasil menghapus ${res.count} data tiket hasil import pada tanggal ${dateToPurge}.`, 'success');
-                    setShowPurgeModal(false);
-                    setDateToPurge(null);
-                  } else {
-                    showToast(res.error || 'Gagal menghapus data import.', 'error');
+                disabled={isPurging || !purgeReason.trim() || purgeReason.trim().length < 5 || purgeConfirmPhrase.trim() !== 'HAPUS IMPORT'}
+                onClick={async () => {
+                  if (!dateToPurge || isPurging) return;
+                  setIsPurging(true);
+                  try {
+                    const res = await deleteImportedTicketsByDate(dateToPurge, purgeReason.trim());
+                    if (res.success) {
+                      setShowPurgeModal(false);
+                      setDateToPurge(null);
+                    }
+                  } finally {
+                    setIsPurging(false);
                   }
                 }}
                 className="btn-3d-crimson px-4 py-2 disabled:opacity-40 font-bold rounded-xl flex items-center gap-1.5 text-xs cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Ya, Hapus Data Import ({purgeCount} WO)</span>
+                <span>{isPurging ? 'Menghapus di Database...' : `Ya, Hapus Data Import (${purgeCount} WO)`}</span>
               </button>
             </div>
           }
@@ -2934,7 +2940,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-[#52647A] dark:text-[#CABDE8]">Total Tiket Tersimpan:</span>
                 <span className="px-3 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2e1459] font-mono font-bold text-xs text-[#5145A6] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5b35b1]">
-                  {tickets.filter(t => !t.isArchived).length} WO
+                  {tickets.filter(t => !t.isArchived && !t.isDeleted).length} WO
                 </span>
               </div>
             </div>
@@ -3053,7 +3059,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                       <strong className="text-[#5145A6] dark:text-[#DAB9FF] font-mono font-bold">
                         {
                           tickets.filter(t => {
-                            if (t.isArchived) return false;
+                            if (t.isArchived || t.isDeleted) return false;
                             if (exportContractor !== 'ALL' && t.contactorName !== exportContractor) return false;
                             if (exportStatus === 'UNASSIGNED' && t.installerName) return false;
                             if (exportStatus === 'ASSIGNED' && !t.installerName) return false;

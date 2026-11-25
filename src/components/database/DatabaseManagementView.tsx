@@ -18,6 +18,7 @@ import {
   Copy,
   Trash2,
   RefreshCw,
+  RotateCcw,
   FileSpreadsheet,
   ShieldCheck,
   ShieldAlert,
@@ -36,6 +37,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { StatusAgentBadge, StatusInstallerBadge } from '../common/Badge';
 import { downloadProductionBackup } from '../../services/backupDownloadService';
+import { supabaseDb } from '../../services/supabaseDb';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 
@@ -46,6 +48,7 @@ export type DatabaseSubmenu =
   | 'duplicate_checker'
   | 'data_validation'
   | 'data_archive'
+  | 'deleted_wos'
   | 'audit_log';
 
 export const DatabaseManagementView: React.FC = () => {
@@ -77,6 +80,29 @@ export const DatabaseManagementView: React.FC = () => {
   const [woPage, setWoPage] = useState(1);
   const [woPageSize, setWoPageSize] = useState<number | 'ALL'>(25);
   const [dbImportHistory, setDbImportHistory] = useState<ImportHistoryRecord[]>([]);
+  const [deletedWos, setDeletedWos] = useState<Ticket[]>([]);
+  const [deletedSearch, setDeletedSearch] = useState('');
+  const [isLoadingDeleted, setIsLoadingDeleted] = useState(false);
+  const [deletedError, setDeletedError] = useState<string | null>(null);
+  const [restoringDeletedId, setRestoringDeletedId] = useState<string | null>(null);
+
+  const loadDeletedWorkOrders = async (searchTerm = deletedSearch) => {
+    if (currentUser.role !== 'super_admin') return;
+    setIsLoadingDeleted(true);
+    setDeletedError(null);
+    try {
+      const res = await supabaseDb.getDeletedWorkOrders({ search: searchTerm.trim() || undefined, limit: 200 });
+      if (res.success && Array.isArray(res.data)) {
+        setDeletedWos(res.data);
+      } else {
+        setDeletedError(res.error?.message || 'Gagal memuat daftar WO terhapus.');
+      }
+    } catch (err: any) {
+      setDeletedError(err?.message || 'Gagal menghubungi server.');
+    } finally {
+      setIsLoadingDeleted(false);
+    }
+  };
 
   useEffect(() => {
     if (activeSubmenu !== 'import_history') return;
@@ -84,6 +110,16 @@ export const DatabaseManagementView: React.FC = () => {
     listImportHistory(50)
       .then(records => setDbImportHistory(records))
       .catch(() => {});
+  }, [activeSubmenu, currentUser.role]);
+
+  useEffect(() => {
+    if (activeSubmenu !== 'deleted_wos') return;
+    if (currentUser.role !== 'super_admin') {
+      setActiveSubmenu('overview');
+      return;
+    }
+    void loadDeletedWorkOrders(deletedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSubmenu, currentUser.role]);
 
   const handleDownloadBackup = async () => {
@@ -102,27 +138,30 @@ export const DatabaseManagementView: React.FC = () => {
     }
   };
 
+  // Master active records MUST always exclude soft-deleted WOs
+  const nonDeletedTickets = useMemo(() => tickets.filter(t => !t.isDeleted), [tickets]);
+
   // 1. Overview Calculations
-  const totalWOs = tickets.length;
-  const activeWOs = tickets.filter(t => !t.isArchived && t.statusWOAgent !== 'Closed' && t.statusWOInstaller !== 'Completed').length;
-  const completedWOs = tickets.filter(t => t.statusWOInstaller === 'Completed' || t.statusWOAgent === 'Resolved' || t.statusWOAgent === 'Closed').length;
-  const archivedWOs = tickets.filter(t => t.isArchived).length;
+  const totalWOs = nonDeletedTickets.length;
+  const activeWOs = nonDeletedTickets.filter(t => !t.isArchived && t.statusWOAgent !== 'Closed' && t.statusWOInstaller !== 'Completed').length;
+  const completedWOs = nonDeletedTickets.filter(t => t.statusWOInstaller === 'Completed' || t.statusWOAgent === 'Resolved' || t.statusWOAgent === 'Closed').length;
+  const archivedWOs = nonDeletedTickets.filter(t => t.isArchived).length;
   const totalStaff = users.filter(u => !u.isArchived).length;
   const totalInstallers = users.filter(u => u.role === 'installer' && u.active && !u.isArchived).length;
   const totalLeaders = users.filter(u => u.role === 'leader' && u.active && !u.isArchived).length;
   const totalContractors = contractors.length;
 
-  // Duplicate WO Detection
+  // Duplicate WO Detection (active non-deleted records only)
   const duplicatesMap = useMemo(() => {
     const map = new Map<string, Ticket[]>();
-    tickets.forEach(t => {
+    nonDeletedTickets.forEach(t => {
       const key = (t.woNumber || '').trim().toUpperCase();
       if (!key) return;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     });
     return map;
-  }, [tickets]);
+  }, [nonDeletedTickets]);
 
   const duplicateGroups = useMemo(() => {
     return Array.from(duplicatesMap.entries()).filter(([_, list]) => list.length > 1);
@@ -139,7 +178,7 @@ export const DatabaseManagementView: React.FC = () => {
       recommendation: string;
     }[] = [];
 
-    tickets.forEach(t => {
+    nonDeletedTickets.forEach(t => {
       if (!t.woNumber || !t.woNumber.trim()) {
         issues.push({
           id: `iss-wo-${t.id}`,
@@ -196,11 +235,11 @@ export const DatabaseManagementView: React.FC = () => {
     });
 
     return issues;
-  }, [tickets, users]);
+  }, [nonDeletedTickets, users]);
 
-  // Filtered Master WO Database
+  // Filtered Master WO Database (never includes soft-deleted WOs)
   const filteredWODatabase = useMemo(() => {
-    return tickets.filter(t => {
+    return nonDeletedTickets.filter(t => {
       if (searchWo.trim()) {
         const query = searchWo.toLowerCase().trim();
         const matchWo = String(t.woNumber || '').toLowerCase().includes(query);
@@ -223,7 +262,7 @@ export const DatabaseManagementView: React.FC = () => {
       }
       return true;
     });
-  }, [tickets, searchWo, selectedContractor, selectedStatus, selectedAppointmentDate]);
+  }, [nonDeletedTickets, searchWo, selectedContractor, selectedStatus, selectedAppointmentDate]);
 
   // Import history from auditLogs
   const importHistoryLogs = useMemo(() => {
@@ -256,8 +295,8 @@ export const DatabaseManagementView: React.FC = () => {
     }
   };
 
-  // Reconcile duplicate WOs (Superadmin Exclusive - Strict RBAC)
-  const handleReconcileKeepFirst = (woKey: string) => {
+  // Reconcile duplicate WOs (Superadmin Exclusive - Strict RBAC, awaited soft delete)
+  const handleReconcileKeepFirst = async (woKey: string) => {
     if (currentUser.role !== 'super_admin') {
       toast.error('Akses Ditolak: Hanya Superadmin yang memiliki wewenang merekonsiliasi/menghapus duplikasi Work Order.', 'Akses Ditolak');
       return;
@@ -265,9 +304,24 @@ export const DatabaseManagementView: React.FC = () => {
     const list = duplicatesMap.get(woKey) || [];
     if (list.length <= 1) return;
     const [keep, ...removeList] = list;
-    removeList.forEach(item => {
-      deleteTicket(item.id, `Rekonsiliasi duplikasi WO ${woKey}. Menggabungkan ke ID ${keep.id}`);
-    });
+    const results = await Promise.all(
+      removeList.map(item =>
+        deleteTicket(
+          item.id,
+          `Rekonsiliasi duplikasi WO ${woKey}. Menggabungkan ke ID ${keep.id}`,
+          false,
+          { silentToast: true }
+        )
+      )
+    );
+    const failed = results.filter(r => !r.success);
+    if (failed.length > 0) {
+      toast.error(
+        failed[0]?.error || `Gagal merekonsiliasi ${failed.length} duplikat WO ${woKey}.`,
+        'Rekonsiliasi Gagal'
+      );
+      return;
+    }
     toast.success(`Berhasil merekonsiliasi WO ${woKey}. 1 record utama dipertahankan.`, 'Rekonsiliasi Sukses');
   };
 
@@ -353,6 +407,9 @@ export const DatabaseManagementView: React.FC = () => {
           { id: 'duplicate_checker', label: 'Duplicate Checker', icon: Copy, badge: duplicateGroups.length, badgeColor: 'rose' },
           { id: 'data_validation', label: 'Data Validation', icon: AlertTriangle, badge: validationIssues.length, badgeColor: 'amber' },
           { id: 'data_archive', label: 'Data Archive', icon: Archive, badge: archivedWOs },
+          ...(currentUser.role === 'super_admin'
+            ? [{ id: 'deleted_wos', label: 'WO Terhapus (Restore)', icon: RotateCcw, badge: deletedWos.length > 0 ? deletedWos.length : undefined, badgeColor: 'rose' }]
+            : []),
           { id: 'audit_log', label: 'Database Audit Log', icon: ShieldCheck, badge: undefined }
         ].map(tab => {
           const Icon = tab.icon;
@@ -1074,13 +1131,13 @@ export const DatabaseManagementView: React.FC = () => {
               Menyimpan tiket lama yang sudah selesai atau dibatalkan tanpa menghapus data secara permanen.
             </p>
 
-            {tickets.filter(t => t.isArchived).length === 0 ? (
+            {nonDeletedTickets.filter(t => t.isArchived).length === 0 ? (
               <div className="p-8 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs">
                 Belum ada tiket WO yang diarsipkan di database.
               </div>
             ) : (
               <div className="space-y-2 text-xs">
-                {tickets.filter(t => t.isArchived).map(t => (
+                {nonDeletedTickets.filter(t => t.isArchived).map(t => (
                   <div key={t.id} className="p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="min-w-0">
                       <span className="font-mono font-bold text-[#26364A] dark:text-white">{t.woNumber}</span>
@@ -1088,10 +1145,135 @@ export const DatabaseManagementView: React.FC = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => restoreTicket(t.id)}
+                      onClick={() => void restoreTicket(t.id)}
                       className="btn-3d-emerald px-3 py-1.5 min-h-[36px] text-white font-bold rounded-lg text-xs self-start sm:self-auto shrink-0 cursor-pointer"
                     >
                       Pulihkan dari Arsip
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SUBMENU 6B: SOFT-DELETED WO RESTORE (SUPERADMIN ONLY) */}
+      {activeSubmenu === 'deleted_wos' && currentUser.role === 'super_admin' && (
+        <div className="space-y-4">
+          <div className="card-3d-lavender p-5 rounded-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm text-[#26364A] dark:text-white flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  <span>Pemulihan Work Order Terhapus (Soft Delete Restore)</span>
+                </h3>
+                <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
+                  Khusus Superadmin. Work Order yang dihapus secara soft-delete tetap menyimpan histori assignment, pesan LiveChat, laporan teknisi, dan lampiran, serta dapat dipulihkan ke daftar aktif.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadDeletedWorkOrders(deletedSearch)}
+                disabled={isLoadingDeleted}
+                className="btn-3d-lilac px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDeleted ? 'animate-spin' : ''}`} />
+                <span>Muat Ulang</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-1">
+                <Search className="w-4 h-4 text-[#8492A5] dark:text-[#766B83] shrink-0" />
+                <input
+                  type="text"
+                  value={deletedSearch}
+                  onChange={e => setDeletedSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') void loadDeletedWorkOrders(deletedSearch);
+                  }}
+                  placeholder="Cari WO Number, Customer ID, Nama Pelanggan, Kontraktor, atau Alasan..."
+                  className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26364A] dark:text-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadDeletedWorkOrders(deletedSearch)}
+                disabled={isLoadingDeleted}
+                className="btn-3d-primary px-4 py-2 rounded-xl text-white font-bold cursor-pointer disabled:opacity-50"
+              >
+                Cari
+              </button>
+            </div>
+
+            {deletedError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{deletedError}</span>
+              </div>
+            )}
+
+            {isLoadingDeleted ? (
+              <div className="p-8 text-center text-xs text-[#52647A] dark:text-[#CEC0E8] flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Memuat daftar Work Order terhapus dari database...</span>
+              </div>
+            ) : deletedWos.length === 0 ? (
+              <div className="p-8 text-center text-[#52647A] dark:text-[#CEC0E8] text-xs rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
+                Tidak ada Work Order berstatus terhapus (soft delete) saat ini.
+              </div>
+            ) : (
+              <div className="space-y-2.5 text-xs">
+                {deletedWos.map(t => (
+                  <div
+                    key={t.id}
+                    className="p-3.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#160D29] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-[#5145A6] dark:text-[#D8B4FE]">
+                          {t.woNumber}
+                        </span>
+                        <span className="font-bold text-[#26364A] dark:text-white">
+                          · {t.customerName || '-'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          SOFT DELETED
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#52647A] dark:text-[#D9CCF2] flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                        <span>ID Cust: <strong className="font-mono">{t.idCustomer || t.customerId || '-'}</strong></span>
+                        <span>Mitra: <strong>{t.contactorName || t.contractorName || '-'}</strong></span>
+                        <span>Area: <strong>{t.area || '-'}</strong></span>
+                        <span>Teknisi: <strong>{t.installerName || 'Unassigned'}</strong></span>
+                        <span>Appointment: <strong className="font-mono">{t.appointmentDate || '-'}</strong></span>
+                      </div>
+                      <div className="text-[11px] text-[#8492A5] dark:text-[#A78BFA]">
+                        Dihapus oleh: <strong>{t.deletedBy || '-'}</strong>
+                        {t.deletedAt ? ` · ${new Date(t.deletedAt).toLocaleString('id-ID')}` : ''}
+                        {t.deletionReason ? ` · Alasan: "${t.deletionReason}"` : ''}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={restoringDeletedId === t.id}
+                      onClick={async () => {
+                        setRestoringDeletedId(t.id);
+                        try {
+                          const res = await restoreTicket(t.id);
+                          if (res.success) {
+                            setDeletedWos(prev => prev.filter(item => item.id !== t.id));
+                          }
+                        } finally {
+                          setRestoringDeletedId(null);
+                        }
+                      }}
+                      className="btn-3d-emerald px-3.5 py-2 min-h-[38px] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 self-start sm:self-auto shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${restoringDeletedId === t.id ? 'animate-spin' : ''}`} />
+                      <span>{restoringDeletedId === t.id ? 'Memulihkan...' : 'Pulihkan WO'}</span>
                     </button>
                   </div>
                 ))}

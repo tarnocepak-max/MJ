@@ -380,10 +380,10 @@ interface AppContextType {
   reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string, newInstallerId?: string) => Promise<ReassignActionResult>;
   updateTicketStatus: (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => void;
   reopenTicket: (ticketId: string, reason: string) => { success: boolean; error?: string };
-  archiveTicket: (ticketId: string) => void;
-  restoreTicket: (ticketId: string) => void;
-  deleteTicket: (ticketId: string, reason: string, permanent?: boolean) => { success: boolean; error?: string };
-  bulkDeleteTickets: (ticketIds: string[], reason: string) => { success: boolean; count: number; error?: string };
+  archiveTicket: (ticketId: string) => Promise<{ success: boolean; error?: string }>;
+  restoreTicket: (ticketId: string) => Promise<{ success: boolean; data?: Ticket; error?: string }>;
+  deleteTicket: (ticketId: string, reason: string, permanent?: boolean, options?: { silentToast?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  bulkDeleteTickets: (ticketIds: string[], reason: string) => Promise<{ success: boolean; count: number; failedCount?: number; error?: string }>;
   deleteCustomerData: (customerId: string, reason: string) => { success: boolean; error?: string };
   bulkImportTickets: (
     imported: Partial<Ticket>[],
@@ -403,7 +403,7 @@ interface AppContextType {
     undistributedCount?: number;
     error?: string;
   }>;
-  deleteImportedTicketsByDate: (importDate: string, reason: string) => { success: boolean; count: number; error?: string };
+  deleteImportedTicketsByDate: (importDate: string, reason: string) => Promise<{ success: boolean; count: number; failedCount?: number; error?: string }>;
 
   // Live Chat
   ticketMessages: TicketMessage[];
@@ -6053,6 +6053,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateTicket = (id: string, updates: Partial<Ticket>, reason?: string): { success: boolean; error?: string } => {
     const existing = getTicketById(id);
     if (!existing) return { success: false, error: 'Tiket tidak ditemukan.' };
+    if (existing.isDeleted) {
+      return { success: false, error: 'Work Order ini sudah dihapus (soft delete) dan tidak dapat diubah sebelum dipulihkan oleh Superadmin.' };
+    }
 
     // Installer can only update technicalReport and remarks on assigned WO
     if (currentUser.role === 'installer') {
@@ -6718,127 +6721,175 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
   };
 
-  const archiveTicket = (ticketId: string) => {
+  const archiveTicket = async (ticketId: string): Promise<{ success: boolean; error?: string }> => {
     const target = getTicketById(ticketId);
-    if (!target) return;
-    const archived: Ticket = {
-      ...target,
-      isArchived: true,
-      archivedAt: new Date().toISOString(),
-      archivedBy: currentUser.name
-    };
-    setTickets(prev => prev.map(t => (t.id === ticketId ? archived : t)));
+    if (!target) {
+      return { success: false, error: 'Tiket tidak ditemukan.' };
+    }
+    if (target.isDeleted) {
+      const err = 'Work Order yang sudah dihapus (soft delete) tidak dapat diarsipkan.';
+      toast.error(err, 'Gagal');
+      return { success: false, error: err };
+    }
     setSyncStatus('SYNCING');
-    supabaseDb.archiveWorkOrder(ticketId, currentUser.name)
-      .then((res) => {
-        if (!res.success) throw new Error(res.error?.message || 'Gagal mengarsipkan tiket');
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        addAuditLog('Ticket Archived', 'ticket', ticketId, `Ticket moved to archive by ${currentUser.name}`);
-        toast.info(`WO ${target?.woNumber || ticketId} dipindahkan ke arsip Supabase PostgreSQL.`, 'Tiket Diarsipkan');
-      })
-      .catch(err => {
-        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
+    try {
+      const res = await supabaseDb.archiveWorkOrder(ticketId, currentUser.name);
+      if (!res.success) {
+        const msg = res.error?.message || 'Gagal mengarsipkan tiket';
         setSyncStatus('ERROR');
-        toast.error('Gagal mengarsipkan tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-      });
+        toast.error(msg, 'Gagal');
+        return { success: false, error: msg };
+      }
+      const archived: Ticket = {
+        ...target,
+        ...(res.data || {}),
+        isArchived: true,
+        archivedAt: res.data?.archivedAt || new Date().toISOString(),
+        archivedBy: res.data?.archivedBy || currentUser.name
+      };
+      setTickets(prev => prev.map(t => (t.id === ticketId ? archived : t)));
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      addAuditLog('Ticket Archived', 'ticket', ticketId, `Ticket moved to archive by ${currentUser.name}`);
+      toast.info(`WO ${target?.woNumber || ticketId} dipindahkan ke arsip database.`, 'Tiket Diarsipkan');
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal mengarsipkan tiket';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal');
+      return { success: false, error: msg };
+    }
   };
 
-  const restoreTicket = (ticketId: string) => {
-    const target = getTicketById(ticketId);
-    if (!target) return;
-    const restored: Ticket = {
-      ...target,
-      isArchived: false,
-      isDeleted: false,
-      archivedAt: undefined,
-      archivedBy: undefined,
-      deletedAt: undefined,
-      deletedBy: undefined,
-      deletionReason: undefined
-    };
-    setTickets(prev => prev.map(t => (t.id === ticketId ? restored : t)));
+  const restoreTicket = async (ticketId: string): Promise<{ success: boolean; data?: Ticket; error?: string }> => {
+    const existing = getTicketById(ticketId);
+    // Restoring soft-deleted WOs or archived WOs requires authenticated backend confirmation;
+    // soft-deleted WOs are strictly restricted to Superadmin.
+    if (existing?.isDeleted && currentUser.role !== 'super_admin') {
+      const err = 'Akses Ditolak: Hanya akun Superadmin yang berwenang memulihkan Work Order yang telah dihapus.';
+      toast.error(err, 'Akses Ditolak');
+      return { success: false, error: err };
+    }
+
     setSyncStatus('SYNCING');
-    supabaseDb.restoreWorkOrder(ticketId, currentUser.name)
-      .then((res) => {
-        if (!res.success) throw new Error(res.error?.message || 'Gagal memulihkan tiket');
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        addAuditLog('Ticket Restored', 'ticket', ticketId, `Ticket restored from archive/deletion by ${currentUser.name}`);
-        toast.success(`WO ${target?.woNumber || ticketId} berhasil dipulihkan dari arsip Supabase PostgreSQL.`, 'Tiket Dipulihkan');
-      })
-      .catch(err => {
-        setTickets(prev => prev.map(t => (t.id === ticketId ? target : t)));
+    try {
+      const res = await supabaseDb.restoreWorkOrder(ticketId, currentUser.name);
+      if (!res.success) {
+        const msg = res.error?.message || 'Gagal memulihkan tiket';
         setSyncStatus('ERROR');
-        toast.error('Gagal memulihkan tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-      });
+        toast.error(msg, 'Pemulihan Gagal');
+        return { success: false, error: msg };
+      }
+
+      const authoritative: Ticket | undefined = res.data || (existing
+        ? {
+            ...existing,
+            isArchived: false,
+            isDeleted: false,
+            archivedAt: undefined,
+            archivedBy: undefined,
+            deletedAt: undefined,
+            deletedBy: undefined,
+            deletionReason: undefined,
+            updatedAt: new Date().toISOString()
+          }
+        : undefined);
+
+      if (authoritative) {
+        setTickets(prev => {
+          const updatedList = prev.some(t => t.id === authoritative.id)
+            ? prev.map(t => (t.id === authoritative.id ? { ...t, ...authoritative, isDeleted: false, isArchived: false } : t))
+            : [authoritative, ...prev];
+          const deduped = deduplicateTicketsInMemory(updatedList);
+          setWoCache('wo:full', deduped, new Date().toISOString());
+          return deduped;
+        });
+      }
+
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      const woLabel = authoritative?.woNumber || existing?.woNumber || ticketId;
+      addAuditLog('Ticket Restored', 'ticket', ticketId, `WO ${woLabel} dipulihkan oleh ${currentUser.name}`);
+      toast.success(`WO ${woLabel} berhasil dipulihkan dan kembali aktif di operasional.`, 'WO Dipulihkan');
+      return { success: true, data: authoritative };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal memulihkan tiket dari database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Pemulihan Gagal');
+      return { success: false, error: msg };
+    }
   };
 
-  const deleteTicket = (ticketId: string, reason: string, permanent: boolean = false): { success: boolean; error?: string } => {
-    // STRICT SECURITY POLICY: Only Superadmin can delete WO
+  const deleteTicket = async (
+    ticketId: string,
+    reason: string,
+    _permanent: boolean = false,
+    options?: { silentToast?: boolean }
+  ): Promise<{ success: boolean; error?: string }> => {
+    // STRICT SECURITY POLICY: Only Superadmin can soft-delete WO. Physical DELETE is strictly forbidden.
     if (currentUser.role !== 'super_admin') {
       const err = 'Akses Ditolak: Hanya akun Superadmin yang memiliki wewenang menghapus data Work Order.';
       addAuditLog('Unauthorized Deletion Attempt', 'ticket', ticketId, `${currentUser.name} (${currentUser.role}) mencoba menghapus WO tanpa izin Superadmin`);
-      toast.error(err, 'Akses Ditolak');
+      if (!options?.silentToast) toast.error(err, 'Akses Ditolak');
       return { success: false, error: err };
     }
 
     const ticket = getTicketById(ticketId);
     if (!ticket) {
-      toast.error('Tiket tidak ditemukan.', 'Error');
-      return { success: false, error: 'Tiket tidak ditemukan.' };
+      const err = 'Tiket tidak ditemukan.';
+      if (!options?.silentToast) toast.error(err, 'Error');
+      return { success: false, error: err };
+    }
+
+    if (ticket.isDeleted) {
+      const err = `WO ${ticket.woNumber} sudah berstatus terhapus (soft delete).`;
+      if (!options?.silentToast) toast.info(err, 'Sudah Terhapus');
+      return { success: false, error: err };
     }
 
     if (!reason || reason.trim().length < 5) {
-      toast.error('Alasan penghapusan wajib diisi minimal 5 karakter.', 'Validasi Gagal');
-      return { success: false, error: 'Alasan penghapusan wajib diisi minimal 5 karakter.' };
-    }
-
-    const now = new Date().toISOString();
-    if (permanent) {
-      setTickets(prev => prev.filter(t => t.id !== ticketId));
-    } else {
-      // Soft Delete
-      setTickets(prev =>
-        prev.map(t => {
-          if (t.id !== ticketId) return t;
-          return {
-            ...t,
-            isDeleted: true,
-            deletedAt: now,
-            deletedBy: currentUser.name,
-            deletionReason: reason,
-            updatedAt: now,
-            updatedBy: currentUser.name
-          };
-        })
-      );
+      const err = 'Alasan penghapusan wajib diisi minimal 5 karakter.';
+      if (!options?.silentToast) toast.error(err, 'Validasi Gagal');
+      return { success: false, error: err };
     }
 
     setSyncStatus('SYNCING');
-    supabaseDb.deleteWorkOrder(ticketId, reason, currentUser.name)
-      .then((res) => {
-        if (!res.success) throw new Error(res.error?.message || 'Gagal menghapus tiket');
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
-        if (permanent) {
-          addAuditLog('Ticket Permanently Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menandai hapus permanen WO ${ticket.woNumber}. Alasan: ${reason}`);
-          toast.warning(`WO ${ticket.woNumber} telah dihapus dari daftar aktif Supabase PostgreSQL.`, 'WO Dihapus');
-        } else {
-          addAuditLog('Ticket Soft Deleted', 'ticket', ticketId, `Superadmin ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason}`);
-          toast.warning(`WO ${ticket.woNumber} berhasil dihapus (soft delete).`, 'WO Dihapus');
-        }
-      })
-      .catch(err => {
-        setTickets(prev => {
-          const exists = prev.some(t => t.id === ticketId);
-          return exists ? prev.map(t => (t.id === ticketId ? ticket : t)) : [ticket, ...prev];
-        });
+    try {
+      const res = await supabaseDb.deleteWorkOrder(ticketId, reason.trim(), currentUser.name);
+      if (!res.success) {
+        const msg = res.error?.message || 'Gagal menghapus Work Order di database';
         setSyncStatus('ERROR');
-        toast.error('Gagal menghapus tiket di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-      });
+        if (!options?.silentToast) toast.error(msg, 'Hapus WO Gagal');
+        return { success: false, error: msg };
+      }
 
-    return { success: true };
+      // Only after backend/database confirms soft delete: remove from active client WO list
+      setTickets(prev => {
+        const remaining = prev.filter(t => t.id !== ticketId);
+        setWoCache('wo:full', remaining, new Date().toISOString());
+        return remaining;
+      });
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+      addAuditLog(
+        'Ticket Soft Deleted',
+        'ticket',
+        ticketId,
+        `Superadmin ${currentUser.name} menghapus (soft delete) WO ${ticket.woNumber}. Alasan: ${reason.trim()}`
+      );
+      if (!options?.silentToast) {
+        toast.success(`WO ${ticket.woNumber} berhasil dihapus (soft delete). Histori & chat tetap tersimpan.`, 'WO Dihapus');
+      }
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menghubungi server saat menghapus Work Order.';
+      setSyncStatus('ERROR');
+      if (!options?.silentToast) toast.error(msg, 'Hapus WO Gagal');
+      return { success: false, error: msg };
+    }
   };
 
   const bulkImportTickets = async (
@@ -7319,11 +7370,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  // Delete imported data filtered by import date within 7-day retention window
-  const deleteImportedTicketsByDate = (
+  // Delete imported data filtered by import date within 7-day retention window (Soft Delete, awaited)
+  const deleteImportedTicketsByDate = async (
     importDate: string,
     reason: string
-  ): { success: boolean; count: number; error?: string } => {
+  ): Promise<{ success: boolean; count: number; failedCount?: number; error?: string }> => {
     if (currentUser.role !== 'super_admin') {
       const err = 'Akses Ditolak: Hanya akun Superadmin yang berwenang menghapus data Work Order.';
       toast.error(err, 'Akses Ditolak');
@@ -7352,14 +7403,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, count: 0, error: err };
     }
 
-    // Find tickets imported on this date
     const matchingTickets = tickets.filter(t => {
       const tImportDate =
         t.importDate ||
         (t.importedAt ? (String(t.importedAt).includes('T') ? String(t.importedAt).split('T')[0] : String(t.importedAt).slice(0, 10)) : '') ||
         (t.createdAt ? (String(t.createdAt).includes('T') ? String(t.createdAt).split('T')[0] : String(t.createdAt).slice(0, 10)) : '') ||
         (t.date ? (String(t.date).includes('T') ? String(t.date).split('T')[0] : String(t.date).slice(0, 10)) : '');
-      return (tImportDate === importDate || t.date === importDate) && !t.isDeleted;
+      return (tImportDate === importDate || t.date === importDate) && !t.isDeleted && !t.isArchived;
     });
 
     if (matchingTickets.length === 0) {
@@ -7367,51 +7417,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, count: 0, error: 'Tidak ada tiket pada tanggal tersebut.' };
     }
 
-    const targetIds = new Set(matchingTickets.map(t => t.id));
-    setTickets(prev => prev.filter(t => !targetIds.has(t.id)));
-
-    // Soft delete matching from Supabase PostgreSQL (confirm all succeed before showing success toast)
     setSyncStatus('SYNCING');
-    Promise.all(matchingTickets.map(t => supabaseDb.deleteWorkOrder(t.id, reason, currentUser.name).then(res => ({ t, res }))))
-      .then((results) => {
-        const failed = results.filter(r => !r.res?.success);
-        if (failed.length > 0) {
-          const restoreTickets = failed.map(f => f.t);
-          setTickets(prev => deduplicateTicketsInMemory([...restoreTickets, ...prev]));
-          setSyncStatus('ERROR');
-          toast.error(`Gagal menghapus ${failed.length} dari ${matchingTickets.length} tiket di Supabase PostgreSQL.`, 'Hapus Gagal');
-          return;
-        }
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
+    try {
+      const results = await Promise.all(
+        matchingTickets.map(t =>
+          supabaseDb.deleteWorkOrder(t.id, reason.trim(), currentUser.name).then(res => ({ t, res }))
+        )
+      );
+      const succeeded = results.filter(r => r.res?.success);
+      const failed = results.filter(r => !r.res?.success);
+      const succeededIds = new Set(succeeded.map(r => r.t.id));
+
+      if (succeededIds.size > 0) {
+        setTickets(prev => {
+          const remaining = prev.filter(t => !succeededIds.has(t.id));
+          setWoCache('wo:full', remaining, new Date().toISOString());
+          return remaining;
+        });
         scheduleKpiRefreshRef.current?.();
         addAuditLog(
           'Imported Data Purged',
           'import_batch',
           importDate,
-          `Superadmin ${currentUser.name} menghapus ${matchingTickets.length} data tiket hasil import tanggal ${importDate}. Alasan: ${reason}`
+          `Superadmin ${currentUser.name} menghapus (soft delete) ${succeeded.length} dari ${matchingTickets.length} WO hasil import tanggal ${importDate}. Alasan: ${reason.trim()}`
         );
-        toast.warning(`Berhasil menghapus ${matchingTickets.length} tiket hasil import tanggal ${importDate} dari Supabase PostgreSQL.`, 'Data Import Dihapus');
-      })
-      .catch(err => {
-        console.warn('[Supabase] Error deleting batch tickets:', err);
-        setTickets(prev => deduplicateTicketsInMemory([...matchingTickets, ...prev]));
-        setSyncStatus('ERROR');
-        toast.error('Gagal menghapus data import di Supabase PostgreSQL: ' + (err?.message || err), 'Hapus Gagal');
-      });
+      }
 
-    return { success: true, count: matchingTickets.length };
+      if (failed.length > 0) {
+        setSyncStatus('ERROR');
+        const firstErr = failed[0]?.res?.error?.message || 'Kegagalan database saat menghapus sebagian WO.';
+        const errMsg =
+          succeeded.length > 0
+            ? `Sebagian berhasil (${succeeded.length}), tetapi ${failed.length} WO gagal dihapus: ${firstErr}`
+            : `Gagal menghapus ${failed.length} tiket di database: ${firstErr}`;
+        toast.error(errMsg, 'Hapus Data Import Gagal');
+        return {
+          success: false,
+          count: succeeded.length,
+          failedCount: failed.length,
+          error: errMsg
+        };
+      }
+
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      toast.success(`Berhasil menghapus (soft delete) ${succeeded.length} WO hasil import tanggal ${importDate}.`, 'Data Import Dihapus');
+      return { success: true, count: succeeded.length, failedCount: 0 };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menghapus data import di database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Hapus Gagal');
+      return { success: false, count: 0, failedCount: matchingTickets.length, error: msg };
+    }
   };
 
-  // Bulk delete tickets for Superadmin
-  const bulkDeleteTickets = (
+  // Bulk delete tickets for Superadmin (Soft Delete ONLY, awaited)
+  const bulkDeleteTickets = async (
     ticketIds: string[],
     reason: string
-  ): { success: boolean; count: number; error?: string } => {
+  ): Promise<{ success: boolean; count: number; failedCount?: number; error?: string }> => {
     if (currentUser.role !== 'super_admin') {
       const err = 'Akses Ditolak: Hanya akun Superadmin yang memiliki wewenang menghapus data Work Order.';
       toast.error(err, 'Akses Ditolak');
       return { success: false, count: 0, error: err };
+    }
+
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return { success: false, count: 0, error: 'Tidak ada Work Order yang dipilih untuk dihapus.' };
     }
 
     if (!reason || reason.trim().length < 5) {
@@ -7419,58 +7491,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, count: 0, error: 'Alasan penghapusan minimal 5 karakter.' };
     }
 
-    const targetSet = new Set(ticketIds);
-    const prevSnapshots = new Map<string, Ticket>();
-    let deletedCount = 0;
-    const now = new Date().toISOString();
-    setTickets(prev =>
-      prev.map(t => {
-        if (targetSet.has(t.id)) {
-          prevSnapshots.set(t.id, t);
-          deletedCount++;
-          return {
-            ...t,
-            isDeleted: true,
-            deletedAt: now,
-            deletedBy: currentUser.name,
-            deletionReason: reason,
-            updatedAt: now,
-            updatedBy: currentUser.name
-          };
-        }
-        return t;
-      })
-    );
-
-    // Soft delete in Supabase PostgreSQL
     setSyncStatus('SYNCING');
-    Promise.all(ticketIds.map(id => supabaseDb.deleteWorkOrder(id, reason, currentUser.name).then(res => ({ id, res }))))
-      .then((results) => {
-        const failedIds = new Set(results.filter(r => !r.res?.success).map(r => r.id));
-        if (failedIds.size > 0) {
-          setTickets(prev => prev.map(t => (failedIds.has(t.id) && prevSnapshots.get(t.id)) ? prevSnapshots.get(t.id)! : t));
-          setSyncStatus('ERROR');
-          toast.error(`Gagal menghapus ${failedIds.size} dari ${ticketIds.length} tiket di Supabase PostgreSQL.`, 'Hapus Massal Gagal');
-          return;
-        }
-        setSyncStatus('SAVED');
-        setLastSyncTime(new Date().toISOString());
+    try {
+      const results = await Promise.all(
+        ticketIds.map(id =>
+          supabaseDb.deleteWorkOrder(id, reason.trim(), currentUser.name).then(res => ({ id, res }))
+        )
+      );
+      const succeededIds = new Set(results.filter(r => r.res?.success).map(r => r.id));
+      const failed = results.filter(r => !r.res?.success);
+
+      if (succeededIds.size > 0) {
+        setTickets(prev => {
+          const remaining = prev.filter(t => !succeededIds.has(t.id));
+          setWoCache('wo:full', remaining, new Date().toISOString());
+          return remaining;
+        });
         scheduleKpiRefreshRef.current?.();
         addAuditLog(
           'Bulk Tickets Soft Deleted',
           'ticket',
-          `${ticketIds.length} tickets`,
-          `Superadmin ${currentUser.name} menghapus massal (soft delete) ${ticketIds.length} tiket Work Order. Alasan: ${reason}`
+          `${succeededIds.size} tickets`,
+          `Superadmin ${currentUser.name} menghapus massal (soft delete) ${succeededIds.size} tiket Work Order. Alasan: ${reason.trim()}`
         );
-        toast.warning(`Berhasil menghapus (soft delete) ${deletedCount} tiket Work Order.`, 'Hapus WO Berhasil');
-      })
-      .catch(err => {
-        setTickets(prev => prev.map(t => prevSnapshots.get(t.id) || t));
-        setSyncStatus('ERROR');
-        toast.error('Gagal menghapus tiket massal di Supabase PostgreSQL: ' + (err?.message || err), 'Gagal');
-      });
+      }
 
-    return { success: true, count: deletedCount };
+      if (failed.length > 0) {
+        setSyncStatus('ERROR');
+        const firstErr = failed[0]?.res?.error?.message || 'Kegagalan server/database';
+        const errMsg =
+          succeededIds.size > 0
+            ? `${succeededIds.size} WO berhasil dihapus, tetapi ${failed.length} WO gagal: ${firstErr}`
+            : `Gagal menghapus ${failed.length} tiket di database: ${firstErr}`;
+        toast.error(errMsg, 'Hapus Massal Gagal');
+        return {
+          success: false,
+          count: succeededIds.size,
+          failedCount: failed.length,
+          error: errMsg
+        };
+      }
+
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+      toast.success(`Berhasil menghapus (soft delete) ${succeededIds.size} Work Order. Histori & chat tetap aman.`, 'Hapus WO Berhasil');
+      return { success: true, count: succeededIds.size, failedCount: 0 };
+    } catch (err: any) {
+      const msg = err?.message || 'Gagal menghapus tiket massal di database.';
+      setSyncStatus('ERROR');
+      toast.error(msg, 'Gagal');
+      return { success: false, count: 0, failedCount: ticketIds.length, error: msg };
+    }
   };
 
   // Google Sheets Bidirectional / Auto Sync (Super Admin Only)

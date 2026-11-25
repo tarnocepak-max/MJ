@@ -74,6 +74,7 @@ import {
   deleteWorkOrderFromSupabase,
   archiveWorkOrderInSupabase,
   restoreWorkOrderInSupabase,
+  getDeletedWorkOrdersFromSupabase,
   bulkImportWorkOrdersToSupabase,
   getContractorsFromSupabase,
   getContractorByIdFromSupabase,
@@ -3593,7 +3594,7 @@ export async function createExpressApp(options?: {
       }
       const todayWIB = getJakartaDateStringServer(getNow());
       const scopedTickets = (user && !passwordChangeRequired)
-        ? scopeTicketsForUser(db.tickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
+        ? scopeTicketsForUser((db.tickets || []).filter((t: any) => t && !t.isDeleted), user).map((t: any) => attachClassificationMetadata(t, todayWIB))
         : [];
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
@@ -4868,7 +4869,10 @@ export async function createExpressApp(options?: {
     }
 
     const todayWIB = getJakartaDateStringServer(getNow());
-    const roleScopedAll = scopeTicketsForUser(ticketsToScope, user).map((t: any) => attachClassificationMetadata(t, todayWIB));
+    const roleScopedAll = scopeTicketsForUser(
+      (ticketsToScope || []).filter((t: any) => t && !t.isDeleted),
+      user
+    ).map((t: any) => attachClassificationMetadata(t, todayWIB));
     const scopedTickets = filterActiveTicketsForDate(roleScopedAll, todayWIB);
     const classificationSummary = summarizeWorkOrderClassificationsServer(roleScopedAll, todayWIB);
 
@@ -5094,6 +5098,7 @@ export async function createExpressApp(options?: {
 
       const existingWoMap = new Map<string, any>();
       db.tickets.forEach(t => {
+        if (t?.isDeleted) return;
         const upper = (t.woNumber || t.workOrderNumber || '').trim().toUpperCase();
         if (upper) existingWoMap.set(upper, t);
       });
@@ -5399,7 +5404,13 @@ export async function createExpressApp(options?: {
     }
 
     if (!currentTicket && isLocalJsonModeAllowed()) {
-      ticketIndex = db.tickets.findIndex(t => t.id === cleanId || t.woNumber === cleanId);
+      ticketIndex = db.tickets.findIndex(t => t.id === cleanId);
+      if (ticketIndex === -1) {
+        ticketIndex = db.tickets.findIndex(t => !t.isDeleted && t.woNumber === cleanId);
+      }
+      if (ticketIndex === -1) {
+        ticketIndex = db.tickets.findIndex(t => t.woNumber === cleanId);
+      }
       if (ticketIndex !== -1) {
         currentTicket = db.tickets[ticketIndex];
       }
@@ -5413,6 +5424,13 @@ export async function createExpressApp(options?: {
       return res.status(403).json({
         error: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah atau dihapus.',
         code: 'PROTECTED_RECORD'
+      });
+    }
+
+    if (currentTicket.isDeleted) {
+      return res.status(409).json({
+        error: 'Work Order ini telah dihapus (soft delete). Pulihkan WO terlebih dahulu sebelum memperbarui data.',
+        code: 'WO_SOFT_DELETED'
       });
     }
 
@@ -8421,10 +8439,10 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // Delete Work Order (Management Data Role Exclusive - Requirement 5)
+  // Delete Work Order (Management Data Role Exclusive - Strictly Soft Delete ONLY)
   app.delete('/api/tickets/:id', requireManagementData, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
-    const { reason, permanent } = req.body || {};
+    const { reason } = req.body || {};
 
     const cleanId = (id || '').trim();
     if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
@@ -8458,9 +8476,12 @@ export async function createExpressApp(options?: {
       }
     }
 
-    if (!target && isLocalJsonModeAllowed()) {
-      idx = db.tickets.findIndex(t => t.id === cleanId || t.woNumber === cleanId);
-      if (idx !== -1) target = db.tickets[idx];
+    if (isLocalJsonModeAllowed()) {
+      idx = db.tickets.findIndex(t => t.id === cleanId);
+      if (idx === -1) {
+        idx = db.tickets.findIndex(t => !t.isDeleted && t.woNumber === cleanId);
+      }
+      if (!target && idx !== -1) target = db.tickets[idx];
     }
 
     if (!target) {
@@ -8474,36 +8495,52 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const nowIso = new Date().toISOString();
+    const actor = req.user!.name;
+    let updatedTicket: any = null;
+
     if (isSupabaseMode()) {
-      const delRes = await deleteWorkOrderFromSupabase(target.id, reason, req.user!.name);
-      if (!delRes.success && !isLocalJsonModeAllowed()) {
-        return res.status(503).json({
-          error: 'Gagal melakukan penghapusan Work Order di Supabase.',
-          code: 'DATABASE_UNAVAILABLE'
+      const delRes = await deleteWorkOrderFromSupabase(target.id, reason.trim(), actor);
+      if (!delRes.success) {
+        const status = delRes.error?.isNotFound ? 404 : (delRes.error?.isUnavailable ? 503 : 400);
+        return res.status(status).json({
+          success: false,
+          error: delRes.error?.message || 'Gagal melakukan soft delete Work Order di Supabase.',
+          code: delRes.error?.code || 'DATABASE_UNAVAILABLE'
         });
       }
+      updatedTicket = delRes.data;
     }
 
     if (isLocalJsonModeAllowed()) {
       if (idx !== -1) {
-        if (permanent) {
-          db.tickets.splice(idx, 1);
-        } else {
-          db.tickets[idx].isDeleted = true;
-          db.tickets[idx].deletedAt = new Date().toISOString();
-          db.tickets[idx].deletedBy = req.user!.name;
-          db.tickets[idx].deletionReason = reason;
-        }
+        db.tickets[idx].isDeleted = true;
+        db.tickets[idx].deletedAt = updatedTicket?.deletedAt || nowIso;
+        db.tickets[idx].deletedBy = updatedTicket?.deletedBy || actor;
+        db.tickets[idx].deletionReason = updatedTicket?.deletionReason || reason.trim();
+        db.tickets[idx].updatedAt = updatedTicket?.updatedAt || nowIso;
+        db.tickets[idx].updatedBy = updatedTicket?.updatedBy || actor;
+        updatedTicket = updatedTicket || db.tickets[idx];
+      } else if (!updatedTicket) {
+        updatedTicket = {
+          ...target,
+          isDeleted: true,
+          deletedAt: nowIso,
+          deletedBy: actor,
+          deletionReason: reason.trim(),
+          updatedAt: nowIso,
+          updatedBy: actor
+        };
       }
       saveDatabaseToDisk();
     }
 
-    broadcastSupabaseChange('work_orders', 'DELETE', target);
-    await logServerAuditAsync('WO Soft Deleted', 'ticket', target.woNumber, `Super Admin ${req.user!.name} menandai terhapus (soft delete) WO ${target.woNumber}. Alasan: ${reason}`, req.user);
-    res.json({ success: true, message: `Work Order ${target.woNumber} berhasil dihapus.` });
+    broadcastSupabaseChange('work_orders', 'DELETE', updatedTicket || target);
+    await logServerAuditAsync('WO Soft Deleted', 'ticket', target.woNumber, `Super Admin ${actor} menandai terhapus (soft delete) WO ${target.woNumber}. Alasan: ${reason.trim()}`, req.user);
+    res.json({ success: true, ticket: updatedTicket || target, message: `Work Order ${target.woNumber} berhasil dihapus (soft delete).` });
   });
 
-  // Bulk Delete Work Orders (Management Data Role Exclusive - Requirement 5)
+  // Bulk Delete Work Orders (Management Data Role Exclusive - Strictly Soft Delete ONLY)
   app.post('/api/tickets/bulk-delete', requireManagementData, async (req: AuthenticatedRequest, res) => {
     const { ticketIds, reason } = req.body || {};
     if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
@@ -8520,36 +8557,73 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const actor = req.user!.name;
+    const cleanReason = reason.trim();
     const safeTicketIds = ticketIds.filter((tId: string) => !PROTECTED_PRODUCTION_WO_IDS.has(String(tId).trim()));
+    const succeededIds = new Set<string>();
+    const failedIds: string[] = [];
     let count = 0;
 
     if (isSupabaseMode()) {
       for (const tId of safeTicketIds) {
-        const resDel = await deleteWorkOrderFromSupabase(tId, reason, req.user!.name);
-        if (resDel.success) count++;
+        const resDel = await deleteWorkOrderFromSupabase(tId, cleanReason, actor);
+        if (resDel.success) {
+          succeededIds.add(String(tId));
+          if (resDel.data?.id) succeededIds.add(String(resDel.data.id));
+          count++;
+        } else {
+          failedIds.push(String(tId));
+        }
+      }
+      if (count === 0 && failedIds.length > 0) {
+        return res.status(503).json({
+          success: false,
+          count: 0,
+          failedCount: failedIds.length,
+          failedIds,
+          error: 'Gagal menandai soft delete Work Order di Supabase.'
+        });
       }
     }
 
     if (isLocalJsonModeAllowed()) {
-      const idSet = new Set(safeTicketIds);
+      const targetIds = isSupabaseMode() ? succeededIds : new Set(safeTicketIds);
       const now = new Date().toISOString();
       for (const t of db.tickets) {
-        if (idSet.has(t.id) && !PROTECTED_PRODUCTION_WO_IDS.has(t.id) && !PROTECTED_PRODUCTION_WO_IDS.has(t.woNumber)) {
+        if (targetIds.has(t.id) && !PROTECTED_PRODUCTION_WO_IDS.has(t.id) && !PROTECTED_PRODUCTION_WO_IDS.has(t.woNumber)) {
           t.isDeleted = true;
           t.deletedAt = now;
-          t.deletedBy = req.user!.name;
-          t.deletionReason = reason;
-          if (!isSupabaseMode()) count++;
+          t.deletedBy = actor;
+          t.deletionReason = cleanReason;
+          t.updatedAt = now;
+          t.updatedBy = actor;
+          if (!isSupabaseMode()) {
+            succeededIds.add(t.id);
+            count++;
+          }
+        }
+      }
+      if (!isSupabaseMode()) {
+        for (const tId of safeTicketIds) {
+          if (!succeededIds.has(String(tId))) failedIds.push(String(tId));
         }
       }
       saveDatabaseToDisk();
     }
 
-    await logServerAuditAsync('Bulk WO Soft Deleted', 'ticket', `${count} items`, `Super Admin ${req.user!.name} menandai terhapus ${count} WO. Alasan: ${reason}`, req.user);
-    res.json({ success: true, count, message: `Berhasil menghapus ${count} Work Order.` });
+    await logServerAuditAsync('Bulk WO Soft Deleted', 'ticket', `${count} items`, `Super Admin ${actor} menandai terhapus (soft delete) ${count} WO. Alasan: ${cleanReason}`, req.user);
+    res.json({
+      success: failedIds.length === 0,
+      count,
+      failedCount: failedIds.length,
+      failedIds,
+      message: failedIds.length > 0
+        ? `Soft delete selesai parsial: ${count} berhasil, ${failedIds.length} gagal.`
+        : `Berhasil menghapus (soft delete) ${count} Work Order.`
+    });
   });
 
-  // Purge imported tickets by date within 7-day window (Management Data Role Exclusive - Requirement 5)
+  // Purge imported tickets by date within 7-day window (Strictly Soft Delete ONLY, never physical removal)
   const handlePurgeTicketsByDate = async (importDate: string, reason: string, req: AuthenticatedRequest, res: Response) => {
     if (!importDate) return res.status(400).json({ error: 'Tanggal import wajib disertakan.' });
     if (!reason || reason.trim().length < 5) return res.status(400).json({ error: 'Alasan penghapusan batch wajib diisi minimal 5 karakter.' });
@@ -8561,46 +8635,78 @@ export async function createExpressApp(options?: {
       });
     }
 
+    const actor = req.user!.name;
+    const cleanReason = reason.trim();
+    const nowIso = new Date().toISOString();
     let purged = 0;
+    let failedCount = 0;
+    const purgedIds = new Set<string>();
+
+    const matchesImportDate = (t: any) => {
+      if (!t || t.isDeleted) return false;
+      if (PROTECTED_PRODUCTION_WO_IDS.has(t.id) || PROTECTED_PRODUCTION_WO_IDS.has(t.woNumber)) return false;
+      const d = t.importDate ||
+        (t.importedAt ? (String(t.importedAt).includes('T') ? String(t.importedAt).split('T')[0] : String(t.importedAt).slice(0, 10)) : '') ||
+        (t.createdAt ? (String(t.createdAt).includes('T') ? String(t.createdAt).split('T')[0] : String(t.createdAt).slice(0, 10)) : '') ||
+        (t.date ? (String(t.date).includes('T') ? String(t.date).split('T')[0] : String(t.date).slice(0, 10)) : '');
+      return d === importDate || t.date === importDate;
+    };
 
     if (isSupabaseMode()) {
       const allWosRes = await getWorkOrdersFromSupabase();
       if (allWosRes.success && allWosRes.data) {
         for (const t of allWosRes.data) {
-          if (PROTECTED_PRODUCTION_WO_IDS.has(t.id) || PROTECTED_PRODUCTION_WO_IDS.has(t.woNumber)) continue;
-          const d = t.importDate ||
-            (t.importedAt ? (t.importedAt.includes('T') ? t.importedAt.split('T')[0] : t.importedAt.slice(0, 10)) : '') ||
-            (t.createdAt ? (t.createdAt.includes('T') ? t.createdAt.split('T')[0] : t.createdAt.slice(0, 10)) : '') ||
-            (t.date ? (t.date.includes('T') ? t.date.split('T')[0] : t.date.slice(0, 10)) : '');
-          if (d === importDate || t.date === importDate) {
-            const delRes = await deleteWorkOrderFromSupabase(t.id, reason, req.user!.name);
-            if (delRes.success) purged++;
+          if (!matchesImportDate(t)) continue;
+          const delRes = await deleteWorkOrderFromSupabase(t.id, cleanReason, actor);
+          if (delRes.success) {
+            purged++;
+            purgedIds.add(String(t.id));
+          } else {
+            failedCount++;
           }
+        }
+        if (purged === 0 && failedCount > 0) {
+          return res.status(503).json({
+            success: false,
+            count: 0,
+            failedCount,
+            error: 'Gagal menandai soft delete batch Work Order di Supabase.'
+          });
         }
       } else if (!isLocalJsonModeAllowed()) {
         return res.status(503).json({
-          error: 'Database authoritative Supabase tidak dapat diakses untuk purge batch.',
+          error: 'Database authoritative Supabase tidak dapat diakses untuk soft delete batch.',
           code: 'DATABASE_UNAVAILABLE'
         });
       }
     }
 
     if (isLocalJsonModeAllowed()) {
-      const beforeCount = db.tickets.length;
-      db.tickets = db.tickets.filter(t => {
-        if (PROTECTED_PRODUCTION_WO_IDS.has(t.id) || PROTECTED_PRODUCTION_WO_IDS.has(t.woNumber)) return true;
-        const d = t.importDate ||
-          (t.importedAt ? (t.importedAt.includes('T') ? t.importedAt.split('T')[0] : t.importedAt.slice(0, 10)) : '') ||
-          (t.createdAt ? (t.createdAt.includes('T') ? t.createdAt.split('T')[0] : t.createdAt.slice(0, 10)) : '') ||
-          (t.date ? (t.date.includes('T') ? t.date.split('T')[0] : t.date.slice(0, 10)) : '');
-        return !(d === importDate || t.date === importDate);
-      });
-      if (!isSupabaseMode()) purged = beforeCount - db.tickets.length;
+      for (const t of db.tickets) {
+        if (isSupabaseMode() ? purgedIds.has(String(t.id)) : matchesImportDate(t)) {
+          t.isDeleted = true;
+          t.deletedAt = nowIso;
+          t.deletedBy = actor;
+          t.deletionReason = cleanReason;
+          t.updatedAt = nowIso;
+          t.updatedBy = actor;
+          if (!isSupabaseMode()) {
+            purged++;
+          }
+        }
+      }
       saveDatabaseToDisk();
     }
 
-    await logServerAuditAsync('Imported Tickets Purged by Date', 'import_batch', importDate, `Super Admin ${req.user!.name} menghapus ${purged} tiket tanggal import ${importDate}. Alasan: ${reason}`, req.user);
-    res.json({ success: true, count: purged, message: `Berhasil menghapus ${purged} tiket import tanggal ${importDate}.` });
+    await logServerAuditAsync('Imported Tickets Soft Deleted by Date', 'import_batch', importDate, `Super Admin ${actor} menandai soft delete ${purged} tiket tanggal import ${importDate}. Alasan: ${cleanReason}`, req.user);
+    res.json({
+      success: failedCount === 0,
+      count: purged,
+      failedCount,
+      message: failedCount > 0
+        ? `Soft delete batch selesai parsial: ${purged} berhasil, ${failedCount} gagal.`
+        : `Berhasil menandai hapus (soft delete) ${purged} tiket import tanggal ${importDate}.`
+    });
   };
 
   app.post('/api/tickets/purge-by-date', requireManagementData, async (req: AuthenticatedRequest, res) => {
@@ -11724,7 +11830,7 @@ export async function createExpressApp(options?: {
                 }
               });
             }
-            tickets = db.tickets;
+            tickets = (db.tickets || []).filter((t: any) => includeDeleted === 'true' ? true : !t.isDeleted);
           } else {
             tickets = sbResult.data || [];
           }
@@ -11739,7 +11845,11 @@ export async function createExpressApp(options?: {
             }
           });
         }
-        tickets = db.tickets;
+        tickets = (db.tickets || []).filter((t: any) => includeDeleted === 'true' ? true : !t.isDeleted);
+      }
+
+      if (includeDeleted !== 'true') {
+        tickets = tickets.filter((t: any) => t && !t.isDeleted);
       }
 
       // Enforce strict server-side RBAC scoping
@@ -11768,6 +11878,51 @@ export async function createExpressApp(options?: {
     }
   });
 
+  // 1b. GET /api/supabase/work-orders/deleted (Superadmin Exclusive Recovery Console)
+  app.get('/api/supabase/work-orders/deleted', requireManagementData, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const search = String(req.query.search || '').trim();
+      const limit = Math.min(1000, Math.max(1, parseInt(String(req.query.limit || '200'), 10) || 200));
+
+      if (!isSupabaseMode()) {
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({
+            success: false,
+            error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' }
+          });
+        }
+        const qLower = search.toLowerCase();
+        const deletedList = (db.tickets || [])
+          .filter((t: any) => {
+            if (!t || !t.isDeleted) return false;
+            if (!qLower) return true;
+            return [t.woNumber, t.idCustomer, t.customerId, t.customerName, t.area, t.contractorName, t.contactorName]
+              .filter(Boolean)
+              .some(v => String(v).toLowerCase().includes(qLower));
+          })
+          .sort((a: any, b: any) => new Date(b.deletedAt || b.updatedAt || 0).getTime() - new Date(a.deletedAt || a.updatedAt || 0).getTime())
+          .slice(0, limit);
+        return res.json({ success: true, data: deletedList, count: deletedList.length });
+      }
+
+      const deletedRes = await getDeletedWorkOrdersFromSupabase({ limit, search });
+      if (!deletedRes.success) {
+        return res.status(deletedRes.error?.isUnavailable ? 503 : 500).json({
+          success: false,
+          error: deletedRes.error
+        });
+      }
+
+      const rows = deletedRes.data || [];
+      return res.json({ success: true, data: rows, count: rows.length });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err?.message || 'Gagal memuat daftar WO terhapus.' }
+      });
+    }
+  });
+
   // 2. GET /api/supabase/work-orders/:id
   app.get('/api/supabase/work-orders/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -11781,7 +11936,7 @@ export async function createExpressApp(options?: {
         if (sbResult.success && sbResult.data) {
           ticket = sbResult.data;
         } else {
-          // Try fallback search by woNumber
+          // Try fallback search by active woNumber
           const byWo = await getWorkOrderByWoNumberFromSupabase(id);
           if (byWo.success && byWo.data) {
             ticket = byWo.data;
@@ -11789,8 +11944,12 @@ export async function createExpressApp(options?: {
         }
       }
 
-      if (!ticket) {
-        ticket = db.tickets.find(t => t.id === id || t.woNumber === id) || null;
+      if (!ticket && isLocalJsonModeAllowed()) {
+        ticket =
+          db.tickets.find(t => t.id === id) ||
+          db.tickets.find(t => !t.isDeleted && t.woNumber === id) ||
+          db.tickets.find(t => t.woNumber === id) ||
+          null;
       }
 
       if (!ticket) {
@@ -11865,11 +12024,16 @@ export async function createExpressApp(options?: {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
         }
-        const newTicket = { ...body, id: body.id || `wo_${normWo}`, createdAt: body.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
-        const existIdx = db.tickets.findIndex(t => t.woNumber?.toUpperCase() === normWo.toUpperCase());
+        const existIdx = db.tickets.findIndex(t => !t.isDeleted && t.woNumber?.toUpperCase() === normWo.toUpperCase());
         if (existIdx >= 0) {
           return res.status(409).json({ success: false, error: { code: '23505', isDuplicate: true, message: `Nomor WO ${normWo} sudah ada.` } });
         }
+        const defaultId = `wo_${normWo}`;
+        const hasIdCollision = db.tickets.some(t => t.id === (body.id || defaultId));
+        const safeId = hasIdCollision
+          ? `wo_${normWo}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+          : (body.id || defaultId);
+        const newTicket = { ...body, id: safeId, isDeleted: false, createdAt: body.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
         db.tickets.unshift(newTicket);
         saveDatabaseToDisk();
         broadcastSupabaseChange('work_orders', 'INSERT', newTicket);
@@ -11930,8 +12094,12 @@ export async function createExpressApp(options?: {
           existing = fetchRes.data;
         }
       }
-      if (!existing) {
-        existing = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId) || null;
+      if (!existing && isLocalJsonModeAllowed()) {
+        existing =
+          db.tickets.find(t => t.id === cleanId) ||
+          db.tickets.find(t => !t.isDeleted && t.woNumber === cleanId) ||
+          db.tickets.find(t => t.woNumber === cleanId) ||
+          null;
       }
 
       if (!existing) {
@@ -11945,6 +12113,13 @@ export async function createExpressApp(options?: {
         return res.status(403).json({
           success: false,
           error: { code: 'PROTECTED_RECORD', message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah.' }
+        });
+      }
+
+      if (existing.isDeleted) {
+        return res.status(409).json({
+          success: false,
+          error: { code: 'WO_SOFT_DELETED', message: 'Work Order ini telah dihapus (soft delete). Pulihkan WO terlebih dahulu sebelum mengubah data.' }
         });
       }
 
@@ -12106,12 +12281,12 @@ export async function createExpressApp(options?: {
     }
   });
 
-  // 5. DELETE /api/supabase/work-orders/:id (Restricted strictly to Management Data)
+  // 5. DELETE /api/supabase/work-orders/:id (Restricted strictly to Management Data - Soft Delete ONLY)
   app.delete('/api/supabase/work-orders/:id', requireManagementData, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const user = req.user!;
-      const { reason, deletedBy } = req.body || {};
+      const { reason } = req.body || {};
 
       const cleanId = id.trim();
       if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
@@ -12128,43 +12303,56 @@ export async function createExpressApp(options?: {
         });
       }
 
+      const cleanReason = String(reason).trim();
+      const actor = user.name;
+
       if (!isSupabaseMode()) {
         if (!isLocalJsonModeAllowed()) {
           return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
         }
-        const target = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+        const target =
+          db.tickets.find(t => t.id === cleanId) ||
+          db.tickets.find(t => !t.isDeleted && t.woNumber === cleanId) ||
+          null;
         if (!target) {
           return res.status(404).json({ success: false, error: { code: 'PGRST116', isNotFound: true, message: `Work Order "${cleanId}" tidak ditemukan.` } });
         }
+        if (PROTECTED_PRODUCTION_WO_IDS.has(target.id) || PROTECTED_PRODUCTION_WO_IDS.has(target.woNumber)) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'PROTECTED_RECORD', message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah atau dihapus.' }
+          });
+        }
+        const nowIso = new Date().toISOString();
         target.isDeleted = true;
-        target.deletedAt = new Date().toISOString();
-        target.deletedBy = deletedBy || user.name;
-        target.deletionReason = reason;
+        target.deletedAt = nowIso;
+        target.deletedBy = actor;
+        target.deletionReason = cleanReason;
+        target.updatedAt = nowIso;
+        target.updatedBy = actor;
         saveDatabaseToDisk();
         broadcastSupabaseChange('work_orders', 'DELETE', target);
-        await logServerAuditAsync('Work Order Soft Deleted (Local Dev)', 'work_order', cleanId, `WO ${cleanId} di-soft-delete oleh ${user.name}. Alasan: ${reason}`, user);
-        return res.json({ success: true, data: target, message: `Work Order ${cleanId} berhasil ditandai terhapus (soft delete).` });
+        await logServerAuditAsync('Work Order Soft Deleted (Local Dev)', 'work_order', target.id, `WO ${target.woNumber} di-soft-delete oleh ${actor}. Alasan: ${cleanReason}`, user);
+        return res.json({ success: true, data: target, message: `Work Order ${target.woNumber} berhasil ditandai terhapus (soft delete).` });
       }
 
-      const result = await deleteWorkOrderFromSupabase(cleanId, reason, deletedBy || user.name);
+      const result = await deleteWorkOrderFromSupabase(cleanId, cleanReason, actor);
       if (!result.success) {
         return res.status(result.error?.isNotFound ? 404 : (result.error?.isUnavailable ? 503 : 400)).json({ success: false, error: result.error });
       }
 
-      // Update in-memory representation
-      const target = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
-      if (target) {
-        target.isDeleted = true;
-        target.deletedAt = new Date().toISOString();
-        target.deletedBy = user.name;
-        target.deletionReason = reason;
+      // Update in-memory representation using authoritative response
+      const updated = result.data;
+      const targetIdx = db.tickets.findIndex(t => t.id === updated.id || t.id === cleanId);
+      if (targetIdx >= 0) {
+        db.tickets[targetIdx] = updated;
         saveDatabaseToDisk();
       }
 
-      broadcastSupabaseChange('work_orders', 'DELETE', result.data);
-      await logServerAuditAsync('Work Order Soft Deleted (Supabase)', 'work_order', cleanId, `WO ${cleanId} di-soft-delete oleh ${user.name}. Alasan: ${reason}`, user);
+      broadcastSupabaseChange('work_orders', 'DELETE', updated);
+      await logServerAuditAsync('Work Order Soft Deleted (Supabase)', 'work_order', updated.id || cleanId, `WO ${updated.woNumber || cleanId} di-soft-delete oleh ${actor}. Alasan: ${cleanReason}`, user);
 
-      return res.json({ success: true, data: result.data, message: `Work Order ${cleanId} berhasil ditandai terhapus (soft delete).` });
+      return res.json({ success: true, data: updated, message: `Work Order ${updated.woNumber || cleanId} berhasil ditandai terhapus (soft delete).` });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
@@ -12193,23 +12381,46 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const result = await archiveWorkOrderInSupabase(cleanId, req.body?.archivedBy || user.name);
-      if (!result.success) {
-        return res.status(result.error?.isNotFound ? 404 : 400).json({ success: false, error: result.error });
+      const actor = user.name;
+      if (!isSupabaseMode()) {
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
+        }
+        const target =
+          db.tickets.find(t => t.id === cleanId) ||
+          db.tickets.find(t => !t.isDeleted && t.woNumber === cleanId) ||
+          null;
+        if (!target) {
+          return res.status(404).json({ success: false, error: { code: 'PGRST116', isNotFound: true, message: `Work Order "${cleanId}" tidak ditemukan.` } });
+        }
+        const nowIso = new Date().toISOString();
+        target.isArchived = true;
+        target.archivedAt = nowIso;
+        target.archivedBy = actor;
+        target.updatedAt = nowIso;
+        target.updatedBy = actor;
+        saveDatabaseToDisk();
+        broadcastSupabaseChange('work_orders', 'UPDATE', target);
+        await logServerAuditAsync('Work Order Archived (Local Dev)', 'work_order', target.id, `WO ${target.woNumber} diarsipkan oleh ${actor}`, user);
+        return res.json({ success: true, data: target });
       }
 
-      const target = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
-      if (target) {
-        target.isArchived = true;
-        target.archivedAt = new Date().toISOString();
-        target.archivedBy = user.name;
+      const result = await archiveWorkOrderInSupabase(cleanId, actor);
+      if (!result.success) {
+        return res.status(result.error?.isNotFound ? 404 : (result.error?.isUnavailable ? 503 : 400)).json({ success: false, error: result.error });
+      }
+
+      const updated = result.data;
+      const targetIdx = db.tickets.findIndex(t => t.id === updated.id || t.id === cleanId);
+      if (targetIdx >= 0) {
+        db.tickets[targetIdx] = updated;
         saveDatabaseToDisk();
       }
 
-      broadcastSupabaseChange('work_orders', 'UPDATE', result.data);
-      await logServerAuditAsync('Work Order Archived (Supabase)', 'work_order', cleanId, `WO ${cleanId} diarsipkan oleh ${user.name}`, user);
+      broadcastSupabaseChange('work_orders', 'UPDATE', updated);
+      await logServerAuditAsync('Work Order Archived (Supabase)', 'work_order', updated.id || cleanId, `WO ${updated.woNumber || cleanId} diarsipkan oleh ${actor}`, user);
 
-      return res.json({ success: true, data: result.data });
+      return res.json({ success: true, data: updated });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
@@ -12238,24 +12449,80 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const result = await restoreWorkOrderInSupabase(cleanId, req.body?.restoredBy || user.name);
-      if (!result.success) {
-        return res.status(result.error?.isNotFound ? 404 : 400).json({ success: false, error: result.error });
-      }
-
-      const target = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
-      if (target) {
+      const actor = user.name;
+      if (!isSupabaseMode()) {
+        if (!isLocalJsonModeAllowed()) {
+          return res.status(503).json({ success: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Database authoritative Supabase tidak tersedia.' } });
+        }
+        const target =
+          db.tickets.find(t => t.id === cleanId) ||
+          db.tickets.find(t => (t.isDeleted || t.isArchived) && t.woNumber === cleanId) ||
+          db.tickets.find(t => t.woNumber === cleanId) ||
+          null;
+        if (!target) {
+          return res.status(404).json({ success: false, error: { code: 'PGRST116', isNotFound: true, message: `Work Order "${cleanId}" tidak ditemukan.` } });
+        }
+        if (PROTECTED_PRODUCTION_WO_IDS.has(target.id) || PROTECTED_PRODUCTION_WO_IDS.has(target.woNumber)) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'PROTECTED_RECORD', message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah.' }
+          });
+        }
+        const normTargetWo = String(target.woNumber || '').trim().toUpperCase().replace(/\s+/g, '');
+        const activeConflict = target.isDeleted && normTargetWo
+          ? db.tickets.find(t => !t.isDeleted && t.id !== target.id && String(t.woNumber || '').trim().toUpperCase().replace(/\s+/g, '') === normTargetWo)
+          : null;
+        if (activeConflict) {
+          return res.status(409).json({
+            success: false,
+            error: {
+              code: 'DUPLICATE_ACTIVE_WO',
+              isDuplicate: true,
+              message: `Tidak dapat memulihkan WO ${target.woNumber} karena sudah terdapat WO aktif dengan nomor yang sama (${activeConflict.id}).`
+            }
+          });
+        }
+        const nowIso = new Date().toISOString();
         target.isArchived = false;
         target.isDeleted = false;
         target.archivedAt = undefined;
+        target.archivedBy = undefined;
         target.deletedAt = undefined;
+        target.deletedBy = undefined;
+        target.deletionReason = undefined;
+        target.updatedAt = nowIso;
+        target.updatedBy = actor;
         saveDatabaseToDisk();
+        broadcastSupabaseChange('work_orders', 'UPDATE', target);
+        await logServerAuditAsync('Work Order Restored (Local Dev)', 'work_order', target.id, `WO ${target.woNumber} dipulihkan oleh ${actor}`, user);
+        return res.json({ success: true, data: target });
       }
 
-      broadcastSupabaseChange('work_orders', 'UPDATE', result.data);
-      await logServerAuditAsync('Work Order Restored (Supabase)', 'work_order', cleanId, `WO ${cleanId} dipulihkan oleh ${user.name}`, user);
+      const result = await restoreWorkOrderInSupabase(cleanId, actor);
+      if (!result.success) {
+        const status = result.error?.isNotFound
+          ? 404
+          : result.error?.isDuplicate
+          ? 409
+          : result.error?.isUnavailable
+          ? 503
+          : 400;
+        return res.status(status).json({ success: false, error: result.error });
+      }
 
-      return res.json({ success: true, data: result.data });
+      const restoredTicket = result.data;
+      const targetIdx = db.tickets.findIndex(t => t.id === restoredTicket.id || t.id === cleanId);
+      if (targetIdx >= 0) {
+        db.tickets[targetIdx] = restoredTicket;
+      } else {
+        db.tickets.unshift(restoredTicket);
+      }
+      saveDatabaseToDisk();
+
+      broadcastSupabaseChange('work_orders', 'UPDATE', restoredTicket);
+      await logServerAuditAsync('Work Order Restored (Supabase)', 'work_order', restoredTicket.id || cleanId, `WO ${restoredTicket.woNumber || cleanId} dipulihkan oleh ${actor}`, user);
+
+      return res.json({ success: true, data: restoredTicket });
     } catch (err: any) {
       return res.status(500).json({
         success: false,
@@ -12329,7 +12596,12 @@ export async function createExpressApp(options?: {
         const invalidRows: Array<{ index: number; reason: string; rawWo?: string }> = [];
         const importedLocalItems: any[] = [];
         const seenInRequest = new Set<string>();
-        const existingSet = new Set(db.tickets.map(t => String(t.woNumber || '').trim().toUpperCase().replace(/\s+/g, '')));
+        const existingSet = new Set(
+          db.tickets
+            .filter(t => !t.isDeleted)
+            .map(t => String(t.woNumber || '').trim().toUpperCase().replace(/\s+/g, ''))
+        );
+        const existingIdSet = new Set(db.tickets.map(t => String(t.id || '')));
 
         enrichedTickets.forEach((t: any, idx: number) => {
           if (!t || typeof t !== 'object') {
@@ -12370,11 +12642,17 @@ export async function createExpressApp(options?: {
             return;
           }
           existingSet.add(norm);
+          const candidateId = t.id || `wo_${norm}`;
+          const finalId = existingIdSet.has(candidateId)
+            ? `wo_${norm}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+            : candidateId;
+          existingIdSet.add(finalId);
           const itemObj = {
             ...t,
             woNumber: norm,
             workOrderNumber: norm,
-            id: t.id || `wo_${norm}`,
+            id: finalId,
+            isDeleted: false,
             importBatchId: batchId,
             createdAt: t.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -14954,7 +15232,10 @@ export async function createExpressApp(options?: {
         tickets = db.tickets || [];
       }
 
-      let scoped = scopeTicketsForUser(tickets, req.user!).map((t: any) => attachClassificationMetadata(t, todayWIB));
+      let scoped = scopeTicketsForUser(
+        (tickets || []).filter((t: any) => t && !t.isDeleted),
+        req.user!
+      ).map((t: any) => attachClassificationMetadata(t, todayWIB));
       if (!includeArchived) {
         scoped = scoped.filter((t: any) => !t.isArchived);
       }
@@ -15055,7 +15336,10 @@ export async function createExpressApp(options?: {
       } else {
         tickets = db.tickets;
       }
-      const scopedTickets = scopeTicketsForUser(tickets, req.user!);
+      const scopedTickets = scopeTicketsForUser(
+        (tickets || []).filter((t: any) => t && !t.isDeleted),
+        req.user!
+      );
       res.json({ success: true, workOrders: scopedTickets, count: scopedTickets.length });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err?.message || 'Gagal memuat work orders.' });
@@ -16907,14 +17191,20 @@ export async function createExpressApp(options?: {
         const woRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
         if (woRes.success && woRes.data) {
           ticketData = woRes.data;
-        }
-
-        if (ticketData && !checkTicketAccess(ticketData, user)) {
-          return res.status(403).json({
-            success: false,
-            error: 'Akses Ditolak: Anda tidak memiliki wewenang mengirim pesan ke Work Order ini.',
-            code: 'FORBIDDEN_SCOPE'
-          });
+          if (ticketData.isDeleted) {
+            return res.status(409).json({
+              success: false,
+              error: 'Work Order ini telah dihapus (soft delete). Pulihkan WO terlebih dahulu untuk mengirim pesan baru.',
+              code: 'WO_SOFT_DELETED'
+            });
+          }
+          if (!checkTicketAccess(ticketData, user)) {
+            return res.status(403).json({
+              success: false,
+              error: 'Akses Ditolak: Anda tidak memiliki wewenang mengirim pesan ke Work Order ini.',
+              code: 'FORBIDDEN_SCOPE'
+            });
+          }
         }
 
         const prevTicketSnapshot = ticketData ? { ...ticketData } : undefined;
@@ -17039,7 +17329,17 @@ export async function createExpressApp(options?: {
       }
     }
 
-    const ticket = db.tickets.find(t => t.id === id || t.woNumber === id);
+    const ticket =
+      db.tickets.find(t => t.id === id) ||
+      db.tickets.find(t => !t.isDeleted && t.woNumber === id) ||
+      db.tickets.find(t => t.woNumber === id);
+    if (ticket?.isDeleted) {
+      return res.status(409).json({
+        success: false,
+        error: 'Work Order ini telah dihapus (soft delete). Pulihkan WO terlebih dahulu untuk mengirim pesan baru.',
+        code: 'WO_SOFT_DELETED'
+      });
+    }
     if (ticket && !checkTicketAccess(ticket, user)) {
       return res.status(403).json({
         success: false,
