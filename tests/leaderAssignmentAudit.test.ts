@@ -48,6 +48,7 @@ interface MockDbOptions {
 }
 
 const UNMIGRATED_OPTIONAL_WO_COLUMNS = new Set([
+  'installer_id',
   'installer_uid',
   'assigned_to',
   'assigned_to_uid',
@@ -64,14 +65,22 @@ function createProductionCompatibleMockSupabase(opts: MockDbOptions = {}) {
   const historyRows: any[] = [];
   const auditLogs: any[] = [];
 
+  const readField = (row: any, fieldExpr: string) => {
+    const jsonMatch = fieldExpr.match(/^payload->>([a-zA-Z0-9_]+)$/);
+    if (jsonMatch) {
+      return row.payload?.[jsonMatch[1]];
+    }
+    return row[fieldExpr];
+  };
+
   const applyFilterConditions = (rows: any[], eqFilters: Array<[string, any]>, orExprs: string[], ilikeFilters: Array<[string, string]>) => {
     return rows.filter(row => {
       for (const [col, val] of eqFilters) {
-        if (row[col] !== val) return false;
+        if (readField(row, col) !== val) return false;
       }
       for (const [col, pattern] of ilikeFilters) {
         const clean = String(pattern).replace(/%/g, '').trim().toLowerCase();
-        const actual = String(row[col] || '').trim().toLowerCase();
+        const actual = String(readField(row, col) || '').trim().toLowerCase();
         if (!actual.includes(clean)) return false;
       }
       for (const expr of orExprs) {
@@ -79,21 +88,22 @@ function createProductionCompatibleMockSupabase(opts: MockDbOptions = {}) {
         const parts = expr.split(',').map(s => s.trim()).filter(Boolean);
         let anyMatched = false;
         for (const p of parts) {
-          const eqMatch = p.match(/^([a-zA-Z0-9_]+)\.eq\.(.+)$/);
+          const eqMatch = p.match(/^([a-zA-Z0-9_>-]+)\.eq\.(.+)$/);
           if (eqMatch) {
-            const col = eqMatch[1];
+            const colExpr = eqMatch[1];
+            const bareCol = colExpr.split('->>')[0].split('->')[0];
             const rawVal = eqMatch[2].replace(/^"|"$/g, '');
-            if (opts.strictProductionColumnsOnly && UNMIGRATED_OPTIONAL_WO_COLUMNS.has(col)) {
+            if (opts.strictProductionColumnsOnly && UNMIGRATED_OPTIONAL_WO_COLUMNS.has(bareCol)) {
               // Trigger schema error simulation outside filter loop
-              throw { code: '42703', message: `column work_orders.${col} does not exist` };
+              throw { code: '42703', message: `column work_orders.${bareCol} does not exist` };
             }
-            if (String(row[col] || '') === rawVal) anyMatched = true;
+            if (String(readField(row, colExpr) || '') === rawVal) anyMatched = true;
           }
-          const ilikeMatch = p.match(/^([a-zA-Z0-9_]+)\.ilike\.(.+)$/);
+          const ilikeMatch = p.match(/^([a-zA-Z0-9_>-]+)\.ilike\.(.+)$/);
           if (ilikeMatch) {
-            const col = ilikeMatch[1];
+            const colExpr = ilikeMatch[1];
             const needle = ilikeMatch[2].replace(/%/g, '').trim().toLowerCase();
-            if (String(row[col] || '').toLowerCase().includes(needle)) anyMatched = true;
+            if (String(readField(row, colExpr) || '').toLowerCase().includes(needle)) anyMatched = true;
           }
         }
         if (!anyMatched) return false;

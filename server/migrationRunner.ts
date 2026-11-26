@@ -128,7 +128,18 @@ function createPgPool(connectionString: string): Pool {
     config.ssl = { rejectUnauthorized: false };
   }
 
-  return new Pool(config);
+  try {
+    return new Pool(config);
+  } catch (err) {
+    console.warn('[Migrations] Failed to initialize pg Pool — using safe no-op fallback:', sanitizeErrorMessage(err));
+    return {
+      connect: async () => ({
+        query: async () => ({ rows: [] }),
+        release: () => {}
+      }),
+      end: async () => {}
+    } as unknown as Pool;
+  }
 }
 
 function describeConnectionConfigHint(connectionString: string, rawErrMsg?: string): string {

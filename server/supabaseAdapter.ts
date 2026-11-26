@@ -470,9 +470,9 @@ export function ticketToPostgresRow(ticket: any): Record<string, any> {
     leaderId: ticket.leaderId || null,
     leaderContact: ticket.leaderContact || null,
     installerId: ticket.installerId || null,
-    installerUid: ticket.installerUid || null,
-    assignedTo: ticket.assignedTo || null,
-    assignedToUid: ticket.assignedToUid || null,
+    installerUid: ticket.installerUid || ticket.installerId || null,
+    assignedTo: ticket.assignedTo || ticket.installerName || null,
+    assignedToUid: ticket.assignedToUid || ticket.installerId || null,
     progressReports: Array.isArray(ticket.progressReports) ? ticket.progressReports : [],
     kendalaReports: Array.isArray(ticket.kendalaReports) ? ticket.kendalaReports : [],
     reportStatusId: ticket.reportStatusId || null,
@@ -1290,7 +1290,75 @@ export async function deleteUserInSupabase(
 // DATA ACCESS LAYER: WORK ORDERS / TICKETS
 // ------------------------------------------------------------------------------
 
-export const WORK_ORDER_LIST_COLUMNS = [
+export const WORK_ORDER_OPTIONAL_COMPAT_COLS = [
+  'installer_id',
+  'installer_uid',
+  'assigned_to',
+  'assigned_to_uid',
+  'leader_id',
+  'leader_contact',
+  'distributed_at',
+  'distributed_by',
+  'chat_category',
+  'house_location',
+  'fat_location'
+] as const;
+
+const WORK_ORDER_OPTIONAL_COMPAT_SET = new Set<string>(WORK_ORDER_OPTIONAL_COMPAT_COLS);
+const missingWorkOrderColumnsCache = new Set<string>();
+
+export function resetWorkOrderSchemaCompatCacheForTests(): void {
+  missingWorkOrderColumnsCache.clear();
+}
+
+export function extractMissingWorkOrderColumnFromError(err: any): string | null {
+  const msg = String(err?.message || '');
+  const pgrstMatch = msg.match(/could not find the ['"]([a-z0-9_]+)['"] column/i);
+  if (pgrstMatch?.[1]) {
+    return pgrstMatch[1].toLowerCase();
+  }
+  const pgMatch = msg.match(/column\s+(?:[a-z0-9_]+\.)?["']?([a-z0-9_]+)["']?\s+does not exist/i);
+  if (pgMatch?.[1]) {
+    return pgMatch[1].toLowerCase();
+  }
+  return null;
+}
+
+function recordMissingWorkOrderColumn(err: any): string | null {
+  const col = extractMissingWorkOrderColumnFromError(err);
+  if (col && col !== 'payload') {
+    missingWorkOrderColumnsCache.add(col);
+    return col;
+  }
+  const msgLower = String(err?.message || '').toLowerCase();
+  for (const optCol of WORK_ORDER_OPTIONAL_COMPAT_COLS) {
+    if (msgLower.includes(optCol)) {
+      missingWorkOrderColumnsCache.add(optCol);
+      return optCol;
+    }
+  }
+  return null;
+}
+
+function stripMissingWorkOrderOptionalColumns(
+  row: Record<string, any>,
+  extraColsToStrip: Iterable<string> = []
+): Record<string, any> {
+  const next: Record<string, any> = { ...row };
+  for (const col of missingWorkOrderColumnsCache) {
+    if (col !== 'payload' && col in next) {
+      delete next[col];
+    }
+  }
+  for (const col of extraColsToStrip) {
+    if (col !== 'payload' && col in next) {
+      delete next[col];
+    }
+  }
+  return next;
+}
+
+export const WORK_ORDER_LIST_COLUMNS_ARRAY = [
   'id',
   'wo_number',
   'work_order_number',
@@ -1397,7 +1465,14 @@ export const WORK_ORDER_LIST_COLUMNS = [
   'created_at',
   'updated_at',
   'updated_by'
-].join(', ');
+];
+
+export const WORK_ORDER_LIST_COLUMNS = WORK_ORDER_LIST_COLUMNS_ARRAY.join(', ');
+
+function getCompatWorkOrderListColumns(): string {
+  if (missingWorkOrderColumnsCache.size === 0) return WORK_ORDER_LIST_COLUMNS;
+  return WORK_ORDER_LIST_COLUMNS_ARRAY.filter(col => !missingWorkOrderColumnsCache.has(col)).join(', ');
+}
 
 export interface GetWorkOrdersOptions {
   limit?: number;
@@ -1466,29 +1541,30 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
   };
 
   try {
-    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : '*';
+    const getActiveSelect = (forceWildcard = false) =>
+      forceWildcard ? '*' : (options.lightweight ? getCompatWorkOrderListColumns() : '*');
     const hasExplicitLimit = typeof options.limit === 'number' && options.limit > 0;
     const hasExplicitOffset = typeof options.offset === 'number' && options.offset >= 0;
 
     if (hasExplicitLimit || hasExplicitOffset) {
-      let query = buildBaseQuery(selectColumns);
-      if (hasExplicitOffset && hasExplicitLimit) {
-        query = query.range(options.offset!, options.offset! + options.limit! - 1);
-      } else if (hasExplicitLimit) {
-        query = query.limit(options.limit!);
-      }
-
-      let { data, error } = await query;
-      if (error && options.lightweight && isMissingSchemaObjectError(error)) {
-        let fallbackQuery = buildBaseQuery('*');
+      let forceWildcard = false;
+      let data: any[] | null = null;
+      let error: any = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        let query = buildBaseQuery(getActiveSelect(forceWildcard));
         if (hasExplicitOffset && hasExplicitLimit) {
-          fallbackQuery = fallbackQuery.range(options.offset!, options.offset! + options.limit! - 1);
+          query = query.range(options.offset!, options.offset! + options.limit! - 1);
         } else if (hasExplicitLimit) {
-          fallbackQuery = fallbackQuery.limit(options.limit!);
+          query = query.limit(options.limit!);
         }
-        const fallbackRes = await fallbackQuery;
-        data = fallbackRes.data as any;
-        error = fallbackRes.error;
+        const res = await query;
+        data = res.data as any;
+        error = res.error;
+        if (!error || !options.lightweight || !isMissingSchemaObjectError(error) || forceWildcard) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) forceWildcard = true;
       }
 
       if (error) {
@@ -1509,14 +1585,18 @@ export async function getWorkOrdersFromSupabase(options: GetWorkOrdersOptions = 
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const activeCols = useFallbackColumns ? '*' : selectColumns;
 
-      let { data, error } = await buildBaseQuery(activeCols).range(start, end);
-      if (error && !useFallbackColumns && options.lightweight && isMissingSchemaObjectError(error)) {
-        useFallbackColumns = true;
-        const fallbackRes = await buildBaseQuery('*').range(start, end);
-        data = fallbackRes.data as any;
-        error = fallbackRes.error;
+      let data: any[] | null = null;
+      let error: any = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const res = await buildBaseQuery(getActiveSelect(useFallbackColumns)).range(start, end);
+        data = res.data as any;
+        error = res.error;
+        if (!error || !options.lightweight || !isMissingSchemaObjectError(error) || useFallbackColumns) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) useFallbackColumns = true;
       }
 
       if (error) {
@@ -1639,10 +1719,15 @@ export async function getWorkOrdersFromSupabasePaginated(
     // DB-level role scoping pushdown (defense-in-depth alongside scopeTicketsForUser)
     if (options.userRole === 'installer' && options.userId) {
       const safeUid = sanitizePostgrestQuotedValue(options.userId);
-      if (useExtendedInstallerCols) {
+      const hasMissingInstallerCol =
+        missingWorkOrderColumnsCache.has('installer_id') ||
+        missingWorkOrderColumnsCache.has('installer_uid') ||
+        missingWorkOrderColumnsCache.has('assigned_to_uid');
+      if (useExtendedInstallerCols && !hasMissingInstallerCol) {
         q = q.or(`installer_id.eq.${safeUid},installer_uid.eq.${safeUid},assigned_to_uid.eq.${safeUid}`);
       } else {
-        q = q.eq('installer_id', options.userId);
+        // Fallback for base 001_core_morajaws_schema where installer IDs are persisted in JSONB payload
+        q = q.or(`payload->>installerId.eq.${safeUid},payload->>installerUid.eq.${safeUid},payload->>assignedToUid.eq.${safeUid}`);
       }
     } else if (options.userRole === 'leader' && options.userContractor) {
       const lc = sanitizePostgrestIlikeTerm(options.userContractor);
@@ -1654,24 +1739,45 @@ export async function getWorkOrdersFromSupabasePaginated(
   };
 
   try {
-    const selectCols = options.lightweight !== false ? WORK_ORDER_LIST_COLUMNS : '*';
-    let query = applyFilters(
-      client.from('work_orders').select(selectCols, { count: 'exact' }),
-      true
-    );
-    query = query.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
+    let useExtendedCols = !missingWorkOrderColumnsCache.has('installer_id');
+    let forceWildcardSelect = false;
+    let data: any[] | null = null;
+    let count: number | null = null;
+    let error: any = null;
 
-    let { data, count, error } = await query;
-    if (error && isMissingSchemaObjectError(error)) {
-      let fallback = applyFilters(
-        client.from('work_orders').select('*', { count: 'exact' }),
-        false
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const selectCols =
+        options.lightweight !== false
+          ? forceWildcardSelect
+            ? '*'
+            : getCompatWorkOrderListColumns()
+          : '*';
+      let query = applyFilters(
+        client.from('work_orders').select(selectCols, { count: 'exact' }),
+        useExtendedCols
       );
-      fallback = fallback.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
-      const fbRes = await fallback;
-      data = fbRes.data as any;
-      count = fbRes.count;
-      error = fbRes.error;
+      query = query.order(orderCol, { ascending }).order('id', { ascending: true }).range(offset, offset + limit - 1);
+
+      const res = await query;
+      data = res.data as any;
+      count = res.count;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+      const recorded = recordMissingWorkOrderColumn(error);
+      if (
+        recorded === 'installer_id' ||
+        recorded === 'installer_uid' ||
+        recorded === 'assigned_to_uid' ||
+        useExtendedCols
+      ) {
+        useExtendedCols = false;
+      }
+      if (!recorded) {
+        if (forceWildcardSelect) break;
+        forceWildcardSelect = true;
+      }
     }
 
     if (error) {
@@ -1767,27 +1873,25 @@ export async function getWorkOrdersUpdatedSinceFromSupabase(
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const cols = useFallbackColumns ? '*' : WORK_ORDER_LIST_COLUMNS;
 
-      let { data, error } = await client
-        .from('work_orders')
-        .select(cols)
-        .gte('updated_at', sinceIso)
-        .order('updated_at', { ascending: false })
-        .order('id', { ascending: true })
-        .range(start, end);
-
-      if (error && !useFallbackColumns && isMissingSchemaObjectError(error)) {
-        useFallbackColumns = true;
-        const fb = await client
+      let data: any[] | null = null;
+      let error: any = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const cols = useFallbackColumns ? '*' : getCompatWorkOrderListColumns();
+        const res = await client
           .from('work_orders')
-          .select('*')
+          .select(cols)
           .gte('updated_at', sinceIso)
           .order('updated_at', { ascending: false })
           .order('id', { ascending: true })
           .range(start, end);
-        data = fb.data as any;
-        error = fb.error;
+        data = res.data as any;
+        error = res.error;
+        if (!error || !isMissingSchemaObjectError(error) || useFallbackColumns) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) useFallbackColumns = true;
       }
 
       if (error) {
@@ -1867,16 +1971,50 @@ export async function getScopedActiveWorkOrderHeadsFromSupabase(): Promise<Supab
     const MAX_CHUNKS = 25;
     const allRows: any[] = [];
 
+    const HEAD_COLUMNS = [
+      'id',
+      'wo_number',
+      'contractor_id',
+      'contractor_name',
+      'contactor_name',
+      'area',
+      'installer_id',
+      'installer_uid',
+      'assigned_to_uid',
+      'installer_name',
+      'leader_name',
+      'corlap_name',
+      'is_deleted',
+      'is_archived',
+      'payload'
+    ];
+
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const { data, error } = await client
-        .from('work_orders')
-        .select('id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived')
-        .eq('is_deleted', false)
-        .eq('is_archived', false)
-        .order('id', { ascending: true })
-        .range(start, end);
+      let data: any[] | null = null;
+      let error: any = null;
+      let forceWildcard = false;
+
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const activeCols = forceWildcard
+          ? '*'
+          : HEAD_COLUMNS.filter(c => !missingWorkOrderColumnsCache.has(c)).join(', ');
+        const res = await client
+          .from('work_orders')
+          .select(activeCols)
+          .eq('is_deleted', false)
+          .eq('is_archived', false)
+          .order('id', { ascending: true })
+          .range(start, end);
+        data = res.data as any;
+        error = res.error;
+        if (!error || !isMissingSchemaObjectError(error) || forceWildcard) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) forceWildcard = true;
+      }
 
       if (error) {
         return { success: false, error: classifySupabaseError(error) };
@@ -1890,22 +2028,25 @@ export async function getScopedActiveWorkOrderHeadsFromSupabase(): Promise<Supab
 
     return {
       success: true,
-      data: allRows.map((row: any) => ({
-        id: String(row.id),
-        woNumber: row.wo_number,
-        contractorId: row.contractor_id || undefined,
-        contractorName: row.contractor_name || row.contactor_name || '',
-        contactorName: row.contactor_name || row.contractor_name || '',
-        area: row.area || '',
-        installerId: row.installer_id || undefined,
-        installerUid: row.installer_uid || undefined,
-        assignedToUid: row.assigned_to_uid || undefined,
-        installerName: row.installer_name || undefined,
-        leaderName: row.leader_name || undefined,
-        corlapName: row.corlap_name || undefined,
-        isDeleted: Boolean(row.is_deleted),
-        isArchived: Boolean(row.is_archived)
-      }))
+      data: allRows.map((row: any) => {
+        const p = row?.payload && typeof row.payload === 'object' ? row.payload : {};
+        return {
+          id: String(row.id),
+          woNumber: row.wo_number,
+          contractorId: row.contractor_id || undefined,
+          contractorName: row.contractor_name || row.contactor_name || '',
+          contactorName: row.contactor_name || row.contractor_name || '',
+          area: row.area || '',
+          installerId: p.installerId || row.installer_id || undefined,
+          installerUid: p.installerUid || row.installer_uid || undefined,
+          assignedToUid: p.assignedToUid || row.assigned_to_uid || undefined,
+          installerName: row.installer_name || undefined,
+          leaderName: row.leader_name || undefined,
+          corlapName: row.corlap_name || undefined,
+          isDeleted: Boolean(row.is_deleted),
+          isArchived: Boolean(row.is_archived)
+        };
+      })
     };
   } catch (err: any) {
     return { success: false, error: classifySupabaseError(err) };
@@ -2121,12 +2262,28 @@ export async function insertWorkOrderToSupabase(ticket: any): Promise<SupabaseOp
   }
 
   try {
-    const row = ticketToPostgresRow(ticket);
-    const { data, error } = await client
-      .from('work_orders')
-      .insert([row])
-      .select('*')
-      .single();
+    let compatRow = stripMissingWorkOrderOptionalColumns(ticketToPostgresRow(ticket));
+    let data: any = null;
+    let error: any = null;
+
+    for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+      const res = await client
+        .from('work_orders')
+        .insert([compatRow])
+        .select('*')
+        .single();
+      data = res.data;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+      const missingCol = recordMissingWorkOrderColumn(error);
+      if (!missingCol || !(missingCol in compatRow) || (!WORK_ORDER_OPTIONAL_COMPAT_SET.has(missingCol) && missingCol !== 'payload')) {
+        if (!missingCol || !(missingCol in compatRow)) break;
+      }
+      if (missingCol === 'payload') break;
+      compatRow = stripMissingWorkOrderOptionalColumns(compatRow, [missingCol]);
+    }
 
     if (error) {
       const classified = classifySupabaseError(error);
@@ -2661,55 +2818,48 @@ export async function updateWorkOrderInSupabase(id: string, updates: Record<stri
 
     updateRow.payload = mergedPayload;
 
-    // 3. Execute partial update (with safe schema-compatibility retry for optional unmigrated columns
-    // whose values are already preserved in JSONB payload)
-    let { data, error } = await client
-      .from('work_orders')
-      .update(updateRow)
-      .eq('id', cleanId)
-      .select('*')
-      .single();
+    // 3. Execute partial update (pre-strip cached missing optional columns + iterative schema-compat retry;
+    // canonical values such as installerId/installerUid/assignedTo/assignedToUid remain preserved in JSONB payload)
+    let compatUpdateRow = stripMissingWorkOrderOptionalColumns(updateRow);
+    let data: any = null;
+    let error: any = null;
+    const maxCompatRetries = WORK_ORDER_OPTIONAL_COMPAT_COLS.length + 1;
 
-    if (error && isMissingSchemaObjectError(error)) {
-      const OPTIONAL_COMPAT_COLS = [
-        'installer_uid',
-        'assigned_to',
-        'assigned_to_uid',
-        'installer_id',
-        'chat_category',
-        'leader_id',
-        'leader_contact',
-        'distributed_at',
-        'distributed_by'
-      ];
-      const msgLower = String(error?.message || '').toLowerCase();
-      const compatUpdateRow: Record<string, any> = { ...updateRow };
-      const strippedCols: string[] = [];
+    for (let attempt = 0; attempt <= maxCompatRetries; attempt++) {
+      const res = await client
+        .from('work_orders')
+        .update(compatUpdateRow)
+        .eq('id', cleanId)
+        .select('*')
+        .single();
+      data = res.data;
+      error = res.error;
 
-      // First strip any specifically mentioned optional column, or all unmigrated 009 compat columns
-      for (const col of OPTIONAL_COMPAT_COLS) {
-        if (
-          col in compatUpdateRow &&
-          (msgLower.includes(col) || col === 'installer_uid' || col === 'assigned_to' || col === 'assigned_to_uid')
-        ) {
-          delete compatUpdateRow[col];
-          strippedCols.push(col);
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+
+      const missingCol = recordMissingWorkOrderColumn(error);
+      const colsToStrip: string[] = [];
+      if (missingCol && missingCol !== 'payload' && missingCol in compatUpdateRow) {
+        colsToStrip.push(missingCol);
+      } else {
+        const msgLower = String(error?.message || '').toLowerCase();
+        for (const col of WORK_ORDER_OPTIONAL_COMPAT_COLS) {
+          if (col in compatUpdateRow && msgLower.includes(col)) {
+            colsToStrip.push(col);
+          }
         }
       }
 
-      if (strippedCols.length > 0) {
-        console.warn(
-          `[Supabase DAL] updateWorkOrder(${cleanId}) schema mismatch (${error?.code || 'ERR'}): retrying without optional columns [${strippedCols.join(', ')}] (canonical values preserved in payload)`
-        );
-        const retryRes = await client
-          .from('work_orders')
-          .update(compatUpdateRow)
-          .eq('id', cleanId)
-          .select('*')
-          .single();
-        data = retryRes.data;
-        error = retryRes.error;
+      if (colsToStrip.length === 0) {
+        break;
       }
+
+      console.warn(
+        `[Supabase DAL] updateWorkOrder(${cleanId}) schema mismatch (${error?.code || 'ERR'}): retrying without unmigrated optional column(s) [${colsToStrip.join(', ')}] (canonical values preserved in payload)`
+      );
+      compatUpdateRow = stripMissingWorkOrderOptionalColumns(compatUpdateRow, colsToStrip);
     }
 
     if (error) {
@@ -3475,11 +3625,18 @@ export async function getDeletedWorkOrdersFromSupabase(
   };
 
   try {
-    let { data, error } = await buildQuery(WORK_ORDER_LIST_COLUMNS);
-    if (error && isMissingSchemaObjectError(error)) {
-      const fb = await buildQuery('*');
-      data = fb.data as any;
-      error = fb.error;
+    let data: any[] | null = null;
+    let error: any = null;
+    let forceWildcard = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const res = await buildQuery(forceWildcard ? '*' : getCompatWorkOrderListColumns());
+      data = res.data as any;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error) || forceWildcard) {
+        break;
+      }
+      const recorded = recordMissingWorkOrderColumn(error);
+      if (!recorded) forceWildcard = true;
     }
 
     if (error) {
@@ -3710,32 +3867,55 @@ export async function bulkImportWorkOrdersToSupabase(
         result.skippedDuplicates++;
         result.duplicateExistingWoNumbers.push(candidate.normWo);
       } else {
-        const row = ticketToPostgresRow({
-          ...candidate,
-          woNumber: candidate.normWo,
-          workOrderNumber: candidate.normWo,
-          importBatchId: batchId || `batch_${Date.now()}`,
-          importedAt: new Date().toISOString(),
-          updatedBy: importedBy || 'Import'
-        });
+        const row = stripMissingWorkOrderOptionalColumns(
+          ticketToPostgresRow({
+            ...candidate,
+            woNumber: candidate.normWo,
+            workOrderNumber: candidate.normWo,
+            importBatchId: batchId || `batch_${Date.now()}`,
+            importedAt: new Date().toISOString(),
+            updatedBy: importedBy || 'Import'
+          })
+        );
         rowsToInsert.push(row);
       }
     }
 
-    // 4. Primary Defense: Insert fresh rows in chunks of 50 with row-level isolation on failure
+    // 4. Primary Defense: Insert fresh rows in chunks of 50 with schema-compat retry & row-level isolation on failure
     const insertChunkSize = 50;
 
     for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
-      const chunk = rowsToInsert.slice(i, i + insertChunkSize);
-      const { error: insertError } = await client.from('work_orders').insert(chunk);
+      let chunk = rowsToInsert.slice(i, i + insertChunkSize).map(r => stripMissingWorkOrderOptionalColumns(r));
+      let insertError: any = null;
+      for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+        const res = await client.from('work_orders').insert(chunk);
+        insertError = res.error;
+        if (!insertError || !isMissingSchemaObjectError(insertError)) {
+          break;
+        }
+        const missingCol = recordMissingWorkOrderColumn(insertError);
+        if (!missingCol || missingCol === 'payload') break;
+        chunk = chunk.map(r => stripMissingWorkOrderOptionalColumns(r, [missingCol]));
+      }
 
       if (insertError) {
         const classified = classifySupabaseError(insertError, { table: 'work_orders', operation: 'bulk_insert' });
 
         if (!classified.isUnavailable) {
           // Isolate duplicate (23505) or single-row validation failures without losing valid rows in this chunk
-          for (const singleRow of chunk) {
-            const { error: singleErr } = await client.from('work_orders').insert([singleRow]);
+          for (const rawSingleRow of chunk) {
+            let singleRow = stripMissingWorkOrderOptionalColumns(rawSingleRow);
+            let singleErr: any = null;
+            for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+              const sRes = await client.from('work_orders').insert([singleRow]);
+              singleErr = sRes.error;
+              if (!singleErr || !isMissingSchemaObjectError(singleErr)) {
+                break;
+              }
+              const missingCol = recordMissingWorkOrderColumn(singleErr);
+              if (!missingCol || missingCol === 'payload') break;
+              singleRow = stripMissingWorkOrderOptionalColumns(singleRow, [missingCol]);
+            }
             if (singleErr) {
               const singleClassified = classifySupabaseError(singleErr, { table: 'work_orders', operation: 'single_insert_fallback' });
               if (singleClassified.isDuplicate || singleClassified.code === '23505') {
@@ -5624,13 +5804,14 @@ export async function assignTicketInSupabase(
   if (resolvedInstallerId) {
     matchedInstaller = allInstallers.find(u => u.id === resolvedInstallerId) || null;
   } else {
-    const cleanNeedle = effInstallerName.toLowerCase();
-    const byUsername = allInstallers.filter(u => !u.isDeleted && String(u.username || '').trim().toLowerCase() === cleanNeedle);
+    const cleanNeedle = effInstallerName.toLowerCase().replace(/\s+/g, ' ');
+    const normStr = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const byUsername = allInstallers.filter(u => !u.isDeleted && normStr(u.username) === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
       const activeByName = allInstallers.filter(
-        u => !u.isDeleted && u.active !== false && String(u.name || '').trim().toLowerCase() === cleanNeedle
+        u => !u.isDeleted && u.active !== false && normStr(u.name) === cleanNeedle
       );
       const scopedActiveByName = (userContractor || userContractorId)
         ? activeByName.filter(u =>
@@ -5660,9 +5841,7 @@ export async function assignTicketInSupabase(
       matchedInstaller =
         candidateList[0] ||
         allInstallers.find(
-          u =>
-            String(u.name || '').trim().toLowerCase() === cleanNeedle ||
-            String(u.username || '').trim().toLowerCase() === cleanNeedle
+          u => normStr(u.name) === cleanNeedle || normStr(u.username) === cleanNeedle
         ) ||
         null;
     }
@@ -5840,7 +6019,12 @@ export async function assignTicketInSupabase(
     notes: remarks || null,
     performedById: performedById || null,
     performedBy,
-    performedByRole
+    performedByRole,
+    payload: {
+      installerId: resolvedInstallerId || null,
+      installerUsername: matchedInstaller.username || null,
+      previousInstallerId: targetWO.installerId || targetWO.installerUid || null
+    }
   };
 
   const histRes = await insertAssignmentHistoryToSupabase(historyEntry);
@@ -6084,13 +6268,14 @@ export async function reassignTicketInSupabase(
   if (resolvedNewInstallerId) {
     matchedInstaller = allInstallers.find(u => u.id === resolvedNewInstallerId) || null;
   } else {
-    const cleanNeedle = effNewInstaller.toLowerCase();
-    const byUsername = allInstallers.filter(u => !u.isDeleted && String(u.username || '').trim().toLowerCase() === cleanNeedle);
+    const cleanNeedle = effNewInstaller.toLowerCase().replace(/\s+/g, ' ');
+    const normStr = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const byUsername = allInstallers.filter(u => !u.isDeleted && normStr(u.username) === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
       const activeByName = allInstallers.filter(
-        u => !u.isDeleted && u.active !== false && String(u.name || '').trim().toLowerCase() === cleanNeedle
+        u => !u.isDeleted && u.active !== false && normStr(u.name) === cleanNeedle
       );
       const scopedActiveByName = (userContractor || userContractorId)
         ? activeByName.filter(u =>
@@ -6117,9 +6302,7 @@ export async function reassignTicketInSupabase(
       matchedInstaller =
         candidateList[0] ||
         allInstallers.find(
-          u =>
-            String(u.name || '').trim().toLowerCase() === cleanNeedle ||
-            String(u.username || '').trim().toLowerCase() === cleanNeedle
+          u => normStr(u.name) === cleanNeedle || normStr(u.username) === cleanNeedle
         ) ||
         null;
     }
@@ -6250,7 +6433,12 @@ export async function reassignTicketInSupabase(
     notes: reason.trim(),
     performedById: performedById || null,
     performedBy,
-    performedByRole
+    performedByRole,
+    payload: {
+      newInstallerId: resolvedNewInstallerId || null,
+      newInstallerUsername: matchedInstaller.username || null,
+      previousInstallerId: targetTicket.installerId || targetTicket.installerUid || null
+    }
   };
 
   const histRes = await insertAssignmentHistoryToSupabase(historyEntry);

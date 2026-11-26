@@ -27,6 +27,10 @@ import {
 } from '../common/InteractiveTableHeader';
 import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
 import {
+  SearchableInstallerSelect,
+  type SearchableInstallerOption
+} from '../common/SearchableInstallerSelect';
+import {
   formatSlotBadgeLabel,
   normalizeSlotIndex,
   TechnicianCapacitySummary
@@ -79,6 +83,7 @@ interface LeaderAssignMatrixPanelProps {
   // Per-card actions
   isLeaderRole: boolean;
   isSubmittingAssign?: boolean;
+  isLoadingInstallers?: boolean;
   onInlineAssign: (ticket: Ticket, installerName: string) => void;
   onOpenReassignModal: (ticket: Ticket) => void;
   onOpenWhatsAppModal: (ticket: Ticket) => void;
@@ -225,6 +230,7 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   onExecuteAutoBalance,
   isLeaderRole,
   isSubmittingAssign = false,
+  isLoadingInstallers = false,
   onInlineAssign,
   onOpenReassignModal,
   onOpenWhatsAppModal,
@@ -502,28 +508,34 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
       {/* CONTEXTUAL BULK SELECTION TOOLBAR (Rendered ONLY when >= 1 WO selected) */}
       <TableSelectionToolbar
         selectedCount={selectedTicketIds.length}
-        itemLabel="WO"
+        label="WO terpilih"
         onClearSelection={onClearSelection}
       >
         {isLeaderRole && (
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <select
+            <SearchableInstallerSelect
               value={bulkQuickInstaller}
-              onChange={e => onBulkQuickInstallerChange(e.target.value)}
-              className="px-3 py-2 sm:py-1.5 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl text-xs font-medium text-[#26364A] dark:text-white w-full sm:w-auto sm:min-w-[180px] focus:outline-hidden focus:border-[#6657C8] dark:focus:border-[#58149c]"
-            >
-              <option value="">Tugaskan Terpilih Ke...</option>
-              {technicians.map(tech => (
-                <option
-                  key={tech.installer.id}
-                  value={tech.installer.name}
-                  disabled={tech.isFull}
-                >
-                  {tech.installer.name} ({tech.assignedCount}/{tech.maxLimit})
-                  {tech.isFull ? ' - PENUH' : ''}
-                </option>
-              ))}
-            </select>
+              onChange={val => onBulkQuickInstallerChange(val)}
+              options={technicians.map<SearchableInstallerOption>(tech => ({
+                id: tech.installer.id,
+                name: tech.installer.name,
+                username: tech.installer.username,
+                assignedCount: tech.assignedCount,
+                maxLimit: tech.maxLimit,
+                isFull: tech.isFull,
+                area: tech.installer.area
+              }))}
+              placeholder="Tugaskan Terpilih Ke..."
+              searchPlaceholder="Cari nama atau username..."
+              isLoading={isLoadingInstallers}
+              disableFullOptions
+              compact
+              allowEmptyOption
+              emptyOptionLabel="Tugaskan Terpilih Ke..."
+              ariaLabel="Pilih teknisi untuk penugasan massal"
+              className="w-full sm:w-auto sm:min-w-[220px]"
+              testId="leader-bulk-quick-installer-select"
+            />
 
             <button
               type="button"
@@ -785,28 +797,32 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                               )}
                             </div>
                             <div className="relative flex items-center">
-                              <select
+                              <SearchableInstallerSelect
                                 value={chosenInstallerName}
-                                onChange={e =>
+                                onChange={val =>
                                   setPendingInlineChoice(prev => ({
                                     ...prev,
-                                    [t.id]: e.target.value
+                                    [t.id]: val
                                   }))
                                 }
-                                aria-label={`Pilih teknisi untuk ${t.woNumber}`}
-                                className="w-full appearance-none bg-transparent pr-5 py-0.5 font-bold text-xs text-[#26364A] dark:text-white focus:outline-hidden cursor-pointer truncate"
-                              >
-                                {sortedInlineCandidates.length === 0 ? (
-                                  <option value="">Belum ada teknisi aktif</option>
-                                ) : (
-                                  sortedInlineCandidates.map(tech => (
-                                    <option key={tech.installer.id} value={tech.installer.name} className="bg-white dark:bg-[#1E1238]">
-                                      {tech.installer.name} ({tech.assignedCount}/{tech.maxLimit} Slot{tech.isFull ? ' · PENUH' : ''})
-                                    </option>
-                                  ))
-                                )}
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#7d7484] pointer-events-none absolute right-0" />
+                                options={sortedInlineCandidates.map<SearchableInstallerOption>(tech => ({
+                                  id: tech.installer.id,
+                                  name: tech.installer.name,
+                                  username: tech.installer.username,
+                                  assignedCount: tech.assignedCount,
+                                  maxLimit: tech.maxLimit,
+                                  isFull: tech.isFull,
+                                  area: tech.installer.area
+                                }))}
+                                placeholder="Belum ada teknisi aktif"
+                                searchPlaceholder="Cari nama / username..."
+                                isLoading={isLoadingInstallers}
+                                compact
+                                ariaLabel={`Pilih teknisi untuk ${t.woNumber}`}
+                                className="w-full mt-0.5"
+                                triggerClassName="w-full bg-transparent px-0 py-0.5 font-bold text-xs text-[#26364A] dark:text-white border-0 min-h-[26px]"
+                                testId={`inline-assign-select-${t.woNumber || t.id}`}
+                              />
                             </div>
                           </div>
                         </div>

@@ -232,7 +232,9 @@ export async function executeBulkReassignApi(payload: {
   reason: string;
 }): Promise<{
   success: boolean;
+  partialSuccess?: boolean;
   count?: number;
+  failedCount?: number;
   reassigned?: any[];
   failed?: Array<{ id: string; error: string; code?: string }>;
   message?: string;
@@ -248,8 +250,13 @@ export async function executeBulkReassignApi(payload: {
   if (!res.ok || !json.success) {
     return {
       success: false,
-      failed: json.failed,
-      error: json?.error || `Bulk reassign gagal (${res.status})`
+      partialSuccess: Boolean(json?.partialSuccess),
+      count: typeof json?.count === 'number' ? json.count : Array.isArray(json?.reassigned) ? json.reassigned.length : 0,
+      failedCount: typeof json?.failedCount === 'number' ? json.failedCount : Array.isArray(json?.failed) ? json.failed.length : 0,
+      reassigned: Array.isArray(json?.reassigned) ? json.reassigned : [],
+      failed: Array.isArray(json?.failed) ? json.failed : [],
+      message: json?.message,
+      error: json?.error || json?.message || `Bulk reassign gagal (${res.status})`
     };
   }
   return json;

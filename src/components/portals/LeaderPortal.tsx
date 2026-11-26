@@ -6,6 +6,10 @@ import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadg
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import {
+  SearchableInstallerSelect,
+  type SearchableInstallerOption
+} from '../common/SearchableInstallerSelect';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
 import { renderWhatsAppMessage, buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
@@ -177,6 +181,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     areasList,
     databaseStatus,
     syncStatus,
+    isDataLoading,
     refreshActiveTickets,
     activeKpiDrilldown,
     setActiveKpiDrilldown,
@@ -1215,8 +1220,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
     if (!installerName || isSubmittingAssign) return;
 
+    const normStr = (v?: string | null) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
     const installerUser = myInstallers.find(
-      u => u.name.toLowerCase().trim() === installerName.toLowerCase().trim()
+      u => normStr(u.name) === normStr(installerName) || normStr(u.username) === normStr(installerName)
     );
     if (!installerUser || !installerUser.id) {
       const errMsg = `Akun teknisi "${installerName}" tidak ditemukan atau tidak aktif di cakupan Anda.`;
@@ -1293,7 +1299,27 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       return;
     }
 
-    const targetInst = myInstallers.find(u => u.name === bulkTargetInstaller);
+    const normStr = (v?: string | null) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const targetInst = myInstallers.find(
+      u => normStr(u.name) === normStr(bulkTargetInstaller) || normStr(u.username) === normStr(bulkTargetInstaller)
+    );
+    if (!targetInst || !targetInst.id) {
+      toast.error(`Akun teknisi "${bulkTargetInstaller}" tidak ditemukan atau tidak aktif.`, 'Teknisi Tidak Valid');
+      return;
+    }
+
+    const techSummary = technicianSummaries.find(s => s.installer.id === targetInst.id);
+    const currentAssigned = techSummary ? techSummary.assignedCount : getInstallerWOCountForDate(targetInst.name, scheduleDate);
+    const maxLimit = techSummary ? techSummary.maxLimit : getMaxQuotaForInstaller(targetInst.name);
+    if (quotaSettings.enforceStrictLimit && currentAssigned + selectedTicketIds.length > maxLimit) {
+      const remaining = Math.max(0, maxLimit - currentAssigned);
+      toast.error(
+        `Kuota Tidak Mencukupi: ${targetInst.name} hanya memiliki ${remaining} slot kosong (${currentAssigned}/${maxLimit} WO).`,
+        'Batas Kuota Tercapai'
+      );
+      return;
+    }
+
     const targetIdsSnapshot = [...selectedTicketIds];
 
     setIsSubmittingAssign(true);
@@ -1301,21 +1327,33 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       const res = await bulkAssignPersonnel(
         targetIdsSnapshot,
         currentUser.name,
-        bulkTargetInstaller,
+        targetInst.name,
         bulkSlotTime || undefined,
         undefined,
-        targetInst?.id
+        targetInst.id
       );
       if (!res.success) {
-        triggerNotice('error', res.error || 'Penugasan massal gagal disimpan ke server.');
+        if ((res.count || 0) > 0) {
+          const failedIdSet = new Set((res.failed || []).map(f => String(f.id || '')));
+          const succeededIdSet = new Set((res.workOrders || []).map(w => String(w.id || '')));
+          setSelectedTicketIds(prev =>
+            prev.filter(id => failedIdSet.has(id) || (failedIdSet.size === 0 && !succeededIdSet.has(id)))
+          );
+          triggerNotice(
+            'warning',
+            `Penugasan sebagian selesai: ${res.count} WO berhasil, ${res.failedCount || res.failed?.length || 0} gagal. ${res.error || ''}`.trim()
+          );
+        } else {
+          triggerNotice('error', res.error || 'Penugasan massal gagal disimpan ke server.');
+        }
         return;
       }
 
-      triggerNotice('success', `Berhasil menugaskan ${res.count} Work Order ke teknisi ${bulkTargetInstaller}.`);
+      triggerNotice('success', `Berhasil menugaskan ${res.count} Work Order ke teknisi ${targetInst.name}.`);
       setSelectedTicketIds([]);
       setIsBulkAssignModalOpen(false);
 
-      if (targetInst && targetIdsSnapshot.length === 1) {
+      if (targetIdsSnapshot.length === 1) {
         const t = res.workOrders?.[0] || contractorTickets.find(item => item.id === targetIdsSnapshot[0]);
         if (t) {
           const msg = buildInstallerAssignmentMessage(t, targetInst);
@@ -1510,6 +1548,19 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     setIsSubmittingBulkReassign(false);
 
     if (!res.success) {
+      if (res.partialSuccess || ((res.count || 0) > 0 && (res.failed?.length || 0) > 0)) {
+        await Promise.all([refreshActiveTickets(), reloadAssignmentFeed()]);
+        const failedSummary = (res.failed || [])
+          .slice(0, 3)
+          .map(f => `${f.id}: ${f.error}`)
+          .join('; ');
+        const partialMsg =
+          res.message ||
+          `Sebagian Bulk Reassign selesai: ${res.count || 0} berhasil, ${res.failedCount || res.failed?.length || 0} gagal.${failedSummary ? ` (${failedSummary})` : ''}`;
+        triggerNotice('warning', partialMsg);
+        toast.warning(partialMsg, 'Bulk Reassign Selesai Sebagian');
+        return;
+      }
       toast.error(res.error || 'Gagal menjalankan Bulk Reassign.', 'Bulk Reassign Gagal');
       return;
     }
@@ -2127,36 +2178,46 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         );
       case 'installer':
         return (
-          <td key={col.id} className="py-2.5 px-3">
-            <select
+          <td key={col.id} className="py-2.5 px-3 min-w-[205px]">
+            <SearchableInstallerSelect
               value={t.installerName || ''}
               disabled={!isLeaderRole}
-              onChange={e => {
-                if (isLeaderRole && e.target.value !== t.installerName) {
-                  handleAssignTicket(t, e.target.value, t.slotTime);
+              isLoading={isDataLoading}
+              compact
+              allowEmptyOption
+              emptyOptionLabel={t.installerName ? 'Ganti Teknisi...' : 'Pilih Teknisi...'}
+              placeholder={t.installerName ? 'Ganti Teknisi...' : 'Pilih Teknisi...'}
+              searchPlaceholder="Cari nama / username..."
+              ariaLabel={`Pilih teknisi untuk ${t.woNumber}`}
+              title={isLeaderRole ? 'Pilih teknisi pelaksana' : 'Hanya Leader yang berwenang melakukan assign teknisi'}
+              options={myInstallers.map<SearchableInstallerOption>(inst => {
+                const targetDate = t.appointmentDate || scheduleDate;
+                const currentCount = getInstallerWOCountForDate(inst.name, targetDate);
+                const maxLimit = getMaxQuotaForInstaller(inst.name);
+                return {
+                  id: inst.id,
+                  name: inst.name,
+                  username: inst.username,
+                  assignedCount: currentCount,
+                  maxLimit,
+                  isFull: currentCount >= maxLimit,
+                  area: inst.area
+                };
+              })}
+              onChange={val => {
+                if (isLeaderRole && val && val !== t.installerName) {
+                  handleAssignTicket(t, val, t.slotTime);
                 }
               }}
-              title={isLeaderRole ? 'Pilih teknisi pelaksana' : 'Hanya Leader yang berwenang melakukan assign teknisi'}
-              className={`w-full px-2 py-1 text-xs rounded-lg border font-medium ${
+              triggerClassName={`w-full px-2 py-1 min-h-[32px] text-xs rounded-lg border font-medium ${
                 !isLeaderRole ? 'opacity-70 cursor-not-allowed ' : ''
               }${
                 t.installerName
                   ? 'bg-[#F4F7FB] dark:bg-[#160D29] text-[#26364A] dark:text-white border-[#DDE6F0] dark:border-[#4b386b]'
                   : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold'
               }`}
-            >
-              <option value="">{t.installerName ? 'Ganti Teknisi...' : 'Pilih Teknisi...'}</option>
-              {myInstallers.map(inst => {
-                const targetDate = t.appointmentDate || scheduleDate;
-                const currentCount = getInstallerWOCountForDate(inst.name, targetDate);
-                const maxLimit = getMaxQuotaForInstaller(inst.name);
-                return (
-                  <option key={inst.id} value={inst.name}>
-                    {inst.name} ({currentCount}/{maxLimit} WO)
-                  </option>
-                );
-              })}
-            </select>
+              testId={`table-assign-select-${t.woNumber || t.id}`}
+            />
           </td>
         );
       case 'status':
@@ -2892,6 +2953,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 onExecuteAutoBalance={handleExecuteAutoBalance}
               isLeaderRole={isLeaderRole}
               isSubmittingAssign={isSubmittingAssign}
+              isLoadingInstallers={isDataLoading}
               onInlineAssign={(ticket, installerName) => {
                 void handleAssignTicket(ticket, installerName, ticket.slotTime);
               }}
@@ -3313,23 +3375,31 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1.5">
                   7. Pilih Teknisi Tujuan Penugasan <span className="text-rose-500">*</span>:
                 </label>
-                <select
+                <SearchableInstallerSelect
                   value={bulkTargetInstaller}
-                  onChange={e => setBulkTargetInstaller(e.target.value)}
-                  className="tactile-debossed-input w-full px-3 py-2.5 bg-[#F4F7FB] dark:bg-[#160D29] border-2 border-[#DDE6F0] dark:border-purple-800 rounded-xl font-medium text-xs text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] min-h-[44px]"
-                >
-                  <option value="">Pilih teknisi aktif...</option>
-                  {myInstallers.map(inst => {
+                  onChange={val => setBulkTargetInstaller(val)}
+                  options={myInstallers.map<SearchableInstallerOption>(inst => {
                     const currentCount = getInstallerWOCountForDate(inst.name, scheduleDate);
                     const maxLimit = getMaxQuotaForInstaller(inst.name);
-                    const isFull = currentCount >= maxLimit;
-                    return (
-                      <option key={inst.id} value={inst.name}>
-                        {inst.name} ({currentCount}/{maxLimit} WO){isFull ? ' - KUOTA PENUH' : ''}
-                      </option>
-                    );
+                    return {
+                      id: inst.id,
+                      name: inst.name,
+                      username: inst.username,
+                      assignedCount: currentCount,
+                      maxLimit,
+                      isFull: currentCount >= maxLimit,
+                      area: inst.area
+                    };
                   })}
-                </select>
+                  placeholder="Pilih teknisi aktif..."
+                  searchPlaceholder="Cari nama atau username installer..."
+                  isLoading={isDataLoading}
+                  disableFullOptions={quotaSettings.enforceStrictLimit}
+                  allowEmptyOption
+                  emptyOptionLabel="Pilih teknisi aktif..."
+                  ariaLabel="Pilih teknisi tujuan bulk assign"
+                  testId="bulk-assign-modal-installer-select"
+                />
               </div>
 
               <div>
@@ -3548,6 +3618,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         displayArea={displayArea}
         isLeaderRole={isLeaderRole}
         isSubmitting={reassignModalState.isSubmitting}
+        isLoadingInstallers={isDataLoading}
         onConfirmReassign={handleConfirmTwoStepReassign}
       />
 
@@ -3579,6 +3650,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         technicians={technicianSummaries}
         isLeaderRole={isLeaderRole}
         isSubmitting={isSubmittingBulkReassign}
+        isLoadingInstallers={isDataLoading}
+        enforceStrictLimit={quotaSettings.enforceStrictLimit}
         onExecute={handleExecuteBulkReassignModal}
       />
 

@@ -24,6 +24,7 @@ import {
 } from '../../services/leaderQuotaService';
 import { formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import { getTicketWorkStatus, formatJakartaTimeOnly } from '../../services/workSessionService';
+import { normalizeInstallerSearchQuery } from '../../utils/installerSearch';
 
 interface LeaderTwoStepReassignModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ interface LeaderTwoStepReassignModalProps {
   displayArea: string;
   isLeaderRole: boolean;
   isSubmitting: boolean;
+  isLoadingInstallers?: boolean;
   onConfirmReassign: (payload: {
     ticket: Ticket;
     targetInstallerId: string;
@@ -72,6 +74,7 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
   displayArea,
   isLeaderRole,
   isSubmitting,
+  isLoadingInstallers = false,
   onConfirmReassign
 }) => {
   const [step, setStep] = useState<'form' | 'confirm'>('form');
@@ -116,17 +119,18 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
   }, [technicians, ticket?.installerName]);
 
   const filteredCandidates = useMemo(() => {
-    const q = candidateSearch.trim().toLowerCase();
+    const q = normalizeInstallerSearchQuery(candidateSearch);
     const woCluster = String(ticket?.clusterName || '').trim().toLowerCase();
     const woArea = String(ticket?.area || '').trim().toLowerCase();
 
     return candidatePool.filter(item => {
       if (q) {
-        const matchName = item.installer.name.toLowerCase().includes(q);
-        const matchArea = String(item.installer.area || '').toLowerCase().includes(q);
-        const matchCluster = String(item.installer.clusterName || '').toLowerCase().includes(q);
-        const matchPhone = String(item.installer.phone || '').toLowerCase().includes(q);
-        if (!matchName && !matchArea && !matchCluster && !matchPhone) return false;
+        const matchName = normalizeInstallerSearchQuery(item.installer.name).includes(q);
+        const matchUsername = normalizeInstallerSearchQuery(String(item.installer.username || '')).includes(q);
+        const matchArea = normalizeInstallerSearchQuery(String(item.installer.area || '')).includes(q);
+        const matchCluster = normalizeInstallerSearchQuery(String(item.installer.clusterName || '')).includes(q);
+        const matchPhone = normalizeInstallerSearchQuery(String(item.installer.phone || '')).includes(q);
+        if (!matchName && !matchUsername && !matchArea && !matchCluster && !matchPhone) return false;
       }
 
       if (candidateFilter === 'available' && item.isFull) return false;
@@ -529,7 +533,9 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                       type="text"
                       value={candidateSearch}
                       onChange={e => setCandidateSearch(e.target.value)}
-                      placeholder="Cari teknisi / area..."
+                      placeholder="Cari nama / username / area..."
+                      aria-label="Cari kandidat installer"
+                      data-testid="reassign-candidate-search"
                       className="tactile-debossed-input w-full pl-8 pr-3 py-1.5 min-h-[36px] rounded-xl bg-[#EDF3F8] dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#4B386B] text-xs text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
                     />
                   </div>
@@ -569,9 +575,16 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
 
                 {/* Candidate Radio List */}
                 <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-                  {filteredCandidates.length === 0 ? (
-                    <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-dashed border-[#DCE3F2] dark:border-[#4B386B] text-[#8492A5] dark:text-[#CEC0E8]">
-                      Tidak ada teknisi aktif yang cocok dengan filter kandidat saat ini.
+                  {isLoadingInstallers ? (
+                    <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-dashed border-[#DCE3F2] dark:border-[#4B386B] text-[#52647A] dark:text-[#CEC0E8] font-medium">
+                      Memuat daftar installer...
+                    </div>
+                  ) : filteredCandidates.length === 0 ? (
+                    <div
+                      data-testid="reassign-candidate-empty"
+                      className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#1E1238] border border-dashed border-[#DCE3F2] dark:border-[#4B386B] text-[#8492A5] dark:text-[#CEC0E8] font-semibold"
+                    >
+                      Installer tidak ditemukan
                     </div>
                   ) : (
                     filteredCandidates.map(cand => {
@@ -610,6 +623,11 @@ export const LeaderTwoStepReassignModal: React.FC<LeaderTwoStepReassignModalProp
                                 <span className="font-bold text-xs text-[#26364A] dark:text-white truncate">
                                   {cand.installer.name}
                                 </span>
+                                {cand.installer.username && (
+                                  <span className="text-[10.5px] font-mono text-[#64748B] dark:text-[#B89EFF]">
+                                    @{cand.installer.username}
+                                  </span>
+                                )}
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold ${
                                     cand.liveTone === 'standby'

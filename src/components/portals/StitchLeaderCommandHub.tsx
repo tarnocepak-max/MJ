@@ -65,6 +65,10 @@ import {
 import { buildWhatsAppClickToChatUrl, isValidPhoneNumber } from '../../services/whatsappService';
 import { getTicketRegisteredCoordinates, isValidCoordinatePair } from '../../services/mapsService';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import {
+  SearchableInstallerSelect,
+  type SearchableInstallerOption
+} from '../common/SearchableInstallerSelect';
 
 export interface StitchLeaderCommandHubProps {
   onNavigate: (tab: string) => void;
@@ -272,6 +276,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     areasList,
     databaseStatus,
     syncStatus,
+    isDataLoading,
     lastSyncTime,
     realtimeConnectionState,
     refreshActiveTickets,
@@ -2491,17 +2496,26 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                   <label className="block font-bold text-[#26364A] dark:text-white mb-1">
                     2. Pilih Teknisi Pelaksana ({myInstallers.length} Aktif)
                   </label>
-                  <select
+                  <SearchableInstallerSelect
                     value={modalInstallerName}
-                    onChange={e => setModalInstallerName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
-                  >
-                    {technicianSummaries.map(s => (
-                      <option key={s.installer.id} value={s.installer.name}>
-                        {s.installer.name} ({s.assignedCount}/{s.maxLimit} WO • {s.liveStatusLabel})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={val => setModalInstallerName(val)}
+                    options={technicianSummaries.map<SearchableInstallerOption>(s => ({
+                      id: s.installer.id,
+                      name: s.installer.name,
+                      username: s.installer.username,
+                      assignedCount: s.assignedCount,
+                      maxLimit: s.maxLimit,
+                      isFull: s.isFull,
+                      statusLabel: s.liveStatusLabel,
+                      area: s.installer.area
+                    }))}
+                    placeholder="Pilih Teknisi Pelaksana..."
+                    searchPlaceholder="Cari nama atau username installer..."
+                    isLoading={isDataLoading}
+                    disableFullOptions={quotaConfig.enforceStrictLimit}
+                    ariaLabel="Pilih teknisi pelaksana"
+                    testId="hub-assign-modal-installer-select"
+                  />
                 </div>
 
                 <div>

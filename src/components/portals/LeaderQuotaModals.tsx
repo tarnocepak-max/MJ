@@ -17,6 +17,10 @@ import {
   TechnicianCapacitySummary
 } from '../../services/leaderQuotaService';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import {
+  SearchableInstallerSelect,
+  type SearchableInstallerOption
+} from '../common/SearchableInstallerSelect';
 
 interface DailyLimitSettingsModalProps {
   isOpen: boolean;
@@ -247,6 +251,8 @@ interface BulkReassignModalProps {
   technicians: TechnicianCapacitySummary[];
   isLeaderRole: boolean;
   isSubmitting: boolean;
+  isLoadingInstallers?: boolean;
+  enforceStrictLimit?: boolean;
   onExecute: (payload: { ticketIds: string[]; targetInstaller: User; reason: string }) => Promise<void>;
 }
 
@@ -258,6 +264,8 @@ export const BulkReassignModal: React.FC<BulkReassignModalProps> = ({
   technicians,
   isLeaderRole,
   isSubmitting,
+  isLoadingInstallers = false,
+  enforceStrictLimit = false,
   onExecute
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -287,10 +295,16 @@ export const BulkReassignModal: React.FC<BulkReassignModalProps> = ({
   });
 
   const targetSummary = technicians.find(t => t.installer.name === targetInstallerName);
+  const exceedsStrictQuota = Boolean(
+    enforceStrictLimit &&
+      targetSummary &&
+      (targetSummary.isFull || targetSummary.assignedCount + selectedIds.length > targetSummary.maxLimit)
+  );
   const canSubmit =
     isLeaderRole &&
     selectedIds.length > 0 &&
     Boolean(targetSummary) &&
+    !exceedsStrictQuota &&
     reason.trim().length >= 5 &&
     !isSubmitting;
 
@@ -414,24 +428,34 @@ export const BulkReassignModal: React.FC<BulkReassignModalProps> = ({
           <label className="block font-bold text-[#26364A] dark:text-white mb-1.5">
             2. Pilih Teknisi Tujuan Baru *
           </label>
-          <select
+          <SearchableInstallerSelect
             value={targetInstallerName}
-            onChange={e => setTargetInstallerName(e.target.value)}
-            className="tactile-debossed-input w-full min-h-[44px] sm:min-h-[40px] px-3 py-2.5 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl font-medium text-[#26364A] dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
-          >
-            <option value="">-- Pilih Teknisi Tujuan --</option>
-            {technicians.map(tech => (
-              <option key={tech.installer.id} value={tech.installer.name}>
-                {tech.installer.name} ({tech.assignedCount}/{tech.maxLimit} Slot ·{' '}
-                {tech.isFull ? 'KUOTA PENUH' : `${tech.remainingSlots} Slot Kosong`})
-              </option>
-            ))}
-          </select>
-          {targetSummary && targetSummary.isFull && (
+            onChange={val => setTargetInstallerName(val)}
+            options={technicians.map<SearchableInstallerOption>(tech => ({
+              id: tech.installer.id,
+              name: tech.installer.name,
+              username: tech.installer.username,
+              assignedCount: tech.assignedCount,
+              maxLimit: tech.maxLimit,
+              isFull: tech.isFull,
+              area: tech.installer.area
+            }))}
+            placeholder="-- Pilih Teknisi Tujuan --"
+            searchPlaceholder="Cari nama atau username installer..."
+            isLoading={isLoadingInstallers}
+            disableFullOptions={enforceStrictLimit}
+            allowEmptyOption
+            emptyOptionLabel="-- Pilih Teknisi Tujuan --"
+            ariaLabel="Pilih teknisi tujuan bulk reassign"
+            testId="bulk-reassign-installer-select"
+          />
+          {targetSummary && (targetSummary.isFull || exceedsStrictQuota) && (
             <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#9B2C37] dark:text-rose-300 font-medium">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span>
-                Perhatian: {targetSummary.installer.name} saat ini sudah mencapai kapasitas penuh harian ({targetSummary.assignedCount}/{targetSummary.maxLimit}).
+                {exceedsStrictQuota
+                  ? `Batas Kuota Ketat Aktif: ${targetSummary.installer.name} hanya memiliki ${targetSummary.remainingSlots} slot kosong (${targetSummary.assignedCount}/${targetSummary.maxLimit}).`
+                  : `Perhatian: ${targetSummary.installer.name} saat ini sudah mencapai kapasitas penuh harian (${targetSummary.assignedCount}/${targetSummary.maxLimit}).`}
               </span>
             </div>
           )}

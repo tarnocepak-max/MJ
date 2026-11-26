@@ -6,6 +6,10 @@ import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import { useModalLayer } from '../../hooks/useModalLayer';
 import { StatusAgentBadge, StatusApprovalBadge } from '../common/Badge';
+import {
+  SearchableInstallerSelect,
+  type SearchableInstallerOption
+} from '../common/SearchableInstallerSelect';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { TechnicalReportForm } from './TechnicalReportForm';
 import { HistoryProgressReportView } from '../reports/HistoryProgressReportView';
@@ -103,6 +107,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     currentUser,
     users,
     syncStatus,
+    isDataLoading,
     updateTicket,
     assignTicketPersonnel,
     reopenTicket,
@@ -1387,53 +1392,62 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                           {ticket.installerName || <em className="text-[#C88735] font-normal">Belum Ditugaskan</em>}
                         </span>
                         {currentUser.role === 'leader' && (
-                          <select
-                            value={
-                              ticket.installerId ||
-                              scopedInstallers.find(
-                                i =>
-                                  i.name.toLowerCase().trim() ===
-                                  String(ticket.installerName || '').toLowerCase().trim()
-                              )?.id ||
-                              ''
-                            }
-                            disabled={isAssigningInstaller}
-                            onChange={async e => {
-                              const nextInstallerId = e.target.value;
-                              if (!nextInstallerId || isAssigningInstaller) return;
-                              const targetInst = scopedInstallers.find(i => i.id === nextInstallerId);
-                              if (!targetInst || !targetInst.id) {
-                                toast.error('Akun teknisi aktif tidak ditemukan di database.', 'Teknisi Tidak Valid');
-                                return;
+                          <div className="min-w-[180px] max-w-full">
+                            <SearchableInstallerSelect
+                              value={
+                                ticket.installerId ||
+                                scopedInstallers.find(
+                                  i =>
+                                    i.name.toLowerCase().trim() ===
+                                    String(ticket.installerName || '').toLowerCase().trim()
+                                )?.id ||
+                                ''
                               }
-                              if (
-                                targetInst.id === ticket.installerId &&
-                                targetInst.name === ticket.installerName
-                              ) {
-                                return;
-                              }
-                              setIsAssigningInstaller(true);
-                              try {
-                                await assignTicketPersonnel(
-                                  ticket.id,
-                                  currentUser.name,
-                                  targetInst.name,
-                                  targetInst.id
-                                );
-                              } finally {
-                                setIsAssigningInstaller(false);
-                              }
-                            }}
-                            className="px-2 py-0.5 text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded font-semibold text-[#5145A6] dark:text-[#DAB9FF] cursor-pointer disabled:opacity-50"
-                            title="Tugaskan Teknisi (Wewenang Khusus Leader)"
-                          >
-                            <option value="">
-                              {isAssigningInstaller ? 'Menyimpan...' : '-- Assign Teknisi --'}
-                            </option>
-                            {scopedInstallers.map(inst => (
-                              <option key={inst.id} value={inst.id}>{inst.name}</option>
-                            ))}
-                          </select>
+                              valueKey="id"
+                              disabled={isAssigningInstaller}
+                              isLoading={isDataLoading || isAssigningInstaller}
+                              compact
+                              allowEmptyOption
+                              emptyOptionLabel={isAssigningInstaller ? 'Menyimpan...' : '-- Assign Teknisi --'}
+                              placeholder={isAssigningInstaller ? 'Menyimpan...' : '-- Assign Teknisi --'}
+                              searchPlaceholder="Cari nama / username..."
+                              ariaLabel="Tugaskan Teknisi"
+                              title="Tugaskan Teknisi (Wewenang Khusus Leader)"
+                              options={scopedInstallers.map<SearchableInstallerOption>(inst => ({
+                                id: inst.id,
+                                name: inst.name,
+                                username: inst.username,
+                                area: inst.area
+                              }))}
+                              onChange={async nextInstallerId => {
+                                if (!nextInstallerId || isAssigningInstaller) return;
+                                const targetInst = scopedInstallers.find(i => i.id === nextInstallerId);
+                                if (!targetInst || !targetInst.id) {
+                                  toast.error('Akun teknisi aktif tidak ditemukan di database.', 'Teknisi Tidak Valid');
+                                  return;
+                                }
+                                if (
+                                  targetInst.id === ticket.installerId &&
+                                  targetInst.name === ticket.installerName
+                                ) {
+                                  return;
+                                }
+                                setIsAssigningInstaller(true);
+                                try {
+                                  await assignTicketPersonnel(
+                                    ticket.id,
+                                    currentUser.name,
+                                    targetInst.name,
+                                    targetInst.id
+                                  );
+                                } finally {
+                                  setIsAssigningInstaller(false);
+                                }
+                              }}
+                              triggerClassName="px-2.5 py-1 min-h-[28px] text-[11px] bg-white dark:bg-[#1E1238] border border-[#DCE3F2] dark:border-[#A78BFA] rounded-lg font-semibold text-[#5145A6] dark:text-[#DAB9FF]"
+                              testId="ticket-detail-installer-select"
+                            />
+                          </div>
                         )}
                       </div>
                     </div>

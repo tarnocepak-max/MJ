@@ -5833,14 +5833,15 @@ export async function createExpressApp(options?: {
     }
 
     if (isLocalJsonModeAllowed()) {
+      const normStr = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
       const targetInstaller = db.users.find(
         u =>
           u.role === 'installer' &&
           !u.isDeleted &&
           u.active !== false &&
           ((installerId && u.id === String(installerId).trim()) ||
-            (installerName && u.name.trim().toLowerCase() === String(installerName).trim().toLowerCase()) ||
-            (installerName && u.username.trim().toLowerCase() === String(installerName).trim().toLowerCase()))
+            (installerName && normStr(u.name) === normStr(installerName)) ||
+            (installerName && normStr(u.username) === normStr(installerName)))
       );
       if (!targetInstaller) {
         return res.status(400).json({
@@ -17052,14 +17053,15 @@ export async function createExpressApp(options?: {
         }
       }
     } else if (isLocalJsonModeAllowed()) {
+      const normStr = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
       const targetInstaller = db.users.find(
         u =>
           u.role === 'installer' &&
           !u.isDeleted &&
           u.active !== false &&
           ((cleanTargetId && u.id === cleanTargetId) ||
-            (cleanTargetName && u.name.trim().toLowerCase() === cleanTargetName.toLowerCase()) ||
-            (cleanTargetName && u.username.trim().toLowerCase() === cleanTargetName.toLowerCase()))
+            (cleanTargetName && normStr(u.name) === normStr(cleanTargetName)) ||
+            (cleanTargetName && normStr(u.username) === normStr(cleanTargetName)))
       );
       if (!targetInstaller || !isLeaderAllowedToManageInstaller(user, targetInstaller)) {
         return res.status(403).json({
@@ -17153,6 +17155,9 @@ export async function createExpressApp(options?: {
       const hasScope = failed.some(f => f.code === 'SCOPE_MISMATCH');
       return res.status(hasScope ? 403 : 400).json({
         success: false,
+        partialSuccess: false,
+        count: 0,
+        failedCount: failed.length,
         error: failed[0].error || 'Seluruh proses Bulk Reassign gagal.',
         code: failed[0].code || 'BULK_REASSIGN_FAILED',
         reassigned,
@@ -17160,12 +17165,28 @@ export async function createExpressApp(options?: {
       });
     }
 
+    if (failed.length > 0 && reassigned.length > 0) {
+      return res.status(207).json({
+        success: false,
+        partialSuccess: true,
+        count: reassigned.length,
+        failedCount: failed.length,
+        error: failed[0].error,
+        code: 'PARTIAL_BULK_REASSIGN_FAILURE',
+        reassigned,
+        failed,
+        message: `Sebagian Bulk Reassign selesai: ${reassigned.length} Work Order berhasil dialihkan ke ${resolvedBulkLabel}, ${failed.length} gagal.`
+      });
+    }
+
     return res.json({
       success: true,
+      partialSuccess: false,
       count: reassigned.length,
+      failedCount: 0,
       reassigned,
       failed,
-      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${resolvedBulkLabel}${failed.length > 0 ? ` (${failed.length} gagal)` : ''}.`
+      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${resolvedBulkLabel}.`
     });
   });
 
