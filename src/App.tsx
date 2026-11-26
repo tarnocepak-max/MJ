@@ -47,6 +47,7 @@ import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
+import { isTicketVisibleToInstallerToday } from './services/woLifecycleService';
 import { ThemeBrandBackground } from './components/common/MoraRepublicBrandVisuals';
 import { safeLocalStorageGet, safeLocalStorageSet } from './utils/safeStorage';
 import type { DeletionNavContext } from './services/deletionManagementService';
@@ -141,7 +142,6 @@ const WO_NAVIGATION_ROUTES = new Set([
   'wo_assignment',
   'reassign_wo',
   'progress_dashboard',
-  'installer_progress',
   'contractor_recap',
   'rekap_laporan',
   'sla_monitoring',
@@ -151,7 +151,6 @@ const WO_NAVIGATION_ROUTES = new Set([
   'installer_portal',
   'installer_dashboard',
   'installer_tasks',
-  'installer_history',
   'verification_desk',
   'history_progress',
   'monitoring_maps'
@@ -208,8 +207,6 @@ const MainLayout: React.FC = () => {
       'installer_dashboard',
       'installer_portal',
       'installer_tasks',
-      'installer_progress',
-      'installer_history',
       'installer_whatsapp',
       'whatsapp',
       'installer_chat',
@@ -245,17 +242,48 @@ const MainLayout: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<string>(getInitialActiveTab);
 
-  // Security guard: Force redirect installer away from global dashboard, tickets, or admin settings
+  // Security guard: Reject any cross-date query params or disallowed route/hash for Installer
   useEffect(() => {
-    if (isInstaller && !installerAllowedTabs.includes(activeTab)) {
-      setActiveTab('installer_dashboard');
+    if (!isInstaller) return;
+
+    const inspectAndRejectCrossDateUrl = () => {
       try {
-        const userKey = currentUser?.id || currentUser?.role || 'default';
-        safeLocalStorageSet(`morajaws_active_tab_${userKey}`, 'installer_dashboard');
-        window.history.replaceState({ tab: 'installer_dashboard' }, '', '#installer_dashboard');
+        const searchParams = new URLSearchParams(window.location.search);
+        const crossDateKeys = ['date', 'appointmentDate', 'dateFrom', 'dateTo', 'targetDate', 'woDate', 'filterDate', 'month', 'week'];
+        const hasCrossDateParam = crossDateKeys.some(k => {
+          const v = searchParams.get(k);
+          if (v === null || v.trim() === '') return false;
+          if ((k === 'date' || k === 'appointmentDate' || k === 'targetDate' || k === 'woDate') && v.trim() === todayWIB) {
+            return false;
+          }
+          return true;
+        });
+
+        const rawHash = window.location.hash.replace('#', '').trim();
+        const hasDisallowedHash = Boolean(rawHash && !installerAllowedTabs.includes(rawHash));
+        const hasDisallowedTab = !installerAllowedTabs.includes(activeTab);
+
+        if (hasCrossDateParam || hasDisallowedHash || hasDisallowedTab) {
+          const safeTab = installerAllowedTabs.includes(activeTab) ? activeTab : 'installer_dashboard';
+          setActiveTab(safeTab);
+          const userKey = currentUser?.id || currentUser?.role || 'default';
+          safeLocalStorageSet(`morajaws_active_tab_${userKey}`, safeTab);
+          crossDateKeys.forEach(k => searchParams.delete(k));
+          const remainingSearch = searchParams.toString();
+          const cleanUrl = `${window.location.pathname}${remainingSearch ? `?${remainingSearch}` : ''}#${safeTab}`;
+          window.history.replaceState({ tab: safeTab }, '', cleanUrl);
+          toast.error(
+            'Akses tanggal lain ditolak. Teknisi hanya dapat mengakses tugas hari ini.',
+            'Akses Tanggal Lain Ditolak'
+          );
+        }
       } catch (e) {}
-    }
-  }, [isInstaller, activeTab, installerAllowedTabs, currentUser]);
+    };
+
+    inspectAndRejectCrossDateUrl();
+    window.addEventListener('hashchange', inspectAndRejectCrossDateUrl);
+    return () => window.removeEventListener('hashchange', inspectAndRejectCrossDateUrl);
+  }, [isInstaller, activeTab, installerAllowedTabs, currentUser, todayWIB]);
 
   // Dynamic RBAC enforcement when Super Admin updates role permissions live via SSE
   useEffect(() => {
@@ -426,7 +454,7 @@ const MainLayout: React.FC = () => {
     return false;
   };
 
-  // Scoped pending tickets count for logged-in Installer (strictly today WIB)
+  // Scoped pending tickets count for logged-in Installer (strictly today WIB + active checked-in)
   const installerPendingCount = useMemo(() => {
     if (!isLoggedIn || !isInstaller) return 0;
     const myName = (currentUser?.name || '').toLowerCase().trim();
@@ -435,7 +463,7 @@ const MainLayout: React.FC = () => {
 
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
-      if (getTicketAppointmentDate(t) !== todayWIB) return false;
+      if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
       const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
       const tInst = (t.installerName || '').toLowerCase().trim();
       const nameMatch =
@@ -454,7 +482,7 @@ const MainLayout: React.FC = () => {
     return totalLiveChatUnreadCount;
   }, [isLoggedIn, isInstaller, totalLiveChatUnreadCount]);
 
-  // Scoped unconfirmed WhatsApp count for logged-in Installer (strictly today WIB)
+  // Scoped unconfirmed WhatsApp count for logged-in Installer (strictly today WIB + active checked-in)
   const installerWaPendingCount = useMemo(() => {
     if (!isLoggedIn || !isInstaller) return 0;
     const myName = (currentUser?.name || '').toLowerCase().trim();
@@ -463,7 +491,7 @@ const MainLayout: React.FC = () => {
 
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
-      if (getTicketAppointmentDate(t) !== todayWIB) return false;
+      if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
       const assigned = (myId && t.assignedTo === myId) || (myUsername && t.assignedTo === myUsername);
       const tInst = (t.installerName || '').toLowerCase().trim();
       const nameMatch =
@@ -643,8 +671,6 @@ const MainLayout: React.FC = () => {
         setInstallerTaskFilter(filter as StatusFilterCategory);
       } else if (tab === 'installer_tasks') {
         setInstallerTaskFilter('tugas_baru');
-      } else if (tab === 'installer_history') {
-        setInstallerTaskFilter('selesai');
       } else {
         setInstallerTaskFilter('tugas_baru');
       }
@@ -664,14 +690,10 @@ const MainLayout: React.FC = () => {
           );
         case 'installer_portal':
         case 'installer_tasks':
-        case 'installer_progress':
-        case 'installer_history':
           return (
             <InstallerPortal
               initialFilter={
-                activeTab === 'installer_history'
-                  ? 'selesai'
-                  : installerTaskFilter === 'all' && activeTab === 'installer_tasks'
+                installerTaskFilter === 'all' && activeTab === 'installer_tasks'
                   ? 'tugas_baru'
                   : installerTaskFilter
               }
@@ -948,9 +970,7 @@ const MainLayout: React.FC = () => {
 
       // Technician Portal (TASK INSTALLER) - Protected (Bagian 3: Only Superadmin and Installer)
       case 'installer_portal':
-      case 'installer_tasks':
-      case 'installer_progress':
-      case 'installer_history': {
+      case 'installer_tasks': {
         if (currentUser.role === 'dispatch' || currentUser.role === 'leader') {
           const targetTab = currentUser.role === 'dispatch' ? 'tickets' : 'leader_portal';
           return (
@@ -970,13 +990,7 @@ const MainLayout: React.FC = () => {
 
         return (
           <InstallerPortal
-            initialFilter={
-              activeTab === 'installer_tasks'
-                ? 'tugas_baru'
-                : activeTab === 'installer_history'
-                ? 'selesai'
-                : 'all'
-            }
+            initialFilter={activeTab === 'installer_tasks' ? 'tugas_baru' : 'all'}
             onSelectTicket={handleOpenTicketDetail}
             onOpenWhatsApp={handleOpenWhatsAppModal}
           />

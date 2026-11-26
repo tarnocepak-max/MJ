@@ -20,7 +20,8 @@ import {
   getTicketCanonicalApprovalStatus,
   getTicketCanonicalReportStatus,
   dedupeTicketsByCanonicalId,
-  computeFieldDispatchCounts
+  computeFieldDispatchCounts,
+  isTicketVisibleToInstallerToday
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
@@ -288,7 +289,10 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     refreshKpiSummary,
     getTicketUnreadCount,
     setTicketChatCategory,
-    realtimeConnectionState
+    realtimeConnectionState,
+    reconnectRealtimeNow,
+    syncStatus,
+    refreshActiveTickets
   } = useApp();
   const { toast } = useToast();
   const { isOnline, pendingCount, syncNow, isSyncing, setIsOfflineModalOpen } = useOfflineSync();
@@ -311,7 +315,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     return false;
   };
 
-  // All non-archived tickets assigned to this Installer (deduplicated by canonical WO ID)
+  // All today-visible (today WIB + active checked-in unfinished) tickets assigned to this Installer
   const myAssignedTickets = useMemo(() => {
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
@@ -321,6 +325,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       return dedupeTicketsByCanonicalId(
         (tickets || []).filter(t => {
           if (t.isArchived || t.isDeleted) return false;
+          if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
           if (!t.installerName && !t.assignedTo && !t.installerId) return false;
 
           if (myId && (t.assignedTo === myId || t.installerId === myId)) return true;
@@ -337,11 +342,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         t =>
           !t.isArchived &&
           !t.isDeleted &&
+          isTicketVisibleToInstallerToday(t, todayWIB) &&
           Boolean(t.installerName) &&
           isInstallerMatch(t.installerName, effectiveInstallerName)
       )
     );
-  }, [tickets, currentUser, effectiveInstallerName]);
+  }, [tickets, currentUser, effectiveInstallerName, todayWIB]);
 
   const mapInitialToBucket = (filter?: StatusFilterCategory): InstallerWoBucket => {
     if (filter === 'selesai' || filter === 'done') return 'selesai';
@@ -352,9 +358,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   };
 
   const [activeBucket, setActiveBucket] = useState<InstallerWoBucket>(() => mapInitialToBucket(initialFilter));
-  const [dateScope, setDateScope] = useState<'today' | 'all'>(() =>
-    initialFilter === 'done' || initialFilter === 'selesai' ? 'all' : 'today'
-  );
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'slot' | 'status' | 'wo'>('slot');
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Record<string, boolean>>({});
@@ -363,7 +366,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     if (!initialFilter) return;
     if (initialFilter === 'done' || initialFilter === 'selesai') {
       setActiveBucket('selesai');
-      setDateScope('all');
     } else if (initialFilter === 'dalam_proses' || initialFilter === 'revision') {
       setActiveBucket('dalam_proses');
     } else if (initialFilter === 'tugas_baru') {
@@ -377,9 +379,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   useEffect(() => {
     if (!activeKpiDrilldown) return;
-    if (activeKpiDrilldown.dateWIB === todayWIB) {
-      setDateScope('today');
-    }
     const fk = activeKpiDrilldown.filterKey;
     if (fk === 'field_requested') {
       setActiveBucket('tugas_baru');
@@ -397,7 +396,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
     ) {
       setActiveBucket('selesai');
     }
-  }, [activeKpiDrilldown, todayWIB]);
+  }, [activeKpiDrilldown]);
 
   const [fullviewTicket, setFullviewTicket] = useState<Ticket | null>(null);
   const [fullviewFocusSection, setFullviewFocusSection] = useState<FullviewFocusSection | undefined>(undefined);
@@ -406,24 +405,15 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
   const [checkInCameraTicket, setCheckInCameraTicket] = useState<Ticket | null>(null);
   const [kendalaTicket, setKendalaTicket] = useState<Ticket | null>(null);
 
-  // Scope operational queue to Today's appointments (plus completed work) when dateScope === 'today'
+  // Strictly today's appointments WIB + active checked-in unfinished WO past midnight
   const scopedTickets = useMemo(() => {
-    return myAssignedTickets.filter(t => {
-      if (dateScope === 'all') return true;
-      const appDate = getTicketAppointmentDate(t);
-      const bucket = classifyInstallerWoBucket(t);
-      if (bucket === 'selesai') return true;
-      return appDate === todayWIB;
-    });
-  }, [myAssignedTickets, dateScope, todayWIB]);
+    return myAssignedTickets.filter(t => isTicketVisibleToInstallerToday(t, todayWIB));
+  }, [myAssignedTickets, todayWIB]);
 
-  // Exact date-scoped Field Dispatch KPI counts (synced 1:1 with Dashboard Field Dispatch matrix)
+  // Exact today-scoped Field Dispatch KPI counts (synced 1:1 with Dashboard Field Dispatch matrix)
   const fieldDispatchDateScopedCounts = useMemo(() => {
-    const pool = dateScope === 'all'
-      ? myAssignedTickets
-      : myAssignedTickets.filter(t => getTicketAppointmentDate(t) === (activeKpiDrilldown?.dateWIB || todayWIB));
-    return computeFieldDispatchCounts(pool);
-  }, [myAssignedTickets, dateScope, activeKpiDrilldown?.dateWIB, todayWIB]);
+    return computeFieldDispatchCounts(scopedTickets);
+  }, [scopedTickets]);
 
   const bucketCounts = useMemo(() => {
     let tugas_baru = 0;
@@ -442,15 +432,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   const displayedTickets = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    const basePool = activeKpiDrilldown
-      ? myAssignedTickets.filter(t => {
-          if (dateScope === 'all') return true;
-          const targetDate = activeKpiDrilldown.dateWIB || todayWIB;
-          return getTicketAppointmentDate(t) === targetDate;
-        })
-      : scopedTickets;
-
-    const matched = basePool.filter(t => {
+    const matched = scopedTickets.filter(t => {
       if (activeKpiDrilldown) {
         if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) {
           return false;
@@ -485,7 +467,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       }
       return String(a.slotTime || '').localeCompare(String(b.slotTime || ''));
     });
-  }, [myAssignedTickets, scopedTickets, dateScope, todayWIB, activeBucket, searchQuery, sortBy, activeKpiDrilldown]);
+  }, [scopedTickets, activeBucket, searchQuery, sortBy, activeKpiDrilldown]);
 
   // Realtime synced ticket if fullview is open
   const activeFullviewTicket = useMemo(() => {
@@ -695,30 +677,63 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               </select>
             )}
 
-            <div className="inline-flex rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] p-0.5 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-bold">
-              <button
-                type="button"
-                onClick={() => setDateScope('today')}
-                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  dateScope === 'today'
-                    ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#f5eeff] shadow-2xs'
-                    : 'text-[#52647A] dark:text-[#A79BC0]'
-                }`}
-              >
-                Hari Ini ({formatAppointmentDateDisplay(todayWIB) || todayWIB})
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateScope('all')}
-                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  dateScope === 'all'
-                    ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#f5eeff] shadow-2xs'
-                    : 'text-[#52647A] dark:text-[#A79BC0]'
-                }`}
-              >
-                Semua
-              </button>
+            <div className="inline-flex items-center gap-1.5 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] px-2.5 py-1 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-bold">
+              <Calendar className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
+              <span className="text-[#5145A6] dark:text-[#f5eeff]">
+                Hari Ini · {formatAppointmentDateDisplay(todayWIB) || todayWIB}
+              </span>
             </div>
+
+            {(() => {
+              const isLiveConnected = isOnline && syncStatus !== 'ERROR' && realtimeConnectionState === 'connected';
+              const isPollingFallback = isOnline && syncStatus !== 'ERROR' && realtimeConnectionState === 'polling_fallback';
+              const isReconnecting = isOnline && (realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting' || syncStatus === 'SYNCING');
+              const label = !isOnline
+                ? 'Offline (Data Tersimpan)'
+                : isLiveConnected
+                ? 'Realtime Live'
+                : isPollingFallback
+                ? 'Sync Berkala'
+                : isReconnecting
+                ? 'Menghubungkan...'
+                : 'Koneksi Terputus';
+              const toneClass = !isOnline || (!isLiveConnected && !isPollingFallback && !isReconnecting)
+                ? 'bg-[#FCE9EB] dark:bg-rose-950/50 text-[#9B2C37] dark:text-rose-300 border-[#F3C5CA] dark:border-rose-800/60'
+                : isLiveConnected
+                ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
+                : 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60';
+              const dotClass = !isOnline || (!isLiveConnected && !isPollingFallback && !isReconnecting)
+                ? 'bg-rose-500'
+                : isLiveConnected
+                ? 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
+                : 'bg-amber-500 animate-pulse';
+
+              return (
+                <div className="inline-flex items-center gap-1.5">
+                  <span
+                    data-testid="installer-realtime-status"
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold ${toneClass}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                    <span>{label}</span>
+                  </span>
+                  {isOnline && !isLiveConnected && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reconnectRealtimeNow();
+                        refreshActiveTickets().catch(() => {});
+                      }}
+                      className="mj-btn-installer-neutral mj-btn-xs px-2 py-1 text-[10.5px] font-bold cursor-pointer inline-flex items-center gap-1"
+                      title="Hubungkan ulang koneksi realtime dan muat ulang tugas hari ini"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Reconnect</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -801,7 +816,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   } else {
                     setActiveKpiDrilldown({
                       filterKey: chip.key,
-                      dateWIB: dateScope === 'today' ? todayWIB : undefined
+                      dateWIB: todayWIB
                     });
                   }
                 }}
@@ -911,7 +926,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               ? 'WO yang sudah di-Check-In dan sedang dikerjakan akan tampil di sini.'
               : 'WO yang sudah selesai Report & Check-Out akan terarsip rapi di tab Selesai.'}
           </p>
-          {(searchQuery || dateScope === 'today' || activeKpiDrilldown) && (
+          {(searchQuery || activeKpiDrilldown) && (
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               {activeKpiDrilldown && (
                 <button
@@ -929,15 +944,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                   className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold cursor-pointer"
                 >
                   Hapus Pencarian
-                </button>
-              )}
-              {dateScope === 'today' && myAssignedTickets.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setDateScope('all')}
-                  className="mj-btn-installer-primary mj-btn-compact px-3.5 py-1.5 text-xs font-bold cursor-pointer"
-                >
-                  Lihat Semua Tanggal ({myAssignedTickets.length})
                 </button>
               )}
             </div>

@@ -9,6 +9,8 @@
  * - Append-only History Progress Report extraction
  */
 
+import { isInstallerActiveCheckedInUnfinished } from './woClassificationService.js';
+
 export type CanonicalReportStatus = 'PENDING' | 'COMPLETE' | 'RESCHEDULE' | 'CANCEL' | 'NONE';
 export type CanonicalApprovalStatus = 'NONE' | 'BUTUH APPROVAL' | 'APPROVED' | 'REVISION';
 export type DispatchApprovalWoAgentStatus = 'Done' | 'Pending' | 'Reschedule' | 'Cancel';
@@ -330,7 +332,10 @@ export function computeKpiSummary(
 
   const activeTodayTickets = Array.from(dedupedMap.values()).filter(t => {
     const appDate = getTicketAppointmentDateServer(t);
-    if (!appDate || appDate !== dateWIB) return false;
+    const matchesToday = Boolean(appDate && appDate === dateWIB);
+    const matchesInstallerCheckInException =
+      scopeRole === 'installer' && isInstallerActiveCheckedInUnfinished(t);
+    if (!matchesToday && !matchesInstallerCheckInException) return false;
 
     if (contractorFilter && contractorFilter !== 'ALL') {
       const cName = String(t.contactorName || t.contractorName || '').trim().toLowerCase();

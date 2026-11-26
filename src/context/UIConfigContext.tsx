@@ -286,9 +286,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // 6. MENU YANG DISEMBUNYIKAN DARI SIDEBAR (Bagian 7)
   // =========================================================================
   { id: 'form_sameday', label: 'Form Sameday Express', category: 'Hidden', order: 28, visible: false, roles: ['dispatch'] },
-  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'Hidden', order: 29, visible: false, roles: ['super_admin', 'dispatch', 'leader'] },
-  { id: 'installer_progress', label: 'Dashboard Progress Teknisi', category: 'Hidden', order: 30, visible: false, roles: ['installer', 'super_admin'] },
-  { id: 'installer_history', label: 'Riwayat Pekerjaan Teknisi', category: 'Hidden', order: 31, visible: false, roles: ['installer', 'super_admin'] }
+  { id: 'location_basecamp', label: 'Kontraktor & Basecamp', category: 'Hidden', order: 29, visible: false, roles: ['super_admin', 'dispatch', 'leader'] }
 ];
 
 /**
@@ -305,10 +303,12 @@ export const sanitizeNavigationItems = (items: NavigationMenuItem[]): Navigation
     'rekap_laporan',
     'setting_droplist_status',
     'setting_droplist_reason',
-    'setting_droplist_rootcause'
+    'setting_droplist_rootcause',
+    'installer_progress',
+    'installer_history'
   ]);
   const mandiriItemIds = new Set(['dashboard', 'tickets', 'schedule', 'import', 'installer_portal', 'installer_tasks', 'users', 'database_management']);
-  const hiddenItemIds = new Set(['form_sameday', 'location_basecamp', 'installer_progress', 'installer_history']);
+  const hiddenItemIds = new Set(['form_sameday', 'location_basecamp']);
 
   const seenIds = new Set<string>();
   const sanitized: NavigationMenuItem[] = [];

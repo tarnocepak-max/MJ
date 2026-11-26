@@ -397,3 +397,55 @@ export function summarizeWorkOrderClassificationsServer(
     }
   };
 }
+
+/**
+ * Operational Exception:
+ * Returns true if the Work Order has an active Check-In session that has NOT Checked Out yet
+ * and has NOT been completed/closed. Allows Installers to finish an in-progress WO across 00:00 WIB rollover.
+ */
+export function isInstallerActiveCheckedInUnfinished(ticket: any): boolean {
+  if (!ticket || typeof ticket !== 'object') return false;
+  if (ticket.isDeleted || ticket.isArchived) return false;
+
+  if (ticket.checkOutAt && String(ticket.checkOutAt).trim() !== '') {
+    return false;
+  }
+  if (isWoCompletedOrClosedServer(ticket)) {
+    return false;
+  }
+
+  const hasCheckInAt = Boolean(ticket.checkInAt && String(ticket.checkInAt).trim() !== '');
+  const workSessionStatus = String(ticket.workSessionStatus || ticket.work_session_status || '').trim().toLowerCase();
+  const hasOpenSession =
+    Array.isArray(ticket.workSessions) &&
+    ticket.workSessions.some(
+      (s: any) =>
+        s &&
+        String(s.status || '').trim().toLowerCase() === 'sedang dikerjakan' &&
+        (!s.checkOutAt || String(s.checkOutAt).trim() === '')
+    );
+
+  return hasCheckInAt || workSessionStatus === 'sedang dikerjakan' || hasOpenSession;
+}
+
+/**
+ * Strict Installer Today-Only Visibility Gate (Asia/Jakarta WIB):
+ * - Visible if Appointment Date === todayWIB (Asia/Jakarta), OR
+ * - Operational Exception: already Checked-In and NOT yet Checked-Out / completed.
+ */
+export function isTicketVisibleToInstallerToday(
+  ticket: any,
+  todayWIB: string = getJakartaDateStringServer()
+): boolean {
+  if (!ticket || typeof ticket !== 'object') return false;
+  if (ticket.isDeleted || ticket.isArchived) return false;
+
+  const refDate = normalizeStrictAppointmentDateServer(todayWIB) || getJakartaDateStringServer();
+  const appDate = getStrictAppointmentDateServer(ticket);
+  if (appDate && appDate === refDate) {
+    return true;
+  }
+
+  return isInstallerActiveCheckedInUnfinished(ticket);
+}
+

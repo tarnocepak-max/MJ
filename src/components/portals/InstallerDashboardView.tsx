@@ -19,7 +19,8 @@ import {
   getTicketCanonicalApprovalStatus,
   getTicketCanonicalReportStatus,
   isTicketCheckedIn,
-  computeFieldDispatchCounts
+  computeFieldDispatchCounts,
+  isTicketVisibleToInstallerToday
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../services/appointmentDateParser';
 import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
@@ -166,12 +167,9 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     });
   }, [tickets, currentUser]);
 
-  // Today's appointments only
+  // Today's appointments + active checked-in unfinished WO past midnight
   const todayTickets = useMemo(() => {
-    return myAllAssignedTickets.filter(t => {
-      const appDate = getTicketAppointmentDate(t);
-      return appDate === todayWIB;
-    });
+    return myAllAssignedTickets.filter(t => isTicketVisibleToInstallerToday(t, todayWIB));
   }, [myAllAssignedTickets, todayWIB]);
 
   // Realtime synced ticket for FullView
@@ -243,25 +241,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       }
     });
 
-    // Fallback SLA / OPM from historical assigned tickets if today has none recorded yet
-    if (slaMinutesList.length === 0) {
-      myAllAssignedTickets.forEach(t => {
-        if (t.workDurationMinutes && t.workDurationMinutes > 0) {
-          slaMinutesList.push(t.workDurationMinutes);
-        } else if (t.checkInAt && t.checkOutAt) {
-          const dur = calculateDurationMinutes(t.checkInAt, t.checkOutAt);
-          if (dur > 0) slaMinutesList.push(dur);
-        }
-      });
-    }
-    if (opmReadings.length === 0) {
-      myAllAssignedTickets.forEach(t => {
-        const opmVal = parseNumericDbm(t.technicalReport?.opticalPowerDbm || t.rosetRedamanDbm);
-        if (opmVal !== null) opmReadings.push(opmVal);
-      });
-    }
-
-    const totalSelesaiAll = myAllAssignedTickets.filter(t => classifyInstallerWoBucket(t) === 'selesai').length;
+    const totalSelesaiAll = selesai;
     const totalToday = todayTickets.length;
     const progressPct = totalToday > 0 ? Math.round((selesai / totalToday) * 100) : 0;
 
@@ -1164,7 +1144,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             onClick={() => handleNavigateBucket('tugas_baru')}
             className="text-xs font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 cursor-pointer"
           >
-            <span>Semua WO</span>
+            <span>Daftar Tugas</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

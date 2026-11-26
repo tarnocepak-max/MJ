@@ -27,6 +27,7 @@ import {
   renderWhatsAppMessage
 } from '../../services/whatsappService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { isTicketVisibleToInstallerToday } from '../../services/woLifecycleService';
 import { WorkOrderAddressBlock } from '../portals/WorkOrderAddressBlock';
 import { buildTicketAddressSearchHaystack } from '../../utils/addressFormatter';
 
@@ -93,7 +94,7 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
     return (tickets || []).filter(t => {
       if (t.isArchived || t.isDeleted) return false;
       if (!t.installerName && !t.assignedTo && !t.installerId) return false;
-      if (getTicketAppointmentDate(t) !== todayWIB) return false;
+      if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
 
       if (t.assignedTo && (t.assignedTo === myId || t.assignedTo === myUsername)) return true;
       if (myName && isInstallerMatch(t.installerName, myName)) return true;

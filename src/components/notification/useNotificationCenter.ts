@@ -124,8 +124,6 @@ export function canRoleNavigateToTab(role: UserRole, tab?: string): boolean {
       'installer_dashboard',
       'installer_portal',
       'installer_tasks',
-      'installer_progress',
-      'installer_history',
       'installer_whatsapp',
       'installer_chat'
     ])

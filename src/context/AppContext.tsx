@@ -40,6 +40,7 @@ import {
   classifyWorkOrder,
   summarizeWorkOrderClassifications
 } from '../services/woClassificationService';
+import { isTicketVisibleToInstallerToday } from '../services/woLifecycleService';
 import { installerGpsTracker } from '../services/installerGpsTrackingService';
 import {
   AssignmentActionResult,
@@ -1140,6 +1141,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
               scheduleKpiRefreshRef.current?.();
             } else if (rec && rec.id) {
+              const activeUser = currentUserRef.current;
+              const liveTodayWIB = getJakartaDateString(0);
+              if (
+                activeUser?.role === 'installer' &&
+                (rec.isDeleted || rec.isArchived || !isTicketVisibleToInstallerToday(rec, liveTodayWIB))
+              ) {
+                const prunedId = String(rec.id);
+                const prunedWo = String(rec.woNumber || '').trim().toUpperCase();
+                setTickets(prev => prev.filter(t => t.id !== prunedId));
+                setTicketMessages(prev =>
+                  prev.filter(
+                    m =>
+                      m.ticketId !== prunedId &&
+                      (!prunedWo || String(m.woNumber || '').trim().toUpperCase() !== prunedWo)
+                  )
+                );
+                scheduleKpiRefreshRef.current?.();
+                return;
+              }
               if (isTicketBeingEdited(rec.id)) {
                 if (!protectedEditNotifiedRef.current.has(rec.id)) {
                   protectedEditNotifiedRef.current.add(rec.id);
@@ -1709,12 +1729,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const passwordChangeRequired = Boolean(data.passwordChangeRequired || data.currentUser?.mustChangePassword);
 
     if (Array.isArray(data.tickets)) {
+      const liveTodayWIB = getJakartaDateString(0);
+      const hydratedTickets =
+        resolvedRole === 'installer'
+          ? data.tickets.filter((t: Ticket) => !t?.isDeleted && !t?.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB))
+          : data.tickets;
       if (options.isPhase2Full) {
-        setTickets(prev => mergeProgressiveHydration(prev, data.tickets));
-        setWoCache('wo:full', data.tickets, data.serverTime);
+        setTickets(prev => {
+          const merged = mergeProgressiveHydration(prev, hydratedTickets);
+          return resolvedRole === 'installer'
+            ? merged.filter(t => !t?.isDeleted && !t?.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB))
+            : merged;
+        });
+        setWoCache('wo:full', hydratedTickets, data.serverTime);
       } else {
-        setTickets(prev => (prev.length > 0 ? mergeDeltaTickets(prev, data.tickets, []).tickets : data.tickets));
-        setWoCache('wo:critical', data.tickets, data.serverTime);
+        setTickets(prev => {
+          const merged = prev.length > 0 ? mergeDeltaTickets(prev, hydratedTickets, []).tickets : hydratedTickets;
+          return resolvedRole === 'installer'
+            ? merged.filter(t => !t?.isDeleted && !t?.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB))
+            : merged;
+        });
+        setWoCache('wo:critical', hydratedTickets, data.serverTime);
       }
     }
 
@@ -1821,13 +1856,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           supabaseDb.setTransportHintFromServer(data.realtimeTransport, data.sseSupported, 15000);
         }
 
-        const updatedTickets: Ticket[] = Array.isArray(data.tickets) ? data.tickets : [];
+        const activeRole = currentUserRef.current?.role;
+        const liveTodayWIB = getJakartaDateString(0);
+        const rawUpdatedTickets: Ticket[] = Array.isArray(data.tickets) ? data.tickets : [];
+        const updatedTickets: Ticket[] =
+          activeRole === 'installer'
+            ? rawUpdatedTickets.filter(t => !t?.isDeleted && !t?.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB))
+            : rawUpdatedTickets;
         const deletedIds: string[] = Array.isArray(data.deletedIds) ? data.deletedIds : [];
+        const scopedActiveIds: string[] | null = Array.isArray(data.scopedActiveIds) ? data.scopedActiveIds : null;
+        const scopedActiveIdSet = scopedActiveIds ? new Set(scopedActiveIds.map(String)) : null;
         const deltaMessages: TicketMessage[] = Array.isArray(data.ticketMessages) ? data.ticketMessages : [];
 
-        if (updatedTickets.length > 0 || deletedIds.length > 0 || options?.force) {
+        if (
+          updatedTickets.length > 0 ||
+          deletedIds.length > 0 ||
+          (scopedActiveIdSet !== null && activeRole === 'installer') ||
+          options?.force
+        ) {
+          let prunedTicketIds: string[] = [];
           setTickets(prev => {
             const merged = mergeDeltaTickets(prev, updatedTickets, deletedIds);
+            let nextList = merged.tickets;
+            if (activeRole === 'installer') {
+              const beforeIds = new Set(nextList.map(t => t.id));
+              nextList = nextList.filter(t => {
+                if (!t || t.isDeleted || t.isArchived) return false;
+                if (!isTicketVisibleToInstallerToday(t, liveTodayWIB)) return false;
+                if (scopedActiveIdSet && !scopedActiveIdSet.has(String(t.id))) return false;
+                return true;
+              });
+              prunedTicketIds = Array.from(beforeIds).filter(id => !nextList.some(t => t.id === id));
+            }
             if (merged.skippedEditedIds.length > 0) {
               merged.skippedEditedIds.forEach(sid => {
                 if (!protectedEditNotifiedRef.current.has(sid)) {
@@ -1839,10 +1899,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
               });
             }
-            setWoCache('wo:full', merged.tickets, data.serverTime || lastDeltaWatermarkRef.current);
-            return merged.tickets;
+            setWoCache('wo:full', nextList, data.serverTime || lastDeltaWatermarkRef.current);
+            return nextList;
           });
-          if (updatedTickets.length > 0 || deletedIds.length > 0) {
+          if (prunedTicketIds.length > 0) {
+            const prunedSet = new Set(prunedTicketIds);
+            setTicketMessages(prev => prev.filter(m => !prunedSet.has(m.ticketId)));
+          }
+          if (updatedTickets.length > 0 || deletedIds.length > 0 || prunedTicketIds.length > 0) {
             scheduleKpiRefreshRef.current?.();
             updatedTickets.slice(0, 20).forEach(ut => {
               supabaseDb.dispatchExternalRealtimeEvent({
@@ -2104,7 +2168,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const cachedFull = getWoCache<Ticket[]>('wo:full') || getWoCache<Ticket[]>('wo:critical');
       if (cachedFull && Array.isArray(cachedFull.data) && ticketsRef.current.length === 0) {
-        setTickets(cachedFull.data);
+        const liveTodayWIB = getJakartaDateString(0);
+        const prehydratedTickets =
+          currentUserRef.current?.role === 'installer'
+            ? cachedFull.data.filter(t => t && !t.isDeleted && !t.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB))
+            : cachedFull.data;
+        setTickets(prehydratedTickets);
       }
 
       const showBlockingSkeleton = ticketsRef.current.length === 0;
@@ -2967,6 +3036,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           rolledOver = true;
           setOperationalDateState(liveNowWIB);
           safeLocalStorageSet('morajaws_operational_date', liveNowWIB);
+          if (currentUserRef.current?.role === 'installer') {
+            invalidateWoCache();
+            setTickets(prevTickets =>
+              prevTickets.filter(t => t && !t.isDeleted && !t.isArchived && isTicketVisibleToInstallerToday(t, liveNowWIB))
+            );
+          }
           if (navigator.onLine) {
             lastVisibilityRefreshAtRef.current = Date.now();
             refreshActiveTickets().catch(() => {});
@@ -3290,8 +3365,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return isTicketInLeaderScope(t, currentUser);
       }
 
-      // 3. Installer / Teknisi: STRICTLY LIMITED to tickets explicitly assigned to this technician!
+      // 3. Installer / Teknisi: STRICTLY LIMITED to tickets explicitly assigned to this technician AND today WIB (or active checked-in)!
       if (currentUser.role === 'installer') {
+        if (t.isArchived) return false;
+        if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
         const myId = String(currentUser.id || '').trim();
         if (!myId) return false;
 
@@ -3354,7 +3431,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return false;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, currentUser, todayWIB]);
 
   // Active today's Work Orders (Strict Asia/Jakarta appointmentDate === todayWIB; never createdAt)
   const activeTodayTickets = React.useMemo(() => {
@@ -3364,13 +3441,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [tickets, todayWIB]);
 
-  // Role-scoped AND active-today Work Orders (Auto-reset at 00:00 WIB for all staff roles)
+  // Role-scoped AND active-today Work Orders (Auto-reset at 00:00 WIB for all staff roles; includes checked-in unfinished for Installer)
   const scopedActiveTickets = React.useMemo(() => {
     return (scopedTickets || []).filter(t => {
       if (!t || t.isArchived || t.isDeleted) return false;
+      if (currentUser?.role === 'installer') {
+        return isTicketVisibleToInstallerToday(t, todayWIB);
+      }
       return getTicketAppointmentDate(t) === todayWIB;
     });
-  }, [scopedTickets, todayWIB]);
+  }, [scopedTickets, todayWIB, currentUser?.role]);
 
   // Centralized WO Classification Engine (TODAY | UPCOMING | OVERDUE | COMPLETED | EXCEPTION)
   const overdueTickets = React.useMemo(() => {

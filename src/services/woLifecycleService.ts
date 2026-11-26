@@ -9,6 +9,7 @@ import {
   ProgressReportHistoryItem
 } from '../types';
 import { getTicketAppointmentDate, getJakartaDateString } from './appointmentDateParser';
+import { isWoCompletedOrClosed } from './woClassificationService';
 
 export type CanonicalReportStatus = 'PENDING' | 'COMPLETE' | 'RESCHEDULE' | 'CANCEL' | 'NONE';
 export type CanonicalApprovalStatus = 'NONE' | 'BUTUH APPROVAL' | 'APPROVED' | 'REVISION';
@@ -726,3 +727,43 @@ export const KPI_FILTER_LABELS: Record<WOKpiFilterKey, string> = {
   field_pending: 'Pending',
   field_cancel: 'Cancel'
 };
+
+/**
+ * Operational Exception:
+ * Returns true if the Work Order has an active Check-In session that has NOT Checked Out yet
+ * and has NOT been completed/closed. Ensures an in-progress WO stays accessible across 00:00 WIB.
+ */
+export function isInstallerActiveCheckedInUnfinished(ticket: Ticket | null | undefined): boolean {
+  if (!ticket || ticket.isDeleted || ticket.isArchived) return false;
+  if (ticket.checkOutAt && String(ticket.checkOutAt).trim() !== '') return false;
+  if (isWoCompletedOrClosed(ticket)) return false;
+
+  const hasCheckInAt = Boolean(ticket.checkInAt && String(ticket.checkInAt).trim() !== '');
+  const workSessionStatus = String(ticket.workSessionStatus || '').trim().toLowerCase();
+  const hasOpenSession =
+    Array.isArray(ticket.workSessions) &&
+    ticket.workSessions.some(
+      s =>
+        s &&
+        String(s.status || '').trim().toLowerCase() === 'sedang dikerjakan' &&
+        (!s.checkOutAt || String(s.checkOutAt).trim() === '')
+    );
+
+  return hasCheckInAt || workSessionStatus === 'sedang dikerjakan' || hasOpenSession;
+}
+
+/**
+ * Strict Installer Today-Only Visibility Gate (Asia/Jakarta WIB):
+ * - Visible if Appointment Date === todayWIB (Asia/Jakarta), OR
+ * - Operational Exception: already Checked-In and NOT yet Checked-Out / completed.
+ */
+export function isTicketVisibleToInstallerToday(
+  ticket: Ticket | null | undefined,
+  todayWIB: string = getJakartaDateString(0)
+): boolean {
+  if (!ticket || ticket.isDeleted || ticket.isArchived) return false;
+  const appDate = getTicketAppointmentDate(ticket);
+  if (appDate && appDate === todayWIB) return true;
+  return isInstallerActiveCheckedInUnfinished(ticket);
+}
+

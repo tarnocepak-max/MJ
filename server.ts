@@ -152,6 +152,8 @@ import {
   classifyWorkOrderServer,
   getStrictAppointmentDateServer,
   summarizeWorkOrderClassificationsServer,
+  isInstallerActiveCheckedInUnfinished,
+  isTicketVisibleToInstallerToday,
   type WoClassification
 } from './server/woClassificationService.ts';
 import {
@@ -3090,8 +3092,71 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
   return false;
 }
 
-export function scopeTicketsForUser(tickets: any[], user: ServerUser): any[] {
-  return tickets.filter(t => checkTicketAccess(t, user));
+export function checkOperationalTicketAccess(
+  ticket: any,
+  user: ServerUser,
+  referenceDateWIB: string = getJakartaDateStringServer(getNow())
+): boolean {
+  if (!checkTicketAccess(ticket, user)) return false;
+  if (user.role === 'installer') {
+    return isTicketVisibleToInstallerToday(ticket, referenceDateWIB);
+  }
+  return true;
+}
+
+export function assertInstallerNoCrossDateQuery(
+  req: AuthenticatedRequest,
+  res: Response,
+  todayWIB: string = getJakartaDateStringServer(getNow())
+): boolean {
+  const user = req.user;
+  if (!user || user.role !== 'installer') return true;
+
+  if (String(req.query.includeArchived || '').toLowerCase() === 'true') {
+    res.status(403).json({
+      success: false,
+      code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+      error: 'Akses Ditolak: Teknisi hanya diizinkan mengakses Work Order hari ini.'
+    });
+    return false;
+  }
+
+  const dateQueryKeys = [
+    'appointmentDate',
+    'date',
+    'dateFrom',
+    'dateTo',
+    'targetDate',
+    'woDate',
+    'filterDate',
+    'month',
+    'week'
+  ];
+  for (const key of dateQueryKeys) {
+    const raw = req.query[key];
+    if (raw === undefined || raw === null) continue;
+    const val = String(raw).trim();
+    if (!val) continue;
+    const normalized = normalizeAppointmentDate(val);
+    if (!normalized || normalized !== todayWIB) {
+      res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+        error: `Akses Ditolak: Teknisi hanya dapat mengakses tugas tanggal hari ini (${todayWIB} WIB).`
+      });
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function scopeTicketsForUser(
+  tickets: any[],
+  user: ServerUser,
+  referenceDateWIB: string = getJakartaDateStringServer(getNow())
+): any[] {
+  return tickets.filter(t => checkOperationalTicketAccess(t, user, referenceDateWIB));
 }
 
 export function getBackendTicketWODate(t: any): string | null {
@@ -3676,8 +3741,11 @@ export async function createExpressApp(options?: {
         });
       }
       const todayWIB = getJakartaDateStringServer(getNow());
+      if (user?.role === 'installer' && !assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
       const scopedTickets = (user && !passwordChangeRequired)
-        ? scopeTicketsForUser((db.tickets || []).filter((t: any) => t && !t.isDeleted), user).map((t: any) => attachClassificationMetadata(t, todayWIB))
+        ? scopeTicketsForUser((db.tickets || []).filter((t: any) => t && !t.isDeleted), user, todayWIB).map((t: any) => attachClassificationMetadata(t, todayWIB))
         : [];
       const scopedTicketIds = new Set(scopedTickets.map((t: any) => String(t.id || '')));
       const scopedWoNumbers = new Set(scopedTickets.map((t: any) => String(t.woNumber || '').trim().toUpperCase()));
@@ -3710,7 +3778,9 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+      const activeTodayTickets = user?.role === 'installer'
+        ? scopedTickets.filter((t: any) => isTicketVisibleToInstallerToday(t, todayWIB))
+        : filterActiveTicketsForDate(scopedTickets, todayWIB);
       const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
       const rolePermBundle = user ? await getEffectiveRolePermissions() : null;
 
@@ -3827,8 +3897,11 @@ export async function createExpressApp(options?: {
     }
 
     const todayWIB = getJakartaDateStringServer(getNow());
+    if (user?.role === 'installer' && !assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+      return;
+    }
     const scopedTickets = (user && !passwordChangeRequired)
-      ? scopeTicketsForUser(baseTickets, user).map((t: any) => attachClassificationMetadata(t, todayWIB))
+      ? scopeTicketsForUser(baseTickets, user, todayWIB).map((t: any) => attachClassificationMetadata(t, todayWIB))
       : [];
 
     let scopedMessages: any[] = [];
@@ -3868,7 +3941,9 @@ export async function createExpressApp(options?: {
       });
     }
 
-    const activeTodayTickets = filterActiveTicketsForDate(scopedTickets, todayWIB);
+    const activeTodayTickets = user?.role === 'installer'
+      ? scopedTickets.filter((t: any) => isTicketVisibleToInstallerToday(t, todayWIB))
+      : filterActiveTicketsForDate(scopedTickets, todayWIB);
     const classificationSummary = summarizeWorkOrderClassificationsServer(scopedTickets, todayWIB);
 
     const safeContractors = (contractorsList || []).map((c: any) => {
@@ -4935,6 +5010,11 @@ export async function createExpressApp(options?: {
   // --- Work Order Core Endpoints ---
   app.get('/api/tickets', requireAuth, async (req: AuthenticatedRequest, res) => {
     const user = req.user!;
+    const todayWIB = getJakartaDateStringServer(getNow());
+    if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+      return;
+    }
+
     let ticketsToScope: any[] = [];
 
     if (isSupabaseMode()) {
@@ -4962,12 +5042,14 @@ export async function createExpressApp(options?: {
       ticketsToScope = db.tickets;
     }
 
-    const todayWIB = getJakartaDateStringServer(getNow());
     const roleScopedAll = scopeTicketsForUser(
       (ticketsToScope || []).filter((t: any) => t && !t.isDeleted),
-      user
+      user,
+      todayWIB
     ).map((t: any) => attachClassificationMetadata(t, todayWIB));
-    const scopedTickets = filterActiveTicketsForDate(roleScopedAll, todayWIB);
+    const scopedTickets = user.role === 'installer'
+      ? roleScopedAll.filter((t: any) => isTicketVisibleToInstallerToday(t, todayWIB))
+      : filterActiveTicketsForDate(roleScopedAll, todayWIB);
     const classificationSummary = summarizeWorkOrderClassificationsServer(roleScopedAll, todayWIB);
 
     res.json({
@@ -5528,8 +5610,8 @@ export async function createExpressApp(options?: {
       });
     }
 
-    // Check RBAC permission for modifying WO using strict authoritative check
-    if (!checkTicketAccess(currentTicket, req.user!)) {
+    // Check RBAC permission for modifying WO using strict authoritative check (includes Installer today-only + active check-in gate)
+    if (!checkOperationalTicketAccess(currentTicket, req.user!)) {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk memperbarui Work Order ini.' });
     }
 
@@ -6234,7 +6316,7 @@ export async function createExpressApp(options?: {
       return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
     }
 
-    if (!checkTicketAccess(ticket, req.user!)) {
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk menyimpan laporan untuk tiket ini.' });
     }
 
@@ -6498,8 +6580,8 @@ export async function createExpressApp(options?: {
       ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
 
-    // Strict RBAC check: Installer only on assigned WO, Dispatch/SuperAdmin allowed
-    if (!checkTicketAccess(ticket, req.user!)) {
+    // Strict RBAC check: Installer only on assigned today/active-checked-in WO, Dispatch/SuperAdmin allowed
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         success: false,
         code: 'FORBIDDEN_WO_ACCESS',
@@ -6929,7 +7011,7 @@ export async function createExpressApp(options?: {
       });
     }
 
-    if (!checkTicketAccess(ticket, req.user!)) {
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         success: false,
         code: 'FORBIDDEN_WO_ACCESS',
@@ -7070,8 +7152,8 @@ export async function createExpressApp(options?: {
       ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
 
-    // Role Permission Validation: Authoritative checkTicketAccess
-    if (!checkTicketAccess(ticket, req.user!)) {
+    // Role Permission Validation: Authoritative checkOperationalTicketAccess
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         error: 'Akses Ditolak: Anda hanya berwenang menyimpan laporan untuk tiket yang di-assign kepada Anda.'
       });
@@ -7544,7 +7626,7 @@ export async function createExpressApp(options?: {
       return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
     }
 
-    if (!checkTicketAccess(ticket, req.user!)) {
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         success: false,
         code: 'FORBIDDEN_WO_ACCESS',
@@ -7782,7 +7864,7 @@ export async function createExpressApp(options?: {
       return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
     }
 
-    if (!checkTicketAccess(ticket, req.user!)) {
+    if (!checkOperationalTicketAccess(ticket, req.user!)) {
       return res.status(403).json({
         success: false,
         code: 'FORBIDDEN_WO_ACCESS',
@@ -8230,18 +8312,35 @@ export async function createExpressApp(options?: {
     try {
       const user = req.user!;
       const opDate = getOperationalDate();
+      const todayWIB = getJakartaDateStringServer(getNow());
+
+      if (user.role === 'installer' && !assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
+
       const rawDate = typeof req.query.date === 'string' && req.query.date.trim() ? req.query.date.trim() : opDate.date;
-      const dateWIB = normalizeAppointmentDate(rawDate) || opDate.date;
+      const dateWIB = user.role === 'installer' ? todayWIB : (normalizeAppointmentDate(rawDate) || opDate.date);
       const contractorFilter = typeof req.query.contractor === 'string' && req.query.contractor.trim() ? req.query.contractor.trim() : 'ALL';
       const areaFilter = typeof req.query.area === 'string' && req.query.area.trim() ? req.query.area.trim() : 'ALL';
 
       let rawTickets: any[] = [];
       if (isSupabaseMode()) {
-        const sbResult = await getWorkOrdersFromSupabase({
-          appointmentDate: dateWIB,
-          includeArchived: false,
-          includeDeleted: false
-        });
+        const sbResult = user.role === 'installer'
+          ? await getWorkOrdersFromSupabasePaginated({
+              page: 1,
+              limit: 500,
+              includeArchived: false,
+              includeDeleted: false,
+              lightweight: false,
+              userRole: 'installer',
+              userId: user.id,
+              userContractor: user.contractor || user.contractorId
+            })
+          : await getWorkOrdersFromSupabase({
+              appointmentDate: dateWIB,
+              includeArchived: false,
+              includeDeleted: false
+            });
         if (!sbResult.success) {
           if (!isLocalJsonModeAllowed()) {
             return res.status(503).json({
@@ -8252,13 +8351,15 @@ export async function createExpressApp(options?: {
           }
           rawTickets = db.tickets || [];
         } else {
-          rawTickets = sbResult.data || [];
+          rawTickets = Array.isArray((sbResult as any).data?.tickets)
+            ? (sbResult as any).data.tickets
+            : ((sbResult as any).data || []);
         }
       } else {
         rawTickets = db.tickets || [];
       }
 
-      const scoped = scopeTicketsForUser(rawTickets, user);
+      const scoped = scopeTicketsForUser(rawTickets, user, todayWIB);
       const summary = computeKpiSummary(scoped, {
         dateWIB,
         scopeRole: user.role,
@@ -8304,13 +8405,27 @@ export async function createExpressApp(options?: {
     }
 
     const activePool = rawTickets.filter((t: any) => t && !t.isDeleted && !t.isArchived);
-    const roleScoped = scopeTicketsForUser(activePool, user).map((t: any) => attachClassificationMetadata(t, referenceDateWIB));
+    const roleScoped = scopeTicketsForUser(activePool, user, referenceDateWIB).map((t: any) => attachClassificationMetadata(t, referenceDateWIB));
     return { tickets: roleScoped };
   };
 
   app.get('/api/work-orders/overdue', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
+      if (user.role === 'installer') {
+        await logServerAuditAsync(
+          'Access Denied (Installer Overdue / Cross-Date Blocked)',
+          'rbac',
+          req.originalUrl,
+          `Teknisi ${user.name} (${user.id}) ditolak mengakses endpoint Overdue / lintas tanggal`,
+          user
+        );
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+          error: 'Akses Ditolak: Teknisi hanya diperbolehkan mengakses Work Order hari ini.'
+        });
+      }
       if (!(VALID_SYSTEM_ROLES as readonly string[]).includes(user.role)) {
         await logServerAuditAsync(
           'Access Denied (Overdue Monitoring Restricted)',
@@ -8322,7 +8437,7 @@ export async function createExpressApp(options?: {
         return res.status(403).json({
           success: false,
           code: 'REQUIRE_OPERATIONAL_ROLE',
-          error: 'Akses Ditolak: Monitoring Overdue WO hanya tersedia untuk role operasional (Super Admin, Dispatch, Leader, Installer).'
+          error: 'Akses Ditolak: Monitoring Overdue WO hanya tersedia untuk role operasional (Super Admin, Dispatch, Leader).'
         });
       }
 
@@ -8450,7 +8565,19 @@ export async function createExpressApp(options?: {
       }
 
       const todayWIB = getJakartaDateStringServer(getNow());
-      const poolRes = await loadScopedClassifiedPool(user, todayWIB);
+      if (user.role === 'installer' && !assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
+      const categoryParam = String(req.query.category || '').trim().toUpperCase();
+      if (user.role === 'installer' && categoryParam && categoryParam !== 'TODAY') {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+          error: 'Akses Ditolak: Teknisi hanya dapat mengakses Work Order kategori hari ini (TODAY).'
+        });
+      }
+
+      const poolRes = await loadScopedClassifiedPool(user, todayWIB, user.role === 'installer' ? undefined : undefined);
       if ('errorStatus' in poolRes) {
         return res.status(poolRes.errorStatus).json({
           success: false,
@@ -8465,7 +8592,6 @@ export async function createExpressApp(options?: {
         ? poolRes.tickets.filter((t: any) => classifyWorkOrderServer(t, todayWIB).classification === 'EXCEPTION')
         : [];
 
-      const categoryParam = String(req.query.category || '').trim().toUpperCase();
       let filteredTickets: any[] | undefined = undefined;
       if (categoryParam && ['TODAY', 'UPCOMING', 'OVERDUE', 'COMPLETED', 'EXCEPTION'].includes(categoryParam)) {
         if (categoryParam === 'EXCEPTION' && !canViewExceptions) {
@@ -8475,9 +8601,11 @@ export async function createExpressApp(options?: {
             error: 'Akses Ditolak: Antrean Exception Appointment Date hanya tersedia untuk Super Admin.'
           });
         }
-        filteredTickets = poolRes.tickets.filter(
-          (t: any) => classifyWorkOrderServer(t, todayWIB).classification === categoryParam
-        );
+        filteredTickets = user.role === 'installer'
+          ? poolRes.tickets
+          : poolRes.tickets.filter(
+              (t: any) => classifyWorkOrderServer(t, todayWIB).classification === categoryParam
+            );
       }
 
       return res.json({
@@ -8505,6 +8633,10 @@ export async function createExpressApp(options?: {
   app.get('/api/work-orders/progress-history', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
+      const todayWIB = getJakartaDateStringServer(getNow());
+      if (user.role === 'installer' && !assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
       const {
         search = '',
         reportStatus = 'ALL',
@@ -8519,7 +8651,7 @@ export async function createExpressApp(options?: {
       let rawTickets: any[] = [];
       if (isSupabaseMode()) {
         const sbResult = await getWorkOrdersFromSupabase({
-          includeArchived: true,
+          includeArchived: user.role !== 'installer',
           includeDeleted: false
         });
         if (sbResult.success) {
@@ -8533,7 +8665,7 @@ export async function createExpressApp(options?: {
         rawTickets = db.tickets || [];
       }
 
-      const scoped = scopeTicketsForUser(rawTickets, user);
+      const scoped = scopeTicketsForUser(rawTickets, user, todayWIB);
       let history = extractProgressReportHistoryFromTickets(scoped);
 
       if (ticketId.trim()) {
@@ -8921,6 +9053,7 @@ export async function createExpressApp(options?: {
 
   // Get Assignment History
   app.get(['/api/tickets/:woNumber/assignment-history', '/api/assignment-history', '/api/assignment-history/:woNumber'], requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    const user = req.user!;
     const rawWo = (req.params.woNumber || req.query.woNumber || req.query.ticketId || '') as string;
     const woNumber = String(rawWo).trim();
 
@@ -8930,6 +9063,28 @@ export async function createExpressApp(options?: {
         error: 'Nomor WO atau ID tiket wajib disertakan.',
         code: 'INVALID_INPUT'
       });
+    }
+
+    if (user.role === 'installer' || user.role === 'leader') {
+      let targetTicket: any = null;
+      if (isSupabaseMode()) {
+        const tRes = await getWorkOrderByIdOrWoNumberFromSupabase(woNumber);
+        if (tRes.success && tRes.data) targetTicket = tRes.data;
+      }
+      if (!targetTicket && isLocalJsonModeAllowed()) {
+        targetTicket = (db.tickets || []).find(
+          (t: any) =>
+            String(t.id || '') === woNumber ||
+            String(t.woNumber || '').toUpperCase() === woNumber.toUpperCase()
+        ) || null;
+      }
+      if (!targetTicket || !checkOperationalTicketAccess(targetTicket, user)) {
+        return res.status(403).json({
+          success: false,
+          code: user.role === 'installer' ? 'FORBIDDEN_CROSS_DATE_ACCESS' : 'FORBIDDEN_SCOPE',
+          error: 'Akses Ditolak: Anda tidak memiliki akses ke riwayat penugasan Work Order ini.'
+        });
+      }
     }
 
     if (isSupabaseMode()) {
@@ -11238,6 +11393,19 @@ export async function createExpressApp(options?: {
       });
     }
 
+    if (req.user!.role === 'installer' && targetWo) {
+      const matchedTicket = contextTickets.find(
+        t => (t.woNumber && t.woNumber === targetWo) || (t.id && t.id === targetWo)
+      );
+      if (matchedTicket && !isTicketVisibleToInstallerToday(matchedTicket, getJakartaDateStringServer(getNow()))) {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+          error: 'Akses Ditolak: File Work Order tanggal lain tidak dapat diakses oleh Teknisi.'
+        });
+      }
+    }
+
     const refreshResult = await refreshSupabaseStorageSignedUrl(
       storagePath,
       Number(expiresInSeconds) || 3600,
@@ -11303,6 +11471,19 @@ export async function createExpressApp(options?: {
         success: false,
         error: permission.reason
       });
+    }
+
+    if (req.user!.role === 'installer' && targetWo) {
+      const matchedTicket = contextTickets.find(
+        t => (t.woNumber && t.woNumber === targetWo) || (t.id && t.id === targetWo)
+      );
+      if (matchedTicket && !isTicketVisibleToInstallerToday(matchedTicket, getJakartaDateStringServer(getNow()))) {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+          error: 'Akses Ditolak: File Work Order tanggal lain tidak dapat diakses oleh Teknisi.'
+        });
+      }
     }
 
     const downloadResult = await downloadBufferFromSupabaseStorage({
@@ -11753,7 +11934,7 @@ export async function createExpressApp(options?: {
         if (!ticketObj && isLocalJsonModeAllowed()) {
           ticketObj = db.tickets.find(t => t.woNumber === relatedWoNumber || t.id === relatedWoNumber) || null;
         }
-        if (ticketObj && !checkTicketAccess(ticketObj, user)) {
+        if (ticketObj && !checkOperationalTicketAccess(ticketObj, user)) {
           return res.status(403).json({
             success: false,
             error: 'Akses Ditolak: Anda tidak memiliki wewenang mengunggah lampiran chat ke Work Order ini.',
@@ -11869,7 +12050,7 @@ export async function createExpressApp(options?: {
 
     if (woNumber && ticketsForAccess.length > 0) {
       const matchedTicket = ticketsForAccess.find(t => (t.woNumber && t.woNumber === woNumber) || (t.id && t.id === woNumber));
-      if (matchedTicket && !checkTicketAccess(matchedTicket, req.user!)) {
+      if (matchedTicket && !checkOperationalTicketAccess(matchedTicket, req.user!)) {
         return res.status(403).json({
           success: false,
           error: 'Ditolak: Anda tidak memiliki hak akses ke file Work Order ini.'
@@ -12027,6 +12208,11 @@ export async function createExpressApp(options?: {
   app.get('/api/supabase/work-orders', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
+      const todayWIB = getJakartaDateStringServer(getNow());
+      if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
+
       const {
         area,
         contractorId,
@@ -12059,10 +12245,10 @@ export async function createExpressApp(options?: {
             installerName,
             statusWOAgent,
             statusWOInstaller,
-            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined,
+            appointmentDate: user.role === 'installer' ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
             search,
-            includeArchived: includeArchived === 'true',
-            includeDeleted: includeDeleted === 'true',
+            includeArchived: user.role === 'installer' ? false : includeArchived === 'true',
+            includeDeleted: user.role === 'installer' ? false : includeDeleted === 'true',
             limit: limit ? parseInt(limit, 10) : 100,
             offset: offset ? parseInt(offset, 10) : undefined,
             page: page ? parseInt(page, 10) : 1,
@@ -12093,9 +12279,9 @@ export async function createExpressApp(options?: {
             area,
             contractorId,
             installerName,
-            appointmentDate: appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined,
-            includeArchived: includeArchived === 'true',
-            includeDeleted: includeDeleted === 'true',
+            appointmentDate: user.role === 'installer' ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
+            includeArchived: user.role === 'installer' ? false : includeArchived === 'true',
+            includeDeleted: user.role === 'installer' ? false : includeDeleted === 'true',
             lightweight: lightweight === 'true'
           });
 
@@ -12131,8 +12317,8 @@ export async function createExpressApp(options?: {
         tickets = tickets.filter((t: any) => t && !t.isDeleted);
       }
 
-      // Enforce strict server-side RBAC scoping
-      let scoped = scopeTicketsForUser(tickets, user);
+      // Enforce strict server-side RBAC scoping (includes today-only + active check-in gate for Installer)
+      let scoped = scopeTicketsForUser(tickets, user, todayWIB);
 
       // Apply in-memory secondary filters if provided
       if (statusWOAgent && statusWOAgent.toLowerCase() !== 'all') {
@@ -12146,7 +12332,9 @@ export async function createExpressApp(options?: {
         success: true,
         data: scoped,
         count: scoped.length,
-        ...(typeof totalCount === 'number' ? { total: totalCount, page: pageNum, totalPages: totalPagesCount } : {})
+        ...(typeof totalCount === 'number'
+          ? { total: user.role === 'installer' ? scoped.length : totalCount, page: pageNum, totalPages: user.role === 'installer' ? 1 : totalPagesCount }
+          : {})
       });
     } catch (err: any) {
       console.error('[API /api/supabase/work-orders] Error:', err);
@@ -12238,12 +12426,12 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Strict RBAC check
-      if (!checkTicketAccess(ticket, user)) {
+      // Strict RBAC check (includes Installer today-only + active check-in gate)
+      if (!checkOperationalTicketAccess(ticket, user)) {
         await logServerAuditAsync('Access Denied: Ticket Scope Violation', 'rbac', id, `User ${user.name} (${user.role}) ditolak mengakses WO ${ticket.woNumber || id}`, user);
         return res.status(403).json({
           success: false,
-          error: { code: 'FORBIDDEN_SCOPE', message: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat Work Order ini.' }
+          error: { code: user.role === 'installer' ? 'FORBIDDEN_CROSS_DATE_ACCESS' : 'FORBIDDEN_SCOPE', message: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat Work Order ini.' }
         });
       }
 
@@ -12402,11 +12590,17 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Strict RBAC check for modifying WO
-      if (!checkTicketAccess(existing, user)) {
+      // Strict RBAC + Today-only operational check for modifying WO
+      if (!checkOperationalTicketAccess(existing, user)) {
+        const isCrossDateInstaller = user.role === 'installer' && checkTicketAccess(existing, user);
         return res.status(403).json({
           success: false,
-          error: { code: 'FORBIDDEN_SCOPE', message: 'Akses Ditolak: Anda tidak memiliki wewenang untuk memperbarui Work Order ini.' }
+          error: {
+            code: isCrossDateInstaller ? 'FORBIDDEN_CROSS_DATE_ACCESS' : 'FORBIDDEN_SCOPE',
+            message: isCrossDateInstaller
+              ? 'Akses Ditolak: Teknisi hanya diperbolehkan mengakses Work Order hari ini (atau yang sedang aktif Check-In).'
+              : 'Akses Ditolak: Anda tidak memiliki wewenang untuk memperbarui Work Order ini.'
+          }
         });
       }
 
@@ -14965,8 +15159,16 @@ export async function createExpressApp(options?: {
       const processAsync = async () => {
         try {
           if (event.table === 'work_orders' && event.record) {
-            if (!checkTicketAccess(event.record, user)) {
-              if (event.previousRecord && checkTicketAccess(event.previousRecord, user)) {
+            const liveTodayWIB = getJakartaDateStringServer(getNow());
+            if (!checkOperationalTicketAccess(event.record, user, liveTodayWIB)) {
+              const wasPreviouslyAccessible = Boolean(
+                event.previousRecord && checkOperationalTicketAccess(event.previousRecord, user, liveTodayWIB)
+              );
+              const isInstallerUpdateOrDelete =
+                user.role === 'installer' &&
+                (event.eventType === 'UPDATE' || event.eventType === 'DELETE') &&
+                Boolean(event.record.id);
+              if (wasPreviouslyAccessible || isInstallerUpdateOrDelete) {
                 writeSseEvent(evtId, {
                   table: 'work_orders',
                   eventType: 'ACCESS_REVOKED',
@@ -14991,7 +15193,7 @@ export async function createExpressApp(options?: {
               event.scopeTicket ||
               (await resolveScopeTicketForRealtime(rec.ticketId, rec.woNumber));
             if (relatedTicket) {
-              if (!checkTicketAccess(relatedTicket, user)) {
+              if (!checkOperationalTicketAccess(relatedTicket, user)) {
                 return;
               }
             } else if (user.role === 'installer' || user.role === 'leader') {
@@ -15136,7 +15338,7 @@ export async function createExpressApp(options?: {
     }
 
     const scopeTicket = await resolveScopeTicketForRealtime(ticketId, woNumber);
-    if (scopeTicket && !checkTicketAccess(scopeTicket, user)) {
+    if (scopeTicket && !checkOperationalTicketAccess(scopeTicket, user)) {
       return res.status(403).json({
         success: false,
         error: 'Akses Ditolak: Anda tidak memiliki akses ke percakapan Work Order ini.',
@@ -15550,11 +15752,16 @@ export async function createExpressApp(options?: {
         return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
       }
 
+      const todayWIB = getJakartaDateStringServer(getNow());
+      if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
+
       const phaseRaw = String(req.query.phase || 'critical').toLowerCase();
       const phase: 'critical' | 'secondary' | 'full' =
         phaseRaw === 'full' ? 'full' : phaseRaw === 'secondary' ? 'secondary' : 'critical';
 
-      const includeArchived = req.query.includeArchived === 'true';
+      const includeArchived = req.user!.role === 'installer' ? false : req.query.includeArchived === 'true';
       const page = Math.max(1, Number(req.query.page || 1) || 1);
       const limitRaw = String(req.query.limit || '50');
       const isAllLimit = limitRaw.toUpperCase() === 'ALL';
@@ -15568,12 +15775,10 @@ export async function createExpressApp(options?: {
       const qStatusWa = String(req.query.statusWhatsApp || '').trim();
       const qApproval = String(req.query.approvalStatus || '').trim();
       const qCategory = String(req.query.category || '').trim();
-      const qApptDate = String(req.query.appointmentDate || '').trim();
+      const qApptDate = req.user!.role === 'installer' ? '' : String(req.query.appointmentDate || '').trim();
       const qUpdatedSince = String(req.query.updatedSince || '').trim();
       const sortBy = String(req.query.sortBy || 'updatedAt');
       const sortDir = String(req.query.sortDir || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-      const todayWIB = getJakartaDateStringServer(getNow());
 
       // Fast DB-level pagination path when a bounded page size is requested without client-only secondary filters
       const hasClientOnlyFilters = Boolean(
@@ -15582,15 +15787,16 @@ export async function createExpressApp(options?: {
         (qCategory && qCategory.toLowerCase() !== 'all')
       );
       if (isSupabaseMode() && !isAllLimit && !hasClientOnlyFilters) {
+        const isInstallerRole = req.user!.role === 'installer';
         const pagedRes = await getWorkOrdersFromSupabasePaginated({
-          page,
-          limit,
+          page: isInstallerRole ? 1 : page,
+          limit: isInstallerRole ? 500 : limit,
           includeArchived,
           area: qArea && qArea.toLowerCase() !== 'all' ? qArea : undefined,
           contractor: qContractor && qContractor.toLowerCase() !== 'all' ? qContractor : undefined,
           statusWOAgent: qStatusAgent && qStatusAgent.toLowerCase() !== 'all' ? qStatusAgent : undefined,
           statusWOInstaller: qStatusInstaller && qStatusInstaller.toLowerCase() !== 'all' ? qStatusInstaller : undefined,
-          appointmentDate: qApptDate || undefined,
+          appointmentDate: isInstallerRole ? undefined : (qApptDate || undefined),
           search: qSearch || undefined,
           updatedSince: qUpdatedSince || undefined,
           sortBy,
@@ -15602,19 +15808,27 @@ export async function createExpressApp(options?: {
         });
 
         if (pagedRes.success && pagedRes.data) {
-          const scopedPaged = scopeTicketsForUser(pagedRes.data.tickets, req.user!).map((t: any) =>
+          const scopedPaged = scopeTicketsForUser(pagedRes.data.tickets, req.user!, todayWIB).map((t: any) =>
             attachClassificationMetadata(t, todayWIB)
           );
-          const payloadTickets = phase === 'critical'
-            ? scopedPaged.map(stripHeavyFieldsForCriticalPhase)
+          const totalScoped = isInstallerRole ? scopedPaged.length : pagedRes.data.total;
+          const totalPagesScoped = isInstallerRole
+            ? Math.max(1, Math.ceil(totalScoped / limit))
+            : pagedRes.data.totalPages;
+          const safePageScoped = isInstallerRole ? Math.min(page, totalPagesScoped) : pagedRes.data.page;
+          const slicedScoped = isInstallerRole
+            ? scopedPaged.slice((safePageScoped - 1) * limit, safePageScoped * limit)
             : scopedPaged;
+          const payloadTickets = phase === 'critical'
+            ? slicedScoped.map(stripHeavyFieldsForCriticalPhase)
+            : slicedScoped;
           return res.json({
             success: true,
             phase,
-            page: pagedRes.data.page,
-            limit: pagedRes.data.limit,
-            total: pagedRes.data.total,
-            totalPages: pagedRes.data.totalPages,
+            page: safePageScoped,
+            limit: isInstallerRole ? limit : pagedRes.data.limit,
+            total: totalScoped,
+            totalPages: totalPagesScoped,
             operationalDateWIB: todayWIB,
             tickets: payloadTickets,
             serverTime: getNow().toISOString()
@@ -15644,7 +15858,8 @@ export async function createExpressApp(options?: {
 
       let scoped = scopeTicketsForUser(
         (tickets || []).filter((t: any) => t && !t.isDeleted),
-        req.user!
+        req.user!,
+        todayWIB
       ).map((t: any) => attachClassificationMetadata(t, todayWIB));
       if (!includeArchived) {
         scoped = scoped.filter((t: any) => !t.isArchived);
@@ -15732,6 +15947,10 @@ export async function createExpressApp(options?: {
   // --- Work Order Core Aliases per Section 12 Specification ---
   app.get('/api/work-orders', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const todayWIB = getJakartaDateStringServer(getNow());
+      if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+        return;
+      }
       if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
         return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
       }
@@ -15748,7 +15967,8 @@ export async function createExpressApp(options?: {
       }
       const scopedTickets = scopeTicketsForUser(
         (tickets || []).filter((t: any) => t && !t.isDeleted),
-        req.user!
+        req.user!,
+        todayWIB
       );
       res.json({ success: true, workOrders: scopedTickets, count: scopedTickets.length });
     } catch (err: any) {
@@ -15758,6 +15978,10 @@ export async function createExpressApp(options?: {
 
   app.get(['/api/work-orders/:id', '/api/tickets/:id'], requireAuth, async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
+    const todayWIB = getJakartaDateStringServer(getNow());
+    if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+      return;
+    }
     const includeRaw = String(req.query.include || '').toLowerCase();
     const includeSet = new Set(includeRaw.split(',').map(s => s.trim()).filter(Boolean));
 
@@ -15778,15 +16002,18 @@ export async function createExpressApp(options?: {
     }
     if (!ticket) return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
 
-    const scoped = scopeTicketsForUser([ticket], req.user!);
+    const scoped = scopeTicketsForUser([ticket], req.user!, todayWIB);
     if (scoped.length === 0) {
-      return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat data Work Order ini.' });
+      return res.status(403).json({
+        success: false,
+        code: req.user!.role === 'installer' ? 'FORBIDDEN_CROSS_DATE_ACCESS' : 'FORBIDDEN_SCOPE',
+        error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat data Work Order ini.'
+      });
     }
 
     const hydratedTicket = isSupabaseMode()
       ? await hydrateTicketPhotoEvidenceFromSupabase(scoped[0])
       : scoped[0];
-    const todayWIB = getJakartaDateStringServer(getNow());
     const enrichedTicket = attachClassificationMetadata(hydratedTicket, todayWIB);
 
     let messages: any[] | undefined;
@@ -16174,6 +16401,10 @@ export async function createExpressApp(options?: {
   });
 
   app.get('/api/reports', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const todayWIB = getJakartaDateStringServer(getNow());
+    if (!assertInstallerNoCrossDateQuery(req, res, todayWIB)) {
+      return;
+    }
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: 'Supabase belum dikonfigurasi pada mode produksi.', code: 'SUPABASE_NOT_CONFIGURED' });
     }
@@ -16188,7 +16419,7 @@ export async function createExpressApp(options?: {
     } else {
       tickets = db.tickets;
     }
-    const scopedTickets = scopeTicketsForUser(tickets, req.user!);
+    const scopedTickets = scopeTicketsForUser(tickets, req.user!, todayWIB);
     const reports = scopedTickets
       .filter(t => t.technicalReport)
       .map(t => ({
@@ -17443,12 +17674,12 @@ export async function createExpressApp(options?: {
         if (tRes.success && tRes.data) {
           ticketObj = tRes.data;
           // Enforce RBAC scope for leader & installer using authoritative database
-          if ((req.user!.role === 'leader' || req.user!.role === 'installer') && !checkTicketAccess(ticketObj, req.user!)) {
+          if ((req.user!.role === 'leader' || req.user!.role === 'installer') && !checkOperationalTicketAccess(ticketObj, req.user!)) {
             return res.status(403).json({
               error:
                 req.user!.role === 'leader'
                   ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
-                  : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
+                  : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order hari ini yang ditugaskan kepada Anda.'
             });
           }
         }
@@ -17500,12 +17731,12 @@ export async function createExpressApp(options?: {
 
     const ticket = db.tickets.find(t => t.id === id || t.woNumber === id);
     if (ticket && (req.user!.role === 'leader' || req.user!.role === 'installer')) {
-      if (!checkTicketAccess(ticket, req.user!)) {
+      if (!checkOperationalTicketAccess(ticket, req.user!)) {
         return res.status(403).json({
           error:
             req.user!.role === 'leader'
               ? 'Akses Ditolak: Leader hanya dapat memantau percakapan dalam cakupan contractor dan area yang ditetapkan.'
-              : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order yang ditugaskan kepada Anda.'
+              : 'Akses Ditolak: Anda hanya dapat melihat percakapan pada Work Order hari ini yang ditugaskan kepada Anda.'
         });
       }
     }
@@ -17631,7 +17862,7 @@ export async function createExpressApp(options?: {
               code: 'WO_SOFT_DELETED'
             });
           }
-          if (!checkTicketAccess(ticketData, user)) {
+          if (!checkOperationalTicketAccess(ticketData, user)) {
             return res.status(403).json({
               success: false,
               error: 'Akses Ditolak: Anda tidak memiliki wewenang mengirim pesan ke Work Order ini.',
@@ -17773,7 +18004,7 @@ export async function createExpressApp(options?: {
         code: 'WO_SOFT_DELETED'
       });
     }
-    if (ticket && !checkTicketAccess(ticket, user)) {
+    if (ticket && !checkOperationalTicketAccess(ticket, user)) {
       return res.status(403).json({
         success: false,
         error: 'Akses Ditolak: Anda tidak memiliki wewenang mengirim pesan ke Work Order ini.',
@@ -17906,7 +18137,8 @@ export async function createExpressApp(options?: {
             code: 'DATABASE_UNAVAILABLE'
           });
         }
-        const scopedTickets = scopeTicketsForUser(allTickets, user).filter(t => !t.isDeleted && !t.isArchived);
+        const todayWIB = getJakartaDateStringServer(getNow());
+        const scopedTickets = scopeTicketsForUser(allTickets, user, todayWIB).filter(t => !t.isDeleted && !t.isArchived);
         if (scopedTickets.length > 0) {
           const mRes = await getTicketMessagesForTicketsFromSupabase(scopedTickets.map((t: any) => t.id));
           if (mRes.success && Array.isArray(mRes.data)) {
@@ -17919,7 +18151,8 @@ export async function createExpressApp(options?: {
         return res.json({ success: true, userId: user.id, role: user.role, ...summary });
       }
 
-      const scopedTickets = scopeTicketsForUser(db.tickets || [], user).filter(t => !t.isDeleted && !t.isArchived);
+      const todayWIB = getJakartaDateStringServer(getNow());
+      const scopedTickets = scopeTicketsForUser(db.tickets || [], user, todayWIB).filter(t => !t.isDeleted && !t.isArchived);
       const summary = computeLiveChatUnreadSummary(scopedTickets, db.ticketMessages || [], user.id);
       return res.json({ success: true, userId: user.id, role: user.role, ...summary });
     } catch (err: any) {
@@ -17952,7 +18185,7 @@ export async function createExpressApp(options?: {
       ticket = db.tickets.find(t => t.id === id || t.woNumber === id) || null;
     }
 
-    if (ticket && !checkTicketAccess(ticket, user)) {
+    if (ticket && !checkOperationalTicketAccess(ticket, user)) {
       return res.status(403).json({
         success: false,
         error: 'Akses Ditolak: Anda tidak memiliki akses ke percakapan Work Order ini.',
@@ -18035,7 +18268,7 @@ export async function createExpressApp(options?: {
       ticket = db.tickets.find(t => t.id === id || t.woNumber === id) || null;
     }
 
-    if (ticket && !checkTicketAccess(ticket, user)) {
+    if (ticket && !checkOperationalTicketAccess(ticket, user)) {
       return res.status(403).json({
         success: false,
         error: 'Akses Ditolak: Anda tidak memiliki akses ke percakapan Work Order ini.',
@@ -18168,7 +18401,7 @@ export async function createExpressApp(options?: {
           deletedIds = deletedRes.data;
         }
         if (headsRes.success && Array.isArray(headsRes.data)) {
-          scopedHeads = scopeTicketsForUser(headsRes.data, user);
+          scopedHeads = scopeTicketsForUser(headsRes.data, user, todayWIB);
         }
       } else {
         const allLocal = db.tickets || [];
@@ -18181,7 +18414,8 @@ export async function createExpressApp(options?: {
           .map((t: any) => String(t.id));
         scopedHeads = scopeTicketsForUser(
           allLocal.filter((t: any) => t && !t.isDeleted && !t.isArchived),
-          user
+          user,
+          todayWIB
         );
       }
 
@@ -18194,7 +18428,8 @@ export async function createExpressApp(options?: {
 
       const scopedUpdated = scopeTicketsForUser(
         changedRaw.filter((t: any) => t && !t.isDeleted),
-        user
+        user,
+        todayWIB
       ).map((t: any) => attachClassificationMetadata(t, todayWIB));
 
       // Catch up missed LiveChat messages & receipt changes for user's scoped active tickets
@@ -18235,6 +18470,7 @@ export async function createExpressApp(options?: {
         tickets: scopedUpdated,
         ticketMessages: deltaMessages,
         deletedIds,
+        ...(user.role === 'installer' ? { scopedActiveIds: activeScopedIds } : {}),
         rolePermissionsVersion: rolePermBundle?.version || 1,
         rolePermissions: rolePermBundle?.permissions,
         globalConfigVersion: latestGlobalConfigVer,

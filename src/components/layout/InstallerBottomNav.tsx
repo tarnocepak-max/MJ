@@ -23,9 +23,7 @@ export const InstallerBottomNav: React.FC<InstallerBottomNavProps> = ({
   const isDashboardActive = activeTab === 'installer_dashboard';
   const isTasksActive =
     activeTab === 'installer_portal' ||
-    activeTab === 'installer_tasks' ||
-    activeTab === 'installer_progress' ||
-    activeTab === 'installer_history';
+    activeTab === 'installer_tasks';
   const isWhatsAppActive = activeTab === 'installer_whatsapp' || activeTab === 'whatsapp';
   const isLiveChatActive =
     activeTab === 'installer_chat' || activeTab === 'contact_centre' || activeTab === 'live_chat';
