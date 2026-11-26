@@ -1,5 +1,5 @@
 import { Ticket, User, Contractor, CoverageArea, TicketMessage, AuditLog, WOKpiSummary, ProgressReportHistoryItem, OverdueSummaryMetrics, WoClassificationSummary, RealtimeConnectionState, RealtimeDiagnosticLog, RealtimeStatusInfo } from '../types';
-import { getAuthHeaders, getClientSessionIdentityKey } from './authService';
+import { authenticatedFetch, getAuthHeaders, getClientSessionIdentityKey, tryRefreshMoraJawsSession } from './authService';
 
 // ==============================================================================
 // MORAJAWS SUPABASE REPOSITORY LAYER (SECURE BACKEND PROXY ADAPTER)
@@ -37,14 +37,8 @@ async function fetchJsonSafe(
   init: RequestInit = {},
   timeoutMs = 25_000
 ): Promise<{ ok: boolean; status: number; json: any; networkError?: string; timedOut?: boolean }> {
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = controller && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    const res = await fetch(url, {
-      ...init,
-      credentials: init.credentials || 'include',
-      signal: init.signal || controller?.signal
-    });
+    const res = await authenticatedFetch(url, init, { timeoutMs });
     const json = await res.json().catch(() => null);
     return { ok: res.ok, status: res.status, json };
   } catch (err: any) {
@@ -58,8 +52,6 @@ async function fetchJsonSafe(
         ? 'Koneksi ke server melebihi batas waktu (timeout).'
         : (err?.message || 'Gagal menghubungi backend Supabase proxy')
     };
-  } finally {
-    if (timer) clearTimeout(timer);
   }
 }
 
@@ -860,10 +852,7 @@ export class SupabaseRepository {
 
   async getUserById(id: string): Promise<SupabaseResponse<User | null>> {
     try {
-      const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/supabase/users/${encodeURIComponent(id)}`);
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat detail pengguna' } };
@@ -872,10 +861,8 @@ export class SupabaseRepository {
 
   async createUser(user: Partial<User>): Promise<SupabaseResponse<User>> {
     try {
-      const res = await fetch('/api/supabase/users', {
+      const res = await authenticatedFetch('/api/supabase/users', {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(user)
       });
       return await res.json();
@@ -886,10 +873,8 @@ export class SupabaseRepository {
 
   async updateUser(id: string, updates: Partial<User>): Promise<SupabaseResponse<User>> {
     try {
-      const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
+      const res = await authenticatedFetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
       return await res.json();
@@ -900,10 +885,8 @@ export class SupabaseRepository {
 
   async deleteUser(id: string, reason: string): Promise<SupabaseResponse<any>> {
     try {
-      const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
+      const res = await authenticatedFetch(`/api/supabase/users/${encodeURIComponent(id)}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ reason })
       });
       return await res.json();
@@ -914,10 +897,8 @@ export class SupabaseRepository {
 
   async resetUserPassword(id: string): Promise<SupabaseResponse<any>> {
     try {
-      const res = await fetch(`/api/supabase/users/${encodeURIComponent(id)}/reset-password`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/supabase/users/${encodeURIComponent(id)}/reset-password`, {
+        method: 'POST'
       });
       return await res.json();
     } catch (err: any) {
@@ -931,10 +912,7 @@ export class SupabaseRepository {
 
   async getContractors(): Promise<SupabaseResponse<Contractor[]>> {
     try {
-      const res = await fetch('/api/supabase/contractors', {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch('/api/supabase/contractors');
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat kontraktor' } };
@@ -943,10 +921,8 @@ export class SupabaseRepository {
 
   async createContractor(contractor: Partial<Contractor>): Promise<SupabaseResponse<Contractor>> {
     try {
-      const res = await fetch('/api/supabase/contractors', {
+      const res = await authenticatedFetch('/api/supabase/contractors', {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(contractor)
       });
       return await res.json();
@@ -957,10 +933,8 @@ export class SupabaseRepository {
 
   async updateContractor(id: string, updates: Partial<Contractor>): Promise<SupabaseResponse<Contractor>> {
     try {
-      const res = await fetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
+      const res = await authenticatedFetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
       return await res.json();
@@ -971,10 +945,8 @@ export class SupabaseRepository {
 
   async deleteContractor(id: string): Promise<SupabaseResponse<boolean>> {
     try {
-      const res = await fetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/supabase/contractors/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
       });
       return await res.json();
     } catch (err: any) {
@@ -984,10 +956,7 @@ export class SupabaseRepository {
 
   async getCoverageAreas(): Promise<SupabaseResponse<CoverageArea[]>> {
     try {
-      const res = await fetch('/api/supabase/coverage-areas', {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch('/api/supabase/coverage-areas');
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat area coverage' } };
@@ -996,10 +965,8 @@ export class SupabaseRepository {
 
   async createCoverageArea(area: Partial<CoverageArea>): Promise<SupabaseResponse<CoverageArea>> {
     try {
-      const res = await fetch('/api/supabase/coverage-areas', {
+      const res = await authenticatedFetch('/api/supabase/coverage-areas', {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(area)
       });
       return await res.json();
@@ -1010,10 +977,8 @@ export class SupabaseRepository {
 
   async updateCoverageArea(id: string, updates: Partial<CoverageArea>): Promise<SupabaseResponse<CoverageArea>> {
     try {
-      const res = await fetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
+      const res = await authenticatedFetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(updates)
       });
       return await res.json();
@@ -1024,10 +989,8 @@ export class SupabaseRepository {
 
   async deleteCoverageArea(id: string): Promise<SupabaseResponse<boolean>> {
     try {
-      const res = await fetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/supabase/coverage-areas/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
       });
       return await res.json();
     } catch (err: any) {
@@ -1037,10 +1000,7 @@ export class SupabaseRepository {
 
   async getWaTemplates(): Promise<SupabaseResponse<any[]>> {
     try {
-      const res = await fetch('/api/supabase/wa-templates', {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch('/api/supabase/wa-templates');
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat template WhatsApp' } };
@@ -1049,10 +1009,8 @@ export class SupabaseRepository {
 
   async saveWaTemplate(template: any): Promise<SupabaseResponse<any>> {
     try {
-      const res = await fetch('/api/supabase/wa-templates', {
+      const res = await authenticatedFetch('/api/supabase/wa-templates', {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(template)
       });
       return await res.json();
@@ -1063,10 +1021,8 @@ export class SupabaseRepository {
 
   async deleteWaTemplate(id: string): Promise<SupabaseResponse<boolean>> {
     try {
-      const res = await fetch(`/api/supabase/wa-templates/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/supabase/wa-templates/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
       });
       return await res.json();
     } catch (err: any) {
@@ -1080,10 +1036,7 @@ export class SupabaseRepository {
 
   async getAppSetting(key: string): Promise<SupabaseResponse<any>> {
     try {
-      const res = await fetch(`/api/supabase/settings/${encodeURIComponent(key)}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/supabase/settings/${encodeURIComponent(key)}`);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
         return {
@@ -1113,10 +1066,8 @@ export class SupabaseRepository {
 
   async saveAppSetting(key: string, value: any, description?: string): Promise<SupabaseResponse<boolean>> {
     try {
-      const res = await fetch(`/api/supabase/settings/${encodeURIComponent(key)}`, {
+      const res = await authenticatedFetch(`/api/supabase/settings/${encodeURIComponent(key)}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ value, description })
       });
       const json = await res.json().catch(() => null);
@@ -1148,10 +1099,7 @@ export class SupabaseRepository {
 
   async getAuditLogs(limit = 100): Promise<SupabaseResponse<AuditLog[]>> {
     try {
-      const res = await fetch(`/api/supabase/audit-logs?limit=${limit}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/supabase/audit-logs?limit=${limit}`);
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat audit log' } };
@@ -1162,10 +1110,8 @@ export class SupabaseRepository {
     ticketId: string
   ): Promise<SupabaseResponse<{ updatedIds?: string[]; deliveredAt?: string }>> {
     try {
-      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/delivered`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/delivered`, {
+        method: 'POST'
       });
       return await res.json();
     } catch (err: any) {
@@ -1177,10 +1123,8 @@ export class SupabaseRepository {
     ticketId: string
   ): Promise<SupabaseResponse<{ updatedIds?: string[]; readAt?: string }>> {
     try {
-      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/read`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders()
+      const res = await authenticatedFetch(`/api/tickets/${encodeURIComponent(ticketId)}/messages/read`, {
+        method: 'POST'
       });
       return await res.json();
     } catch (err: any) {
@@ -1196,10 +1140,7 @@ export class SupabaseRepository {
     error?: any;
   }> {
     try {
-      const res = await fetch('/api/livechat/unread-summary', {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch('/api/livechat/unread-summary');
       return await res.json();
     } catch (err: any) {
       return { success: false, error: { code: 'NETWORK_ERROR', message: err?.message || 'Gagal memuat ringkasan unread' } };
@@ -1221,10 +1162,7 @@ export class SupabaseRepository {
       if (params?.contractor) search.set('contractor', params.contractor);
       if (params?.area) search.set('area', params.area);
       const qs = search.toString();
-      const res = await fetch(`/api/dashboard/kpi-summary${qs ? `?${qs}` : ''}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/dashboard/kpi-summary${qs ? `?${qs}` : ''}`);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
         return {
@@ -1260,10 +1198,8 @@ export class SupabaseRepository {
       if (options?.remarksAgent !== undefined) {
         payload.remarksAgent = options.remarksAgent;
       }
-      const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/approve-report`, {
+      const res = await authenticatedFetch(`/api/work-orders/${encodeURIComponent(ticketId)}/approve-report`, {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
       const json = await res.json().catch(() => null);
@@ -1284,10 +1220,8 @@ export class SupabaseRepository {
 
   async requestWorkOrderRevision(ticketId: string, reason: string): Promise<SupabaseResponse<Ticket>> {
     try {
-      const res = await fetch(`/api/work-orders/${encodeURIComponent(ticketId)}/request-revision`, {
+      const res = await authenticatedFetch(`/api/work-orders/${encodeURIComponent(ticketId)}/request-revision`, {
         method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ reason })
       });
       const json = await res.json().catch(() => null);
@@ -1327,10 +1261,7 @@ export class SupabaseRepository {
       if (params?.dateTo) search.set('dateTo', params.dateTo);
       if (params?.ticketId) search.set('ticketId', params.ticketId);
       const qs = search.toString();
-      const res = await fetch(`/api/work-orders/progress-history${qs ? `?${qs}` : ''}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/work-orders/progress-history${qs ? `?${qs}` : ''}`);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
         return {
@@ -1377,10 +1308,7 @@ export class SupabaseRepository {
       if (params?.statusWOInstaller && params.statusWOInstaller !== 'ALL') search.set('statusWOInstaller', params.statusWOInstaller);
       if (params?.sort) search.set('sort', params.sort);
       const qs = search.toString();
-      const res = await fetch(`/api/work-orders/overdue${qs ? `?${qs}` : ''}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/work-orders/overdue${qs ? `?${qs}` : ''}`);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
         return {
@@ -1416,10 +1344,7 @@ export class SupabaseRepository {
   > {
     try {
       const qs = category ? `?category=${encodeURIComponent(category)}` : '';
-      const res = await fetch(`/api/work-orders/classifications${qs}`, {
-        credentials: 'include',
-        headers: getAuthHeaders()
-      });
+      const res = await authenticatedFetch(`/api/work-orders/classifications${qs}`);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || json.success !== true) {
         return {
@@ -1795,11 +1720,32 @@ export class SupabaseRepository {
           headers['Last-Event-ID'] = this.sseLastEventId;
         }
 
-        const response = await fetch('/api/supabase/realtime/stream', {
+        let response = await fetch('/api/supabase/realtime/stream', {
           credentials: 'include',
           headers,
           signal: abortController.signal
         });
+
+        if (response.status === 401 && getClientSessionIdentityKey()) {
+          const refreshed = await tryRefreshMoraJawsSession();
+          if (refreshed && !abortController.signal.aborted) {
+            const refreshedHeaders: Record<string, string> = {
+              ...getAuthHeaders(),
+              Accept: 'text/event-stream'
+            };
+            if (this.sseLastEventId) {
+              refreshedHeaders['Last-Event-ID'] = this.sseLastEventId;
+            }
+            this.sseActiveToken = getClientSessionIdentityKey();
+            response = await fetch('/api/supabase/realtime/stream', {
+              credentials: 'include',
+              headers: refreshedHeaders,
+              signal: abortController.signal
+            });
+          } else {
+            return;
+          }
+        }
 
         if (!response.ok || !response.body) {
           if (response.status === 504 || response.status === 502 || response.status === 404) {
@@ -2001,10 +1947,7 @@ export class SupabaseRepository {
       if (options?.limit) qs.set('limit', String(options.limit));
       if (options?.before) qs.set('before', String(options.before));
       const suffix = qs.toString() ? `?${qs.toString()}` : '';
-      const res = await fetch(`/api/tickets/${encodeURIComponent(ticketIdOrWo)}/messages${suffix}`, {
-        credentials: 'include',
-        headers: { ...getAuthHeaders() }
-      });
+      const res = await authenticatedFetch(`/api/tickets/${encodeURIComponent(ticketIdOrWo)}/messages${suffix}`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         return {

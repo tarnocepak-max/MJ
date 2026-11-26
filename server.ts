@@ -1991,6 +1991,22 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
     });
   }
 
+  const cleanPath = (req.originalUrl || req.path || '').split('?')[0];
+  const isRefreshOrLoginRoute =
+    cleanPath === '/api/health' ||
+    cleanPath === '/api/auth/login' ||
+    cleanPath === '/api/auth/supabase-login' ||
+    cleanPath === '/api/auth/refresh' ||
+    cleanPath === '/api/auth/supabase-refresh' ||
+    cleanPath === '/api/auth/reset-password-token' ||
+    cleanPath === '/api/auth/resolve-identity';
+  if (isRefreshOrLoginRoute) {
+    return next();
+  }
+  const isLogoutRoute =
+    cleanPath === '/api/auth/logout' ||
+    cleanPath === '/api/auth/supabase-logout';
+
   let found: ServerUser | undefined;
   let activeSession: ServerSession | undefined;
   let authSource: 'server_session' | 'supabase_auth' | undefined;
@@ -2007,9 +2023,12 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
   if (rawToken) {
     const token = rawToken;
 
-    // Fast-fail if this token was explicitly revoked in server sessions
+    // Fast-fail if this token was explicitly revoked in server sessions (allow logout to proceed to clear cookies)
     const knownSession = SERVER_SESSIONS.find(s => s.token === token);
     if (knownSession && knownSession.status === 'revoked') {
+      if (isLogoutRoute) {
+        return next();
+      }
       return res.status(401).json({
         error: 'Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.',
         code: 'SESSION_REVOKED'
@@ -2043,16 +2062,25 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
           code: 'DATABASE_UNAVAILABLE'
         });
       } else if (customRes.error?.code === 'SESSION_REVOKED') {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(401).json({
           error: 'Sesi login telah dicabut karena perubahan akun atau logout.',
           code: 'SESSION_REVOKED'
         });
       } else if (customRes.error?.code === 'TOKEN_EXPIRED') {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(401).json({
           error: customRes.error.message || 'Token sesi login telah kedaluwarsa.',
           code: 'TOKEN_EXPIRED'
         });
       } else if (customRes.error?.code === 'ACCOUNT_DELETED' || customRes.error?.code === 'ACCOUNT_DISABLED') {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(403).json({
           error: customRes.error.message || 'Akun pengguna tidak aktif, diarsipkan, atau telah dihapus.',
           code: customRes.error.code
@@ -2070,11 +2098,17 @@ async function resolveUserFromHeader(req: AuthenticatedRequest, res: Response, n
           authSource = 'server_session';
           found = saRes.data as ServerUser;
         } else if (saRes.error?.code === 'SESSION_REVOKED') {
+          if (isLogoutRoute) {
+            return next();
+          }
           return res.status(401).json({
             error: 'Sesi login telah dicabut karena perubahan akun atau logout.',
             code: 'SESSION_REVOKED'
           });
         } else if (saRes.error?.code === 'TOKEN_EXPIRED') {
+          if (isLogoutRoute) {
+            return next();
+          }
           return res.status(401).json({
             error: saRes.error.message || 'Token telah kedaluwarsa.',
             code: 'TOKEN_EXPIRED'
@@ -4104,7 +4138,17 @@ export async function createExpressApp(options?: {
     const tokenFromBody = req.body?.refreshToken;
     const refreshToken = tokenFromCookie || tokenFromBody;
 
+    const clearStaleAuthCookies = () => {
+      const accessClearOpts = getAuthCookieOptions(req, 0, '/');
+      const refreshClearOpts = getAuthCookieOptions(req, 0, '/api/auth');
+      delete (accessClearOpts as any).maxAge;
+      delete (refreshClearOpts as any).maxAge;
+      res.clearCookie('mora_access_token', accessClearOpts);
+      res.clearCookie('mora_refresh_token', refreshClearOpts);
+    };
+
     if (!refreshToken) {
+      clearStaleAuthCookies();
       return res.status(400).json({
         success: false,
         error: 'Refresh token wajib disertakan via cookie atau body.',
@@ -4117,6 +4161,7 @@ export async function createExpressApp(options?: {
 
     const refreshRes = await rotateRefreshToken(refreshToken, clientIp, userAgent);
     if (!refreshRes.success || !refreshRes.data) {
+      clearStaleAuthCookies();
       return res.status(401).json({
         success: false,
         error: refreshRes.error?.message || 'Gagal memperbarui sesi token.',

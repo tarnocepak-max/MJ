@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { getAuthHeaders } from './authService';
+import { authenticatedFetch } from './authService';
 import type {
   SlaPeriod,
   SlaThresholdConfig,
@@ -50,13 +50,8 @@ export async function fetchSlaTelemetry(query: SlaTelemetryQuery): Promise<SlaTe
   if (query.area && query.area !== 'ALL') params.set('area', query.area);
   if (query.contractor && query.contractor !== 'ALL') params.set('contractor', query.contractor);
 
-  const res = await fetch(`/api/sla/telemetry?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json'
-    }
+  const res = await authenticatedFetch(`/api/sla/telemetry?${params.toString()}`, {
+    method: 'GET'
   });
 
   const data = await parseJsonSafe(res);
@@ -67,13 +62,8 @@ export async function fetchSlaTelemetry(query: SlaTelemetryQuery): Promise<SlaTe
 }
 
 export async function fetchSlaConfig(): Promise<SlaConfigResponse> {
-  const res = await fetch('/api/sla/config', {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json'
-    }
+  const res = await authenticatedFetch('/api/sla/config', {
+    method: 'GET'
   });
   const data = await parseJsonSafe(res);
   if (!res.ok || !data?.success || !data?.config) {
@@ -92,13 +82,8 @@ export async function saveSlaConfig(
   config: SlaThresholdConfig,
   options?: { expectedVersion?: number; forceOverwrite?: boolean; notes?: string }
 ): Promise<SlaConfigResponse> {
-  const res = await fetch('/api/sla/config', {
+  const res = await authenticatedFetch('/api/sla/config', {
     method: 'PUT',
-    credentials: 'include',
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json'
-    },
     body: JSON.stringify({
       config,
       expectedVersion: options?.expectedVersion,
@@ -122,13 +107,8 @@ export async function saveSlaConfig(
 }
 
 export async function executeSlaAction(payload: ExecuteSlaActionPayload): Promise<SlaGovernanceActionRecord> {
-  const res = await fetch('/api/sla/actions', {
+  const res = await authenticatedFetch('/api/sla/actions', {
     method: 'POST',
-    credentials: 'include',
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json'
-    },
     body: JSON.stringify(payload)
   });
 

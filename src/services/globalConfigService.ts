@@ -1,6 +1,19 @@
-import { getAuthHeaders, setDynamicRolePermissions } from './authService';
+import { authenticatedFetch, setDynamicRolePermissions } from './authService';
+import { isAuthExpiredResponse } from '../utils/authSessionHelper';
 import { supabaseDb } from './supabaseDb';
 import type { UserRole } from '../types';
+
+function createConfigRequestError(status: number, json: any, fallbackMessage: string): Error {
+  const rawMsg =
+    typeof json?.error === 'string'
+      ? json.error
+      : json?.error?.message || fallbackMessage;
+  const err = new Error(rawMsg);
+  (err as any).status = status;
+  (err as any).code = json?.code || json?.error?.code;
+  (err as any).isAuthError = isAuthExpiredResponse(status, json);
+  return err;
+}
 
 export interface GlobalConfigConflictDetails {
   key: string;
@@ -79,13 +92,14 @@ export function setTrackedConfigVersion(key: string, version: number | undefined
 }
 
 export async function bootstrapGlobalConfigs(): Promise<BootstrapGlobalConfigResult> {
-  const res = await fetch('/api/global-config/bootstrap', {
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
+  const res = await authenticatedFetch('/api/global-config/bootstrap');
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal memuat konfigurasi global dari database (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal memuat konfigurasi global dari database (HTTP ${res.status}).`
+    );
   }
 
   if (json.versions && typeof json.versions === 'object') {
@@ -112,13 +126,14 @@ export async function bootstrapGlobalConfigs(): Promise<BootstrapGlobalConfigRes
 export async function getGlobalConfig<T = any>(
   key: string
 ): Promise<{ key: string; value: T | null; version: number; updatedAt: string | null; updatedBy: string | null }> {
-  const res = await fetch(`/api/global-config/${encodeURIComponent(key)}`, {
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
+  const res = await authenticatedFetch(`/api/global-config/${encodeURIComponent(key)}`);
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal membaca konfigurasi "${key}" dari database (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal membaca konfigurasi "${key}" dari database (HTTP ${res.status}).`
+    );
   }
   if (typeof json.version === 'number') {
     clientVersionRegistry.set(key, json.version);
@@ -138,10 +153,8 @@ export async function saveGlobalConfig<T = any>(
   options: SaveGlobalConfigOptions = {}
 ): Promise<SaveGlobalConfigResult<T>> {
   const trackedVer = options.expectedVersion !== undefined ? options.expectedVersion : clientVersionRegistry.get(key);
-  const res = await fetch(`/api/global-config/${encodeURIComponent(key)}`, {
+  const res = await authenticatedFetch(`/api/global-config/${encodeURIComponent(key)}`, {
     method: 'PUT',
-    credentials: 'include',
-    headers: getAuthHeaders(),
     body: JSON.stringify({
       value,
       expectedVersion: trackedVer,
@@ -169,11 +182,11 @@ export async function saveGlobalConfig<T = any>(
   }
 
   if (!res.ok || !json || json.success !== true) {
-    const msg =
-      typeof json?.error === 'string'
-        ? json.error
-        : json?.error?.message || `Gagal menyimpan konfigurasi "${key}" ke database (HTTP ${res.status}).`;
-    throw new Error(msg);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal menyimpan konfigurasi "${key}" ke database (HTTP ${res.status}).`
+    );
   }
 
   if (typeof json.version === 'number') {
@@ -196,10 +209,14 @@ export async function getConfigVersions(key?: string, limit: number = 100): Prom
     key && key !== 'ALL'
       ? `/api/global-config/${encodeURIComponent(key)}/versions?limit=${limit}`
       : `/api/global-config/versions/all?limit=${limit}`;
-  const res = await fetch(url, { credentials: 'include', headers: getAuthHeaders() });
+  const res = await authenticatedFetch(url);
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal memuat riwayat versi konfigurasi (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal memuat riwayat versi konfigurasi (HTTP ${res.status}).`
+    );
   }
   return Array.isArray(json.data) ? json.data : [];
 }
@@ -216,15 +233,17 @@ export async function rollbackGlobalConfig(
   updatedAt: string;
   updatedBy: string;
 }> {
-  const res = await fetch(`/api/global-config/${encodeURIComponent(key)}/rollback`, {
+  const res = await authenticatedFetch(`/api/global-config/${encodeURIComponent(key)}/rollback`, {
     method: 'POST',
-    credentials: 'include',
-    headers: getAuthHeaders(),
     body: JSON.stringify(target)
   });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal melakukan rollback "${key}" (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal melakukan rollback "${key}" (HTTP ${res.status}).`
+    );
   }
   if (typeof json.version === 'number') {
     clientVersionRegistry.set(key, json.version);
@@ -241,10 +260,14 @@ export async function getRolePermissionsFromServer(): Promise<{
   updatedAt: string | null;
   updatedBy: string | null;
 }> {
-  const res = await fetch('/api/roles/permissions', { credentials: 'include', headers: getAuthHeaders() });
+  const res = await authenticatedFetch('/api/roles/permissions');
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal memuat matriks hak akses role (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal memuat matriks hak akses role (HTTP ${res.status}).`
+    );
   }
   if (typeof json.version === 'number') {
     clientVersionRegistry.set('role_permissions', json.version);
@@ -265,10 +288,8 @@ export async function saveRolePermissionsToServer(
   options: { expectedVersion?: number | null; forceOverwrite?: boolean; notes?: string } = {}
 ): Promise<{ rolePermissions: Record<string, string[]>; version: number; updatedAt: string; updatedBy: string }> {
   const trackedVer = options.expectedVersion !== undefined ? options.expectedVersion : clientVersionRegistry.get('role_permissions');
-  const res = await fetch('/api/roles/permissions', {
+  const res = await authenticatedFetch('/api/roles/permissions', {
     method: 'PUT',
-    credentials: 'include',
-    headers: getAuthHeaders(),
     body: JSON.stringify({
       rolePermissions,
       expectedVersion: trackedVer,
@@ -291,7 +312,11 @@ export async function saveRolePermissionsToServer(
     );
   }
   if (!res.ok || !json || json.success !== true) {
-    throw new Error(json?.error || `Gagal menyimpan hak akses role ke database (HTTP ${res.status}).`);
+    throw createConfigRequestError(
+      res.status,
+      json,
+      `Gagal menyimpan hak akses role ke database (HTTP ${res.status}).`
+    );
   }
   if (typeof json.version === 'number') {
     clientVersionRegistry.set('role_permissions', json.version);

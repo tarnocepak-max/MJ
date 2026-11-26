@@ -1,4 +1,9 @@
 import { User, UserRole } from '../types/index.ts';
+import {
+  createSingleFlightRefresher,
+  executeWithAuthRefreshRetry,
+  mergeRefreshedSessionStorage
+} from '../utils/authSessionHelper.ts';
 
 export type Permission =
   | 'login'
@@ -258,11 +263,47 @@ export async function loginWithMoraJaws(identifier: string, password: string) {
 // Backwards-compatible alias
 export const loginWithSupabase = loginWithMoraJaws;
 
+export function clearClientAuthSessionAndNotify(reason?: { code?: string; message?: string }) {
+  let hadSession = false;
+  try {
+    hadSession =
+      localStorage.getItem('morajaws_logged_in') === 'true' ||
+      Boolean(localStorage.getItem('morajaws_auth_session'));
+    localStorage.setItem('morajaws_logged_in', 'false');
+    localStorage.removeItem('morajaws_auth_session');
+  } catch {}
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('morajaws:auth-changed'));
+      if (hadSession) {
+        window.dispatchEvent(
+          new CustomEvent('morajaws:session-expired', {
+            detail: {
+              code: reason?.code || 'TOKEN_EXPIRED',
+              message: reason?.message || 'Sesi login telah kedaluwarsa. Silakan login kembali.'
+            }
+          })
+        );
+      }
+    } catch {}
+  }
+}
+
 export async function refreshMoraJawsSession(refreshToken?: string) {
+  let effectiveRefreshToken = refreshToken;
+  if (!effectiveRefreshToken) {
+    try {
+      const sessionStr = localStorage.getItem('morajaws_auth_session');
+      if (sessionStr) {
+        const sess = JSON.parse(sessionStr);
+        effectiveRefreshToken = sess?.refreshToken || undefined;
+      }
+    } catch {}
+  }
   const res = await authFetch('/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(refreshToken ? { refreshToken } : {})
+    body: JSON.stringify(effectiveRefreshToken ? { refreshToken: effectiveRefreshToken } : {})
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
@@ -270,6 +311,106 @@ export async function refreshMoraJawsSession(refreshToken?: string) {
 
 // Backwards-compatible alias
 export const refreshSupabaseSession = refreshMoraJawsSession;
+
+export const tryRefreshMoraJawsSession = createSingleFlightRefresher(async (): Promise<boolean> => {
+  if (!hasActiveClientSession()) {
+    return false;
+  }
+  try {
+    const { ok, status, data } = await refreshMoraJawsSession();
+    if (ok && data?.success) {
+      try {
+        const existingRaw = localStorage.getItem('morajaws_auth_session');
+        const nextRaw = mergeRefreshedSessionStorage(existingRaw, data);
+        if (nextRaw) {
+          localStorage.setItem('morajaws_auth_session', nextRaw);
+        }
+        localStorage.setItem('morajaws_logged_in', 'true');
+      } catch {}
+      if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('morajaws:token-refreshed'));
+        } catch {}
+      }
+      return true;
+    }
+
+    // Clear stale client session when server explicitly rejects refresh (400/401/403)
+    if (status === 400 || status === 401 || status === 403) {
+      clearClientAuthSessionAndNotify({
+        code: data?.code || 'TOKEN_EXPIRED',
+        message: data?.error || 'Sesi login telah kedaluwarsa. Silakan login kembali.'
+      });
+    }
+    return false;
+  } catch {
+    return false;
+  }
+});
+
+/**
+ * Wrapper around fetch that attaches credentials + fresh Authorization headers,
+ * automatically refreshes an expired access token once (single-flight across parallel requests),
+ * and clears stale client session state cleanly if refresh fails.
+ */
+export async function authenticatedFetch(
+  url: string,
+  init: RequestInit = {},
+  options?: { timeoutMs?: number }
+): Promise<Response> {
+  const timeoutMs = options?.timeoutMs ?? 0;
+
+  const performSingleAttempt = async (): Promise<Response> => {
+    const baseHeaders = getAuthHeaders();
+    const extraHeaders = (init.headers && !(init.headers instanceof Headers) && !Array.isArray(init.headers))
+      ? (init.headers as Record<string, string>)
+      : {};
+    const mergedHeaders: Record<string, string> = {
+      ...baseHeaders,
+      ...extraHeaders
+    };
+    // Ensure fresh Authorization Bearer token overrides any stale caller-captured Authorization header
+    if (baseHeaders['Authorization']) {
+      mergedHeaders['Authorization'] = baseHeaders['Authorization'];
+    }
+
+    if (timeoutMs > 0 && typeof AbortController !== 'undefined' && !init.signal) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await authFetch(url, {
+          ...init,
+          headers: mergedHeaders,
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    return await authFetch(url, {
+      ...init,
+      headers: mergedHeaders
+    });
+  };
+
+  const { response } = await executeWithAuthRefreshRetry({
+    performRequest: performSingleAttempt,
+    hasActiveSession: hasActiveClientSession,
+    refreshSessionOnce: tryRefreshMoraJawsSession,
+    readResponsePayload: async (res) => res.clone().json().catch(() => null),
+    onSessionExpired: (status, payload) => {
+      if (status === 401) {
+        clearClientAuthSessionAndNotify({
+          code: payload?.code || 'TOKEN_EXPIRED',
+          message: payload?.error || 'Sesi login telah kedaluwarsa. Silakan login kembali.'
+        });
+      }
+    }
+  });
+
+  return response;
+}
 
 export async function logoutMoraJaws() {
   const headers = getAuthHeaders();

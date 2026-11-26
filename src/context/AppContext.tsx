@@ -91,7 +91,9 @@ import {
   hasPermission as checkPermission,
   DEFAULT_ROLE_PERMISSIONS,
   setDynamicRolePermissions,
-  getRolePermissionsSnapshot
+  getRolePermissionsSnapshot,
+  authenticatedFetch,
+  tryRefreshMoraJawsSession
 } from '../services/authService';
 import { GoogleSheetsConfig, SheetSyncResult, DEFAULT_SHEETS_CONFIG } from '../types/sheets.ts';
 import {
@@ -850,7 +852,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isLoggedInRef.current || currentUserRef.current?.mustChangePassword) return;
       runDeltaSync({ force: true }).catch(() => {});
       scheduleKpiRefreshRef.current?.();
-      fetch('/api/livechat/presence', { credentials: 'include', headers: getAuthHeaders() })
+      authenticatedFetch('/api/livechat/presence')
         .then(r => (r.ok ? r.json() : null))
         .then(data => {
           if (data?.success && Array.isArray(data.users)) {
@@ -1384,7 +1386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
 
-        fetch('/api/livechat/presence', { credentials: 'include', headers: getAuthHeaders() })
+        authenticatedFetch('/api/livechat/presence')
           .then(r => (r.ok ? r.json() : null))
           .then(data => {
             if (!isCancelled && data?.success && Array.isArray(data.users)) {
@@ -1790,12 +1792,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const sinceIso = Number.isFinite(parsedWatermarkMs)
           ? new Date(parsedWatermarkMs - 5_000).toISOString()
           : new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        const res = await fetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, {
-          credentials: 'include',
-          headers,
+        const res = await authenticatedFetch(`/api/sync/delta?since=${encodeURIComponent(sinceIso)}`, {
           signal: controller.signal
         });
         if (!res.ok) {
+          if (res.status === 401) {
+            return;
+          }
           if (res.status === 403) {
             const errData = await res.json().catch(() => ({}));
             if (errData?.code === 'PASSWORD_CHANGE_REQUIRED') {
@@ -1999,9 +2002,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return dedupedFetch(`wo:detail:${cleanId}`, async () => {
       try {
-        const res = await fetch(
-          `/api/work-orders/${encodeURIComponent(cleanId)}?include=messages,activities`,
-          { credentials: 'include', headers }
+        const res = await authenticatedFetch(
+          `/api/work-orders/${encodeURIComponent(cleanId)}?include=messages,activities`
         );
         if (!res.ok) return null;
         const data = await res.json();
@@ -2079,13 +2081,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let passwordChangeRequired = false;
 
         // PHASE 1 — Critical Shell, RBAC, First-Paint Work Orders (light payload)
-        const critRes = await fetch('/api/bootstrap?mode=critical', {
-          credentials: 'include',
-          headers,
+        const critRes = await authenticatedFetch('/api/bootstrap?mode=critical', {
           signal: bootController.signal
         });
         if (bootController.signal.aborted) return;
         if (!critRes.ok) {
+          if (critRes.status === 401) {
+            setIsDataLoading(false);
+            setDatabaseLoading(false);
+            return;
+          }
           if (critRes.status === 503) {
             const errData = await critRes.json().catch(() => ({}));
             setDatabaseStatus('error');
@@ -2096,11 +2101,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setDatabaseLoading(false);
           return;
         }
+        const refreshedHeaders = getAuthHeaders();
 
         const critData = await critRes.json();
         if (bootController.signal.aborted) return;
         if (critData && critData.success) {
-          const phase1Meta = applyBootstrapHydration(critData, { isPhase2Full: false, headers });
+          const phase1Meta = applyBootstrapHydration(critData, { isPhase2Full: false, headers: refreshedHeaders });
           resolvedRole = phase1Meta.resolvedRole;
           resolvedUserId = phase1Meta.resolvedUserId;
           resolvedActive = phase1Meta.resolvedActive;
@@ -2111,7 +2117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDataLoading(false);
         setDatabaseLoading(false);
 
-        if (!headers['Authorization'] && !critData?.isAuthenticated && !isLoggedInRef.current) {
+        if (!refreshedHeaders['Authorization'] && !critData?.isAuthenticated && !isLoggedInRef.current) {
           setAuditLogs([]);
           setIsDropdownCategoriesLoading(false);
           setSyncStage('complete');
@@ -2149,9 +2155,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           let earliestServerTime: string | undefined;
 
           try {
-            const firstRes = await fetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
-              credentials: 'include',
-              headers,
+            const firstRes = await authenticatedFetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
               signal: bootController.signal
             });
             if (firstRes.status === 401) {
@@ -2171,9 +2175,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             for (let page = 2; page <= totalPages; page++) {
               if (bootController.signal.aborted) break;
-              const pageRes = await fetch(
+              const pageRes = await authenticatedFetch(
                 `/api/work-orders/progressive?phase=full&page=${page}&limit=${PAGE_SIZE}`,
-                { credentials: 'include', headers, signal: bootController.signal }
+                { signal: bootController.signal }
               );
               if (!pageRes.ok) break;
               const pageJson = await pageRes.json().catch(() => null);
@@ -2193,9 +2197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const phase2StartIso = new Date().toISOString();
         const [progressiveFullRes, secondaryBootRes, globalBoot] = await Promise.all([
           fetchPaginatedFullChunks(),
-          fetch('/api/bootstrap?mode=secondary', {
-            credentials: 'include',
-            headers,
+          authenticatedFetch('/api/bootstrap?mode=secondary', {
             signal: bootController.signal
           })
             .then(r => (r.ok ? r.json() : null))
@@ -2206,7 +2208,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (bootController.signal.aborted) return;
 
         if (secondaryBootRes && secondaryBootRes.success) {
-          const p2Meta = applyBootstrapHydration(secondaryBootRes, { isPhase2Full: true, headers });
+          const p2Meta = applyBootstrapHydration(secondaryBootRes, { isPhase2Full: true, headers: refreshedHeaders });
           resolvedRole = p2Meta.resolvedRole;
           resolvedUserId = p2Meta.resolvedUserId;
           resolvedActive = p2Meta.resolvedActive;
@@ -2397,6 +2399,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Bootstrap from central backend on startup
   useEffect(() => {
     loadCentralData();
+  }, []);
+
+  // Automatically sign out to login screen when an unrecoverable TOKEN_EXPIRED / SESSION_REVOKED occurs
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail;
+      const wasActive =
+        isLoggedInRef.current || safeLocalStorageGet('morajaws_logged_in') === 'true';
+      installerGpsTracker.stopTracking();
+      cancelPendingDeltaRetry();
+      if (centralBootAbortRef.current) {
+        centralBootAbortRef.current.abort();
+        centralBootAbortRef.current = null;
+      }
+      if (deltaSyncAbortRef.current) {
+        deltaSyncAbortRef.current.abort();
+        deltaSyncAbortRef.current = null;
+      }
+      if (phase3IdleTimerRef.current !== null) {
+        clearTimeout(phase3IdleTimerRef.current);
+        phase3IdleTimerRef.current = null;
+      }
+      setIsChangePasswordModalOpen(false);
+      setIsLoggedIn(false);
+      setCurrentUser(UNAUTHENTICATED_USER);
+      setTicketMessages([]);
+      setTickets([]);
+      deliveredTriggeredRef.current.clear();
+      notifiedChatSoundIdsRef.current.clear();
+      notifiedWoEventKeysRef.current.clear();
+      invalidateWoCache();
+      safeLocalStorageSet('morajaws_logged_in', 'false');
+      safeLocalStorageRemove('morajaws_auth_session');
+      setIsDataLoading(false);
+      setDatabaseLoading(false);
+      setIsProgressiveHydrating(false);
+
+      if (wasActive) {
+        toast.warning(
+          detail?.message || 'Sesi login telah kedaluwarsa. Silakan login kembali.',
+          'Sesi Kedaluwarsa'
+        );
+      }
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(() => {});
+    };
+
+    window.addEventListener('morajaws:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('morajaws:session-expired', handleSessionExpired);
+    };
   }, []);
 
   // Register two-way authoritative backend sync processor with OfflineSyncContext
@@ -3053,38 +3108,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const refreshAuthSession = async (): Promise<boolean> => {
-    try {
-      const sessionStr = safeLocalStorageGet('morajaws_auth_session');
-      if (!sessionStr && !isLoggedInRef.current && safeLocalStorageGet('morajaws_logged_in') !== 'true') {
-        return false;
-      }
-      const sess = sessionStr ? JSON.parse(sessionStr) : {};
-
-      const res = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sess?.refreshToken ? { refreshToken: sess.refreshToken } : {})
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      if (data.success) {
-        if (data.tokens) {
-          const updatedSess = {
-            ...sess,
-            token: data.tokens.accessToken,
-            accessToken: data.tokens.accessToken,
-            refreshToken: data.tokens.refreshToken || sess.refreshToken,
-            expiresAt: data.tokens.expiresAt
-          };
-          safeLocalStorageSet('morajaws_auth_session', JSON.stringify(updatedSess));
-        }
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
+    return tryRefreshMoraJawsSession();
   };
 
   // Authentication & Session: Pure MoraJaws Custom Authentication backed by Supabase PostgreSQL

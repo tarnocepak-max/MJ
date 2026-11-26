@@ -40,6 +40,7 @@ import {
 } from '../services/globalConfigService';
 import { useApp } from './AppContext';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/safeStorage';
+import { isAuthSessionError } from '../utils/authSessionHelper';
 
 export type DisplayMode = 'desktop' | 'mobile';
 
@@ -1133,7 +1134,20 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         // 1. Load navigation_doc from Supabase PostgreSQL (authoritative persisted source)
         try {
-          const navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc').catch(() => null);
+          let navRes: {
+            key: string;
+            value: NavigationConfigDoc | null;
+            version: number;
+            updatedAt: string | null;
+            updatedBy: string | null;
+          } | null = null;
+          try {
+            navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc');
+          } catch (globalNavErr: any) {
+            if (isAuthSessionError(globalNavErr)) {
+              throw globalNavErr;
+            }
+          }
           const navDoc = navRes?.value ?? (await loadNavigationDocFromSupabase());
           if (isMounted) {
             if (navDoc) {
@@ -1147,6 +1161,14 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
           }
         } catch (navErr: any) {
+          if (isAuthSessionError(navErr)) {
+            console.warn('[UIConfig] Sesi login kedaluwarsa saat memuat konfigurasi navigasi; menunggu login ulang.');
+            if (isMounted) {
+              setCloudSyncStatus('local_only');
+              setLastCloudSyncError(null);
+            }
+            return;
+          }
           console.error('[UIConfig] Gagal memuat navigation_doc dari Supabase:', navErr);
           if (isMounted) {
             setCloudSyncStatus('error');
@@ -1156,7 +1178,20 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         // 2. Load general UI configuration (tables, theme, devices)
         try {
-          const uiRes = await getGlobalConfig<any>('ui_configuration').catch(() => null);
+          let uiRes: {
+            key: string;
+            value: any;
+            version: number;
+            updatedAt: string | null;
+            updatedBy: string | null;
+          } | null = null;
+          try {
+            uiRes = await getGlobalConfig<any>('ui_configuration');
+          } catch (globalUiErr: any) {
+            if (isAuthSessionError(globalUiErr)) {
+              throw globalUiErr;
+            }
+          }
           const cloudData = uiRes?.value ?? (await loadUIConfigurationFromSupabase());
           if (cloudData && isMounted && cloudData.config) {
             const ver = uiRes?.version || 1;
@@ -1170,6 +1205,13 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setCloudSyncStatus('synced');
           }
         } catch (uiErr: any) {
+          if (isAuthSessionError(uiErr)) {
+            if (isMounted) {
+              setCloudSyncStatus('local_only');
+              setLastCloudSyncError(null);
+            }
+            return;
+          }
           console.warn('[UIConfig] Could not load ui_configuration:', uiErr?.message || uiErr);
         }
 
@@ -1227,7 +1269,20 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCloudSyncStatus('syncing');
     setLastCloudSyncError(null);
     try {
-      const navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc').catch(() => null);
+      let navRes: {
+        key: string;
+        value: NavigationConfigDoc | null;
+        version: number;
+        updatedAt: string | null;
+        updatedBy: string | null;
+      } | null = null;
+      try {
+        navRes = await getGlobalConfig<NavigationConfigDoc>('navigation_doc');
+      } catch (globalNavErr: any) {
+        if (isAuthSessionError(globalNavErr)) {
+          throw globalNavErr;
+        }
+      }
       const navDoc = navRes?.value ?? (await loadNavigationDocFromSupabase());
       if (!navDoc) {
         setCloudSyncStatus('local_only');
@@ -1244,8 +1299,13 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: true };
     } catch (err: any) {
       const msg = err?.message || 'Gagal memuat ulang konfigurasi navigasi dari Supabase PostgreSQL.';
-      setCloudSyncStatus('error');
-      setLastCloudSyncError(msg);
+      if (isAuthSessionError(err)) {
+        setCloudSyncStatus('local_only');
+        setLastCloudSyncError(null);
+      } else {
+        setCloudSyncStatus('error');
+        setLastCloudSyncError(msg);
+      }
       return { success: false, error: msg };
     } finally {
       setIsCloudSyncing(false);
