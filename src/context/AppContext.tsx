@@ -386,6 +386,17 @@ interface AppContextType {
   assignTicketPersonnel: (ticketId: string, leaderName?: string, installerName?: string, installerId?: string) => Promise<AssignmentActionResult>;
   bulkAssignPersonnel: (ticketIds: string[], leaderName?: string, installerName?: string, slotTime?: string, remarks?: string, installerId?: string) => Promise<AssignmentActionResult>;
   reassignTicketPersonnel: (ticketId: string, newInstallerName: string, reason: string, newInstallerId?: string) => Promise<ReassignActionResult>;
+  rescheduleOverdueAppointment: (
+    ticketId: string,
+    newAppointmentDate: string,
+    reason?: string
+  ) => Promise<{
+    success: boolean;
+    ticket?: Ticket;
+    oldAppointmentDate?: string | null;
+    newAppointmentDate?: string;
+    error?: string;
+  }>;
   updateTicketStatus: (ticketId: string, statusAgent?: any, statusInstaller?: any, remarks?: string) => void;
   reopenTicket: (ticketId: string, reason: string) => { success: boolean; error?: string };
   archiveTicket: (ticketId: string) => Promise<{ success: boolean; error?: string }>;
@@ -1184,7 +1195,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               scheduleKpiRefreshRef.current?.();
 
               // Real-time Work Order assignment / approval / revision audio alerts via SSE
-              const activeUser = currentUserRef.current;
               const actorName = String(rec.updatedBy || '').trim().toLowerCase();
               const myName = String(activeUser?.name || '').trim().toLowerCase();
               if (activeUser?.id && !rec.isDeleted && !rec.isArchived && (!actorName || actorName !== myName)) {
@@ -6290,6 +6300,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  const rescheduleOverdueAppointment = async (
+    ticketId: string,
+    newAppointmentDate: string,
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    ticket?: Ticket;
+    oldAppointmentDate?: string | null;
+    newAppointmentDate?: string;
+    error?: string;
+  }> => {
+    const cleanId = String(ticketId || '').trim();
+    const cleanDate = String(newAppointmentDate || '').trim();
+    if (!cleanId) {
+      return { success: false, error: 'ID Work Order tidak valid.' };
+    }
+    if (!cleanDate) {
+      return { success: false, error: 'Tanggal Schedule Appointment baru wajib dipilih.' };
+    }
+    if (currentUser.role === 'installer') {
+      const msg = 'Akses Ditolak: Teknisi tidak diizinkan mengubah Schedule Appointment Date.';
+      toast.error(msg, 'Akses Ditolak');
+      return { success: false, error: msg };
+    }
+    const existing = getTicketById(cleanId);
+    if (currentUser.role === 'leader') {
+      const canLeaderReschedule = hasPermission('edit_wo_data') || hasPermission('manage_leader_schedule');
+      if (!canLeaderReschedule) {
+        const msg = 'Akses Ditolak: Role Leader tidak memiliki izin mengubah jadwal pada konfigurasi RBAC aktif.';
+        toast.error(msg, 'Izin Diperlukan');
+        return { success: false, error: msg };
+      }
+      if (existing && !isTicketInLeaderScope(existing, currentUser)) {
+        const msg = 'Akses Ditolak: Work Order berada di luar cakupan Contractor dan Area Anda.';
+        toast.error(msg, 'Di Luar Cakupan');
+        return { success: false, error: msg };
+      }
+    } else if (currentUser.role === 'dispatch') {
+      const canDispatchReschedule = hasPermission('edit_wo_data') || hasPermission('manage_leader_schedule');
+      if (!canDispatchReschedule) {
+        const msg = 'Akses Ditolak: Role Dispatch tidak memiliki izin perubahan jadwal pada konfigurasi RBAC aktif.';
+        toast.error(msg, 'Izin Diperlukan');
+        return { success: false, error: msg };
+      }
+    }
+
+    setSyncStatus('SYNCING');
+    try {
+      const res = await supabaseDb.rescheduleWorkOrderAppointment(cleanId, {
+        appointmentDate: cleanDate,
+        reason: reason?.trim() || ''
+      });
+      if (!res.success || !res.data) {
+        const errMsg = res.error?.message || 'Gagal mengubah Schedule Appointment Date Work Order.';
+        setSyncStatus('ERROR');
+        toast.error(errMsg, 'Gagal Ubah Jadwal');
+        return { success: false, error: errMsg };
+      }
+
+      const updatedTicket = res.data;
+      setTickets(prev => {
+        const idx = prev.findIndex(t => t.id === updatedTicket.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...updatedTicket };
+          return copy;
+        }
+        return [updatedTicket, ...prev];
+      });
+      invalidateWoCache();
+      setSyncStatus('SAVED');
+      setLastSyncTime(new Date().toISOString());
+
+      const effectiveNewDate = res.newAppointmentDate || updatedTicket.appointmentDate || cleanDate;
+      const effectiveOldDate = res.oldAppointmentDate ?? existing?.appointmentDate ?? null;
+      const effToday = res.operationalDateWIB || todayWIB;
+      const isMovedOutOfOverdue = effectiveNewDate >= effToday;
+
+      addAuditLog(
+        'Appointment Date Rescheduled',
+        'ticket',
+        updatedTicket.woNumber || updatedTicket.id,
+        `Jadwal WO ${updatedTicket.woNumber || updatedTicket.id} diubah: ${effectiveOldDate || '(kosong)'} → ${effectiveNewDate}${reason?.trim() ? ` (${reason.trim()})` : ''}`
+      );
+
+      toast.success(
+        isMovedOutOfOverdue
+          ? `Schedule WO ${updatedTicket.woNumber} diubah ke ${effectiveNewDate} dan dikeluarkan dari daftar Overdue.`
+          : `Schedule WO ${updatedTicket.woNumber} diubah ke ${effectiveNewDate} (masih sebelum ${effToday} WIB).`,
+        'Schedule Appointment Diperbarui'
+      );
+
+      refreshKpiSummary().catch(() => {});
+      return {
+        success: true,
+        ticket: updatedTicket,
+        oldAppointmentDate: effectiveOldDate,
+        newAppointmentDate: effectiveNewDate
+      };
+    } catch (err: any) {
+      const errMsg = err?.message || 'Gagal menyimpan perubahan Schedule Appointment Date.';
+      setSyncStatus('ERROR');
+      toast.error(errMsg, 'Gagal Ubah Jadwal');
+      return { success: false, error: errMsg };
+    }
+  };
+
   const assignTicketPersonnel = async (
     ticketId: string,
     _leaderName?: string,
@@ -8614,6 +8731,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignTicketPersonnel,
         bulkAssignPersonnel,
         reassignTicketPersonnel,
+        rescheduleOverdueAppointment,
         updateTicketStatus,
         reopenTicket,
         archiveTicket,

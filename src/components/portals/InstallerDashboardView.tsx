@@ -149,7 +149,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     return false;
   };
 
-  // All tickets assigned to logged-in Installer
+  // Today-only tickets assigned to logged-in Installer (Asia/Jakarta WIB + active unfinished Check-In exception)
   const myAllAssignedTickets = useMemo(() => {
     const myName = (currentUser.name || '').toLowerCase().trim();
     const myUsername = (currentUser.username || '').toLowerCase().trim();
@@ -157,6 +157,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
     return (tickets || []).filter(t => {
       if (t.isArchived || t.isDeleted) return false;
+      if (!isTicketVisibleToInstallerToday(t, todayWIB)) return false;
       if (!t.installerName && !t.assignedTo && !t.installerId) return false;
 
       if (myId && (t.assignedTo === myId || t.installerId === myId)) return true;
@@ -165,18 +166,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       if (myUsername && isInstallerMatch(t.installerName, myUsername)) return true;
       return false;
     });
-  }, [tickets, currentUser]);
+  }, [tickets, currentUser, todayWIB]);
 
   // Today's appointments + active checked-in unfinished WO past midnight
-  const todayTickets = useMemo(() => {
-    return myAllAssignedTickets.filter(t => isTicketVisibleToInstallerToday(t, todayWIB));
-  }, [myAllAssignedTickets, todayWIB]);
+  const todayTickets = myAllAssignedTickets;
 
-  // Realtime synced ticket for FullView
+  // Realtime synced ticket for FullView (strictly scoped to todayTickets)
   const activeFullviewTicket = useMemo(() => {
     if (!fullviewTicket) return null;
-    return (tickets || []).find(t => t.id === fullviewTicket.id) || fullviewTicket;
-  }, [tickets, fullviewTicket]);
+    return todayTickets.find(t => t.id === fullviewTicket.id) || (isTicketVisibleToInstallerToday(fullviewTicket, todayWIB) ? fullviewTicket : null);
+  }, [todayTickets, fullviewTicket, todayWIB]);
 
   const fieldDispatchCounts = useMemo(() => {
     if (
@@ -357,11 +356,11 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
   const modalTargetTicket = useMemo(() => {
     if (modalTargetTicketId) {
-      const found = myAllAssignedTickets.find(t => t.id === modalTargetTicketId);
+      const found = todayTickets.find(t => t.id === modalTargetTicketId);
       if (found) return found;
     }
     return primaryActionableTicket;
-  }, [modalTargetTicketId, myAllAssignedTickets, primaryActionableTicket]);
+  }, [modalTargetTicketId, todayTickets, primaryActionableTicket]);
 
   const handleOpenFullview = (ticket: Ticket, focus?: FullviewFocusSection) => {
     setFullviewFocusSection(focus);

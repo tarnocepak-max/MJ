@@ -372,7 +372,12 @@ test('End-to-End Soft Delete & Restore across all 8 mandatory scenarios + re-imp
             woNumber,
             customerId: '7788990',
             customerName: 'Pelanggan Uji Soft Delete',
-            appointmentDate: '2026-11-25',
+            appointmentDate: new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Jakarta',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }).format(new Date()),
             contractor: 'PT Mitra Uji',
             contractorName: 'PT Mitra Uji',
             contactorName: 'PT Mitra Uji',

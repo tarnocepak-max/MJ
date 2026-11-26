@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Calendar,
+  CalendarClock,
   Clock,
   Copy,
   Download,
@@ -30,9 +31,15 @@ import {
 } from '../../services/woClassificationService';
 import {
   formatAppointmentDateDisplay,
-  getTicketAppointmentDate
+  getJakartaDateString,
+  getTicketAppointmentDate,
+  parseAppointmentDate
 } from '../../services/appointmentDateParser';
-import { isTicketClosed } from '../../services/woLifecycleService';
+import {
+  isInstallerActiveCheckedInUnfinished,
+  isTicketClosed
+} from '../../services/woLifecycleService';
+import { isTicketInLeaderScope } from '../../services/assignmentClientHelpers';
 import {
   buildTechnicianCapacitySummaries,
   DEFAULT_LEADER_QUOTA_CONFIG,
@@ -41,6 +48,7 @@ import {
 } from '../../services/leaderQuotaService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { PaginationBar } from '../common/PaginationBar';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import { LeaderTwoStepReassignModal } from '../portals/LeaderTwoStepReassignModal';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import {
@@ -152,6 +160,8 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     overdueSummary,
     refreshOverdueTickets,
     reassignTicketPersonnel,
+    rescheduleOverdueAppointment,
+    hasPermission,
     contractorsList,
     areasList
   } = useApp();
@@ -160,6 +170,28 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
 
   const canViewExceptions = currentUser.role === 'super_admin';
   const isLeaderRole = currentUser.role === 'leader';
+
+  const canRoleRescheduleOverdue = useMemo(() => {
+    if (currentUser.role === 'installer') return false;
+    if (currentUser.role === 'super_admin') return true;
+    if (currentUser.role === 'dispatch') {
+      return hasPermission('edit_wo_data') || hasPermission('manage_leader_schedule');
+    }
+    if (currentUser.role === 'leader') {
+      return hasPermission('edit_wo_data') || hasPermission('manage_leader_schedule');
+    }
+    return false;
+  }, [currentUser.role, hasPermission]);
+
+  const canRescheduleTicket = (ticket: Ticket): boolean => {
+    if (!canRoleRescheduleOverdue) return false;
+    if (!ticket || ticket.isDeleted || ticket.isArchived) return false;
+    if (isTicketClosed(ticket)) return false;
+    if (currentUser.role === 'leader' && !isTicketInLeaderScope(ticket, currentUser)) {
+      return false;
+    }
+    return true;
+  };
 
   const [viewMode, setViewMode] = useState<'overdue' | 'exception'>('overdue');
   const [woSearch, setWoSearch] = useState('');
@@ -185,6 +217,14 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   // Leader two-step reassign modal state
   const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
   const [isReassignSubmitting, setIsReassignSubmitting] = useState(false);
+
+  // Overdue Reschedule Appointment Date modal state
+  const [rescheduleTarget, setRescheduleTarget] = useState<Ticket | null>(null);
+  const [rescheduleNewDate, setRescheduleNewDate] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [isRescheduleSubmitting, setIsRescheduleSubmitting] = useState(false);
+
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   const [quotaConfig, setQuotaConfig] = useState<LeaderQuotaConfig>(() => ({
@@ -613,6 +653,66 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     }
   };
 
+  const tomorrowWIB = useMemo(() => getJakartaDateString(1), [todayWIB]);
+
+  const handleOpenReschedule = (ticket: Ticket) => {
+    if (!canRescheduleTicket(ticket)) {
+      toast.error('Anda tidak memiliki izin mengubah Schedule Appointment Date pada Work Order ini.', 'Akses Ditolak');
+      return;
+    }
+    if (isInstallerActiveCheckedInUnfinished(ticket)) {
+      toast.warning(
+        `WO ${ticket.woNumber} sedang aktif dikerjakan (Check-In belum Check-Out) dan tidak dapat dijadwalkan ulang sebelum proses pekerjaan selesai.`,
+        'WO Sedang Check-In'
+      );
+      return;
+    }
+    setRescheduleTarget(ticket);
+    setRescheduleNewDate(todayWIB);
+    setRescheduleReason('');
+    setRescheduleError(null);
+  };
+
+  const handleSubmitReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleTarget || isRescheduleSubmitting) return;
+    setRescheduleError(null);
+
+    const parsed = parseAppointmentDate(rescheduleNewDate);
+    const normalized = parsed.isValid && !parsed.isEmpty ? parsed.date : null;
+    if (!normalized) {
+      setRescheduleError('Pilih tanggal Schedule Appointment yang valid (YYYY-MM-DD).');
+      return;
+    }
+    const currentAppt = getTicketAppointmentDate(rescheduleTarget);
+    if (currentAppt && normalized === currentAppt) {
+      setRescheduleError('Tanggal baru sama dengan Schedule Appointment Date saat ini.');
+      return;
+    }
+    if (isInstallerActiveCheckedInUnfinished(rescheduleTarget)) {
+      setRescheduleError(
+        'Work Order sedang aktif Check-In di lapangan dan tidak dapat dijadwalkan ulang sebelum Check-Out selesai.'
+      );
+      return;
+    }
+
+    setIsRescheduleSubmitting(true);
+    try {
+      const res = await rescheduleOverdueAppointment(rescheduleTarget.id, normalized, rescheduleReason);
+      if (res.success) {
+        setRescheduleTarget(null);
+        setRescheduleNewDate('');
+        setRescheduleReason('');
+        setRescheduleError(null);
+        await refreshOverdueTickets().catch(() => {});
+      } else {
+        setRescheduleError(res.error || 'Gagal memperbarui Schedule Appointment Date.');
+      }
+    } finally {
+      setIsRescheduleSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-5 pb-10">
       {/* Page Header */}
@@ -1020,11 +1120,23 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                     </button>
+                    {canRescheduleTicket(ticket) && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReschedule(ticket)}
+                        data-testid={`overdue-reschedule-mobile-${ticket.woNumber}`}
+                        className="btn-3d-primary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                        title="Ubah Schedule Appointment Date"
+                      >
+                        <CalendarClock className="w-3.5 h-3.5" />
+                        <span>Ubah Jadwal</span>
+                      </button>
+                    )}
                     {canReassign && (
                       <button
                         type="button"
                         onClick={() => handleOpenReassign(ticket)}
-                        className="btn-3d-primary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                        className="btn-3d-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <ArrowRightLeft className="w-3.5 h-3.5" />
                         <span>Reassign</span>
@@ -1343,6 +1455,16 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                               onClick: () => onSelectTicket(ticket, 'chat')
                             }
                           ];
+                          if (canRescheduleTicket(ticket)) {
+                            overdueActions.push({
+                              id: 'reschedule_appointment',
+                              label: 'Ubah Schedule Appointment Date',
+                              icon: <CalendarClock className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              dividerBefore: true,
+                              onClick: () => handleOpenReschedule(ticket)
+                            });
+                          }
                           if (canReassign) {
                             overdueActions.push({
                               id: 'reassign_wo',
@@ -1431,6 +1553,205 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
           onConfirmReassign={handleConfirmReassign}
         />
       )}
+
+      {/* Overdue WO Reschedule Appointment Date Modal */}
+      <ResponsiveModal
+        isOpen={Boolean(rescheduleTarget)}
+        onClose={() => {
+          if (!isRescheduleSubmitting) {
+            setRescheduleTarget(null);
+            setRescheduleError(null);
+          }
+        }}
+        title="Ubah Schedule Appointment Date"
+        subtitle={rescheduleTarget ? `${rescheduleTarget.woNumber} · ${rescheduleTarget.customerName}` : undefined}
+        icon={<CalendarClock className="w-4 h-4" />}
+        size="md"
+        mobileVariant="sheet"
+        zIndexClass="z-70"
+        closeOnBackdropClick={!isRescheduleSubmitting}
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={isRescheduleSubmitting}
+              onClick={() => {
+                setRescheduleTarget(null);
+                setRescheduleError(null);
+              }}
+              className="btn-3d-secondary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              form="overdue-reschedule-form"
+              disabled={isRescheduleSubmitting || !rescheduleNewDate}
+              data-testid="overdue-reschedule-submit"
+              className="btn-3d-primary px-5 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+            >
+              {isRescheduleSubmitting ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        {rescheduleTarget && (
+          <form id="overdue-reschedule-form" onSubmit={handleSubmitReschedule} className="space-y-4">
+            {/* Target WO Summary */}
+            <div className="rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] bg-[#F4F7FB] dark:bg-[#22123F]/75 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono font-extrabold text-sm text-[#5145A6] dark:text-[#DAB9FF]">
+                  {rescheduleTarget.woNumber}
+                </span>
+                <span className="font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                  Customer ID: {rescheduleTarget.idCustomer || rescheduleTarget.customerId || '-'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                <div>
+                  <span className="block text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">Pelanggan &amp; Area</span>
+                  <strong className="text-[#26364A] dark:text-white block truncate">
+                    {rescheduleTarget.customerName}
+                  </strong>
+                  <span className="text-[#52647A] dark:text-[#CEC0E8] truncate block">
+                    {rescheduleTarget.contactorName || rescheduleTarget.contractorName || '-'} · {rescheduleTarget.area || '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">Teknisi Saat Ini</span>
+                  <strong className="text-[#26364A] dark:text-white block truncate">
+                    {rescheduleTarget.installerName || 'Unassigned'}
+                  </strong>
+                  <span className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                    Slot: {rescheduleTarget.slotTime || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Current vs New Date Comparison */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl p-3 border border-[#F3C5CA] dark:border-rose-800/70 bg-[#FCE9EB]/70 dark:bg-rose-950/35">
+                <span className="block text-[10.5px] font-bold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
+                  Schedule Saat Ini
+                </span>
+                <div className="mt-1 font-mono text-sm font-extrabold text-[#26364A] dark:text-white tabular-nums">
+                  {rescheduleTarget.appointmentDate || 'Tidak Valid'}
+                </div>
+                <span className="block text-[10.5px] text-[#9B2C37] dark:text-rose-300 mt-0.5">
+                  {rescheduleTarget.appointmentDate
+                    ? formatAppointmentDateDisplay(rescheduleTarget.appointmentDate)
+                    : 'Format tanggal tidak valid'}
+                </span>
+              </div>
+
+              <div className="rounded-xl p-3 border border-[#C5BEEF] dark:border-[#8648F5]/45 bg-[#EAE8FF]/55 dark:bg-[#2C1A4E]/75">
+                <label
+                  htmlFor="overdue-reschedule-date-input"
+                  className="block text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]"
+                >
+                  Schedule Baru (WIB)
+                </label>
+                <input
+                  id="overdue-reschedule-date-input"
+                  data-testid="overdue-reschedule-date-input"
+                  type="date"
+                  required
+                  value={rescheduleNewDate}
+                  onChange={e => {
+                    setRescheduleNewDate(e.target.value);
+                    if (rescheduleError) setRescheduleError(null);
+                  }}
+                  disabled={isRescheduleSubmitting}
+                  className="mt-1.5 w-full px-2.5 py-2 rounded-lg border border-[#CFDCE8] dark:border-[#5424A8] bg-white dark:bg-[#160D29] text-xs font-mono font-bold text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
+                />
+              </div>
+            </div>
+
+            {/* Quick Date Shortcuts */}
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="font-semibold text-[#52647A] dark:text-[#CEC0E8]">Pilih cepat:</span>
+              <button
+                type="button"
+                disabled={isRescheduleSubmitting}
+                onClick={() => {
+                  setRescheduleNewDate(todayWIB);
+                  setRescheduleError(null);
+                }}
+                className={`px-2.5 py-1 rounded-lg border font-mono font-bold cursor-pointer transition-colors ${
+                  rescheduleNewDate === todayWIB
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white border-[#6657C8] dark:border-[#8648F5]'
+                    : 'bg-white dark:bg-[#22123F] text-[#26364A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E]'
+                }`}
+              >
+                Hari Ini ({todayWIB})
+              </button>
+              <button
+                type="button"
+                disabled={isRescheduleSubmitting}
+                onClick={() => {
+                  setRescheduleNewDate(tomorrowWIB);
+                  setRescheduleError(null);
+                }}
+                className={`px-2.5 py-1 rounded-lg border font-mono font-bold cursor-pointer transition-colors ${
+                  rescheduleNewDate === tomorrowWIB
+                    ? 'bg-[#6657C8] dark:bg-[#58149C] text-white border-[#6657C8] dark:border-[#8648F5]'
+                    : 'bg-white dark:bg-[#22123F] text-[#26364A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#35105E]'
+                }`}
+              >
+                Besok ({tomorrowWIB})
+              </button>
+            </div>
+
+            {/* Classification Impact Info */}
+            {rescheduleNewDate && (
+              <div
+                className={`rounded-xl px-3.5 py-2.5 border text-xs ${
+                  rescheduleNewDate >= todayWIB
+                    ? 'bg-[#E4F5EC] dark:bg-emerald-950/40 border-[#B7E4CC] dark:border-emerald-800 text-[#218A63] dark:text-emerald-200'
+                    : 'bg-[#FFF2D9] dark:bg-amber-950/40 border-[#F2CF95] dark:border-amber-800 text-[#9D661F] dark:text-amber-200'
+                }`}
+              >
+                {rescheduleNewDate === todayWIB
+                  ? `Jadwal baru sama dengan hari ini (${todayWIB} WIB). WO akan keluar dari Overdue WO dan masuk daftar aktif hari ini (termasuk ke Tugas Saya teknisi terkait).`
+                  : rescheduleNewDate > todayWIB
+                  ? `Jadwal baru setelah hari ini (${rescheduleNewDate}). WO akan keluar dari Overdue WO dan masuk jadwal Upcoming.`
+                  : `Tanggal ${rescheduleNewDate} masih sebelum ${todayWIB} WIB, sehingga WO tetap berstatus Overdue hingga dijadwalkan ke hari ini atau mendatang.`}
+              </div>
+            )}
+
+            {/* Optional Audit Reason */}
+            <div>
+              <label
+                htmlFor="overdue-reschedule-reason"
+                className="block text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] mb-1"
+              >
+                Catatan / Alasan Perubahan Jadwal (Opsional)
+              </label>
+              <textarea
+                id="overdue-reschedule-reason"
+                rows={2}
+                maxLength={400}
+                value={rescheduleReason}
+                onChange={e => setRescheduleReason(e.target.value)}
+                disabled={isRescheduleSubmitting}
+                placeholder="Contoh: Pelanggan minta jadwal ulang ke hari ini WIB"
+                className="w-full px-3 py-2 rounded-xl border border-[#DDE6F0] dark:border-[#35105E] bg-white dark:bg-[#160D29] text-xs text-[#26364A] dark:text-white placeholder:text-[#8492A5] focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#A78BFA]"
+              />
+            </div>
+
+            {rescheduleError && (
+              <div
+                role="alert"
+                data-testid="overdue-reschedule-error"
+                className="rounded-xl px-3.5 py-2.5 bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800 text-xs font-semibold text-[#9B2C37] dark:text-rose-200"
+              >
+                {rescheduleError}
+              </div>
+            )}
+          </form>
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

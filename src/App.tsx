@@ -249,7 +249,21 @@ const MainLayout: React.FC = () => {
     const inspectAndRejectCrossDateUrl = () => {
       try {
         const searchParams = new URLSearchParams(window.location.search);
-        const crossDateKeys = ['date', 'appointmentDate', 'dateFrom', 'dateTo', 'targetDate', 'woDate', 'filterDate', 'month', 'week'];
+        const crossDateKeys = [
+          'date',
+          'appointmentDate',
+          'dateFrom',
+          'dateTo',
+          'startDate',
+          'endDate',
+          'from',
+          'to',
+          'targetDate',
+          'woDate',
+          'filterDate',
+          'month',
+          'week'
+        ];
         const hasCrossDateParam = crossDateKeys.some(k => {
           const v = searchParams.get(k);
           if (v === null || v.trim() === '') return false;
@@ -258,17 +272,29 @@ const MainLayout: React.FC = () => {
           }
           return true;
         });
+        const crossScopeBoolKeys = ['includeArchived', 'includeDeleted', 'includeOverdue', 'showAll', 'allDates', 'all'];
+        const hasCrossScopeBool = crossScopeBoolKeys.some(k => {
+          const v = String(searchParams.get(k) || '').trim().toLowerCase();
+          return v === 'true' || v === '1';
+        });
+        const crossScopeStrKeys = ['dateScope', 'scope', 'viewMode', 'classification', 'tab'];
+        const hasCrossScopeStr = crossScopeStrKeys.some(k => {
+          const v = String(searchParams.get(k) || '').trim().toLowerCase();
+          if (!v || v === 'today') return false;
+          if (k === 'tab' && installerAllowedTabs.includes(v)) return false;
+          return true;
+        });
 
         const rawHash = window.location.hash.replace('#', '').trim();
         const hasDisallowedHash = Boolean(rawHash && !installerAllowedTabs.includes(rawHash));
         const hasDisallowedTab = !installerAllowedTabs.includes(activeTab);
 
-        if (hasCrossDateParam || hasDisallowedHash || hasDisallowedTab) {
+        if (hasCrossDateParam || hasCrossScopeBool || hasCrossScopeStr || hasDisallowedHash || hasDisallowedTab) {
           const safeTab = installerAllowedTabs.includes(activeTab) ? activeTab : 'installer_dashboard';
           setActiveTab(safeTab);
           const userKey = currentUser?.id || currentUser?.role || 'default';
           safeLocalStorageSet(`morajaws_active_tab_${userKey}`, safeTab);
-          crossDateKeys.forEach(k => searchParams.delete(k));
+          [...crossDateKeys, ...crossScopeBoolKeys, ...crossScopeStrKeys].forEach(k => searchParams.delete(k));
           const remainingSearch = searchParams.toString();
           const cleanUrl = `${window.location.pathname}${remainingSearch ? `?${remainingSearch}` : ''}#${safeTab}`;
           window.history.replaceState({ tab: safeTab }, '', cleanUrl);
@@ -608,6 +634,14 @@ const MainLayout: React.FC = () => {
         return;
       }
 
+      if (!isTicketVisibleToInstallerToday(ticket, todayWIB)) {
+        toast.error(
+          `Akses ditolak: Teknisi hanya dapat mengakses Work Order tugas hari ini (${todayWIB} WIB).`,
+          'Akses Tanggal Lain Ditolak'
+        );
+        return;
+      }
+
       if (activeTab === 'installer_portal' || activeTab === 'installer_tasks') {
         // Installer uses the dedicated fullview experience inside InstallerPortal
         return;
@@ -632,6 +666,14 @@ const MainLayout: React.FC = () => {
 
       if (!isMine) {
         toast.error('Akses ditolak: Tiket ini bukan milik Anda.');
+        return;
+      }
+
+      if (!isTicketVisibleToInstallerToday(ticket, todayWIB)) {
+        toast.error(
+          `Akses ditolak: Teknisi hanya dapat mengirim konfirmasi untuk Work Order tugas hari ini (${todayWIB} WIB).`,
+          'Akses Tanggal Lain Ditolak'
+        );
         return;
       }
     }

@@ -1240,6 +1240,58 @@ export class SupabaseRepository {
     }
   }
 
+  async rescheduleWorkOrderAppointment(
+    ticketId: string,
+    payload: { appointmentDate: string; reason?: string }
+  ): Promise<
+    SupabaseResponse<Ticket> & {
+      oldAppointmentDate?: string | null;
+      newAppointmentDate?: string;
+      operationalDateWIB?: string;
+    }
+  > {
+    try {
+      const res = await authenticatedFetch(
+        `/api/work-orders/${encodeURIComponent(ticketId)}/reschedule-appointment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            appointmentDate: payload.appointmentDate,
+            reason: payload.reason || ''
+          })
+        }
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          error: normalizeProxyError(
+            res.status,
+            json,
+            'UPDATE',
+            'work_orders',
+            'Gagal mengubah Schedule Appointment Date Work Order'
+          )
+        };
+      }
+      return {
+        success: true,
+        data: json.ticket || json.data,
+        oldAppointmentDate: json.oldAppointmentDate ?? null,
+        newAppointmentDate: json.newAppointmentDate,
+        operationalDateWIB: json.operationalDateWIB
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: err?.message || 'Koneksi jaringan gagal saat mengubah Schedule Appointment Date.'
+        }
+      };
+    }
+  }
+
   async fetchProgressReportHistory(params?: {
     search?: string;
     reportStatus?: string;

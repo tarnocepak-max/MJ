@@ -154,6 +154,7 @@ import {
   summarizeWorkOrderClassificationsServer,
   isInstallerActiveCheckedInUnfinished,
   isTicketVisibleToInstallerToday,
+  isWoCompletedOrClosedServer,
   type WoClassification
 } from './server/woClassificationService.ts';
 import {
@@ -3095,7 +3096,7 @@ export function checkTicketAccess(ticket: any, user: ServerUser): boolean {
 export function checkOperationalTicketAccess(
   ticket: any,
   user: ServerUser,
-  referenceDateWIB: string = getJakartaDateStringServer(getNow())
+  referenceDateWIB: string = getJakartaDateStringServer()
 ): boolean {
   if (!checkTicketAccess(ticket, user)) return false;
   if (user.role === 'installer') {
@@ -3107,16 +3108,63 @@ export function checkOperationalTicketAccess(
 export function assertInstallerNoCrossDateQuery(
   req: AuthenticatedRequest,
   res: Response,
-  todayWIB: string = getJakartaDateStringServer(getNow())
+  todayWIB: string = getJakartaDateStringServer()
 ): boolean {
   const user = req.user;
   if (!user || user.role !== 'installer') return true;
 
-  if (String(req.query.includeArchived || '').toLowerCase() === 'true') {
+  const booleanCrossScopeFlags = [
+    'includeArchived',
+    'includeDeleted',
+    'includeOverdue',
+    'showAll',
+    'allDates',
+    'all'
+  ];
+  for (const flagKey of booleanCrossScopeFlags) {
+    const rawFlag = String(req.query[flagKey] || '').trim().toLowerCase();
+    if (rawFlag === 'true' || rawFlag === '1') {
+      res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+        error: 'Akses Ditolak: Teknisi hanya diizinkan mengakses Work Order hari ini.'
+      });
+      return false;
+    }
+  }
+
+  const scopeKeys = ['dateScope', 'scope', 'viewMode', 'tab'];
+  const forbiddenScopeValues = new Set([
+    'all',
+    'all_dates',
+    'all-dates',
+    'overdue',
+    'yesterday',
+    'tomorrow',
+    'upcoming',
+    'history',
+    'past',
+    'future',
+    'exception'
+  ]);
+  for (const scopeKey of scopeKeys) {
+    const rawScope = String(req.query[scopeKey] || '').trim().toLowerCase();
+    if (rawScope && forbiddenScopeValues.has(rawScope)) {
+      res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+        error: `Akses Ditolak: Teknisi hanya dapat mengakses tugas tanggal hari ini (${todayWIB} WIB).`
+      });
+      return false;
+    }
+  }
+
+  const classificationRaw = String(req.query.classification || '').trim().toUpperCase();
+  if (classificationRaw && classificationRaw !== 'TODAY') {
     res.status(403).json({
       success: false,
       code: 'FORBIDDEN_CROSS_DATE_ACCESS',
-      error: 'Akses Ditolak: Teknisi hanya diizinkan mengakses Work Order hari ini.'
+      error: `Akses Ditolak: Teknisi hanya dapat mengakses klasifikasi hari ini (TODAY, ${todayWIB} WIB).`
     });
     return false;
   }
@@ -3126,6 +3174,10 @@ export function assertInstallerNoCrossDateQuery(
     'date',
     'dateFrom',
     'dateTo',
+    'startDate',
+    'endDate',
+    'from',
+    'to',
     'targetDate',
     'woDate',
     'filterDate',
@@ -3154,7 +3206,7 @@ export function assertInstallerNoCrossDateQuery(
 export function scopeTicketsForUser(
   tickets: any[],
   user: ServerUser,
-  referenceDateWIB: string = getJakartaDateStringServer(getNow())
+  referenceDateWIB: string = getJakartaDateStringServer()
 ): any[] {
   return tickets.filter(t => checkOperationalTicketAccess(t, user, referenceDateWIB));
 }
@@ -5539,6 +5591,119 @@ export async function createExpressApp(options?: {
     });
   });
 
+  const canUserRescheduleAppointmentServer = async (
+    user: ServerUser,
+    ticket: any
+  ): Promise<{ allowed: boolean; status: number; code?: string; message?: string }> => {
+    if (!user || !user.role) {
+      return { allowed: false, status: 401, code: 'UNAUTHENTICATED', message: 'Sesi pengguna tidak valid.' };
+    }
+    if (user.role === 'installer') {
+      return {
+        allowed: false,
+        status: 403,
+        code: 'FORBIDDEN_RESCHEDULE_INSTALLER',
+        message: 'Akses Ditolak: Teknisi (Installer) tidak diizinkan mengubah Schedule Appointment Date.'
+      };
+    }
+    if (user.role === 'super_admin') {
+      return { allowed: true, status: 200 };
+    }
+    if (user.role === 'dispatch') {
+      const [canEditWo, canManageSchedule] = await Promise.all([
+        hasDynamicPermission('dispatch', 'edit_wo_data'),
+        hasDynamicPermission('dispatch', 'manage_leader_schedule')
+      ]);
+      if (!canEditWo && !canManageSchedule) {
+        return {
+          allowed: false,
+          status: 403,
+          code: 'DYNAMIC_PERMISSION_DENIED',
+          message: 'Akses Ditolak: Role Dispatch tidak memiliki izin perubahan jadwal WO sesuai konfigurasi RBAC aktif.'
+        };
+      }
+      return { allowed: true, status: 200 };
+    }
+    if (user.role === 'leader') {
+      const [canEditWo, canManageSchedule] = await Promise.all([
+        hasDynamicPermission('leader', 'edit_wo_data'),
+        hasDynamicPermission('leader', 'manage_leader_schedule')
+      ]);
+      if (!canEditWo && !canManageSchedule) {
+        return {
+          allowed: false,
+          status: 403,
+          code: 'DYNAMIC_PERMISSION_DENIED',
+          message: 'Akses Ditolak: Role Leader belum diberi izin mengubah Schedule Appointment Date pada konfigurasi RBAC aktif.'
+        };
+      }
+      if (!checkTicketAccess(ticket, user)) {
+        return {
+          allowed: false,
+          status: 403,
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Akses Ditolak: Leader hanya dapat mengubah jadwal Work Order dalam cakupan Contractor dan Area miliknya.'
+        };
+      }
+      return { allowed: true, status: 200 };
+    }
+    return {
+      allowed: false,
+      status: 403,
+      code: 'FORBIDDEN_ROLE',
+      message: 'Akses Ditolak: Role Anda tidak memiliki wewenang mengubah Schedule Appointment Date.'
+    };
+  };
+
+  const validateRescheduleTargetTicketServer = (
+    ticket: any
+  ): { valid: boolean; status: number; code?: string; message?: string } => {
+    if (!ticket) {
+      return { valid: false, status: 404, code: 'NOT_FOUND', message: 'Work Order tidak ditemukan.' };
+    }
+    if (PROTECTED_PRODUCTION_WO_IDS.has(ticket.id) || PROTECTED_PRODUCTION_WO_IDS.has(ticket.woNumber)) {
+      return {
+        valid: false,
+        status: 403,
+        code: 'PROTECTED_RECORD',
+        message: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah.'
+      };
+    }
+    if (ticket.isDeleted) {
+      return {
+        valid: false,
+        status: 409,
+        code: 'WO_SOFT_DELETED',
+        message: 'Work Order ini telah dihapus (soft delete) dan tidak dapat dijadwalkan ulang.'
+      };
+    }
+    if (ticket.isArchived) {
+      return {
+        valid: false,
+        status: 409,
+        code: 'WO_ARCHIVED',
+        message: 'Work Order yang sudah diarsipkan tidak dapat dijadwalkan ulang.'
+      };
+    }
+    if (isWoCompletedOrClosedServer(ticket)) {
+      return {
+        valid: false,
+        status: 409,
+        code: 'WO_ALREADY_COMPLETED',
+        message: 'Work Order yang sudah selesai atau ditutup tidak dapat dijadwalkan ulang.'
+      };
+    }
+    if (isInstallerActiveCheckedInUnfinished(ticket)) {
+      return {
+        valid: false,
+        status: 409,
+        code: 'WO_ACTIVE_CHECKIN',
+        message: 'Work Order sedang dalam status aktif Check-In di lapangan dan tidak dapat dijadwalkan ulang sebelum pekerjaan selesai.'
+      };
+    }
+    return { valid: true, status: 200 };
+  };
+
   // Update a single Ticket (Supports both PUT and PATCH)
   const handleUpdateTicket = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
@@ -5611,7 +5776,7 @@ export async function createExpressApp(options?: {
     }
 
     // Check RBAC permission for modifying WO using strict authoritative check (includes Installer today-only + active check-in gate)
-    if (!checkOperationalTicketAccess(currentTicket, req.user!)) {
+    if (!checkOperationalTicketAccess(currentTicket, req.user!, getJakartaDateStringServer(getNow()))) {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk memperbarui Work Order ini.' });
     }
 
@@ -5681,15 +5846,59 @@ export async function createExpressApp(options?: {
       });
     }
 
-    if (updates.appointmentDate !== undefined && updates.appointmentDate !== null && String(updates.appointmentDate).trim() !== '') {
-      const normalized = normalizeAppointmentDate(updates.appointmentDate);
-      if (!normalized) {
+    const incomingRawAppt =
+      updates.appointmentDate !== undefined
+        ? updates.appointmentDate
+        : updates.appointment_date !== undefined
+        ? updates.appointment_date
+        : undefined;
+    if (incomingRawAppt !== undefined) {
+      const existingAppt = getStrictAppointmentDateServer(currentTicket);
+      const requestedClean = incomingRawAppt === null ? '' : String(incomingRawAppt).trim();
+      if (!requestedClean) {
+        if (req.user!.role === 'installer') {
+          return res.status(403).json({
+            error: 'Akses Ditolak: Teknisi tidak diizinkan mengubah Schedule Appointment Date.',
+            code: 'FORBIDDEN_RESCHEDULE_INSTALLER'
+          });
+        }
         return res.status(400).json({
-          error: `Format tanggal appointment "${updates.appointmentDate}" tidak valid menurut kalender masehi.`,
+          error: 'Schedule Appointment Date wajib diisi dengan format tanggal yang valid (YYYY-MM-DD).',
           code: 'INVALID_DATE_FORMAT'
         });
       }
+      const normalized = normalizeAppointmentDate(requestedClean);
+      if (!normalized) {
+        return res.status(400).json({
+          error: `Format tanggal appointment "${incomingRawAppt}" tidak valid menurut kalender masehi.`,
+          code: 'INVALID_DATE_FORMAT'
+        });
+      }
+      if (normalized !== existingAppt) {
+        const permCheck = await canUserRescheduleAppointmentServer(req.user!, currentTicket);
+        if (!permCheck.allowed) {
+          await logServerAuditAsync(
+            'Access Denied (Reschedule Appointment Date)',
+            'rbac',
+            currentTicket.woNumber || currentTicket.id,
+            `User ${req.user!.name} (${req.user!.role}) ditolak mengubah appointmentDate ke ${normalized}: ${permCheck.message}`,
+            req.user
+          );
+          return res.status(permCheck.status).json({
+            error: permCheck.message,
+            code: permCheck.code
+          });
+        }
+        const targetCheck = validateRescheduleTargetTicketServer(currentTicket);
+        if (!targetCheck.valid) {
+          return res.status(targetCheck.status).json({
+            error: targetCheck.message,
+            code: targetCheck.code
+          });
+        }
+      }
       updates.appointmentDate = normalized;
+      delete updates.appointment_date;
     }
 
     let updatedTicket = {
@@ -5727,6 +5936,206 @@ export async function createExpressApp(options?: {
   };
   app.put('/api/tickets/:id', requireAuth, handleUpdateTicket);
   app.patch('/api/tickets/:id', requireAuth, handleUpdateTicket);
+
+  // Reschedule Schedule Appointment Date (Dedicated Endpoint for Overdue WO & Authorized Roles)
+  app.post('/api/work-orders/:id/reschedule-appointment', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const cleanId = String(req.params.id || '').trim();
+      if (!cleanId) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_ID',
+          error: 'ID Work Order wajib disertakan.'
+        });
+      }
+
+      if (PROTECTED_PRODUCTION_WO_IDS.has(cleanId)) {
+        return res.status(403).json({
+          success: false,
+          code: 'PROTECTED_RECORD',
+          error: 'Tiga WO produksi yang telah di-soft-delete dilindungi secara mutlak dan dilarang diubah.'
+        });
+      }
+
+      if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'SUPABASE_NOT_CONFIGURED',
+          error: 'Supabase belum dikonfigurasi dan mode lokal JSON dilarang di lingkungan produksi.'
+        });
+      }
+
+      let existing: any = null;
+      let localIndex = -1;
+
+      if (isSupabaseMode()) {
+        const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+        if (supaGet.success && supaGet.data) {
+          existing = supaGet.data;
+        } else {
+          const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+          if (supaByWo.success && supaByWo.data) {
+            existing = supaByWo.data;
+          } else if (!isLocalJsonModeAllowed() && !supaGet.error?.isNotFound && !supaByWo.error?.isNotFound) {
+            return res.status(503).json({
+              success: false,
+              code: 'DATABASE_UNAVAILABLE',
+              error: 'Database authoritative Supabase tidak dapat diakses.'
+            });
+          }
+        }
+      }
+
+      if (!existing && isLocalJsonModeAllowed()) {
+        localIndex = db.tickets.findIndex(t => t.id === cleanId);
+        if (localIndex === -1) {
+          localIndex = db.tickets.findIndex(t => !t.isDeleted && t.woNumber === cleanId);
+        }
+        if (localIndex === -1) {
+          localIndex = db.tickets.findIndex(t => t.woNumber === cleanId);
+        }
+        if (localIndex !== -1) {
+          existing = db.tickets[localIndex];
+        }
+      }
+
+      const targetCheck = validateRescheduleTargetTicketServer(existing);
+      if (!targetCheck.valid) {
+        return res.status(targetCheck.status).json({
+          success: false,
+          code: targetCheck.code,
+          error: targetCheck.message
+        });
+      }
+
+      const permCheck = await canUserRescheduleAppointmentServer(user, existing);
+      if (!permCheck.allowed) {
+        await logServerAuditAsync(
+          'Access Denied (Overdue Reschedule)',
+          'rbac',
+          existing.woNumber || existing.id,
+          `User ${user.name} (${user.role}) ditolak menjadwalkan ulang WO ${existing.woNumber || existing.id}: ${permCheck.message}`,
+          user
+        );
+        return res.status(permCheck.status).json({
+          success: false,
+          code: permCheck.code,
+          error: permCheck.message
+        });
+      }
+
+      const rawNewDate = req.body?.appointmentDate ?? req.body?.newAppointmentDate;
+      const newDateStr = rawNewDate === null || rawNewDate === undefined ? '' : String(rawNewDate).trim();
+      if (!newDateStr) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_DATE_FORMAT',
+          error: 'Tanggal Schedule Appointment baru wajib diisi.'
+        });
+      }
+
+      const normalizedNewDate = normalizeAppointmentDate(newDateStr);
+      if (!normalizedNewDate) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_DATE_FORMAT',
+          error: `Format tanggal appointment "${newDateStr}" tidak valid menurut kalender masehi.`
+        });
+      }
+
+      const oldAppointmentDate = getStrictAppointmentDateServer(existing) || (existing.appointmentDate ? String(existing.appointmentDate).trim() : null);
+      const reason = String(req.body?.reason || '').trim().slice(0, 500);
+      const todayWIB = getJakartaDateStringServer(getNow());
+
+      if (oldAppointmentDate && oldAppointmentDate === normalizedNewDate) {
+        const unchangedEnriched = attachClassificationMetadata(existing, todayWIB);
+        return res.json({
+          success: true,
+          unchanged: true,
+          ticket: unchangedEnriched,
+          data: unchangedEnriched,
+          oldAppointmentDate,
+          newAppointmentDate: normalizedNewDate,
+          operationalDateWIB: todayWIB
+        });
+      }
+
+      // Strictly mutate ONLY appointmentDate + updatedBy/updatedAt
+      const scheduleOnlyUpdates: Record<string, any> = {
+        appointmentDate: normalizedNewDate,
+        updatedBy: user.name
+      };
+
+      let updatedTicket: any = null;
+      if (isSupabaseMode()) {
+        const supaRes = await updateWorkOrderInSupabase(existing.id, scheduleOnlyUpdates);
+        if (!supaRes.success) {
+          const statusCode = supaRes.error?.isUnavailable ? 503 : 400;
+          return res.status(statusCode).json({
+            success: false,
+            code: supaRes.error?.code || 'SUPABASE_ERROR',
+            error: supaRes.error?.message || 'Gagal menyimpan perubahan Schedule Appointment Date ke database Supabase.'
+          });
+        }
+        updatedTicket = supaRes.data;
+      } else {
+        updatedTicket = {
+          ...existing,
+          appointmentDate: normalizedNewDate,
+          updatedAt: new Date().toISOString(),
+          updatedBy: user.name
+        };
+      }
+
+      if (isLocalJsonModeAllowed()) {
+        if (localIndex === -1) {
+          localIndex = db.tickets.findIndex(t => t.id === existing.id);
+        }
+        if (localIndex >= 0) {
+          db.tickets[localIndex] = updatedTicket;
+        }
+        saveDatabaseToDisk();
+      }
+
+      const enrichedUpdated = attachClassificationMetadata(updatedTicket, todayWIB);
+      broadcastSupabaseChange('work_orders', 'UPDATE', enrichedUpdated, { previousRecord: existing });
+
+      await logServerAuditAsync(
+        'Appointment Date Rescheduled',
+        'work_order',
+        existing.woNumber || existing.id,
+        `WO ${existing.woNumber || existing.id} dijadwalkan ulang oleh ${user.name} (${user.role}): ${oldAppointmentDate || '(kosong)'} → ${normalizedNewDate}${reason ? ` | Alasan: ${reason}` : ''}`,
+        user,
+        {
+          previousState: { appointmentDate: oldAppointmentDate },
+          newState: { appointmentDate: normalizedNewDate },
+          metadata: {
+            source: 'reschedule_appointment_endpoint',
+            oldAppointmentDate,
+            newAppointmentDate: normalizedNewDate,
+            reason: reason || null
+          }
+        }
+      );
+
+      return res.json({
+        success: true,
+        ticket: enrichedUpdated,
+        data: enrichedUpdated,
+        oldAppointmentDate,
+        newAppointmentDate: normalizedNewDate,
+        operationalDateWIB: todayWIB
+      });
+    } catch (err: any) {
+      console.error('[API /api/work-orders/:id/reschedule-appointment] Error:', err);
+      return res.status(500).json({
+        success: false,
+        code: 'INTERNAL_ERROR',
+        error: err?.message || 'Terjadi kesalahan saat mengubah Schedule Appointment Date.'
+      });
+    }
+  });
 
   // Assign Ticket Personnel (Strictly Leader Role ONLY)
   app.post('/api/tickets/assign', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res) => {
@@ -7019,7 +7428,7 @@ export async function createExpressApp(options?: {
       });
     }
 
-    if (isTicketClosed(ticket) && req.user!.role === 'installer') {
+    if (isTicketClosed(ticket) && String(req.user!.role) === 'installer') {
       return res.status(409).json({
         success: false,
         code: 'WO_CLOSED',
@@ -12237,7 +12646,10 @@ export async function createExpressApp(options?: {
 
       if (isSupabaseMode()) {
         const usePaginated = Boolean(limit || page || offset || search || statusWOAgent || statusWOInstaller || contractor);
+        const isInstallerRole = user.role === 'installer';
         if (usePaginated) {
+          const reqLimit = limit ? Math.min(500, Math.max(1, parseInt(limit, 10) || 100)) : 100;
+          const reqPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
           const sbPaged = await getWorkOrdersFromSupabasePaginated({
             area,
             contractorId,
@@ -12245,13 +12657,13 @@ export async function createExpressApp(options?: {
             installerName,
             statusWOAgent,
             statusWOInstaller,
-            appointmentDate: user.role === 'installer' ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
+            appointmentDate: isInstallerRole ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
             search,
-            includeArchived: user.role === 'installer' ? false : includeArchived === 'true',
-            includeDeleted: user.role === 'installer' ? false : includeDeleted === 'true',
-            limit: limit ? parseInt(limit, 10) : 100,
-            offset: offset ? parseInt(offset, 10) : undefined,
-            page: page ? parseInt(page, 10) : 1,
+            includeArchived: isInstallerRole ? false : includeArchived === 'true',
+            includeDeleted: isInstallerRole ? false : includeDeleted === 'true',
+            limit: isInstallerRole ? 500 : reqLimit,
+            offset: isInstallerRole ? undefined : (offset ? parseInt(offset, 10) : undefined),
+            page: isInstallerRole ? 1 : reqPage,
             lightweight: lightweight !== 'false',
             userRole: user.role,
             userId: user.id,
@@ -12271,7 +12683,7 @@ export async function createExpressApp(options?: {
           } else {
             tickets = sbPaged.data?.tickets || [];
             totalCount = sbPaged.data?.total;
-            pageNum = sbPaged.data?.page;
+            pageNum = reqPage;
             totalPagesCount = sbPaged.data?.totalPages;
           }
         } else {
@@ -12279,9 +12691,9 @@ export async function createExpressApp(options?: {
             area,
             contractorId,
             installerName,
-            appointmentDate: user.role === 'installer' ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
-            includeArchived: user.role === 'installer' ? false : includeArchived === 'true',
-            includeDeleted: user.role === 'installer' ? false : includeDeleted === 'true',
+            appointmentDate: isInstallerRole ? undefined : (appointmentDate ? normalizeAppointmentDate(appointmentDate) : undefined),
+            includeArchived: isInstallerRole ? false : includeArchived === 'true',
+            includeDeleted: isInstallerRole ? false : includeDeleted === 'true',
             lightweight: lightweight === 'true'
           });
 
@@ -12313,7 +12725,7 @@ export async function createExpressApp(options?: {
         tickets = (db.tickets || []).filter((t: any) => includeDeleted === 'true' ? true : !t.isDeleted);
       }
 
-      if (includeDeleted !== 'true') {
+      if (includeDeleted !== 'true' || user.role === 'installer') {
         tickets = tickets.filter((t: any) => t && !t.isDeleted);
       }
 
@@ -12326,6 +12738,23 @@ export async function createExpressApp(options?: {
       }
       if (statusWOInstaller && statusWOInstaller.toLowerCase() !== 'all') {
         scoped = scoped.filter(t => t.statusWOInstaller === statusWOInstaller);
+      }
+
+      if (user.role === 'installer' && (limit || page)) {
+        const reqLimit = limit ? Math.min(500, Math.max(1, parseInt(limit, 10) || 100)) : 100;
+        const reqPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+        const installerTotal = scoped.length;
+        const installerTotalPages = Math.max(1, Math.ceil(installerTotal / reqLimit));
+        const safePage = Math.min(reqPage, installerTotalPages);
+        const sliced = scoped.slice((safePage - 1) * reqLimit, safePage * reqLimit);
+        return res.json({
+          success: true,
+          data: sliced,
+          count: sliced.length,
+          total: installerTotal,
+          page: safePage,
+          totalPages: installerTotalPages
+        });
       }
 
       return res.json({
@@ -12427,7 +12856,7 @@ export async function createExpressApp(options?: {
       }
 
       // Strict RBAC check (includes Installer today-only + active check-in gate)
-      if (!checkOperationalTicketAccess(ticket, user)) {
+      if (!checkOperationalTicketAccess(ticket, user, getJakartaDateStringServer(getNow()))) {
         await logServerAuditAsync('Access Denied: Ticket Scope Violation', 'rbac', id, `User ${user.name} (${user.role}) ditolak mengakses WO ${ticket.woNumber || id}`, user);
         return res.status(403).json({
           success: false,
@@ -12591,7 +13020,7 @@ export async function createExpressApp(options?: {
       }
 
       // Strict RBAC + Today-only operational check for modifying WO
-      if (!checkOperationalTicketAccess(existing, user)) {
+      if (!checkOperationalTicketAccess(existing, user, getJakartaDateStringServer(getNow()))) {
         const isCrossDateInstaller = user.role === 'installer' && checkTicketAccess(existing, user);
         return res.status(403).json({
           success: false,
@@ -12658,19 +13087,63 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // Date validation
-      if (updates.appointmentDate !== undefined) {
-        const rawDate = updates.appointmentDate;
-        if (rawDate && typeof rawDate === 'string' && rawDate.trim() !== '') {
-          const validated = normalizeAppointmentDate(rawDate);
-          if (!validated) {
-            return res.status(400).json({
+      // Date validation + Authorization & Operational Check-In Guard on appointmentDate change
+      const incomingPatchAppt =
+        updates.appointmentDate !== undefined
+          ? updates.appointmentDate
+          : updates.appointment_date !== undefined
+          ? updates.appointment_date
+          : undefined;
+      if (incomingPatchAppt !== undefined) {
+        const existingAppt = getStrictAppointmentDateServer(existing);
+        const rawDateStr = incomingPatchAppt === null ? '' : String(incomingPatchAppt).trim();
+        if (!rawDateStr) {
+          if (user.role === 'installer') {
+            return res.status(403).json({
               success: false,
-              error: { code: 'INVALID_DATE_FORMAT', message: `Format tanggal appointment "${rawDate}" tidak valid menurut kalender masehi.` }
+              error: {
+                code: 'FORBIDDEN_RESCHEDULE_INSTALLER',
+                message: 'Akses Ditolak: Teknisi (Installer) tidak diizinkan mengubah Schedule Appointment Date.'
+              }
             });
           }
-          updates.appointmentDate = validated;
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_DATE_FORMAT', message: 'Schedule Appointment Date wajib diisi dengan format tanggal yang valid (YYYY-MM-DD).' }
+          });
         }
+        const validated = normalizeAppointmentDate(rawDateStr);
+        if (!validated) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_DATE_FORMAT', message: `Format tanggal appointment "${incomingPatchAppt}" tidak valid menurut kalender masehi.` }
+          });
+        }
+        if (validated !== existingAppt) {
+          const permCheck = await canUserRescheduleAppointmentServer(user, existing);
+          if (!permCheck.allowed) {
+            await logServerAuditAsync(
+              'Access Denied (PATCH Appointment Date)',
+              'rbac',
+              existing.woNumber || existing.id,
+              `User ${user.name} (${user.role}) ditolak mengubah appointmentDate ke ${validated}: ${permCheck.message}`,
+              user
+            );
+            return res.status(permCheck.status).json({
+              success: false,
+              error: { code: permCheck.code || 'FORBIDDEN_RESCHEDULE', message: permCheck.message }
+            });
+          }
+          const targetCheck = validateRescheduleTargetTicketServer(existing);
+          if (!targetCheck.valid) {
+            return res.status(targetCheck.status).json({
+              success: false,
+              error: { code: targetCheck.code || 'INVALID_WO_STATE', message: targetCheck.message }
+            });
+          }
+        }
+        updates.appointmentDate = validated;
+        delete updates.appointment_date;
       }
 
       // Offload any inline Base64 signature or report photos to Supabase Storage so PostgreSQL never stores Base64 blobs
@@ -16789,7 +17262,8 @@ export async function createExpressApp(options?: {
           coverageAreas = areaRes.success && areaRes.data ? areaRes.data : (isLocalJsonModeAllowed() ? db.coverageAreas : []);
           users = uRes.success && uRes.data ? uRes.data : (isLocalJsonModeAllowed() ? db.users : []);
 
-          const scopedInitial = scopeTicketsForUser(tickets, user);
+          const todayWIB = getJakartaDateStringServer(getNow());
+          const scopedInitial = scopeTicketsForUser(tickets, user, todayWIB);
           if (scopedInitial.length > 0) {
             const msgRes = await getTicketMessagesForTicketsFromSupabase(scopedInitial.map(t => t.id));
             if (msgRes.success && msgRes.data) {
@@ -16806,7 +17280,8 @@ export async function createExpressApp(options?: {
       }
 
       // Apply strict RBAC user scoping BEFORE computation
-      const scopedTickets = scopeTicketsForUser(tickets, user);
+      const todayWIB = getJakartaDateStringServer(getNow());
+      const scopedTickets = scopeTicketsForUser(tickets, user, todayWIB);
 
       // Leader role strictly scoped to their own contractor & coverage
       let scopedContractors = contractors;
@@ -17731,7 +18206,7 @@ export async function createExpressApp(options?: {
 
     const ticket = db.tickets.find(t => t.id === id || t.woNumber === id);
     if (ticket && (req.user!.role === 'leader' || req.user!.role === 'installer')) {
-      if (!checkOperationalTicketAccess(ticket, req.user!)) {
+      if (!checkOperationalTicketAccess(ticket, req.user!, getJakartaDateStringServer(getNow()))) {
         return res.status(403).json({
           error:
             req.user!.role === 'leader'
