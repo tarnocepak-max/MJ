@@ -629,23 +629,23 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           </div>
 
           <div className="p-4 space-y-3.5">
-            {/* Customer & Category Row */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h2 className="font-display font-extrabold text-base sm:text-lg text-[#26364A] dark:text-[#f5eeff] truncate">
+            {/* Customer & Category Row + Full-width Formatted Address */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display font-extrabold text-base sm:text-lg text-[#26364A] dark:text-[#f5eeff] truncate min-w-0">
                   {activeHeroTicket.customerName}
                 </h2>
-                <div className="mt-1">
-                  <WorkOrderAddressBlock
-                    ticket={activeHeroTicket}
-                    variant="card"
-                    fallbackText="Alamat belum tersedia"
-                  />
-                </div>
+                <span className="px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0">
+                  {activeHeroTicket.ticketCategory || activeHeroTicket.appointmentType || 'PSB'}
+                </span>
               </div>
-              <span className="px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0">
-                {activeHeroTicket.ticketCategory || activeHeroTicket.appointmentType || 'PSB'}
-              </span>
+              <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5">
+                <WorkOrderAddressBlock
+                  ticket={activeHeroTicket}
+                  variant="card"
+                  fallbackText="Alamat belum tersedia"
+                />
+              </div>
             </div>
 
             {/* 4-Step Progres Lapangan Tracker */}
@@ -1239,7 +1239,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                   className="card-3d-lavender rounded-2xl p-3.5 space-y-2.5 hover:border-[#65B8C4] dark:hover:border-[#A380FE] transition-colors cursor-pointer"
                 >
                   {/* Top Row: Left Slot Time / Checkmark Block + Main WO Meta + Right Chevron */}
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-center gap-2.5">
                     <div
                       className={`w-14 shrink-0 rounded-xl px-1.5 py-2 text-center border ${
                         bucket === 'selesai'
@@ -1259,7 +1259,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       </span>
                     </div>
 
-                    <div className="min-w-0 flex-1 space-y-1">
+                    <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center justify-between gap-1.5">
                         <span className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] truncate">
                           {ticket.woNumber}
@@ -1283,14 +1283,16 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
                         {ticket.customerName}
                       </h3>
-                      <div className="pt-0.5">
-                        <WorkOrderAddressBlock
-                          ticket={ticket}
-                          variant="card"
-                          fallbackText="Alamat belum tersedia"
-                        />
-                      </div>
                     </div>
+                  </div>
+
+                  {/* Full-width Structured Address Well */}
+                  <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-2">
+                    <WorkOrderAddressBlock
+                      ticket={ticket}
+                      variant="card"
+                      fallbackText="Alamat belum tersedia"
+                    />
                   </div>
 
                   {/* Status Badges + Tech Strip */}

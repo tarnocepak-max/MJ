@@ -2460,17 +2460,18 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
             <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
               {requiresProgressCheckIn ? (
-                <div className="p-3.5 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <Camera className="w-5 h-5 text-[#9D661F] dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="text-xs text-[#7D4F15] dark:text-amber-200">
-                      <div className="font-bold">Siap Memulai Pekerjaan? Lakukan Check-In GPS</div>
-                      <p className="text-[11px] text-[#9D661F] dark:text-amber-300/90 mt-0.5">
-                        Menekan tombol CHECK-IN akan mengaktifkan kamera, validasi koordinat GPS, mengambil Foto Rumah (#01), dan mencatat timestamp Check-In serta #PROGRESS.
-                      </p>
+                <div className="p-3.5 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <Camera className="w-5 h-5 text-[#9D661F] dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-[#7D4F15] dark:text-amber-200">
+                        <div className="font-bold">Siap Memulai Pekerjaan? Lakukan Check-In GPS</div>
+                        <p className="text-[11px] text-[#9D661F] dark:text-amber-300/90 mt-0.5">
+                          Menekan tombol CHECK-IN akan mengaktifkan kamera, validasi koordinat GPS, mengambil Foto Rumah (#01), dan mencatat timestamp Check-In serta #PROGRESS.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     {!ticketClosed && (
                       <button
                         type="button"
@@ -2481,13 +2482,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                         <span>CHECK-IN</span>
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={handleOpenProgressChatForCheckIn}
-                      className="mj-btn-installer-neutral mj-btn-compact px-3 py-2 text-xs cursor-pointer"
-                    >
-                      LiveChat #PROGRESS
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenProgressChatForCheckIn}
+                        className="mj-btn-installer-neutral mj-btn-compact px-3 py-2 text-xs cursor-pointer"
+                      >
+                        LiveChat #PROGRESS
+                      </button>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-[#F2CF95]/80 dark:border-amber-800/50">
+                    <WorkOrderAddressBlock
+                      ticket={activeTicket}
+                      variant="card"
+                      prefixLabel="Lokasi Target:"
+                      fallbackText="Alamat pelanggan belum tercatat"
+                    />
                   </div>
                 </div>
               ) : (

@@ -30,26 +30,26 @@ export const WorkOrderAddressBlock: React.FC<WorkOrderAddressBlockProps> = ({
   const isDetail = variant === 'detail';
 
   const primaryLineClass = isBanner
-    ? 'text-[12px] font-semibold text-white leading-snug'
+    ? 'text-[12px] font-semibold text-white leading-[1.35]'
     : isCamera
-    ? 'text-[11.5px] font-semibold text-[#f5eeff] leading-snug'
+    ? 'text-[11.5px] font-semibold text-[#f5eeff] leading-[1.35]'
     : isDetail
-    ? 'text-[12px] font-semibold text-[#26364A] dark:text-[#f5eeff] leading-snug'
-    : 'text-[11.5px] font-semibold text-[#26364A] dark:text-[#f5eeff] leading-snug';
+    ? 'text-[12.5px] font-semibold text-[#26394E] dark:text-[#f5eeff] leading-[1.4]'
+    : 'text-[11.5px] font-semibold text-[#26394E] dark:text-[#f5eeff] leading-[1.35]';
 
   const secondaryLineClass = isBanner
-    ? 'text-[11px] text-white/85 leading-snug'
+    ? 'text-[11px] text-white/90 leading-[1.35]'
     : isCamera
-    ? 'text-[11px] text-[#cbc3d7] leading-snug'
+    ? 'text-[11px] text-[#cbc3d7] leading-[1.35]'
     : isDetail
-    ? 'text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] leading-snug'
-    : 'text-[11px] text-[#52647A] dark:text-[#C4B5D6] leading-snug';
+    ? 'text-[11.5px] text-[#4A5D73] dark:text-[#C4B5D6] leading-[1.35]'
+    : 'text-[11px] text-[#4A5D73] dark:text-[#C4B5D6] leading-[1.35]';
 
   const additionalRowClass = isBanner
-    ? 'mt-1 pt-1 border-t border-white/20 text-[10.5px] text-[#DDF4F4] leading-snug flex items-start gap-1'
+    ? 'mt-1 pt-1 border-t border-white/20 text-[10.5px] text-[#DDF4F4] leading-[1.35] flex items-start gap-1'
     : isCamera
-    ? 'mt-1 pt-1 border-t border-white/15 text-[10.5px] text-[#d0bcff] leading-snug flex items-start gap-1'
-    : 'mt-1 pt-1 border-t border-[#DDE6F0]/80 dark:border-[#35105E]/80 text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF] leading-snug flex items-start gap-1';
+    ? 'mt-1 pt-1 border-t border-white/15 text-[10.5px] text-[#d0bcff] leading-[1.35] flex items-start gap-1'
+    : 'mt-1 pt-1 border-t border-[#DDE6F0]/80 dark:border-[#35105E]/80 text-[10.5px] text-[#5145A6] dark:text-[#DAB9FF] leading-[1.35] flex items-start gap-1';
 
   const iconColorClass = isBanner
     ? 'text-[#DDF4F4]'
@@ -61,7 +61,7 @@ export const WorkOrderAddressBlock: React.FC<WorkOrderAddressBlockProps> = ({
     return (
       <div className={`flex items-start gap-1.5 min-w-0 ${className}`}>
         {showIcon && <MapPin className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${iconColorClass}`} />}
-        <span className={`${secondaryLineClass} whitespace-normal [overflow-wrap:break-word]`}>
+        <span className={`${secondaryLineClass} whitespace-normal break-normal [overflow-wrap:break-word]`}>
           {prefixLabel ? `${prefixLabel} ${fallbackText}` : fallbackText}
         </span>
       </div>
@@ -69,9 +69,9 @@ export const WorkOrderAddressBlock: React.FC<WorkOrderAddressBlockProps> = ({
   }
 
   return (
-    <div className={`flex items-start gap-1.5 min-w-0 ${className}`} data-testid="wo-address-block">
+    <div className={`flex items-start gap-1.5 min-w-0 w-full ${className}`} data-testid="wo-address-block">
       {showIcon && <MapPin className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${iconColorClass}`} />}
-      <div className="min-w-0 flex-1 space-y-0.5 whitespace-normal [overflow-wrap:break-word]">
+      <div className="min-w-0 flex-1 space-y-0.5 whitespace-normal break-normal [overflow-wrap:break-word]">
         {formatted.lines.map((line, index) => (
           <div
             key={`${index}-${line}`}
@@ -82,9 +82,9 @@ export const WorkOrderAddressBlock: React.FC<WorkOrderAddressBlockProps> = ({
         ))}
 
         {formatted.additionalLocations.length > 0 && (
-          <div className={additionalRowClass}>
+          <div className={additionalRowClass} data-testid="wo-additional-locations">
             <Compass className="w-3 h-3 shrink-0 mt-0.5 opacity-85" />
-            <div className="min-w-0 flex-1 whitespace-normal [overflow-wrap:break-word]">
+            <div className="min-w-0 flex-1 whitespace-normal break-normal [overflow-wrap:break-word]">
               <span className="font-semibold">Lokasi Tambahan: </span>
               <span>{formatted.additionalLocations.join(' · ')}</span>
             </div>

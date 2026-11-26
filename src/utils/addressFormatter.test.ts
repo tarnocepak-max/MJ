@@ -29,13 +29,12 @@ describe('formatWorkOrderAddress', () => {
       'Banten 15220'
     ]);
 
-    // Ensure zero duplication of postal code or city
     assert.equal(res.formattedPrimaryText.match(/15220/g)?.length, 1);
     assert.equal(res.formattedPrimaryText.match(/Tangerang Selatan/gi)?.length, 1);
     assert.equal(res.formattedPrimaryText.match(/Serpong Utara/gi)?.length, 1);
   });
 
-  it('Case 2: deduplicates RT/RW across multiple formats (RT 002/RW 005 vs RT 2 RW 5)', () => {
+  it('Case 2: deduplicates RT/RW across multiple formats (RT 002/RW 005, RT 02/05, RT 2 RW 5)', () => {
     const res = formatWorkOrderAddress({
       streetName: 'Jl. Anggrek No. 10, RT 002 / RW 005, Kel. Pondok Jagung',
       address: 'Jl. Anggrek No. 10, RT 2 RW 5, Kel. Pondok Jagung',
@@ -49,6 +48,14 @@ describe('formatWorkOrderAddress', () => {
     assert.equal(res.line2, 'RT 002/RW 005, Kel. Pondok Jagung');
     assert.equal(res.formattedPrimaryText.match(/RT/gi)?.length, 1);
     assert.equal(res.formattedPrimaryText.match(/RW/gi)?.length, 1);
+
+    const compactSlashRes = formatWorkOrderAddress({
+      streetName: 'Jl. Anggrek No. 10, RT 02/05, Kel. Pondok Jagung',
+      rawColumns: { rw: '05' }
+    });
+    assert.equal(compactSlashRes.line1, 'Jl. Anggrek No. 10');
+    assert.equal(compactSlashRes.line2, 'RT 02/RW 05, Kel. Pondok Jagung');
+    assert.doesNotMatch(compactSlashRes.line1, /05/);
   });
 
   it('Case 3: handles address without RT/RW cleanly without empty labels or stray commas', () => {
@@ -98,7 +105,6 @@ describe('formatWorkOrderAddress', () => {
     assert.equal(emptyRes.formattedPrimaryText, '');
     assert.equal(isMeaningfulAddressValue('N/A'), false);
 
-    // Partial address preserves only real pieces
     const partialRes = formatWorkOrderAddress({
       streetName: 'Jl. Kenanga No. 4',
       clusterName: '-',
@@ -161,10 +167,8 @@ describe('formatWorkOrderAddress', () => {
       'Banten 15220'
     ]);
 
-    // Primary lines must NOT contain PAKU JAYA PERMAI or FDT 2
     assert.doesNotMatch(res.formattedPrimaryText, /PAKU JAYA PERMAI|FDT 2/i);
 
-    // Additional locations deduplicated and cleanly ordered
     assert.deepEqual(res.additionalLocations, [
       'Paku Jaya Permai',
       'Dekat Gerbang Timur',
@@ -172,7 +176,6 @@ describe('formatWorkOrderAddress', () => {
       'FDT 2'
     ]);
 
-    // Search haystack retains all searchable keywords
     const haystack = buildTicketAddressSearchHaystack({
       streetName: 'JL. MAWAR INDAH',
       clusterName: 'PAKU JAYA PERMAI',
@@ -181,6 +184,56 @@ describe('formatWorkOrderAddress', () => {
     });
     assert.ok(haystack.includes('paku jaya permai'));
     assert.ok(haystack.includes('15220'));
+  });
+
+  it('handles unprefixed Kecamatan & embedded cluster + FDT 2 even when clusterName is omitted', () => {
+    const res = formatWorkOrderAddress({
+      streetName:
+        'Jalan Kemang Timur, Blok A15, No. 5\nSerpong Utara, Tangerang Selatan\nBanten 15220\nPAKU JAYA PERMAI FDT 2',
+      area: 'Tangerang Selatan',
+      postalCode: '15220'
+    });
+
+    assert.equal(res.line1, 'Jalan Kemang Timur, Blok A15, No. 5');
+    assert.equal(res.line3, 'Kec. Serpong Utara, Tangerang Selatan');
+    assert.equal(res.line4, 'Banten 15220');
+    assert.doesNotMatch(res.line1, /Serpong Utara|PAKU JAYA PERMAI|FDT 2/i);
+    assert.deepEqual(res.additionalLocations, ['FDT 2', 'Paku Jaya Permai']);
+  });
+
+  it('deduplicates Jalan vs Jl. / Nomor vs No. and strips duplicated leading cluster prefix in streetName', () => {
+    const res = formatWorkOrderAddress({
+      streetName: 'Jalan Mawar, Blok A15, No. 5',
+      address: 'Jl. Mawar Blok A15 Nomor 5, Tangerang Selatan',
+      area: 'Tangerang Selatan'
+    });
+    assert.equal(res.line1, 'Jalan Mawar, Blok A15, No. 5');
+    assert.equal(res.line3, 'Tangerang Selatan');
+
+    const clusterPrefixedRes = formatWorkOrderAddress({
+      clusterName: 'Permata Hijau 2',
+      streetName: 'Permata Hijau 2 Blok C No. 5',
+      area: 'Jakarta Barat'
+    });
+    assert.equal(clusterPrefixedRes.line1, 'Blok C No. 5');
+    assert.equal(clusterPrefixedRes.line3, 'Jakarta Barat');
+    assert.deepEqual(clusterPrefixedRes.additionalLocations, ['Permata Hijau 2']);
+  });
+
+  it('deduplicates composite city/area strings containing province, kecamatan, or postal code', () => {
+    const res = formatWorkOrderAddress({
+      streetName: 'Jl. Kenanga No. 12',
+      area: 'Serpong Utara, Tangerang Selatan, Banten',
+      city: 'Kota Tangerang Selatan, Banten 15220',
+      postalCode: '15220'
+    });
+
+    assert.equal(res.line1, 'Jl. Kenanga No. 12');
+    assert.equal(res.line3, 'Kec. Serpong Utara, Kota Tangerang Selatan');
+    assert.equal(res.line4, 'Banten 15220');
+    assert.equal(res.formattedPrimaryText.match(/Banten/gi)?.length, 1);
+    assert.equal(res.formattedPrimaryText.match(/15220/g)?.length, 1);
+    assert.equal(res.formattedPrimaryText.match(/Tangerang Selatan/gi)?.length, 1);
   });
 
   it('handles abbreviations missing space after period (JL.MAWAR NO.5, KEL.PAKU JAYA, KEC.SERPONG UTARA)', () => {
@@ -193,4 +246,29 @@ describe('formatWorkOrderAddress', () => {
     assert.equal(res.line3, 'Kec. Serpong Utara, Tangerang Selatan');
     assert.equal(res.line4, 'Banten 15220');
   });
+
+  it('supports direct top-level rt/rw/kelurahan/kecamatan/province fields and keeps FDT inside descriptive landmark sentences', () => {
+    const res = formatWorkOrderAddress({
+      streetName: 'Blok C No. 5',
+      clusterName: 'PAKU JAYA PERMAI',
+      rt: '02',
+      rw: '05',
+      kelurahan: 'Pela Mampang',
+      kecamatan: 'Mampang Prapatan',
+      city: 'Jakarta Selatan',
+      province: 'DKI Jakarta',
+      postalCode: '12730',
+      streetAlternatif: 'Patokan: Seberang Gerbang FDT 2'
+    });
+
+    assert.equal(res.line1, 'Blok C No. 5');
+    assert.equal(res.line2, 'RT 02/RW 05, Kel. Pela Mampang');
+    assert.equal(res.line3, 'Kec. Mampang Prapatan, Jakarta Selatan');
+    assert.equal(res.line4, 'DKI Jakarta 12730');
+    assert.deepEqual(res.additionalLocations, [
+      'Paku Jaya Permai',
+      'Patokan: Seberang Gerbang FDT 2'
+    ]);
+  });
 });
+

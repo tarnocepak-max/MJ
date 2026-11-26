@@ -29,12 +29,14 @@ import { formatAppointmentDateDisplay } from '../../services/appointmentDatePars
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import {
   buildGoogleMapsCoordinateUrl,
+  buildGoogleMapsSearchUrl,
   formatCoordinates,
   isValidCoordinatePair
 } from '../../services/mapsService';
 import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
 import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
 import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
+import { WorkOrderAddressBlock } from '../portals/WorkOrderAddressBlock';
 import {
   X,
   MessageSquare,
@@ -510,7 +512,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const mapsQuery =
     hasValue(ticket.latitude) && hasValue(ticket.longitude)
       ? `${ticket.latitude},${ticket.longitude}`
-      : ticket.customerCoordinates || ticket.address || ticket.streetName || ticket.clusterName || '';
+      : buildGoogleMapsSearchUrl(ticket).address || '';
 
   const canonicalFields: { label: string; value: unknown; mono?: boolean }[] = [
     { label: 'No Ticket', value: ticket.ticketNumber, mono: true },
@@ -1274,12 +1276,13 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 <div className="p-3.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl space-y-2 border border-[#DDE6F0] dark:border-[#35105E]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10.5px] font-bold uppercase text-[#8492A5]">Alamat Instalasi</div>
-                      <div className="text-[13px] text-[#26364A] dark:text-white font-medium mt-0.5 leading-relaxed">
-                        {ticket.clusterName && <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF]">[{ticket.clusterName}] </span>}
-                        {ticket.address || ticket.streetName || '-'}
-                        {ticket.city && <span className="block text-[11px] text-[#52647A] dark:text-[#CEC0E8]">{ticket.city} {ticket.postalCode || ''}</span>}
-                      </div>
+                      <div className="text-[10.5px] font-bold uppercase text-[#8492A5] mb-1">Alamat Instalasi</div>
+                      <WorkOrderAddressBlock
+                        ticket={ticket}
+                        variant="detail"
+                        showIcon={false}
+                        fallbackText="Alamat belum tercatat"
+                      />
                     </div>
 
                     {mapsQuery && (

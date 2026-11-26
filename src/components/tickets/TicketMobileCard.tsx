@@ -12,6 +12,8 @@ import {
 } from '../common/Badge';
 import { isTicketClosed } from '../../services/woLifecycleService';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
+import { WorkOrderAddressBlock } from '../portals/WorkOrderAddressBlock';
+import { formatWorkOrderAddress } from '../../utils/addressFormatter';
 import {
   MessageSquare,
   MessageCircle,
@@ -93,12 +95,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
 
   const contractorName = ticket.contactorName || ticket.contractorName || '';
   const phoneStr = ticket.customerPhone || (ticket as any).phoneNumber || '';
-  const addressStr =
-    ticket.streetName ||
-    (ticket as any).customerAddress ||
-    (ticket as any).address ||
-    ticket.area ||
-    '';
+  const formattedAddress = formatWorkOrderAddress(ticket);
 
   return (
     <article
@@ -189,7 +186,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       </button>
 
       {/* Location Tonal Card */}
-      {(addressStr || ticket.clusterName || ticket.fatCode) && (
+      {(formattedAddress.hasAddress || ticket.fatCode) && (
         <div
           onClick={e => {
             e.stopPropagation();
@@ -198,17 +195,18 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           className="mj-tactile-well rounded-xl p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[#EDF3F8] dark:hover:bg-[#241145] transition-colors"
           title="Ketuk untuk buka Google Maps"
         >
-          <div className="flex items-start gap-2 min-w-0">
-            <MapPin className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#26364A] dark:text-white truncate">
-                {ticket.clusterName || ticket.area || 'Lokasi Pelanggan'}
-              </p>
-              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] whitespace-normal break-words leading-snug">
-                {addressStr || 'Alamat belum tercatat'}
-                {ticket.fatCode ? ` • FAT ${ticket.fatCode}${ticket.fatPort ? ` #${ticket.fatPort}` : ''}` : ''}
-              </p>
-            </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <WorkOrderAddressBlock
+              ticket={ticket}
+              variant="card"
+              fallbackText="Alamat belum tercatat"
+            />
+            {ticket.fatCode && (
+              <div className="pl-5 font-mono text-[10.5px] font-semibold text-[#5145A6] dark:text-[#DAB9FF]">
+                FAT {ticket.fatCode}
+                {ticket.fatPort ? ` #${ticket.fatPort}` : ''}
+              </div>
+            )}
           </div>
           <span className="btn-3d-lilac inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-bold shrink-0">
             <span>Maps</span>

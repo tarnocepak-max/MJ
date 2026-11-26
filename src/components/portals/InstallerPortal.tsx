@@ -1006,6 +1006,14 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                       </div>
                     </div>
 
+                    <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-2.5 py-2">
+                      <WorkOrderAddressBlock
+                        ticket={ticket}
+                        variant="card"
+                        fallbackText="Alamat belum tersedia"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl p-2.5 text-[11px]">
                       <div>
                         <span className="text-[#8492A5] dark:text-[#A79BC0] block">Appointment</span>

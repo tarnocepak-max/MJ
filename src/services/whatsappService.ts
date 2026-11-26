@@ -1,4 +1,5 @@
 import { Ticket, WhatsAppTemplate } from '../types/index.ts';
+import { decodeHtmlAndBreaks, formatWorkOrderAddress } from '../utils/addressFormatter.ts';
 
 /**
  * Normalizes phone numbers to Indonesian international format (E.164 without '+').
@@ -43,6 +44,13 @@ export interface RenderTemplateResult {
  */
 export function renderWhatsAppMessage(templateBody: string, ticket: Partial<Ticket>): RenderTemplateResult {
   const missingVariables: string[] = [];
+  const formattedAddress = formatWorkOrderAddress(ticket);
+  const cleanPrimaryAddress =
+    formattedAddress.formattedSingleLine || decodeHtmlAndBreaks(ticket.streetName || '');
+  const cleanAdditionalLoc =
+    formattedAddress.additionalLocations.length > 0
+      ? formattedAddress.additionalLocations.join(' · ')
+      : decodeHtmlAndBreaks(ticket.streetAlternatif || '');
 
   // Map possible placeholder variations
   const varMap: Record<string, string> = {
@@ -53,10 +61,12 @@ export function renderWhatsAppMessage(templateBody: string, ticket: Partial<Tick
     ticket_number: ticket.ticketNumber || ticket.woNumber || '',
     ticket_category: ticket.ticketCategory || '',
     slot_time: ticket.slotTime || '',
-    street_name: ticket.streetName || '',
-    street_alternatif: ticket.streetAlternatif || '',
-    cluster_name: ticket.clusterName || '',
-    area: ticket.area || '',
+    street_name: cleanPrimaryAddress,
+    formatted_address: formattedAddress.copyText || cleanPrimaryAddress,
+    full_address: formattedAddress.copyText || cleanPrimaryAddress,
+    street_alternatif: cleanAdditionalLoc,
+    cluster_name: decodeHtmlAndBreaks(ticket.clusterName || ''),
+    area: decodeHtmlAndBreaks(ticket.area || ''),
     contractor_name: ticket.contactorName || '',
     contactor_name: ticket.contactorName || '',
     installer_name: ticket.installerName || '',

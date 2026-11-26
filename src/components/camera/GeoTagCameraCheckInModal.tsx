@@ -595,9 +595,12 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
     };
   })();
 
-  const displayAddress =
-    formatWorkOrderAddress(ticket).formattedSingleLine ||
-    'Alamat pelanggan belum tercatat';
+  const formattedAddress = formatWorkOrderAddress(ticket);
+  const headerLocationLabel =
+    formattedAddress.line1 ||
+    formattedAddress.line3 ||
+    formattedAddress.additionalLocations[0] ||
+    'Lokasi Order';
 
   const zoomScaleClass =
     !hardwareZoomRange && zoomMode === '2.0x'
@@ -779,8 +782,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
                 {ticket.customerName || 'Pelanggan'}
               </p>
               <span className="text-[11px] text-[#cbc3d7] truncate">
-                {ticket.ticketCategory || ticket.appointmentType || 'FTTH'} •{' '}
-                {ticket.area || ticket.clusterName || 'Lokasi Order'}
+                {ticket.ticketCategory || ticket.appointmentType || 'FTTH'} • {headerLocationLabel}
               </span>
             </div>
 
