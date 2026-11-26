@@ -3,7 +3,6 @@ import {
   Wand2,
   MapPin,
   MessageSquare,
-  Sliders,
   Clock,
   Copy,
   Download,
@@ -103,7 +102,6 @@ interface LeaderAssignMatrixPanelProps {
     progressPercent: number;
     color: string;
   };
-  onOpenColumnSettings: () => void;
   onExportCopy: () => void;
   onExportCSV: () => void;
   onExportExcel: () => void;
@@ -236,7 +234,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   renderBodyCell,
   expandedRowIds,
   classifyTicketOperational,
-  onOpenColumnSettings,
   onExportCopy,
   onExportCSV,
   onExportExcel,
@@ -474,14 +471,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
                 >
                   <Printer className="w-3 h-3" />
                   <span>Print</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenColumnSettings}
-                  className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-[#5145A6] dark:text-[#dab9ff] flex items-center gap-1 cursor-pointer"
-                >
-                  <Sliders className="w-3 h-3" />
-                  <span>Atur Kolom</span>
                 </button>
               </>
             )}

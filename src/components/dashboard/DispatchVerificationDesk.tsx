@@ -63,6 +63,7 @@ import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import { useModalLayer } from '../../hooks/useModalLayer';
+import { computeHotdeskModalViewportStyle } from '../../utils/uiLayoutHelpers';
 
 interface DispatchVerificationDeskProps {
   onNavigate: (tab: string) => void;
@@ -2276,9 +2277,10 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
         </div>
       </div>
 
-      {/* Stitch AI Hot Desk QC Verifikasi Modal */}
+      {/* Stitch AI Hot Desk QC Verifikasi Full-View Modal */}
       {hotDeskModalOpen && selectedTicket && selectedProof &&
         (() => {
+          const viewportStyles = computeHotdeskModalViewportStyle(hotDeskViewport);
           const hotDeskContent = (
             <div
               role="dialog"
@@ -2287,32 +2289,35 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
               onClick={() => setHotDeskModalOpen(false)}
               style={{
                 zIndex: hotDeskLayerZ,
-                ...(hotDeskViewport.keyboardInset > 0
-                  ? { paddingBottom: `${hotDeskViewport.keyboardInset}px` }
+                ...(viewportStyles.backdropPaddingBottom
+                  ? { paddingBottom: viewportStyles.backdropPaddingBottom }
+                  : {}),
+                ...(viewportStyles.backdropPaddingTop
+                  ? { paddingTop: viewportStyles.backdropPaddingTop }
                   : {})
               }}
-              className="fixed inset-0 bg-[#26364A]/45 dark:bg-[#090414]/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
+              className="fixed inset-0 bg-white dark:bg-[#1e1238] flex flex-col p-0 overflow-hidden"
             >
               <div
                 ref={hotDeskDialogRef}
+                data-testid="hotdesk-fullscreen-dialog"
+                data-fullscreen="true"
                 onClick={e => e.stopPropagation()}
                 style={
-                  hotDeskViewport.viewportHeight
+                  viewportStyles.dialogHeight
                     ? {
-                        maxHeight: `${Math.max(
-                          320,
-                          hotDeskViewport.viewportHeight - (hotDeskViewport.isKeyboardOpen ? 8 : 24)
-                        )}px`
+                        height: viewportStyles.dialogHeight,
+                        maxHeight: viewportStyles.dialogMaxHeight
                       }
                     : undefined
                 }
-                className="relative w-full max-w-[1120px] max-h-[94dvh] bg-white/95 dark:bg-[#1e1238] rounded-t-[24px] sm:rounded-2xl shadow-[0_24px_50px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(207,220,232,0.85)] dark:shadow-[0_24px_50px_-12px_rgba(22,13,41,0.35),0_0_0_1px_rgba(113,53,181,0.18)] flex flex-col overflow-hidden"
+                className="relative w-full h-[100dvh] rounded-none bg-white/98 dark:bg-[#1e1238] flex flex-col overflow-hidden"
               >
             {/* Top Specular Bevel Line */}
             <div className="h-[2px] w-full bg-gradient-to-r from-[#65B8C4] via-[#6657C8] to-[#5145A6] dark:from-cyan-400 dark:via-[#7135b5] dark:to-[#a380fe] opacity-95 shrink-0" />
 
             {/* MODAL HEADER */}
-            <div className="px-4 sm:px-6 py-4 bg-white dark:bg-[#1e1238] flex flex-col lg:flex-row lg:items-start justify-between gap-3 relative border-b border-[#DDE6F0] dark:border-[#35105e]">
+            <div className="px-4 sm:px-6 lg:px-8 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3.5 sm:py-4 bg-white dark:bg-[#1e1238] flex flex-col lg:flex-row lg:items-start justify-between gap-3 relative border-b border-[#DDE6F0] dark:border-[#35105e] shrink-0">
               <div className="flex flex-col gap-1.5 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-cyan-500/10 text-[#2E7D8B] dark:text-cyan-300 border border-[#BDE4E8] dark:border-transparent text-[11px] font-bold tracking-wide uppercase shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] dark:shadow-none">
@@ -2390,7 +2395,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
 
             {/* PAGER BAR: Multi-Ticket Navigation */}
-            <div className="px-4 sm:px-6 py-2.5 bg-[#EDF3F8] dark:bg-[#160d29] border-b border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2">
+            <div className="px-4 sm:px-6 lg:px-8 py-2.5 bg-[#EDF3F8] dark:bg-[#160d29] border-b border-[#DDE6F0] dark:border-[#35105e] flex flex-wrap items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span className="text-xs font-semibold text-[#26364A] dark:text-white">
@@ -2424,8 +2429,8 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
 
             {/* MODAL BODY: TWO-COLUMN MASTER INSPECTION LAYOUT */}
-            <div className="p-4 sm:p-6 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="p-4 sm:p-6 lg:px-8 lg:py-6 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+              <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-7 items-start">
                 {/* LEFT COLUMN: FIELD EVIDENCE & TECHNICAL DATA AUDIT (7 Cols) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
                   {/* Context 1: Customer & Technician Spec Card */}
@@ -3257,7 +3262,7 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
             </div>
 
             {/* MODAL FOOTER: 3D TACTILE DECISION ACTION BUTTONS */}
-            <div className="px-4 sm:px-6 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#EDF3F8] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-none shrink-0">
+            <div className="px-4 sm:px-6 lg:px-8 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#EDF3F8] dark:bg-[#160d29] border-t border-[#DDE6F0] dark:border-[#35105e] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)] dark:shadow-none shrink-0">
               {canManageApproval ? (
                 <>
                   <div className="flex items-center gap-2.5 w-full sm:w-auto">

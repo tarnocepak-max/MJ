@@ -29,15 +29,12 @@ import {
   isValidCoordinatePair
 } from '../../services/mapsService';
 import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
-import { navigateToDataDeletion } from '../../services/deletionManagementService';
 import { GeoLocationMiniMap } from '../maps/GeoLocationMiniMap';
 import { WorkOrderLocationsCard } from '../maps/WorkOrderLocationsCard';
 import {
   X,
   MessageSquare,
-  Archive,
   RotateCcw,
-  Database,
   Phone,
   MapPin,
   Clock,
@@ -109,8 +106,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     updateTicket,
     assignTicketPersonnel,
     reopenTicket,
-    archiveTicket,
-    restoreTicket,
     approveProgressReport,
     rejectProgressReport,
     getTicketUnreadCount,
@@ -119,17 +114,12 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     ticketActivities,
     loadTicketDetailOnDemand,
     markTicketEditing,
-    hasPermission,
     toast
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const vv = useVisualViewportModal(isOpen, dialogRef);
   const modalLayerZ = useModalLayer(isOpen, { tier: 'modal' });
-
-  const canOpenDataDeletion =
-    currentUser.role === 'super_admin' ||
-    (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
 
   // Dispatcher verification & decision state
   const [selectedWoAgentStatus, setSelectedWoAgentStatus] = useState<DispatchApprovalWoAgentStatus>('Done');
@@ -384,14 +374,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       toast.success(`WO Number ${ticket.woNumber} disalin ke clipboard.`);
     } catch {
       toast.info(`WO Number: ${ticket.woNumber}`);
-    }
-  };
-
-  const handleArchive = () => {
-    if (ticket.isArchived) {
-      restoreTicket(ticket.id);
-    } else {
-      archiveTicket(ticket.id);
     }
   };
 
@@ -700,35 +682,6 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reopen</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleArchive}
-              className="btn-3d-ceramic h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-              title={ticket.isArchived ? 'Pulihkan dari Arsip' : 'Arsipkan Tiket'}
-            >
-              <Archive className="w-3.5 h-3.5 text-[#52647A] dark:text-[#CEC0E8]" />
-              <span>{ticket.isArchived ? 'Restore' : 'Arsipkan'}</span>
-            </button>
-
-            {canOpenDataDeletion && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  navigateToDataDeletion({
-                    category: 'work_orders',
-                    mode: 'soft_delete',
-                    search: ticket.woNumber
-                  });
-                }}
-                className="btn-3d-ceramic h-8 px-2.5 rounded-lg text-[11px] font-bold flex items-center gap-1 text-[#5145A6] dark:text-[#D8B4FE] cursor-pointer"
-                title="Kelola Penghapusan di Database Application → Data Deletion"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Data Deletion</span>
               </button>
             )}
           </div>

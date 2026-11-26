@@ -182,10 +182,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           <ShieldAlert className="w-6 h-6" />
         </div>
         <h3 className="font-display font-bold text-[#26364A] dark:text-white text-base">
-          Akses Ditolak: Otoritas Setup Terpusat Dibatasi
+          Akses Ditolak: Otoritas App Setting Dibatasi
         </h3>
         <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
-          Parameter kontraktor, cakupan area, dan pemetaan kolom dalam Setup Terpusat MoraJaws hanya dapat diakses oleh <strong>Superadmin</strong>.
+          Parameter kontraktor, cakupan area, dan pemetaan kolom dalam App Setting MoraJaws hanya dapat diakses oleh <strong>Superadmin</strong>.
         </p>
         <div className="p-3 mj-tactile-well text-xs text-[#52647A] dark:text-[#D8B4FE] font-medium">
           Akun Anda: <span className="font-bold capitalize text-[#26364A] dark:text-white">{currentUser.name} ({currentUser.role})</span>.
@@ -326,7 +326,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner (Hidden when embedded cleanly in Setup Terpusat MoraJaws) */}
+      {/* Top Banner (Hidden when embedded cleanly in App Setting MoraJaws) */}
       {!embeddedInSetupHub && (
         <div className="card-3d-lavender rounded-2xl p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3.5">

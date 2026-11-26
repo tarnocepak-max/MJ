@@ -3,7 +3,6 @@ import * as XLSX from 'xlsx';
 import { Ticket, DispatchApprovalWoAgentStatus } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useUIConfig } from '../../context/UIConfigContext';
-import { CANONICAL_COLUMN_GROUPS } from '../../constants/defaultConfig';
 import {
   StatusAgentBadge,
   StatusInstallerBadge,
@@ -21,15 +20,11 @@ import { TicketMobileCard } from './TicketMobileCard';
 import { isContractorScopeMatchClient } from '../../services/assignmentClientHelpers';
 import { WorkOrderFilterSheet } from './WorkOrderFilterSheet';
 import {
-  SlidersHorizontal,
   Download,
   Eye,
   MessageSquare,
-  Archive,
-  RotateCcw,
   CheckSquare,
   Square,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -37,7 +32,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Trash2,
   ShieldAlert,
   Calendar,
   AlertTriangle,
@@ -57,7 +51,6 @@ import {
   FileText,
   Clock,
   ExternalLink,
-  Lock,
   Camera,
   UserX,
   UserCheck,
@@ -73,10 +66,8 @@ import {
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
 import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
-import { ResponsiveModal } from '../common/ResponsiveModal';
 import { PaginationBar } from '../common/PaginationBar';
 import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
-import { ManagementDataDeleteModal } from '../portals/ManagementDataDeleteModal';
 import {
   getJakartaDateString,
   getTicketAppointmentDate
@@ -222,8 +213,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     tickets,
     currentUser,
     users,
-    archiveTicket,
-    restoreTicket,
     bulkAssignPersonnel,
     approveProgressReport,
     rejectProgressReport,
@@ -241,7 +230,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     isProgressiveHydrating,
     auditLogs
   } = useApp();
-  const { config, setColumnVisibility, applyPreset, isMobileView } = useUIConfig();
+  const { config, isMobileView } = useUIConfig();
   const { isCompactUI } = useResponsiveViewport();
   const { triggerRefresh } = useAnimation();
   const { toast } = useToast();
@@ -278,7 +267,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const [selectedWhatsAppStatus, setSelectedWhatsAppStatus] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('ALL');
-  const [showArchived, setShowArchived] = useState(false);
 
   // Inline Verification Drawer & Clipboard & Row Action Menu state
   const [expandedDrawerTicketId, setExpandedDrawerTicketId] = useState<string | null>(null);
@@ -324,9 +312,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       )
     );
   }, [users, currentUser.role, currentUser.contractorId, currentUser.contractor]);
-  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [showColManager, setShowColManager] = useState(false);
 
   useEffect(() => {
     setPageSize(config.ticketsTable.rowsPerPage || 10);
@@ -605,15 +590,13 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
     if (isCrossDateActive) {
       return crossDateSearchResults.resultTickets.filter(t => {
-        if (!t || t.isDeleted) return false;
-        if (showArchived ? !t.isArchived : t.isArchived) return false;
+        if (!t || t.isDeleted || t.isArchived) return false;
         return matchesFilterDropdowns(t);
       });
     }
 
     return (tickets || []).filter(t => {
-      if (!t || t.isDeleted) return false;
-      if (showArchived ? !t.isArchived : t.isArchived) return false;
+      if (!t || t.isDeleted || t.isArchived) return false;
 
       const woDate = getTicketAppointmentDate(t);
       if (!(exactAppointmentDate || dateFrom || dateTo)) {
@@ -710,7 +693,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     });
   }, [
     tickets,
-    showArchived,
     isCrossDateActive,
     crossDateSearchResults,
     todayWIB,
@@ -1928,26 +1910,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             />
           </div>
 
-          {/* Right: 46 Kolom Kanonik, Export XLSX, Archive, Chat */}
+          {/* Right: Chat & Export XLSX */}
           <div className="flex items-center gap-2 flex-wrap lg:ml-auto">
-            {/* Archive Filter Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowArchived(!showArchived);
-                setCurrentPage(1);
-              }}
-              className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-                showArchived
-                  ? 'bg-[#FFF2D9] text-[#9D661F] border-[#F2CF95]'
-                  : 'btn-3d-ceramic'
-              }`}
-              title="Tampilkan Work Order Arsip"
-            >
-              <Archive className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
-              <span>{showArchived ? 'Archived' : 'Archive'}</span>
-            </button>
-
             {/* Chat Unread Shortcut */}
             {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
               <button
@@ -1968,150 +1932,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 )}
               </button>
             )}
-
-            {/* 46 Kolom Kanonik + Presets Selector Modal Trigger */}
-            <button
-              type="button"
-              onClick={() => setShowColManager(true)}
-              className="btn-3d-ceramic px-3 py-1.5 min-h-[38px] sm:min-h-0 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-              title={
-                omittedEmptyCount > 0
-                  ? `Smart Omit menyembunyikan ${omittedEmptyCount} kolom kosong pada halaman ini`
-                  : 'Atur tampilan & 46 Kolom Kanonik'
-              }
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
-              <span>
-                46 Kolom Kanonik
-                {tableStyleMode === 'canonical' ? ` (${activeColumns.length})` : ''}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#8B8495]" />
-            </button>
-
-            <ResponsiveModal
-              isOpen={showColManager}
-              onClose={() => setShowColManager(false)}
-              title="Mode Tabel & 46 Kolom Kanonik"
-              subtitle={
-                omittedEmptyCount > 0 && tableStyleMode === 'canonical'
-                  ? `Smart Omit: ${omittedEmptyCount} kolom kosong disembunyikan otomatis`
-                  : 'Sesuaikan preset tampilan atau kolom kanonik yang ditampilkan'
-              }
-              icon={<SlidersHorizontal className="w-4 h-4" />}
-              size="md"
-              footer={
-                <button
-                  type="button"
-                  onClick={() => setShowColManager(false)}
-                  className="btn-3d-primary px-4 py-2 min-h-[40px] sm:min-h-0 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Selesai
-                </button>
-              }
-            >
-              <div className="space-y-4 text-xs">
-                {/* Table Presentation Switcher */}
-                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTableStyleMode('stitch');
-                      applyPreset('preset_default');
-                    }}
-                    className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
-                      tableStyleMode === 'stitch'
-                        ? 'btn-3d-primary'
-                        : 'text-[#52647A] dark:text-[#CEC0E8]'
-                    }`}
-                  >
-                    Ringkas (9 Kolom)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTableStyleMode('canonical')}
-                    className={`min-h-[40px] sm:min-h-0 py-2 px-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
-                      tableStyleMode === 'canonical'
-                        ? 'btn-3d-primary'
-                        : 'text-[#52647A] dark:text-[#CEC0E8]'
-                    }`}
-                  >
-                    Kanonik ({activeColumns.length} Kolom)
-                  </button>
-                </div>
-
-                {/* Quick Preset Selector */}
-                <div>
-                  <label className="block text-[10.5px] font-bold text-[#52647A] dark:text-[#A78BFA] uppercase mb-1">
-                    Preset Kolom
-                  </label>
-                  <select
-                    value={config.ticketsTable.activePresetId || ''}
-                    onChange={e => {
-                      const val = e.target.value;
-                      applyPreset(val);
-                      setTableStyleMode(val === 'preset_default' ? 'stitch' : 'canonical');
-                    }}
-                    className="w-full min-h-[40px] sm:min-h-[34px] px-2.5 py-1.5 text-xs bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg text-[#26364A] dark:text-[#F5F1FF] font-semibold cursor-pointer"
-                  >
-                    {config.ticketsTable.presets.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Grouped 46 Canonical Columns Checklist */}
-                <div className="space-y-3">
-                  {CANONICAL_COLUMN_GROUPS.map(group => {
-                    const groupCols = [...config.ticketsTable.columns]
-                      .filter(c => c.categoryGroup === group.id && c.key !== 'actions' && c.key !== 'selection')
-                      .sort((a, b) => a.order - b.order);
-                    if (groupCols.length === 0) return null;
-                    return (
-                      <div key={group.id} className="space-y-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#D8B4FE] px-1">
-                          {group.title}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                          {groupCols.map(col => (
-                            <label
-                              key={col.key}
-                              className={`flex items-center justify-between gap-2 p-2 rounded-lg border border-transparent ${
-                                col.mandatory
-                                  ? 'bg-[#EAE8FF]/60 dark:bg-[#251545]/70 cursor-not-allowed'
-                                  : 'hover:bg-[#EDF3F8] dark:hover:bg-[#35105E]/60 border-[#DDE6F0] dark:border-[#35105E] cursor-pointer'
-                              }`}
-                            >
-                              <div className="min-w-0 flex items-center gap-1.5">
-                                {col.mandatory && (
-                                  <Lock className="w-3 h-3 text-[#6657C8] dark:text-[#D8B4FE] shrink-0" />
-                                )}
-                                <span className="text-[#26364A] dark:text-[#F5F1FF] truncate">
-                                  {col.label}
-                                </span>
-                              </div>
-                              <input
-                                type="checkbox"
-                                disabled={col.mandatory}
-                                checked={col.mandatory ? true : col.visible}
-                                onChange={e => {
-                                  if (!col.mandatory) {
-                                    setTableStyleMode('canonical');
-                                    setColumnVisibility(col.key, e.target.checked);
-                                  }
-                                }}
-                                className="w-4 h-4 rounded border-[#DCE3F2] text-[#6657C8] focus:ring-[#6657C8] disabled:opacity-60"
-                              />
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </ResponsiveModal>
 
             {/* Export XLSX */}
             <button
@@ -2208,17 +2028,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
               <span>Assign/Reassign khusus Leader</span>
             </span>
           ) : null}
-
-          {currentUser.role === 'super_admin' && (
-            <button
-              type="button"
-              onClick={() => setShowBulkDeleteModal(true)}
-              className="btn-3d-danger px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus ({selectedIds.size})</span>
-            </button>
-          )}
         </TableSelectionToolbar>
 
         {/* Inline Bulk Approval Confirmation Banner */}
@@ -3875,37 +3684,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 >
                                   <MessageSquare className="w-3.5 h-3.5" />
                                 </button>
-
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    if (ticket.isArchived) restoreTicket(ticket.id);
-                                    else archiveTicket(ticket.id);
-                                  }}
-                                  className="btn-3d-icon w-7 h-7 cursor-pointer"
-                                  title={ticket.isArchived ? 'Restore' : 'Archive'}
-                                >
-                                  {ticket.isArchived ? (
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <Archive className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-
-                                {currentUser.role === 'super_admin' && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setTicketToDelete(ticket);
-                                    }}
-                                    className="btn-3d-icon w-7 h-7 text-[#DC4C5A] cursor-pointer"
-                                    title="Hapus Work Order (Superadmin)"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -4035,32 +3813,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             itemLabel="Work Orders"
           />
         </div>
-      )}
-
-      {/* Superadmin Bulk Delete Confirmation Modal */}
-      {showBulkDeleteModal && currentUser.role === 'super_admin' && (
-        <ManagementDataDeleteModal
-          isOpen={showBulkDeleteModal}
-          onClose={() => setShowBulkDeleteModal(false)}
-          ticket={null}
-          selectedTickets={paginatedTickets.filter(t => selectedIds.has(t.id))}
-          onSuccess={() => {
-            setSelectedIds(new Set());
-            setShowBulkDeleteModal(false);
-          }}
-        />
-      )}
-
-      {/* Superadmin Single Ticket Delete Confirmation Modal */}
-      {ticketToDelete && currentUser.role === 'super_admin' && (
-        <ManagementDataDeleteModal
-          isOpen={Boolean(ticketToDelete)}
-          onClose={() => setTicketToDelete(null)}
-          ticket={ticketToDelete}
-          onSuccess={() => {
-            setTicketToDelete(null);
-          }}
-        />
       )}
 
       {/* Stitch Mobile Filter Bottom Sheet */}

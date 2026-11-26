@@ -5,6 +5,7 @@ import { useOfflineSync } from '../../context/OfflineSyncContext';
 import { MoraJawsLogo } from '../common/MoraJawsLogo';
 import { Ticket, StandaloneMenuItem } from '../../types/index.ts';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { partitionSidebarNavigation } from '../../utils/uiLayoutHelpers';
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -362,6 +363,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       .filter(cat => cat.submenus.length > 0); // Sembunyikan kategori jika tidak ada submenu yang dapat diakses
   }, [isInstaller, navCategories, submenuItems, userRole, rolePermissions]);
 
+  const {
+    operationalStandalone,
+    operationalCategories,
+    adminStandalone,
+    adminCategories
+  } = useMemo(
+    () => partitionSidebarNavigation(filteredStandaloneMenus, filteredCategoriesWithSubmenus),
+    [filteredStandaloneMenus, filteredCategoriesWithSubmenus]
+  );
+
   // =========================================================================
   // 3. ACCORDION STATE
   // Mendukung multi-submenu collapse (beberapa kategori terbuka bersamaan)
@@ -378,7 +389,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
           (sub.id === 'setup' && ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
       );
-      initial[cat.id] = hasActive || cat.mode === 'static';
+      initial[cat.id] = hasActive || cat.mode === 'static' || cat.id === 'menu_tambahan';
     });
     return initial;
   });
@@ -767,12 +778,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className={`flex-1 ${isMiniMode ? 'px-2 py-3 space-y-1.5' : 'px-4 py-2.5 space-y-1'} overflow-y-auto scrollbar-thin`}>
           {isMiniMode ? (
             <div className="flex flex-col items-center gap-1.5">
-              {filteredStandaloneMenus.map(item => {
+              {[...operationalStandalone, ...operationalCategories.flatMap(cat => cat.submenus)].map(item => {
                 const Icon = resolveNavIcon(item.icon);
                 const isActive =
                   activeTab === item.id ||
                   (item.id === 'tickets' && (activeTab === 'tickets' || activeTab === 'wo_management')) ||
-                  (item.id === 'installer_portal' && (activeTab === 'installer_portal' || activeTab === 'installer_dashboard'));
+                  (item.id === 'installer_portal' && (activeTab === 'installer_portal' || activeTab === 'installer_dashboard')) ||
+                  (item.id === 'contractor_recap' && activeTab === 'rekap_laporan');
                 const badgeInfo = getItemBadge(item.id, item.badge);
                 return (
                   <button
@@ -807,18 +819,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
 
-              {filteredCategoriesWithSubmenus.length > 0 && (
+              {(adminStandalone.length > 0 || adminCategories.length > 0) && (
                 <div className="w-8 h-px bg-[#DDE6F0] dark:bg-[#35105E] my-1" />
               )}
 
-              {filteredCategoriesWithSubmenus.flatMap(cat => cat.submenus).map(item => {
+              {[...adminStandalone, ...adminCategories.flatMap(cat => cat.submenus)].map(item => {
                 const SubIcon = resolveNavIcon(item.icon);
                 const isActive =
                   activeTab === item.id ||
                   (item.id === 'database_management' && activeTab === 'data_deletion') ||
-                  (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
                   (item.id === 'setup' &&
-                    ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+                    ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
                 return (
                   <button
                     key={item.id}
@@ -942,13 +953,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-              <div className="px-2 pt-1 pb-1 text-[10px] font-extrabold text-[#8492A5] dark:text-[#8B8495] uppercase tracking-[0.1em]">
+              <div
+                data-testid="sidebar-section-operational"
+                className="px-2 pt-1 pb-1 text-[10px] font-extrabold text-[#8492A5] dark:text-[#8B8495] uppercase tracking-[0.1em]"
+              >
                 Operational Queue
               </div>
 
-              {/* Standalone Menus */}
+              {/* Operational Standalone Menus */}
               <div className="space-y-1">
-                {filteredStandaloneMenus.map(item => {
+                {operationalStandalone.map(item => {
                   const Icon = resolveNavIcon(item.icon);
                   const isActive =
                     activeTab === item.id ||
@@ -992,19 +1006,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 })}
               </div>
 
-              {/* Collapsible Category Accordions */}
-              {filteredCategoriesWithSubmenus.length > 0 && (
+              {/* Operational Category Accordions */}
+              {operationalCategories.length > 0 && (
                 <div className="pt-3 space-y-1.5">
-                  {filteredCategoriesWithSubmenus.map(cat => {
+                  {operationalCategories.map(cat => {
                     const CatIcon = resolveNavIcon(cat.icon);
                     const isAccordionMode = cat.mode !== 'static';
                     const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
                     const hasActiveChild = cat.submenus.some(
                       sub =>
                         activeTab === sub.id ||
-                        (sub.id === 'database_management' && activeTab === 'data_deletion') ||
-                        (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
-                        (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+                        (sub.id === 'contractor_recap' && activeTab === 'rekap_laporan')
                     );
 
                     return (
@@ -1043,10 +1055,149 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               const SubIcon = resolveNavIcon(item.icon);
                               const isActive =
                                 activeTab === item.id ||
+                                (item.id === 'contractor_recap' && activeTab === 'rekap_laporan');
+
+                              const badgeInfo = getItemBadge(item.id, item.badge);
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleItemClick(item.id)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12.5px] transition-all cursor-pointer active:translate-y-0.5 ${
+                                    isActive
+                                      ? 'bg-gradient-to-b from-white to-[#F0EDFF]/90 text-[#5145A6] font-bold border border-[#D4CEFA] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_2px_0_#D2CEF2] dark:bg-[#7135b5] dark:bg-none dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                                      : item.highlight
+                                      ? 'text-[#5145A6] dark:text-white bg-[#F0EDFF] dark:bg-[#35105E]/50 hover:bg-white/80 dark:hover:bg-[#35105E] font-semibold'
+                                      : 'text-[#52647A] dark:text-[#CEC0E8] hover:bg-white/80 dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white font-semibold'
+                                  }`}
+                                >
+                                  <SubIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#6657C8] dark:text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
+                                  <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                                  {badgeInfo && (
+                                    <span
+                                      className={`ml-1 px-1.5 py-0.5 text-[9.5px] font-mono font-bold rounded-full tabular-nums shrink-0 ${
+                                        badgeInfo.color === 'rose'
+                                          ? 'bg-[#D45B66] dark:bg-[#DC4C5A] text-white'
+                                          : isActive
+                                          ? 'bg-[#EAE8FF] text-[#5145A6] dark:bg-white/20 dark:text-white'
+                                          : badgeInfo.color === 'amber'
+                                          ? 'bg-[#FFF2D9] text-[#C88735] dark:bg-[#E59A27]/25 dark:text-[#FBBF24]'
+                                          : badgeInfo.color === 'emerald'
+                                          ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-[#16A36A]/25 dark:text-emerald-300'
+                                          : 'bg-[#6657C8] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]'
+                                      }`}
+                                    >
+                                      {badgeInfo.text}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* App Setting & Administration (Separated from Operational Queue) */}
+              {(adminStandalone.length > 0 || adminCategories.length > 0) && (
+                <div
+                  data-testid="sidebar-section-admin"
+                  className="pt-3 mt-3 border-t border-[#DDE6F0]/80 dark:border-white/[0.12] space-y-1.5"
+                >
+                  <div className="px-2 pt-0.5 pb-1 text-[10px] font-extrabold text-[#5145A6] dark:text-[#A78BFA] uppercase tracking-[0.1em]">
+                    App Setting &amp; Administration
+                  </div>
+
+                  {adminStandalone.length > 0 && (
+                    <div className="space-y-1">
+                      {adminStandalone.map(item => {
+                        const Icon = resolveNavIcon(item.icon);
+                        const isActive =
+                          activeTab === item.id ||
+                          (item.id === 'database_management' && activeTab === 'data_deletion') ||
+                          (item.id === 'setup' &&
+                            ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+
+                        const badgeInfo = getItemBadge(item.id, item.badge);
+
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleItemClick(item.id)}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] transition-all cursor-pointer active:translate-y-0.5 ${
+                              isActive
+                                ? 'bg-gradient-to-b from-white to-[#F0EDFF]/90 text-[#5145A6] font-bold border border-[#D4CEFA] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),0_2.5px_0_#D2CEF2,0_5px_12px_rgba(102,87,200,0.1)] dark:bg-[#7135b5] dark:bg-none dark:text-white dark:border-[#A78BFA]/40 dark:shadow-[inset_0_1px_0_0_rgba(216,180,254,0.45),0_2px_6px_rgba(53,16,94,0.22)]'
+                                : 'text-[#52647A] dark:text-[#CEC0E8] font-semibold hover:bg-white/80 dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
+                            }`}
+                          >
+                            <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-[#6657C8] dark:text-white' : 'text-[#6657C8] dark:text-[#A78BFA]'}`} />
+                            <span className="flex-1 text-left truncate whitespace-nowrap">{item.label}</span>
+                            {badgeInfo && (
+                              <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-full tabular-nums shrink-0 bg-[#6657C8] text-white dark:bg-[#35105E] dark:text-[#D8B4FE]">
+                                {badgeInfo.text}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {adminCategories.map(cat => {
+                    const CatIcon = resolveNavIcon(cat.icon);
+                    const isAccordionMode = cat.mode !== 'static';
+                    const isOpen = isAccordionMode ? !!openGroups[cat.id] : true;
+                    const hasActiveChild = cat.submenus.some(
+                      sub =>
+                        activeTab === sub.id ||
+                        (sub.id === 'database_management' && activeTab === 'data_deletion') ||
+                        (sub.id === 'setup' && ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab))
+                    );
+
+                    return (
+                      <div key={`admin-${cat.id}`} className="space-y-1">
+                        {isAccordionMode ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(cat.id, 'accordion')}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                              hasActiveChild
+                                ? 'text-[#5145A6] dark:text-white bg-[#F0EDFF] dark:bg-[#35105E]/70'
+                                : 'text-[#8492A5] dark:text-[#A78BFA] hover:bg-[#F8FAFD] dark:hover:bg-[#35105E] hover:text-[#26364A] dark:hover:text-white'
+                            }`}
+                            aria-expanded={isOpen}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6657C8] dark:text-[#A78BFA]" />
+                              <span className="truncate">{cat.name}</span>
+                            </div>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 shrink-0 text-[#8492A5] dark:text-[#A78BFA] transition-transform duration-200 ${
+                                isOpen ? 'rotate-180' : 'rotate-0'
+                              }`}
+                            />
+                          </button>
+                        ) : (
+                          <div className="w-full flex items-center gap-2 px-2.5 pt-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A78BFA]">
+                            <CatIcon className="w-3.5 h-3.5 shrink-0 text-[#6657C8] dark:text-[#A78BFA]" />
+                            <span className="truncate">{cat.name}</span>
+                          </div>
+                        )}
+
+                        {isOpen && (
+                          <div className="space-y-0.5 pl-1">
+                            {cat.submenus.map(item => {
+                              const SubIcon = resolveNavIcon(item.icon);
+                              const isActive =
+                                activeTab === item.id ||
                                 (item.id === 'database_management' && activeTab === 'data_deletion') ||
-                                (item.id === 'contractor_recap' && activeTab === 'rekap_laporan') ||
                                 (item.id === 'setup' &&
-                                  ['ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
+                                  ['setup', 'ui_builder', 'workflows', 'database_sync', 'sheets_sync'].includes(activeTab));
 
                               const badgeInfo = getItemBadge(item.id, item.badge);
 

@@ -563,7 +563,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
   },
   {
     id: 'quota_settings',
-    label: 'Pengaturan Kuota & Kolom Visibilitas',
+    label: 'Pengaturan Kuota',
     icon: 'SlidersHorizontal',
     categoryId: 'contractor_area',
     order: 5,
@@ -603,7 +603,7 @@ export const DEFAULT_SUBMENU_ITEMS: NavSubmenuItem[] = [
   // 3. Menu Tambahan
   {
     id: 'setup',
-    label: 'Setup',
+    label: 'App Setting',
     icon: 'Sliders',
     categoryId: 'menu_tambahan',
     order: 1,

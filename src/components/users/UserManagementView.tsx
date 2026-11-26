@@ -1191,7 +1191,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                 if (onOpenRolesTab) {
                   onOpenRolesTab();
                 } else {
-                  toast.info('Buka tab Role & Permission di Setup Terpusat untuk mengatur matriks RBAC.', 'Navigasi RBAC');
+                  toast.info('Buka tab Role & Permission di App Setting untuk mengatur matriks RBAC.', 'Navigasi RBAC');
                 }
               }}
               className="btn-3d-darkpurple min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
@@ -2336,7 +2336,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                       tier: 'Tier 0 (Root Level)',
                       desc: 'Kontrol penuh sistem, manajemen akun, audit log, & konfigurasi master.',
                       summaryTitle: 'SUPERADMIN',
-                      summaryDesc: 'Hak akses penuh mencakup manajemen user & RBAC, setup hub, database sync, monitoring maps, serta verifikasi seluruh Work Order.',
+                      summaryDesc: 'Hak akses penuh mencakup manajemen user & RBAC, App Setting, database sync, monitoring maps, serta verifikasi seluruh Work Order.',
                       icon: <Shield className="w-4 h-4" />,
                       iconBg: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#3d0066] dark:text-white'
                     },
@@ -2435,7 +2435,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
                   const roleMeta: Record<UserRole, { title: string; summary: string }> = {
                     super_admin: {
                       title: 'SUPERADMIN',
-                      summary: 'Hak akses penuh mencakup manajemen user & RBAC, setup terpusat, sinkronisasi database/Google Sheets, monitoring maps, serta kendali penuh seluruh Work Order.'
+                      summary: 'Hak akses penuh mencakup manajemen user & RBAC, App Setting, sinkronisasi database/Google Sheets, monitoring maps, serta kendali penuh seluruh Work Order.'
                     },
                     dispatch: {
                       title: 'DISPATCHER',

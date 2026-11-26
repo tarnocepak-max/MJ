@@ -273,7 +273,7 @@ export const DEFAULT_NAVIGATION_ITEMS: NavigationMenuItem[] = [
   // =========================================================================
   // 5. KATEGORI: SETUP — ACCORDION
   // =========================================================================
-  { id: 'setup', label: 'Setup', category: 'Setup', order: 21, visible: true, roles: ['super_admin', 'dispatch'] },
+  { id: 'setup', label: 'App Setting', category: 'App Setting', order: 21, visible: true, roles: ['super_admin', 'dispatch'] },
   { id: 'nav_config', label: 'Konfigurasi Menu Navigasi', category: 'Setup', order: 22, visible: true, roles: ['super_admin'] },
   { id: 'management_role', label: 'Role & Permission', category: 'Setup', order: 23, visible: true, roles: ['super_admin'] },
   { id: 'droplist_management', label: 'Droplist Management', category: 'Setup', order: 24, visible: true, roles: ['super_admin', 'dispatch'] },
@@ -339,7 +339,12 @@ export const sanitizeNavigationItems = (items: NavigationMenuItem[]): Navigation
       ...item,
       category: targetCategory,
       visible: targetVisible,
-      label: item.label === 'Dashboard Area' ? 'Dashboard Leader' : item.label
+      label:
+        item.id === 'setup'
+          ? 'App Setting'
+          : item.label === 'Dashboard Area'
+          ? 'Dashboard Leader'
+          : item.label
     });
   }
 
@@ -569,8 +574,14 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (item.id === 'setup') {
           return {
             ...item,
-            label: 'Setup',
+            label: 'App Setting',
             roles: ['super_admin', 'dispatch']
+          };
+        }
+        if (item.id === 'quota_settings') {
+          return {
+            ...item,
+            label: 'Pengaturan Kuota'
           };
         }
         if (item.id === 'wo_assignment') {

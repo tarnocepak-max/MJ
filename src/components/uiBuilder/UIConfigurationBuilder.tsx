@@ -10,8 +10,6 @@ import {
   RotateCcw,
   Save,
   Check,
-  Eye,
-  EyeOff,
   Upload,
   Plus,
   Trash2,
@@ -26,11 +24,16 @@ import {
   RefreshCw,
   AlertCircle,
   ShieldCheck,
-  FileJson
+  FileJson,
+  Sliders,
+  Lock
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TableColumnsStudio } from './TableColumnsStudio';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { ColumnConfig, DEFAULT_LEADER_COLUMNS } from '../portals/LeaderColumnSettingsModal';
+import { mergeLeaderColumnsConfig } from '../../utils/uiLayoutHelpers';
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/safeStorage';
 
 interface UIConfigurationBuilderProps {
   onNavigateToTickets?: () => void;
@@ -48,14 +51,6 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
     deletePreset,
     navigationItems,
     menuCategories,
-    updateNavigationItem,
-    moveNavigationItem,
-    addCategory,
-    deleteCategory,
-    moveCategory,
-    saveNavigationConfig,
-    resetNavigationConfig,
-    hasUnsavedNavChanges,
     exportConfigJson,
     importConfigJson,
     saveConfigToSupabase,
@@ -64,20 +59,46 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
     lastCloudSyncTime,
     cloudSyncStatus,
     uiConfigVersion,
-    navDocVersion,
     uiConflict,
     clearUiConflict,
     resolveUiConflict
   } = useUIConfig();
 
-  const { currentUser } = useApp();
+  const { currentUser, users } = useApp();
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
-  const [activeTab, setActiveTab] = useState<'table_columns' | 'device_layout' | 'menu_layout' | 'toolbar' | 'detail_sections' | 'global_theme' | 'presets' | 'json' | 'supabase_config'>('table_columns');
+  const [activeTab, setActiveTab] = useState<'table_columns' | 'leader_columns' | 'device_layout' | 'toolbar' | 'detail_sections' | 'global_theme' | 'presets' | 'json' | 'supabase_config'>('table_columns');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [confirmModal, setConfirmModal] = useState<'pull' | 'reset_ui' | 'reset_menu' | null>(null);
+  const [confirmModal, setConfirmModal] = useState<'pull' | 'reset_ui' | null>(null);
+
+  const leaderUsers = React.useMemo(
+    () => (users || []).filter(u => String(u.role || '').toLowerCase() === 'leader' && u.active !== false && !u.isDeleted),
+    [users]
+  );
+  const [leaderColumnScope, setLeaderColumnScope] = useState<string>('global');
+  const readLeaderColumnsForScope = (scopeKey: string): ColumnConfig[] => {
+    try {
+      const direct = safeLocalStorageGet(`morajaws_leader_columns_${scopeKey}`);
+      if (direct) return mergeLeaderColumnsConfig(JSON.parse(direct), DEFAULT_LEADER_COLUMNS);
+      const globalRaw = safeLocalStorageGet('morajaws_leader_columns_global');
+      if (globalRaw) return mergeLeaderColumnsConfig(JSON.parse(globalRaw), DEFAULT_LEADER_COLUMNS);
+    } catch {}
+    return DEFAULT_LEADER_COLUMNS.map(col => ({ ...col }));
+  };
+  const [leaderColumns, setLeaderColumns] = useState<ColumnConfig[]>(() => readLeaderColumnsForScope('global'));
+
+  React.useEffect(() => {
+    setLeaderColumns(readLeaderColumnsForScope(leaderColumnScope));
+  }, [leaderColumnScope]);
+
+  const persistLeaderColumns = (nextCols: ColumnConfig[], noticeText: string) => {
+    if (!isSuperAdmin) return;
+    setLeaderColumns(nextCols);
+    safeLocalStorageSet(`morajaws_leader_columns_${leaderColumnScope}`, JSON.stringify(nextCols));
+    window.dispatchEvent(new CustomEvent('morajaws:leader-columns-updated', { detail: { scope: leaderColumnScope } }));
+    triggerNotice(noticeText);
+  };
 
   // New preset modal state
   const [newPresetName, setNewPresetName] = useState('');
@@ -198,14 +219,6 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
       } else {
         triggerError(res.error || 'Gagal mereset konfigurasi UI di database.');
       }
-    } else if (action === 'reset_menu') {
-      if (!isSuperAdmin) return;
-      const res = await resetNavigationConfig(currentUser?.name || 'Super Admin');
-      if (res.success) {
-        triggerNotice('Susunan menu berhasil dikembalikan ke standar bawaan dan disimpan ke database.');
-      } else {
-        triggerError(res.error || 'Gagal mereset susunan menu di database.');
-      }
     }
   };
 
@@ -222,7 +235,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
       {/* Sub-Tabs Switcher */}
       <div className="card-3d-lavender rounded-2xl px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
-        <div className="mj-tactile-tab-bar p-1 rounded-xl flex items-center gap-1.5 text-xs font-semibold overflow-x-auto no-scrollbar">
+        <div className="mj-tactile-tab-bar p-1 rounded-xl flex items-center gap-1.5 text-xs font-semibold flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('table_columns')}
@@ -238,6 +251,19 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('leader_columns')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'leader_columns'
+                ? 'btn-3d-primary text-white font-bold'
+                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Kolom Tabel Leader ({leaderColumns.filter(c => c.visible).length}/{leaderColumns.length})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('device_layout')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'device_layout'
@@ -246,20 +272,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
             }`}
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span>Android &amp; PC</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('menu_layout')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'menu_layout'
-                ? 'btn-3d-primary text-white font-bold'
-                : 'text-[#52647A] dark:text-[#CEC0E8] hover:text-[#5145A6] dark:hover:text-white hover:bg-white/70 dark:hover:bg-[#35105E]/50'
-            }`}
-          >
-            <FolderTree className="w-3.5 h-3.5" />
-            <span>Susunan Menu</span>
+            <span>Kartu WO, Android &amp; PC</span>
           </button>
 
           <button
@@ -1064,6 +1077,43 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                   Secara otomatis menyembunyikan drawer menu setelah pengguna mengklik tab menu untuk memaksimalkan ruang baca konten.
                 </p>
               </div>
+
+              {/* Option 7: Ticket WO Card Density */}
+              <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2 md:col-span-2">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 block">
+                  Kepadatan Tampilan Kartu Ticket WO (TicketMobileCard)
+                </label>
+                <p className="text-[11px] text-slate-500 leading-normal mb-2">
+                  Mengatur jarak dan padding kartu Ticket WO pada mode layar sentuh / Mobile View.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {([
+                    { value: 'compact', label: 'Compact (Ringkas)' },
+                    { value: 'comfortable', label: 'Comfortable (Standar)' },
+                    { value: 'spacious', label: 'Spacious (Lega)' }
+                  ] as const).map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-white/75 dark:bg-[#1E1238]/60">
+                      <input
+                        type="radio"
+                        name="android_cardDensity"
+                        disabled={!isSuperAdmin}
+                        checked={(config.device?.android?.cardDensity || 'comfortable') === opt.value}
+                        onChange={() =>
+                          updateDraft(prev => ({
+                            ...prev,
+                            device: {
+                              ...prev.device,
+                              android: { ...prev.device.android, cardDensity: opt.value }
+                            }
+                          }))
+                        }
+                        className="text-emerald-600"
+                      />
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1284,17 +1334,6 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
                 className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
               />
               <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Tombol Export CSV</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                disabled={!isSuperAdmin}
-                checked={config.toolbar.showArchiveToggle}
-                onChange={e => updateDraft(prev => ({ ...prev, toolbar: { ...prev.toolbar, showArchiveToggle: e.target.checked } }))}
-                className="rounded border-[#DDE6F0] dark:border-[#CEC3D4] text-[#5145A6] dark:text-[#7135B5] focus:ring-[#6657C8]"
-              />
-              <span className="font-medium text-[#26364A] dark:text-[#CEC0E8]">Tampilkan Tombol Filter Arsip</span>
             </label>
           </div>
 
@@ -1715,259 +1754,148 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
         </div>
       )}
 
-      {/* Tab: Menu & Kategori Navigasi */}
-      {activeTab === 'menu_layout' && (
-        <div className="card-3d-lavender rounded-2xl p-6 space-y-6 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DDE6F0] dark:border-[#35105E] pb-4">
-            <div>
-              <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm flex items-center gap-2">
-                <FolderTree className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
-                <span>Pengaturan Susunan Menu &amp; Kategori Navigasi</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/40">
-                  nav v{navDocVersion}
+      {/* Tab: Kolom Tabel Leader (Terpusat dari Portal Leader) */}
+      {activeTab === 'leader_columns' && (
+        <div className="card-3d-lavender rounded-2xl p-6 space-y-5 text-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#DDE6F0] dark:border-[#35105E] pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Sliders className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+                <h4 className="font-display font-bold text-[#26364A] dark:text-white text-sm">
+                  Pengaturan Kolom Tabel Portal Leader (Assign WO)
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-[#7135B5]/40 tabular-nums">
+                  {leaderColumns.filter(c => c.visible).length}/{leaderColumns.length} Aktif
                 </span>
-              </h4>
-              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
-                Atur urutan menu, ubah kategori induk menu, sembunyikan/tampilkan menu tertentu, lalu simpan ke database agar berlaku global.
+              </div>
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
+                Terpusat di App Setting. Mengatur visibilitas &amp; urutan kolom tabel Assign WO Leader tanpa mengubah skema 46 Kolom Kanonik Dispatch.
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                disabled={!isSuperAdmin || isCloudSyncing}
-                onClick={async () => {
-                  const res = await saveNavigationConfig(currentUser?.name || 'Super Admin');
-                  if (res.success) {
-                    triggerNotice('Susunan menu & kategori berhasil disimpan ke Supabase PostgreSQL!');
-                  } else {
-                    triggerError(res.error || 'Gagal menyimpan susunan menu ke database.');
-                  }
-                }}
-                className="btn-3d-primary px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <select
+                value={leaderColumnScope}
+                onChange={e => setLeaderColumnScope(e.target.value)}
+                aria-label="Cakupan Konfigurasi Kolom Leader"
+                className="px-3 py-2 text-xs tactile-debossed-input rounded-xl bg-white dark:bg-[#1E1238] text-[#26364A] dark:text-white font-semibold focus:outline-none cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>{hasUnsavedNavChanges ? 'Simpan Susunan Menu*' : 'Simpan Susunan Menu'}</span>
-              </button>
+                <option value="global">Global Default (Semua Leader)</option>
+                {leaderUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    Leader: {u.name} {u.area ? `(${u.area})` : ''}
+                  </option>
+                ))}
+              </select>
+
               <button
-                disabled={!isSuperAdmin || isCloudSyncing}
-                onClick={() => setConfirmModal('reset_menu')}
-                className="btn-3d-crimson px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                type="button"
+                disabled={!isSuperAdmin}
+                onClick={() =>
+                  persistLeaderColumns(
+                    leaderColumns.map(c => ({ ...c, visible: true })),
+                    'Semua kolom tabel Leader diaktifkan.'
+                  )
+                }
+                className="btn-3d-lilac px-3 py-2 text-xs font-bold rounded-xl disabled:opacity-50 cursor-pointer"
+              >
+                Tampilkan Semua
+              </button>
+
+              <button
+                type="button"
+                disabled={!isSuperAdmin}
+                onClick={() => {
+                  const defaultCols = DEFAULT_LEADER_COLUMNS.map(col => ({ ...col }));
+                  setLeaderColumns(defaultCols);
+                  safeLocalStorageRemove(`morajaws_leader_columns_${leaderColumnScope}`);
+                  window.dispatchEvent(new CustomEvent('morajaws:leader-columns-updated', { detail: { scope: leaderColumnScope } }));
+                  triggerNotice('Kolom tabel Leader dikembalikan ke default.');
+                }}
+                className="btn-3d-crimson px-3 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Susunan Menu</span>
+                <span>Reset Default</span>
               </button>
             </div>
           </div>
 
-          {/* Add Category Section */}
-          <div className="p-4 mj-tactile-well rounded-xl border border-[#DDE6F0] dark:border-[#35105E] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex-1">
-              <label className="block text-[11px] font-semibold text-[#52647A] dark:text-[#CEC0E8] mb-1">
-                Tambah Kategori Menu Baru
-              </label>
-              <input
-                type="text"
-                disabled={!isSuperAdmin}
-                placeholder="misal: Operasional Khusus, Laporan & Statistik..."
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                className="w-full px-3 py-2 text-xs tactile-debossed-input rounded-xl bg-white dark:bg-[#1E1238] text-[#26364A] dark:text-white disabled:opacity-60 focus:outline-none"
-              />
-            </div>
-            <button
-              disabled={!isSuperAdmin}
-              onClick={() => {
-                if (!newCategoryName.trim()) {
-                  triggerError('Nama kategori tidak boleh kosong.');
-                  return;
-                }
-                if (menuCategories.includes(newCategoryName.trim())) {
-                  triggerError('Kategori sudah ada.');
-                  return;
-                }
-                addCategory({ name: newCategoryName.trim(), mode: 'accordion' });
-                triggerNotice(`Kategori "${newCategoryName.trim()}" ditambahkan di draft. Klik "Simpan Susunan Menu" untuk menyimpan ke database.`);
-                setNewCategoryName('');
-              }}
-              className="btn-3d-primary self-end sm:self-auto mt-auto px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Kategori</span>
-            </button>
-          </div>
-
-          {/* List Categories and Items */}
-          <div className="space-y-5">
-            {menuCategories.map((category, catIndex) => {
-              const itemsInCategory = [...navigationItems]
-                .filter(item => item.category === category)
-                .sort((a, b) => a.order - b.order);
-
-              const handleMoveCategory = (direction: 'up' | 'down') => {
-                if (!isSuperAdmin) return;
-                moveCategory(category, direction);
-                triggerNotice('Urutan kategori diperbarui di draft.');
-              };
-
-              const handleDeleteCategory = () => {
-                if (!isSuperAdmin) return;
-                if (itemsInCategory.length > 0) {
-                  triggerError(`Kategori "${category}" masih memiliki ${itemsInCategory.length} menu. Pindahkan item menu ke kategori lain terlebih dahulu sebelum menghapus.`);
-                  return;
-                }
-                deleteCategory(category, 'disable');
-                triggerNotice(`Kategori "${category}" dihapus dari draft.`);
-              };
-
+          <div className="divide-y divide-[#DDE6F0]/70 dark:divide-[#35105E] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl overflow-hidden bg-white dark:bg-[#160D29]/70">
+            {leaderColumns.map((col, idx) => {
+              const isLocked = col.canHide === false;
               return (
                 <div
-                  key={category}
-                  className="border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl overflow-hidden bg-white dark:bg-[#160D29]/70"
+                  key={col.id}
+                  className={`px-4 py-3 flex items-center justify-between gap-3 transition-colors ${
+                    col.visible
+                      ? 'hover:bg-[#EDF3F8]/70 dark:hover:bg-[#241145]/40'
+                      : 'bg-[#F4F7FB]/80 dark:bg-[#160D29]/40 opacity-75'
+                  }`}
                 >
-                  {/* Category Header */}
-                  <div className="bg-gradient-to-r from-[#EAE8FF] via-[#F4F7FB] to-[#DDF4F4] dark:bg-none dark:bg-[#241145] px-4 py-2.5 flex items-center justify-between border-b border-[#DDE6F0] dark:border-[#35105E]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#6657C8] dark:bg-[#A855F7]" />
-                      <span className="font-display font-bold text-[#26364A] dark:text-white text-xs uppercase tracking-wide">
-                        {category}
-                      </span>
-                      <span className="text-[10px] bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] border border-[#C5BEEF] dark:border-transparent px-2 py-0.5 rounded-full font-bold tabular-nums">
-                        {itemsInCategory.length} menu
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleMoveCategory('up')}
-                        disabled={!isSuperAdmin || catIndex === 0}
-                        title="Geser Kategori Naik"
-                        className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleMoveCategory('down')}
-                        disabled={!isSuperAdmin || catIndex === menuCategories.length - 1}
-                        title="Geser Kategori Turun"
-                        className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                      {itemsInCategory.length === 0 && (
-                        <button
-                          disabled={!isSuperAdmin}
-                          onClick={handleDeleteCategory}
-                          title="Hapus Kategori Kosong"
-                          className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-rose-500 rounded-lg ml-1 disabled:opacity-30 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Items in Category */}
-                  <div className="divide-y divide-[#DDE6F0]/70 dark:divide-[#35105E]">
-                    {itemsInCategory.length === 0 ? (
-                      <div className="p-4 text-center text-[#8492A5] italic text-[11px]">
-                        Tidak ada menu di kategori ini. Anda dapat memindahkan menu dari kategori lain ke sini.
-                      </div>
-                    ) : (
-                      itemsInCategory.map((item, itemIdx) => {
-                        return (
-                          <div
-                            key={item.id}
-                            className={`p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#EDF3F8]/70 dark:hover:bg-[#241145]/40 transition-colors ${
-                              !item.visible ? 'opacity-50 bg-[#F4F7FB]/80 dark:bg-[#160D29]/40' : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 text-[10px] font-mono text-[#8492A5] dark:text-[#D8B4FE] text-center tabular-nums">
-                                #{item.order}
-                              </span>
-                              <div>
-                                <div className="font-semibold text-[#26364A] dark:text-white flex items-center gap-2">
-                                  <span>{item.label}</span>
-                                  {!item.visible && (
-                                    <span className="text-[10px] bg-[#EDF3F8] dark:bg-[#35105E] text-[#52647A] dark:text-[#CEC0E8] px-1.5 py-0.2 rounded font-normal">
-                                      Disembunyikan
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-[#8492A5] dark:text-[#CEC0E8]/70 font-mono">
-                                  ID: {item.id}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
-                              {/* Change Category Select */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#8492A5] dark:text-[#CEC0E8]">Pindah ke:</span>
-                                <select
-                                  disabled={!isSuperAdmin}
-                                  value={item.category}
-                                  onChange={e => {
-                                    updateNavigationItem(item.id, { category: e.target.value });
-                                    triggerNotice(`Menu "${item.label}" dipindahkan ke "${e.target.value}" di draft.`);
-                                  }}
-                                  className="text-xs px-2 py-1 tactile-debossed-input bg-white dark:bg-[#1E1238] rounded-lg text-[#26364A] dark:text-white disabled:opacity-60 focus:outline-none"
-                                >
-                                  {menuCategories.map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* Move Up / Down */}
-                              <button
-                                onClick={() => {
-                                  moveNavigationItem(item.id, 'up');
-                                  triggerNotice(`Urutan menu "${item.label}" dinaikkan di draft.`);
-                                }}
-                                disabled={!isSuperAdmin || itemIdx === 0}
-                                title="Pindah Naik"
-                                className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  moveNavigationItem(item.id, 'down');
-                                  triggerNotice(`Urutan menu "${item.label}" diturunkan di draft.`);
-                                }}
-                                disabled={!isSuperAdmin || itemIdx === itemsInCategory.length - 1}
-                                title="Pindah Turun"
-                                className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Toggle Visibility */}
-                              <button
-                                disabled={!isSuperAdmin}
-                                onClick={() => {
-                                  updateNavigationItem(item.id, { visible: !item.visible });
-                                  triggerNotice(
-                                    item.visible
-                                      ? `Menu "${item.label}" disembunyikan di draft.`
-                                      : `Menu "${item.label}" ditampilkan di draft.`
-                                  );
-                                }}
-                                title={item.visible ? 'Sembunyikan Menu' : 'Tampilkan Menu'}
-                                className={`p-1.5 rounded-lg border disabled:opacity-40 cursor-pointer ${
-                                  item.visible
-                                    ? 'border-[#C5BEEF] text-[#5145A6] dark:text-[#D8B4FE] bg-[#EAE8FF] dark:bg-[#35105E]/60'
-                                    : 'border-[#DDE6F0] dark:border-[#35105E] text-[#8492A5]'
-                                }`}
-                              >
-                                {item.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
+                  <label className={`flex items-center gap-3 min-w-0 flex-1 ${isLocked || !isSuperAdmin ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isLocked ? true : col.visible}
+                      disabled={isLocked || !isSuperAdmin}
+                      onChange={() => {
+                        if (isLocked || !isSuperAdmin) return;
+                        const next = leaderColumns.map(c =>
+                          c.id === col.id ? { ...c, visible: !c.visible } : c
                         );
-                      })
-                    )}
+                        persistLeaderColumns(next, `Visibilitas kolom "${col.label}" diperbarui.`);
+                      }}
+                      className="w-4 h-4 accent-[#6657C8] rounded cursor-pointer disabled:opacity-60 shrink-0"
+                    />
+                    <span className="font-mono text-[10px] font-bold text-[#8492A5] dark:text-[#A79BC0] w-6 shrink-0 tabular-nums">
+                      #{idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[#26364A] dark:text-white flex items-center gap-1.5 truncate">
+                        <span className="truncate">{col.label}</span>
+                        {isLocked && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#D8B4FE] text-[9.5px] font-bold shrink-0">
+                            <Lock className="w-2.5 h-2.5" />
+                            <span>Mandatori</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-[#8492A5] dark:text-[#CEC0E8]/70 font-mono">
+                        Key: {col.id}
+                      </div>
+                    </div>
+                  </label>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={!isSuperAdmin || idx === 0}
+                      onClick={() => {
+                        if (!isSuperAdmin || idx === 0) return;
+                        const next = [...leaderColumns];
+                        const [moved] = next.splice(idx, 1);
+                        next.splice(idx - 1, 0, moved);
+                        persistLeaderColumns(next, `Kolom "${col.label}" dinaikkan.`);
+                      }}
+                      title="Geser Kolom Naik"
+                      className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isSuperAdmin || idx === leaderColumns.length - 1}
+                      onClick={() => {
+                        if (!isSuperAdmin || idx === leaderColumns.length - 1) return;
+                        const next = [...leaderColumns];
+                        const [moved] = next.splice(idx, 1);
+                        next.splice(idx + 1, 0, moved);
+                        persistLeaderColumns(next, `Kolom "${col.label}" diturunkan.`);
+                      }}
+                      title="Geser Kolom Turun"
+                      className="btn-3d-icon p-1.5 disabled:opacity-30 cursor-pointer"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -2036,9 +1964,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
         title={
           confirmModal === 'pull'
             ? 'Tarik Konfigurasi Master dari Supabase?'
-            : confirmModal === 'reset_ui'
-            ? 'Reset Seluruh Layout UI ke Standar Sistem?'
-            : 'Reset Susunan Menu & Kategori ke Bawaan?'
+            : 'Reset Seluruh Layout UI ke Standar Sistem?'
         }
         icon={<AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
         size="sm"
@@ -2070,9 +1996,7 @@ export const UIConfigurationBuilder: React.FC<UIConfigurationBuilderProps> = ({
         <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] leading-relaxed">
           {confirmModal === 'pull'
             ? 'Tindakan ini akan memuat konfigurasi terbaru dari tabel app_settings Supabase PostgreSQL dan membuang draft lokal yang belum disimpan.'
-            : confirmModal === 'reset_ui'
-            ? 'Seluruh pengaturan layout, tema, dan kolom tabel akan dikembalikan ke standar default sistem dan langsung disimpan ke database global.'
-            : 'Seluruh susunan kategori dan menu navigasi akan dikembalikan ke konfigurasi bawaan dan disimpan ke database global.'}
+            : 'Seluruh pengaturan layout, tema, dan kolom tabel akan dikembalikan ke standar default sistem dan langsung disimpan ke database global.'}
         </p>
       </ResponsiveModal>
     </div>

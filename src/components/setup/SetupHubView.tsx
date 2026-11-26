@@ -45,6 +45,7 @@ import { AuditLogViewer } from '../audit/AuditLogViewer';
 import { LoginLogView } from '../audit/LoginLogView';
 import { NavigationConfigView } from './NavigationConfigView';
 import { EmailNotificationCenterView } from '../settings/EmailNotificationCenterView';
+import { buildAppSettingCategories } from '../../utils/uiLayoutHelpers';
 
 export type SetupTabKey =
   | 'app_config'
@@ -71,34 +72,34 @@ interface SetupCategoryDef {
 
 const SETUP_CATEGORIES: SetupCategoryDef[] = [
   {
-    id: 'cat_system',
-    code: '01 — SYSTEM CONFIGURATION',
-    title: 'Konfigurasi Sistem & UI',
-    tabKeys: ['app_config', 'nav_config', 'ui_builder']
+    id: 'cat_general',
+    code: '01 — GENERAL & APPLICATION',
+    title: 'General & Application',
+    tabKeys: ['app_config']
   },
   {
-    id: 'cat_data',
-    code: '02 — DATA & INTEGRATION',
-    title: 'Database & Sinkronisasi',
-    tabKeys: ['database']
+    id: 'cat_appearance',
+    code: '02 — APPEARANCE & UI',
+    title: 'Appearance & UI',
+    tabKeys: ['ui_builder']
   },
   {
-    id: 'cat_users',
-    code: '03 — USERS & ACCESS CONTROL',
-    title: 'Pengguna & RBAC',
-    tabKeys: ['users', 'roles']
+    id: 'cat_navigation',
+    code: '03 — NAVIGATION',
+    title: 'Navigation',
+    tabKeys: ['nav_config']
   },
   {
     id: 'cat_ops',
     code: '04 — OPERATIONAL CONFIGURATION',
-    title: 'Operasional, WA & Otomasi',
-    tabKeys: ['droplists', 'whatsapp', 'workflows']
+    title: 'Operational Configuration',
+    tabKeys: ['droplists', 'whatsapp', 'workflows', 'sound']
   },
   {
-    id: 'cat_pref',
-    code: '05 — PREFERENCES & MONITORING',
-    title: 'Notifikasi, Audio & Kesehatan Sistem',
-    tabKeys: ['sound', 'email_notifications', 'health_logs']
+    id: 'cat_system_admin',
+    code: '05 — SYSTEM ADMINISTRATION',
+    title: 'System Administration',
+    tabKeys: ['users', 'roles', 'database', 'email_notifications', 'health_logs']
   }
 ];
 
@@ -289,10 +290,10 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
           <ShieldAlert className="w-6 h-6" />
         </div>
         <h3 className="font-display font-extrabold text-[#26364A] dark:text-white text-base">
-          Akses Ditolak: SETUP TERPUSAT MORAJAWS
+          Akses Ditolak: APP SETTING
         </h3>
         <p className="text-xs text-[#52647A] dark:text-[#CABDE8] leading-relaxed">
-          Pusat Setup Terpusat MoraJaws dilindungi dan tidak dapat diakses oleh peran <strong>{userRole}</strong>.
+          Halaman App Setting MoraJaws dilindungi dan tidak dapat diakses oleh peran <strong>{userRole}</strong>.
         </p>
       </div>
     );
@@ -302,14 +303,9 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
   const currentTab = accessibleTabs.some(t => t.key === activeTab) ? activeTab : (accessibleTabs[0]?.key || 'sound');
   const activeTabMeta = accessibleTabs.find(t => t.key === currentTab) || accessibleTabs[0];
 
-  // Build grouped categories strictly filtered by accessibleTabs
+  // Build grouped categories strictly filtered by accessibleTabs (empty categories omitted)
   const visibleCategories = useMemo(() => {
-    return SETUP_CATEGORIES.map(cat => ({
-      ...cat,
-      items: cat.tabKeys
-        .map(k => accessibleTabs.find(t => t.key === k))
-        .filter((t): t is NonNullable<typeof t> => Boolean(t))
-    })).filter(cat => cat.items.length > 0);
+    return buildAppSettingCategories(accessibleTabs, SETUP_CATEGORIES);
   }, [accessibleTabs]);
 
   const activeCategoryMeta = useMemo(() => {
@@ -418,7 +414,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
             </div>
 
             <h1 className="font-display text-lg sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white">
-              SETUP TERPUSAT MORAJAWS
+              APP SETTING
             </h1>
 
             {/* Metadata Strip */}
@@ -464,7 +460,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
               onClick={handleManualCloudRefresh}
               disabled={isRefreshingCloud}
               className="mj-btn-superadmin-lilac px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
-              title="Segarkan seluruh data Setup dari Supabase PostgreSQL"
+              title="Segarkan seluruh data App Setting dari Supabase PostgreSQL"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin' : ''}`} />
               <span>Sync Cloud</span>
@@ -607,7 +603,7 @@ export const SetupHubView: React.FC<SetupHubViewProps> = ({
           <div className="card-3d-lavender rounded-2xl p-3.5 space-y-4">
             <div className="flex items-center justify-between px-1.5 pb-2 border-b border-[#E2E8F0] dark:border-[#35105E]">
               <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
-                Kategori Setup
+                Kategori App Setting
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF]">
                 {accessibleTabs.length} Modul

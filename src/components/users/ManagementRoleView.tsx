@@ -59,67 +59,37 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     id: 'app_config',
     num: '01',
     label: 'Konfigurasi Sistem',
-    category: '01 · System Configuration',
+    category: '01 · General & Application',
     icon: Building2,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
     allowedRoles: ['super_admin']
   },
   {
-    id: 'nav_config',
-    num: '02',
-    label: 'Menu Navigasi',
-    category: '01 · System Configuration',
-    icon: FolderTree,
-    superadminScope: { text: 'FULL', tone: 'full' },
-    dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin']
-  },
-  {
     id: 'ui_builder',
-    num: '03',
+    num: '02',
     label: 'Kolom & Tampilan UI',
-    category: '01 · System Configuration',
+    category: '02 · Appearance & UI',
     icon: LayoutTemplate,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
     allowedRoles: ['super_admin']
   },
   {
-    id: 'database',
-    num: '04',
-    label: 'Database & Sync',
-    category: '02 · Data & Integration',
-    icon: Database,
-    superadminScope: { text: 'FULL', tone: 'full' },
-    dispatchScope: { text: 'DENIED', tone: 'denied' },
-    allowedRoles: ['super_admin']
-  },
-  {
-    id: 'users',
-    num: '05',
-    label: 'Pengguna & Akun',
-    category: '03 · Users & Access Control',
-    icon: Users,
-    superadminScope: { text: 'FULL', tone: 'full' },
-    dispatchScope: { text: 'LOCKED', tone: 'denied' },
-    allowedRoles: ['super_admin']
-  },
-  {
-    id: 'roles',
-    num: '06',
-    label: 'Role & Permission',
-    category: '03 · Users & Access Control',
-    icon: Shield,
+    id: 'nav_config',
+    num: '03',
+    label: 'Menu Navigasi',
+    category: '03 · Navigation',
+    icon: FolderTree,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
     allowedRoles: ['super_admin']
   },
   {
     id: 'droplists',
-    num: '07',
+    num: '04',
     label: 'Kategori Report',
-    category: '04 · Operational Config',
+    category: '04 · Operational Configuration',
     icon: List,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
@@ -127,9 +97,9 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
   },
   {
     id: 'whatsapp',
-    num: '08',
+    num: '05',
     label: 'Template WhatsApp',
-    category: '04 · Operational Config',
+    category: '04 · Operational Configuration',
     icon: MessageSquare,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
@@ -137,9 +107,9 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
   },
   {
     id: 'workflows',
-    num: '09',
+    num: '06',
     label: 'Workflows & Otomasi',
-    category: '04 · Operational Config',
+    category: '04 · Operational Configuration',
     icon: GitBranch,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'WRITE', tone: 'write' },
@@ -147,19 +117,49 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
   },
   {
     id: 'sound',
-    num: '10',
+    num: '07',
     label: 'Notifikasi & Audio',
-    category: '05 · Preferences & Monitoring',
+    category: '04 · Operational Configuration',
     icon: Volume2,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'AUDIO WRITE', tone: 'audio' },
     allowedRoles: ['super_admin', 'dispatch']
   },
   {
+    id: 'users',
+    num: '08',
+    label: 'Pengguna & Akun',
+    category: '05 · System Administration',
+    icon: Users,
+    superadminScope: { text: 'FULL', tone: 'full' },
+    dispatchScope: { text: 'LOCKED', tone: 'denied' },
+    allowedRoles: ['super_admin']
+  },
+  {
+    id: 'roles',
+    num: '09',
+    label: 'Role & Permission',
+    category: '05 · System Administration',
+    icon: Shield,
+    superadminScope: { text: 'FULL', tone: 'full' },
+    dispatchScope: { text: 'DENIED', tone: 'denied' },
+    allowedRoles: ['super_admin']
+  },
+  {
+    id: 'database',
+    num: '10',
+    label: 'Database & Sync',
+    category: '05 · System Administration',
+    icon: Database,
+    superadminScope: { text: 'FULL', tone: 'full' },
+    dispatchScope: { text: 'DENIED', tone: 'denied' },
+    allowedRoles: ['super_admin']
+  },
+  {
     id: 'email_notifications',
     num: '11',
     label: 'Email Notification',
-    category: '05 · Preferences & Monitoring',
+    category: '05 · System Administration',
     icon: Mail,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
@@ -169,7 +169,7 @@ const SETUP_TAB_MATRIX: SetupTabRBACDef[] = [
     id: 'health_logs',
     num: '12',
     label: 'Kesehatan & Log',
-    category: '05 · Preferences & Monitoring',
+    category: '05 · System Administration',
     icon: Activity,
     superadminScope: { text: 'FULL', tone: 'full' },
     dispatchScope: { text: 'DENIED', tone: 'denied' },
@@ -350,7 +350,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       (rolePermissions.installer || []).includes(p.key) ? 'ALLOW' : 'DENY'
     ]);
 
-    const setupHeader = ['', '--- PEMETAAN 11 TAB SETUP TERPUSAT ---'];
+    const setupHeader = ['', '--- PEMETAAN 12 TAB APP SETTING ---'];
     const setupCols = ['No', 'Tab Setup', 'Kategori', 'Super Admin', 'Dispatch'];
     const setupRows = SETUP_TAB_MATRIX.map(t => [
       t.num,
@@ -478,7 +478,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
               Manajemen Role &amp; Matriks Hak Akses (RBAC)
             </h2>
             <p className="text-xs text-[#52647A] dark:text-[#CABDE8] mt-0.5 max-w-2xl">
-              Pratinjau isolasi 12 tab Setup Terpusat per persona role, pengawasan guardrails, dan pengaturan {permissionsList.length} izin granular yang tersinkron real-time ke PostgreSQL.
+              Pratinjau isolasi 12 tab App Setting per persona role, pengawasan guardrails, dan pengaturan {permissionsList.length} izin granular yang tersinkron real-time ke PostgreSQL.
             </p>
           </div>
         </div>
@@ -543,7 +543,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
           <div>
             <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF] flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5" />
-              <span>Simulasi Tampilan &amp; Isolasi Setup Terpusat Per Persona</span>
+              <span>Simulasi Tampilan &amp; Isolasi App Setting Per Persona</span>
             </div>
             <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white mt-0.5">
               Inspector Ruang Kerja &amp; Guardrails RBAC
@@ -593,7 +593,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
             <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div className="min-w-0">
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
-                  Pratinjau Tree Navigasi Setup
+                  Pratinjau Tree Navigasi App Setting
                 </div>
                 <div className="font-display text-xs font-extrabold text-[#26364A] dark:text-white truncate">
                   {personaStats.activeRoleObj.label}
@@ -680,7 +680,7 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
 
               <div className="grid grid-cols-3 gap-2.5">
                 <div className="p-3 rounded-xl bg-white/80 dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
-                  <div className="text-[10px] text-[#5145A6] dark:text-[#A78BFA] uppercase font-bold">Akses Tab Setup</div>
+                  <div className="text-[10px] text-[#5145A6] dark:text-[#A78BFA] uppercase font-bold">Akses Tab App Setting</div>
                   <div className="font-mono text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums mt-0.5">
                     {personaStats.allowedSetupTabs.length} / 12
                   </div>
@@ -763,16 +763,16 @@ export const ManagementRoleView: React.FC<ManagementRoleViewProps> = ({ onJumpSe
       </div>
 
       {/* ================================================================ */}
-      {/* 3. MATRIKS PEMETAAN 12 TAB SETUP TERPUSAT (COMPARATIVE TABLE)    */}
+      {/* 3. MATRIKS PEMETAAN 12 TAB APP SETTING (COMPARATIVE TABLE)       */}
       {/* ================================================================ */}
       <div className="card-3d-lavender rounded-2xl overflow-hidden">
         <div className="px-4 sm:px-5 py-3.5 border-b border-[#DDE6F0] dark:border-[#3b1d78] flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white">
-              Matriks Pemetaan 12 Tab Setup Terpusat MoraJaws
+              Matriks Pemetaan 12 Tab App Setting MoraJaws
             </h3>
             <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
-              Perbandingan otoritas modul Setup Hub antara Superadmin (12), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
+              Perbandingan otoritas modul App Setting antara Superadmin (12), Dispatch (4), serta Role Lapangan Leader &amp; Installer (0).
             </p>
           </div>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2E1459] dark:text-[#DAB9FF] border border-[#C5BEEF] dark:border-[#5B35B1]">

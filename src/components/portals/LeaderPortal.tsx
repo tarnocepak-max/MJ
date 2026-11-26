@@ -61,7 +61,6 @@ import {
   Activity,
   ArrowRight,
   Smartphone,
-  Table,
   FileUp,
   MapPin,
   ArrowRightLeft,
@@ -81,14 +80,14 @@ import {
   sortDataArray
 } from '../../utils/tableSorting';
 import {
-  LeaderColumnSettingsModal,
   DEFAULT_LEADER_COLUMNS,
   ColumnConfig
 } from './LeaderColumnSettingsModal';
+import { mergeLeaderColumnsConfig } from '../../utils/uiLayoutHelpers';
 import { InstallerDetailModal } from './InstallerDetailModal';
 import { UploadAssignModal } from './UploadAssignModal';
 import { LeaderProgressDashboardView } from './LeaderProgressDashboardView';
-import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../../utils/safeStorage';
+import { safeLocalStorageGet, safeLocalStorageSet } from '../../utils/safeStorage';
 import { ContractorAreaRecapView } from '../reports/ContractorAreaRecapView';
 import {
   DailyLimitSettingsModal,
@@ -336,43 +335,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     toast.success('Pengaturan batas kuota penugasan teknisi berhasil disimpan.', 'Kuota Diperbarui');
   };
 
-  // Persistent Column Settings
+  // Persistent Column Settings (managed centrally in App Setting -> Appearance & UI)
   const COLUMN_STORAGE_KEY = `morajaws_leader_columns_${currentUser.id || 'default'}`;
-  const [tableColumns, setTableColumns] = useState<ColumnConfig[]>(() => {
+  const readSyncedLeaderColumns = React.useCallback((): ColumnConfig[] => {
     try {
-      const saved = safeLocalStorageGet(COLUMN_STORAGE_KEY);
+      const saved = safeLocalStorageGet(COLUMN_STORAGE_KEY) || safeLocalStorageGet('morajaws_leader_columns_global');
       if (saved) {
-        const parsed: ColumnConfig[] = JSON.parse(saved);
-        const orderedCols: ColumnConfig[] = [];
-        parsed.forEach(c => {
-          const def = DEFAULT_LEADER_COLUMNS.find(d => d.id === c.id);
-          if (def) {
-            orderedCols.push({ ...def, visible: c.visible });
-          }
-        });
-        DEFAULT_LEADER_COLUMNS.forEach(def => {
-          if (!orderedCols.some(c => c.id === def.id)) {
-            orderedCols.push(def);
-          }
-        });
-        return orderedCols;
+        return mergeLeaderColumnsConfig(JSON.parse(saved), DEFAULT_LEADER_COLUMNS);
       }
-    } catch (e) {}
+    } catch {}
     return DEFAULT_LEADER_COLUMNS;
-  });
+  }, [COLUMN_STORAGE_KEY]);
 
-  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [tableColumns, setTableColumns] = useState<ColumnConfig[]>(() => readSyncedLeaderColumns());
 
-  const handleSaveColumns = (newCols: ColumnConfig[]) => {
-    setTableColumns(newCols);
-    safeLocalStorageSet(COLUMN_STORAGE_KEY, JSON.stringify(newCols));
-  };
-
-  const handleResetColumns = () => {
-    setTableColumns(DEFAULT_LEADER_COLUMNS);
-    safeLocalStorageRemove(COLUMN_STORAGE_KEY);
-    toast.info('Pengaturan kolom dikembalikan ke default.', 'Kolom Direset');
-  };
+  useEffect(() => {
+    setTableColumns(readSyncedLeaderColumns());
+    const syncCols = () => setTableColumns(readSyncedLeaderColumns());
+    window.addEventListener('morajaws:leader-columns-updated', syncCols);
+    window.addEventListener('storage', syncCols);
+    return () => {
+      window.removeEventListener('morajaws:leader-columns-updated', syncCols);
+      window.removeEventListener('storage', syncCols);
+    };
+  }, [readSyncedLeaderColumns]);
 
   const [notice, setNotice] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
@@ -2351,7 +2337,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 className="text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight leading-tight"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                {activeTab === 'quota_settings' ? 'Manajemen Kuota & Kolom' : 'Penugasan Perintah Kerja'}
+                {activeTab === 'quota_settings' ? 'Manajemen Kuota Harian' : 'Penugasan Perintah Kerja'}
               </h1>
 
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#52647A] dark:text-[#CEC0E8]">
@@ -2884,7 +2870,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               renderBodyCell={renderBodyCell}
               expandedRowIds={expandedRowIds}
               classifyTicketOperational={classifyTicketOperational}
-              onOpenColumnSettings={() => setIsColumnModalOpen(true)}
               onExportCopy={handleExportCopy}
               onExportCSV={handleExportCSV}
               onExportExcel={handleExportExcel}
@@ -3020,7 +3005,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       {activeTab === 'quota_settings' && (
         <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12 items-start'}`}>
           {/* Card 1: Pengaturan Kuota Harian & Limit Teknisi */}
-          <div className="lg:col-span-7 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
+          <div className="lg:col-span-12 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
             <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
@@ -3181,94 +3166,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Card 2: Visibilitas Kolom Tabel */}
-          <div className="lg:col-span-5 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-4 flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-[#EAE8FF] dark:bg-[#35105E] text-[#5145A6] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
-                    <Table className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3
-                      className="font-bold text-sm sm:text-base text-[#26364A] dark:text-white truncate"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                    >
-                      Visibilitas Kolom Tabel
-                    </h3>
-                    <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
-                      Kustomisasi kolom tabel Assign WO &amp; ekspor data
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#C5BEEF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
-                  {tableColumns.filter(c => c.visible).length}/{tableColumns.length} AKTIF
-                </span>
-              </div>
-
-              {/* Quick Inline Checklist of Key Columns */}
-              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                {tableColumns.map(col => {
-                  const locked = col.canHide === false;
-                  return (
-                    <label
-                      key={col.id}
-                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
-                        col.visible
-                          ? 'bg-[#F4F7FB] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
-                          : 'bg-white dark:bg-[#1E1238]/60 border-[#E2E8F0] dark:border-[#2E1B59] opacity-70'
-                      } ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      <span className="font-semibold text-[#26364A] dark:text-white truncate">{col.label}</span>
-                      <input
-                        type="checkbox"
-                        checked={col.visible}
-                        disabled={locked}
-                        onChange={() => {
-                          if (locked) return;
-                          handleSaveColumns(
-                            tableColumns.map(c => (c.id === col.id ? { ...c, visible: !c.visible } : c))
-                          );
-                        }}
-                        className="w-4 h-4 accent-[#5145A6] rounded cursor-pointer shrink-0"
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-
-              {/* Preview Urutan Kolom Aktif */}
-              <div className="rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-2">
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
-                  PREVIEW URUTAN KOLOM AKTIF
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {tableColumns
-                    .filter(c => c.visible)
-                    .slice(0, 8)
-                    .map((col, idx) => (
-                      <span
-                        key={col.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-[#27104A] border border-[#DCE3F2] dark:border-[#5B35B1] text-[10.5px] font-semibold text-[#26364A] dark:text-[#E8DDFF]"
-                      >
-                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{idx + 1}.</span>
-                        <span>{col.label}</span>
-                      </span>
-                    ))}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsColumnModalOpen(true)}
-              className="mj-btn-leader-primary w-full py-2.5 px-4 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sliders className="w-4 h-4" />
-              <span>Atur Urutan &amp; Kolom Lengkap</span>
-            </button>
           </div>
         </div>
       )}
@@ -3550,17 +3447,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           setBulkTargetInstaller(installerName);
           setIsBulkAssignModalOpen(true);
         }}
-      />
-
-      {/* ============================================================ */}
-      {/* MODAL 5: COLUMN SETTINGS MODAL                              */}
-      {/* ============================================================ */}
-      <LeaderColumnSettingsModal
-        isOpen={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        columns={tableColumns}
-        onChangeColumns={handleSaveColumns}
-        onReset={handleResetColumns}
       />
 
       {/* ============================================================ */}
