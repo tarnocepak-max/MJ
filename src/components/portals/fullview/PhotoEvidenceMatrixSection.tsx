@@ -33,6 +33,10 @@ import {
   PhotoSlotsRecord,
   SlotUploadMeta
 } from './types';
+import {
+  evaluatePhotoEvidenceCompleteness,
+  isVerifiedPersistedPhotoSlot
+} from '../../../utils/photoEvidenceValidation';
 
 interface PhotoEvidenceMatrixSectionProps {
   sectionRef?: React.RefObject<HTMLElement | null>;
@@ -96,9 +100,11 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   const totalSlots = PHOTO_SLOT_DEFINITIONS.length;
-  const verifiedCount = typeof verifiedUploadedCount === 'number' ? verifiedUploadedCount : uploadedCount;
-  const mandatoryReady = verifiedCount >= 3;
-  const progressPct = Math.round((uploadedCount / totalSlots) * 1000) / 10;
+  const evaluation = evaluatePhotoEvidenceCompleteness(photoSlots, slotUploadState);
+  const mandatoryCount = evaluation.mandatoryCount;
+  const verifiedCount = evaluation.verifiedTotalCount;
+  const mandatoryReady = evaluation.isMandatoryComplete;
+  const progressPct = Math.round((verifiedCount / totalSlots) * 1000) / 10;
 
   const resolveOverlayBadge = (slotDef: PhotoSlotDefinition, slotData: TechnicalPhotoSlot) => {
     const hasCoords = isValidCoordinatePair(slotData.latitude, slotData.longitude);
@@ -152,10 +158,10 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
                   : 'bg-[#FCE9EB] dark:bg-rose-50 text-[#9B2C37] dark:text-[#ba1a1a] border-[#F3C5CA] dark:border-rose-200'
               }`}
             >
-              Wajib: {Math.min(3, verifiedCount)} / 3
+              Wajib: {mandatoryCount} / 3
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]">
-              Total: {uploadedCount} / {totalSlots} ({progressPct.toFixed(0)}%)
+              Total: {verifiedCount} / {totalSlots} ({progressPct.toFixed(0)}%)
             </span>
           </div>
         </div>
@@ -163,18 +169,18 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
         <div className="w-full h-2 rounded-full bg-[#EDF3F8] dark:bg-[#e8ddff] overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:bg-none dark:bg-[#7135b5] transition-all duration-300"
-            style={{ width: `${Math.max(uploadedCount > 0 ? 5 : 0, Math.min(100, progressPct))}%` }}
+            style={{ width: `${Math.max(verifiedCount > 0 ? 5 : 0, Math.min(100, progressPct))}%` }}
           />
         </div>
 
         <p className="text-[11px] text-[#52647A] dark:text-[#4b4452] leading-snug">
           {mandatoryReady ? (
             <span className="font-semibold text-[#218A63] dark:text-emerald-700">
-              Syarat minimal 3 foto bukti fisik terpenuhi ({verifiedCount} terunggah ke server).
+              Syarat 3/3 foto bukti wajib terpenuhi ({verifiedCount} foto terverifikasi di server).
             </span>
           ) : (
             <span className="font-semibold text-[#9B2C37] dark:text-[#ba1a1a]">
-              Unggah minimal {3 - Math.min(3, verifiedCount)} foto bukti fisik lagi sebelum Check-Out.
+              Kurang {3 - mandatoryCount} foto wajib: {evaluation.missingMandatorySummary}.
             </span>
           )}{' '}
           <span className="font-semibold text-[#5145A6] dark:text-[#58149c]">
@@ -191,6 +197,10 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
           const isDeleting = deletingSlotKey === slotDef.slotKey;
           const isBusy = uploadMeta?.status === 'uploading' || isDeleting;
           const isFailed = uploadMeta?.status === 'failed' || slotData?.uploadStatus === 'failed';
+          const isPendingOffline =
+            String(uploadMeta?.status || '') === 'pending_offline' ||
+            slotData?.uploadStatus === 'pending_offline';
+          const isSlotVerified = Boolean(slotData && isVerifiedPersistedPhotoSlot(slotData, uploadMeta));
           const hasValidCoords = Boolean(
             slotData && isValidCoordinatePair(slotData.latitude, slotData.longitude)
           );
@@ -202,10 +212,14 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
             const overlayBadgeText = resolveOverlayBadge(slotDef, slotData);
             const statusSummary = isDeleting
               ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Menghapus...', icon: 'busy' as const }
-              : uploadMeta?.status === 'uploading'
+              : uploadMeta?.status === 'uploading' || slotData.uploadStatus === 'uploading'
               ? { cls: 'text-[#5145A6] dark:text-[#58149c]', text: 'Mengunggah...', icon: 'busy' as const }
               : isFailed
               ? { cls: 'text-[#9B2C37] dark:text-[#ba1a1a]', text: 'Upload Gagal', icon: 'error' as const }
+              : isPendingOffline
+              ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Menunggu Koneksi', icon: 'warn' as const }
+              : !isSlotVerified
+              ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Belum Tersimpan di Server', icon: 'warn' as const }
               : hasValidCoords && slotData.geotagStatus === 'weak'
               ? { cls: 'text-[#9D661F] dark:text-amber-700', text: 'Berhasil Diunggah (Weak GPS)', icon: 'warn' as const }
               : { cls: 'text-[#218A63] dark:text-emerald-700', text: 'Berhasil Diunggah', icon: 'ok' as const };

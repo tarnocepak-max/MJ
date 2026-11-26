@@ -615,7 +615,20 @@ function createPgPool(connectionString) {
   if (useSsl) {
     config.ssl = { rejectUnauthorized: false };
   }
-  return new Pool(config);
+  try {
+    return new Pool(config);
+  } catch (err) {
+    console.warn("[Migrations] Failed to initialize pg Pool \u2014 using safe no-op fallback:", sanitizeErrorMessage(err));
+    return {
+      connect: async () => ({
+        query: async () => ({ rows: [] }),
+        release: () => {
+        }
+      }),
+      end: async () => {
+      }
+    };
+  }
 }
 function describeConnectionConfigHint(connectionString, rawErrMsg) {
   try {
@@ -1563,9 +1576,9 @@ function ticketToPostgresRow(ticket) {
     leaderId: ticket.leaderId || null,
     leaderContact: ticket.leaderContact || null,
     installerId: ticket.installerId || null,
-    installerUid: ticket.installerUid || null,
-    assignedTo: ticket.assignedTo || null,
-    assignedToUid: ticket.assignedToUid || null,
+    installerUid: ticket.installerUid || ticket.installerId || null,
+    assignedTo: ticket.assignedTo || ticket.installerName || null,
+    assignedToUid: ticket.assignedToUid || ticket.installerId || null,
     progressReports: Array.isArray(ticket.progressReports) ? ticket.progressReports : [],
     kendalaReports: Array.isArray(ticket.kendalaReports) ? ticket.kendalaReports : [],
     reportStatusId: ticket.reportStatusId || null,
@@ -2187,7 +2200,63 @@ async function deleteUserInSupabase(id, deletedBy, reason) {
     return { success: false, error: classified };
   }
 }
-var WORK_ORDER_LIST_COLUMNS = [
+var WORK_ORDER_OPTIONAL_COMPAT_COLS = [
+  "installer_id",
+  "installer_uid",
+  "assigned_to",
+  "assigned_to_uid",
+  "leader_id",
+  "leader_contact",
+  "distributed_at",
+  "distributed_by",
+  "chat_category",
+  "house_location",
+  "fat_location"
+];
+var WORK_ORDER_OPTIONAL_COMPAT_SET = new Set(WORK_ORDER_OPTIONAL_COMPAT_COLS);
+var missingWorkOrderColumnsCache = /* @__PURE__ */ new Set();
+function extractMissingWorkOrderColumnFromError(err) {
+  const msg = String(err?.message || "");
+  const pgrstMatch = msg.match(/could not find the ['"]([a-z0-9_]+)['"] column/i);
+  if (pgrstMatch?.[1]) {
+    return pgrstMatch[1].toLowerCase();
+  }
+  const pgMatch = msg.match(/column\s+(?:[a-z0-9_]+\.)?["']?([a-z0-9_]+)["']?\s+does not exist/i);
+  if (pgMatch?.[1]) {
+    return pgMatch[1].toLowerCase();
+  }
+  return null;
+}
+function recordMissingWorkOrderColumn(err) {
+  const col = extractMissingWorkOrderColumnFromError(err);
+  if (col && col !== "payload") {
+    missingWorkOrderColumnsCache.add(col);
+    return col;
+  }
+  const msgLower = String(err?.message || "").toLowerCase();
+  for (const optCol of WORK_ORDER_OPTIONAL_COMPAT_COLS) {
+    if (msgLower.includes(optCol)) {
+      missingWorkOrderColumnsCache.add(optCol);
+      return optCol;
+    }
+  }
+  return null;
+}
+function stripMissingWorkOrderOptionalColumns(row, extraColsToStrip = []) {
+  const next = { ...row };
+  for (const col of missingWorkOrderColumnsCache) {
+    if (col !== "payload" && col in next) {
+      delete next[col];
+    }
+  }
+  for (const col of extraColsToStrip) {
+    if (col !== "payload" && col in next) {
+      delete next[col];
+    }
+  }
+  return next;
+}
+var WORK_ORDER_LIST_COLUMNS_ARRAY = [
   "id",
   "wo_number",
   "work_order_number",
@@ -2294,7 +2363,12 @@ var WORK_ORDER_LIST_COLUMNS = [
   "created_at",
   "updated_at",
   "updated_by"
-].join(", ");
+];
+var WORK_ORDER_LIST_COLUMNS = WORK_ORDER_LIST_COLUMNS_ARRAY.join(", ");
+function getCompatWorkOrderListColumns() {
+  if (missingWorkOrderColumnsCache.size === 0) return WORK_ORDER_LIST_COLUMNS;
+  return WORK_ORDER_LIST_COLUMNS_ARRAY.filter((col) => !missingWorkOrderColumnsCache.has(col)).join(", ");
+}
 function sanitizePostgrestIlikeTerm(raw) {
   return String(raw || "").trim().replace(/[,%()*\\"'`]/g, "");
 }
@@ -2330,27 +2404,28 @@ async function getWorkOrdersFromSupabase(options = {}) {
     return query.order("created_at", { ascending: false }).order("id", { ascending: true });
   };
   try {
-    const selectColumns = options.lightweight ? WORK_ORDER_LIST_COLUMNS : "*";
+    const getActiveSelect = (forceWildcard = false) => forceWildcard ? "*" : options.lightweight ? getCompatWorkOrderListColumns() : "*";
     const hasExplicitLimit = typeof options.limit === "number" && options.limit > 0;
     const hasExplicitOffset = typeof options.offset === "number" && options.offset >= 0;
     if (hasExplicitLimit || hasExplicitOffset) {
-      let query = buildBaseQuery(selectColumns);
-      if (hasExplicitOffset && hasExplicitLimit) {
-        query = query.range(options.offset, options.offset + options.limit - 1);
-      } else if (hasExplicitLimit) {
-        query = query.limit(options.limit);
-      }
-      let { data, error } = await query;
-      if (error && options.lightweight && isMissingSchemaObjectError(error)) {
-        let fallbackQuery = buildBaseQuery("*");
+      let forceWildcard = false;
+      let data = null;
+      let error = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        let query = buildBaseQuery(getActiveSelect(forceWildcard));
         if (hasExplicitOffset && hasExplicitLimit) {
-          fallbackQuery = fallbackQuery.range(options.offset, options.offset + options.limit - 1);
+          query = query.range(options.offset, options.offset + options.limit - 1);
         } else if (hasExplicitLimit) {
-          fallbackQuery = fallbackQuery.limit(options.limit);
+          query = query.limit(options.limit);
         }
-        const fallbackRes = await fallbackQuery;
-        data = fallbackRes.data;
-        error = fallbackRes.error;
+        const res = await query;
+        data = res.data;
+        error = res.error;
+        if (!error || !options.lightweight || !isMissingSchemaObjectError(error) || forceWildcard) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) forceWildcard = true;
       }
       if (error) {
         const classified = classifySupabaseError(error);
@@ -2366,13 +2441,17 @@ async function getWorkOrdersFromSupabase(options = {}) {
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const activeCols = useFallbackColumns ? "*" : selectColumns;
-      let { data, error } = await buildBaseQuery(activeCols).range(start, end);
-      if (error && !useFallbackColumns && options.lightweight && isMissingSchemaObjectError(error)) {
-        useFallbackColumns = true;
-        const fallbackRes = await buildBaseQuery("*").range(start, end);
-        data = fallbackRes.data;
-        error = fallbackRes.error;
+      let data = null;
+      let error = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const res = await buildBaseQuery(getActiveSelect(useFallbackColumns)).range(start, end);
+        data = res.data;
+        error = res.error;
+        if (!error || !options.lightweight || !isMissingSchemaObjectError(error) || useFallbackColumns) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) useFallbackColumns = true;
       }
       if (error) {
         const classified = classifySupabaseError(error);
@@ -2456,10 +2535,11 @@ async function getWorkOrdersFromSupabasePaginated(options = {}) {
     }
     if (options.userRole === "installer" && options.userId) {
       const safeUid = sanitizePostgrestQuotedValue(options.userId);
-      if (useExtendedInstallerCols) {
+      const hasMissingInstallerCol = missingWorkOrderColumnsCache.has("installer_id") || missingWorkOrderColumnsCache.has("installer_uid") || missingWorkOrderColumnsCache.has("assigned_to_uid");
+      if (useExtendedInstallerCols && !hasMissingInstallerCol) {
         q = q.or(`installer_id.eq.${safeUid},installer_uid.eq.${safeUid},assigned_to_uid.eq.${safeUid}`);
       } else {
-        q = q.eq("installer_id", options.userId);
+        q = q.or(`payload->>installerId.eq.${safeUid},payload->>installerUid.eq.${safeUid},payload->>assignedToUid.eq.${safeUid}`);
       }
     } else if (options.userRole === "leader" && options.userContractor) {
       const lc = sanitizePostgrestIlikeTerm(options.userContractor);
@@ -2470,23 +2550,33 @@ async function getWorkOrdersFromSupabasePaginated(options = {}) {
     return q;
   };
   try {
-    const selectCols = options.lightweight !== false ? WORK_ORDER_LIST_COLUMNS : "*";
-    let query = applyFilters(
-      client.from("work_orders").select(selectCols, { count: "exact" }),
-      true
-    );
-    query = query.order(orderCol, { ascending }).order("id", { ascending: true }).range(offset, offset + limit - 1);
-    let { data, count, error } = await query;
-    if (error && isMissingSchemaObjectError(error)) {
-      let fallback = applyFilters(
-        client.from("work_orders").select("*", { count: "exact" }),
-        false
+    let useExtendedCols = !missingWorkOrderColumnsCache.has("installer_id");
+    let forceWildcardSelect = false;
+    let data = null;
+    let count = null;
+    let error = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const selectCols = options.lightweight !== false ? forceWildcardSelect ? "*" : getCompatWorkOrderListColumns() : "*";
+      let query = applyFilters(
+        client.from("work_orders").select(selectCols, { count: "exact" }),
+        useExtendedCols
       );
-      fallback = fallback.order(orderCol, { ascending }).order("id", { ascending: true }).range(offset, offset + limit - 1);
-      const fbRes = await fallback;
-      data = fbRes.data;
-      count = fbRes.count;
-      error = fbRes.error;
+      query = query.order(orderCol, { ascending }).order("id", { ascending: true }).range(offset, offset + limit - 1);
+      const res = await query;
+      data = res.data;
+      count = res.count;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+      const recorded = recordMissingWorkOrderColumn(error);
+      if (recorded === "installer_id" || recorded === "installer_uid" || recorded === "assigned_to_uid" || useExtendedCols) {
+        useExtendedCols = false;
+      }
+      if (!recorded) {
+        if (forceWildcardSelect) break;
+        forceWildcardSelect = true;
+      }
     }
     if (error) {
       return { success: false, error: classifySupabaseError(error) };
@@ -2546,13 +2636,18 @@ async function getWorkOrdersUpdatedSinceFromSupabase(sinceIso) {
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const cols = useFallbackColumns ? "*" : WORK_ORDER_LIST_COLUMNS;
-      let { data, error } = await client.from("work_orders").select(cols).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).order("id", { ascending: true }).range(start, end);
-      if (error && !useFallbackColumns && isMissingSchemaObjectError(error)) {
-        useFallbackColumns = true;
-        const fb = await client.from("work_orders").select("*").gte("updated_at", sinceIso).order("updated_at", { ascending: false }).order("id", { ascending: true }).range(start, end);
-        data = fb.data;
-        error = fb.error;
+      let data = null;
+      let error = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const cols = useFallbackColumns ? "*" : getCompatWorkOrderListColumns();
+        const res = await client.from("work_orders").select(cols).gte("updated_at", sinceIso).order("updated_at", { ascending: false }).order("id", { ascending: true }).range(start, end);
+        data = res.data;
+        error = res.error;
+        if (!error || !isMissingSchemaObjectError(error) || useFallbackColumns) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) useFallbackColumns = true;
       }
       if (error) {
         return { success: false, error: classifySupabaseError(error) };
@@ -2609,10 +2704,40 @@ async function getScopedActiveWorkOrderHeadsFromSupabase() {
     const CHUNK_SIZE = 1e3;
     const MAX_CHUNKS = 25;
     const allRows = [];
+    const HEAD_COLUMNS = [
+      "id",
+      "wo_number",
+      "contractor_id",
+      "contractor_name",
+      "contactor_name",
+      "area",
+      "installer_id",
+      "installer_uid",
+      "assigned_to_uid",
+      "installer_name",
+      "leader_name",
+      "corlap_name",
+      "is_deleted",
+      "is_archived",
+      "payload"
+    ];
     for (let chunkIdx = 0; chunkIdx < MAX_CHUNKS; chunkIdx++) {
       const start = chunkIdx * CHUNK_SIZE;
       const end = start + CHUNK_SIZE - 1;
-      const { data, error } = await client.from("work_orders").select("id, wo_number, contractor_id, contractor_name, contactor_name, area, installer_id, installer_uid, assigned_to_uid, installer_name, leader_name, corlap_name, is_deleted, is_archived").eq("is_deleted", false).eq("is_archived", false).order("id", { ascending: true }).range(start, end);
+      let data = null;
+      let error = null;
+      let forceWildcard = false;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const activeCols = forceWildcard ? "*" : HEAD_COLUMNS.filter((c) => !missingWorkOrderColumnsCache.has(c)).join(", ");
+        const res = await client.from("work_orders").select(activeCols).eq("is_deleted", false).eq("is_archived", false).order("id", { ascending: true }).range(start, end);
+        data = res.data;
+        error = res.error;
+        if (!error || !isMissingSchemaObjectError(error) || forceWildcard) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(error);
+        if (!recorded) forceWildcard = true;
+      }
       if (error) {
         return { success: false, error: classifySupabaseError(error) };
       }
@@ -2624,22 +2749,25 @@ async function getScopedActiveWorkOrderHeadsFromSupabase() {
     }
     return {
       success: true,
-      data: allRows.map((row) => ({
-        id: String(row.id),
-        woNumber: row.wo_number,
-        contractorId: row.contractor_id || void 0,
-        contractorName: row.contractor_name || row.contactor_name || "",
-        contactorName: row.contactor_name || row.contractor_name || "",
-        area: row.area || "",
-        installerId: row.installer_id || void 0,
-        installerUid: row.installer_uid || void 0,
-        assignedToUid: row.assigned_to_uid || void 0,
-        installerName: row.installer_name || void 0,
-        leaderName: row.leader_name || void 0,
-        corlapName: row.corlap_name || void 0,
-        isDeleted: Boolean(row.is_deleted),
-        isArchived: Boolean(row.is_archived)
-      }))
+      data: allRows.map((row) => {
+        const p = row?.payload && typeof row.payload === "object" ? row.payload : {};
+        return {
+          id: String(row.id),
+          woNumber: row.wo_number,
+          contractorId: row.contractor_id || void 0,
+          contractorName: row.contractor_name || row.contactor_name || "",
+          contactorName: row.contactor_name || row.contractor_name || "",
+          area: row.area || "",
+          installerId: p.installerId || row.installer_id || void 0,
+          installerUid: p.installerUid || row.installer_uid || void 0,
+          assignedToUid: p.assignedToUid || row.assigned_to_uid || void 0,
+          installerName: row.installer_name || void 0,
+          leaderName: row.leader_name || void 0,
+          corlapName: row.corlap_name || void 0,
+          isDeleted: Boolean(row.is_deleted),
+          isArchived: Boolean(row.is_archived)
+        };
+      })
     };
   } catch (err) {
     return { success: false, error: classifySupabaseError(err) };
@@ -2778,8 +2906,23 @@ async function insertWorkOrderToSupabase(ticket) {
     return { success: false, error: { code: "INVALID_WO", message: "Nomor WO wajib disertakan." } };
   }
   try {
-    const row = ticketToPostgresRow(ticket);
-    const { data, error } = await client.from("work_orders").insert([row]).select("*").single();
+    let compatRow = stripMissingWorkOrderOptionalColumns(ticketToPostgresRow(ticket));
+    let data = null;
+    let error = null;
+    for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+      const res = await client.from("work_orders").insert([compatRow]).select("*").single();
+      data = res.data;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+      const missingCol = recordMissingWorkOrderColumn(error);
+      if (!missingCol || !(missingCol in compatRow) || !WORK_ORDER_OPTIONAL_COMPAT_SET.has(missingCol) && missingCol !== "payload") {
+        if (!missingCol || !(missingCol in compatRow)) break;
+      }
+      if (missingCol === "payload") break;
+      compatRow = stripMissingWorkOrderOptionalColumns(compatRow, [missingCol]);
+    }
     if (error) {
       const classified = classifySupabaseError(error);
       console.error("[Supabase DAL] insertWorkOrder error:", classified.message);
@@ -3238,36 +3381,36 @@ async function updateWorkOrderInSupabase(id, updates) {
       Object.assign(mergedPayload, updates.payload);
     }
     updateRow.payload = mergedPayload;
-    let { data, error } = await client.from("work_orders").update(updateRow).eq("id", cleanId).select("*").single();
-    if (error && isMissingSchemaObjectError(error)) {
-      const OPTIONAL_COMPAT_COLS = [
-        "installer_uid",
-        "assigned_to",
-        "assigned_to_uid",
-        "installer_id",
-        "chat_category",
-        "leader_id",
-        "leader_contact",
-        "distributed_at",
-        "distributed_by"
-      ];
-      const msgLower = String(error?.message || "").toLowerCase();
-      const compatUpdateRow = { ...updateRow };
-      const strippedCols = [];
-      for (const col of OPTIONAL_COMPAT_COLS) {
-        if (col in compatUpdateRow && (msgLower.includes(col) || col === "installer_uid" || col === "assigned_to" || col === "assigned_to_uid")) {
-          delete compatUpdateRow[col];
-          strippedCols.push(col);
+    let compatUpdateRow = stripMissingWorkOrderOptionalColumns(updateRow);
+    let data = null;
+    let error = null;
+    const maxCompatRetries = WORK_ORDER_OPTIONAL_COMPAT_COLS.length + 1;
+    for (let attempt = 0; attempt <= maxCompatRetries; attempt++) {
+      const res = await client.from("work_orders").update(compatUpdateRow).eq("id", cleanId).select("*").single();
+      data = res.data;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error)) {
+        break;
+      }
+      const missingCol = recordMissingWorkOrderColumn(error);
+      const colsToStrip = [];
+      if (missingCol && missingCol !== "payload" && missingCol in compatUpdateRow) {
+        colsToStrip.push(missingCol);
+      } else {
+        const msgLower = String(error?.message || "").toLowerCase();
+        for (const col of WORK_ORDER_OPTIONAL_COMPAT_COLS) {
+          if (col in compatUpdateRow && msgLower.includes(col)) {
+            colsToStrip.push(col);
+          }
         }
       }
-      if (strippedCols.length > 0) {
-        console.warn(
-          `[Supabase DAL] updateWorkOrder(${cleanId}) schema mismatch (${error?.code || "ERR"}): retrying without optional columns [${strippedCols.join(", ")}] (canonical values preserved in payload)`
-        );
-        const retryRes = await client.from("work_orders").update(compatUpdateRow).eq("id", cleanId).select("*").single();
-        data = retryRes.data;
-        error = retryRes.error;
+      if (colsToStrip.length === 0) {
+        break;
       }
+      console.warn(
+        `[Supabase DAL] updateWorkOrder(${cleanId}) schema mismatch (${error?.code || "ERR"}): retrying without unmigrated optional column(s) [${colsToStrip.join(", ")}] (canonical values preserved in payload)`
+      );
+      compatUpdateRow = stripMissingWorkOrderOptionalColumns(compatUpdateRow, colsToStrip);
     }
     if (error) {
       const classified = classifySupabaseError(error, { table: "work_orders", operation: "UPDATE" });
@@ -3507,6 +3650,107 @@ async function deleteWoPhotoEvidenceRowFromSupabase(ticketId, slotKey) {
   } catch {
     return { deleted: false };
   }
+}
+async function getWoPhotoEvidenceByTicketFromSupabase(ticketId) {
+  const client = getSupabaseBackendClient();
+  if (!client) return { success: false, data: [], error: "Supabase client belum dikonfigurasi." };
+  const cleanTicketId = String(ticketId || "").trim();
+  if (!cleanTicketId) return { success: true, data: [] };
+  try {
+    const { data, error } = await client.from("wo_photo_evidence").select("*").eq("ticket_id", cleanTicketId).order("uploaded_at", { ascending: false });
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { success: true, data: [], skippedSchemaPending: true };
+      }
+      return { success: false, data: [], error: error.message };
+    }
+    const mapped = (data || []).map((row) => {
+      const meta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const capturedAtIso = row.captured_at ? new Date(row.captured_at).toISOString() : void 0;
+      const uploadedAtIso = row.uploaded_at ? new Date(row.uploaded_at).toISOString() : void 0;
+      return {
+        id: row.id,
+        slotKey: row.slot_key,
+        title: row.slot_title || row.slot_key,
+        url: row.photo_url,
+        storagePath: row.storage_path || void 0,
+        fileName: row.file_name || void 0,
+        fileSizeBytes: typeof row.file_size_bytes === "number" ? row.file_size_bytes : void 0,
+        mimeType: row.mime_type || void 0,
+        capturedAt: capturedAtIso ? new Intl.DateTimeFormat("id-ID", {
+          timeZone: "Asia/Jakarta",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        }).format(new Date(capturedAtIso)) : void 0,
+        capturedAtIso,
+        uploadedAt: uploadedAtIso,
+        latitude: typeof row.latitude === "number" ? row.latitude : void 0,
+        longitude: typeof row.longitude === "number" ? row.longitude : void 0,
+        gpsAccuracyMeters: typeof row.gps_accuracy_meters === "number" ? row.gps_accuracy_meters : void 0,
+        altitudeMeters: typeof row.altitude_meters === "number" ? row.altitude_meters : void 0,
+        headingDeg: typeof row.heading_deg === "number" ? row.heading_deg : void 0,
+        speedMps: typeof row.speed_mps === "number" ? row.speed_mps : void 0,
+        locationSource: row.location_source || void 0,
+        permissionStatus: row.permission_status || void 0,
+        geotagStatus: row.geotag_status || "missing",
+        captureMethod: row.capture_method === "gallery" ? "gallery" : "camera",
+        technicianId: row.technician_id || void 0,
+        technicianName: row.technician_name || void 0,
+        woNumber: row.wo_number || void 0,
+        clientCaptureId: row.client_capture_id || void 0,
+        sha256: row.sha256 || void 0,
+        badgeText: typeof meta.badgeText === "string" ? meta.badgeText : void 0,
+        statusTag: typeof meta.statusTag === "string" ? meta.statusTag : void 0,
+        fieldNotes: typeof meta.fieldNotes === "string" ? meta.fieldNotes : void 0,
+        uploadStatus: "uploaded"
+      };
+    });
+    return { success: true, data: mapped };
+  } catch (err) {
+    return { success: false, data: [], error: err?.message || "Gagal mengambil wo_photo_evidence." };
+  }
+}
+async function hydrateTicketPhotoEvidenceFromSupabase(ticket) {
+  if (!ticket || !ticket.id) return ticket;
+  const evRes = await getWoPhotoEvidenceByTicketFromSupabase(String(ticket.id));
+  if (!evRes.success || !Array.isArray(evRes.data) || evRes.data.length === 0) {
+    return ticket;
+  }
+  const prevTr = ticket.technicalReport && typeof ticket.technicalReport === "object" ? ticket.technicalReport : {};
+  const existingSlots = Array.isArray(prevTr.photoSlots) ? prevTr.photoSlots : [];
+  const mergedByKey = /* @__PURE__ */ new Map();
+  for (const dbSlot of evRes.data) {
+    if (dbSlot?.slotKey && !mergedByKey.has(dbSlot.slotKey)) {
+      mergedByKey.set(dbSlot.slotKey, dbSlot);
+    }
+  }
+  for (const s of existingSlots) {
+    if (!s || !s.slotKey) continue;
+    const prev = mergedByKey.get(s.slotKey);
+    if (!prev) {
+      mergedByKey.set(s.slotKey, s);
+      continue;
+    }
+    const prevTs = prev.uploadedAt ? Date.parse(prev.uploadedAt) : 0;
+    const nextTs = s.uploadedAt ? Date.parse(s.uploadedAt) : 0;
+    if (Number.isFinite(nextTs) && (!Number.isFinite(prevTs) || nextTs >= prevTs)) {
+      mergedByKey.set(s.slotKey, s);
+    }
+  }
+  const mergedSlots = Array.from(mergedByKey.values());
+  const mergedPhotos = mergedSlots.map((s) => s?.url).filter(Boolean);
+  return {
+    ...ticket,
+    technicalReport: {
+      ...prevTr,
+      ticketId: prevTr.ticketId || ticket.id,
+      photoSlots: mergedSlots,
+      photos: mergedPhotos.length > 0 ? mergedPhotos : prevTr.photos
+    },
+    photoEvidenceCount: mergedSlots.length
+  };
 }
 async function appendDistributionLogToSupabase(entry) {
   const client = getSupabaseBackendClient();
@@ -3776,11 +4020,18 @@ async function getDeletedWorkOrdersFromSupabase(options = {}) {
     return q.order("deleted_at", { ascending: false, nullsFirst: false }).order("id", { ascending: true }).limit(limit);
   };
   try {
-    let { data, error } = await buildQuery(WORK_ORDER_LIST_COLUMNS);
-    if (error && isMissingSchemaObjectError(error)) {
-      const fb = await buildQuery("*");
-      data = fb.data;
-      error = fb.error;
+    let data = null;
+    let error = null;
+    let forceWildcard = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const res = await buildQuery(forceWildcard ? "*" : getCompatWorkOrderListColumns());
+      data = res.data;
+      error = res.error;
+      if (!error || !isMissingSchemaObjectError(error) || forceWildcard) {
+        break;
+      }
+      const recorded = recordMissingWorkOrderColumn(error);
+      if (!recorded) forceWildcard = true;
     }
     if (error) {
       return { success: false, error: classifySupabaseError(error) };
@@ -3949,26 +4200,49 @@ async function bulkImportWorkOrdersToSupabase(tickets, batchId, importedBy) {
         result.skippedDuplicates++;
         result.duplicateExistingWoNumbers.push(candidate.normWo);
       } else {
-        const row = ticketToPostgresRow({
-          ...candidate,
-          woNumber: candidate.normWo,
-          workOrderNumber: candidate.normWo,
-          importBatchId: batchId || `batch_${Date.now()}`,
-          importedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          updatedBy: importedBy || "Import"
-        });
+        const row = stripMissingWorkOrderOptionalColumns(
+          ticketToPostgresRow({
+            ...candidate,
+            woNumber: candidate.normWo,
+            workOrderNumber: candidate.normWo,
+            importBatchId: batchId || `batch_${Date.now()}`,
+            importedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            updatedBy: importedBy || "Import"
+          })
+        );
         rowsToInsert.push(row);
       }
     }
     const insertChunkSize = 50;
     for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
-      const chunk = rowsToInsert.slice(i, i + insertChunkSize);
-      const { error: insertError } = await client.from("work_orders").insert(chunk);
+      let chunk = rowsToInsert.slice(i, i + insertChunkSize).map((r) => stripMissingWorkOrderOptionalColumns(r));
+      let insertError = null;
+      for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+        const res = await client.from("work_orders").insert(chunk);
+        insertError = res.error;
+        if (!insertError || !isMissingSchemaObjectError(insertError)) {
+          break;
+        }
+        const missingCol = recordMissingWorkOrderColumn(insertError);
+        if (!missingCol || missingCol === "payload") break;
+        chunk = chunk.map((r) => stripMissingWorkOrderOptionalColumns(r, [missingCol]));
+      }
       if (insertError) {
         const classified = classifySupabaseError(insertError, { table: "work_orders", operation: "bulk_insert" });
         if (!classified.isUnavailable) {
-          for (const singleRow of chunk) {
-            const { error: singleErr } = await client.from("work_orders").insert([singleRow]);
+          for (const rawSingleRow of chunk) {
+            let singleRow = stripMissingWorkOrderOptionalColumns(rawSingleRow);
+            let singleErr = null;
+            for (let attempt = 0; attempt <= WORK_ORDER_OPTIONAL_COMPAT_COLS.length; attempt++) {
+              const sRes = await client.from("work_orders").insert([singleRow]);
+              singleErr = sRes.error;
+              if (!singleErr || !isMissingSchemaObjectError(singleErr)) {
+                break;
+              }
+              const missingCol = recordMissingWorkOrderColumn(singleErr);
+              if (!missingCol || missingCol === "payload") break;
+              singleRow = stripMissingWorkOrderOptionalColumns(singleRow, [missingCol]);
+            }
             if (singleErr) {
               const singleClassified = classifySupabaseError(singleErr, { table: "work_orders", operation: "single_insert_fallback" });
               if (singleClassified.isDuplicate || singleClassified.code === "23505") {
@@ -5259,13 +5533,14 @@ async function assignTicketInSupabase(options) {
   if (resolvedInstallerId) {
     matchedInstaller = allInstallers.find((u) => u.id === resolvedInstallerId) || null;
   } else {
-    const cleanNeedle = effInstallerName.toLowerCase();
-    const byUsername = allInstallers.filter((u) => !u.isDeleted && String(u.username || "").trim().toLowerCase() === cleanNeedle);
+    const cleanNeedle = effInstallerName.toLowerCase().replace(/\s+/g, " ");
+    const normStr = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+    const byUsername = allInstallers.filter((u) => !u.isDeleted && normStr(u.username) === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
       const activeByName = allInstallers.filter(
-        (u) => !u.isDeleted && u.active !== false && String(u.name || "").trim().toLowerCase() === cleanNeedle
+        (u) => !u.isDeleted && u.active !== false && normStr(u.name) === cleanNeedle
       );
       const scopedActiveByName = userContractor || userContractorId ? activeByName.filter(
         (u) => doesContractorScopeMatch({
@@ -5290,7 +5565,7 @@ async function assignTicketInSupabase(options) {
         };
       }
       matchedInstaller = candidateList[0] || allInstallers.find(
-        (u) => String(u.name || "").trim().toLowerCase() === cleanNeedle || String(u.username || "").trim().toLowerCase() === cleanNeedle
+        (u) => normStr(u.name) === cleanNeedle || normStr(u.username) === cleanNeedle
       ) || null;
     }
   }
@@ -5442,7 +5717,12 @@ async function assignTicketInSupabase(options) {
     notes: remarks || null,
     performedById: performedById || null,
     performedBy,
-    performedByRole
+    performedByRole,
+    payload: {
+      installerId: resolvedInstallerId || null,
+      installerUsername: matchedInstaller.username || null,
+      previousInstallerId: targetWO.installerId || targetWO.installerUid || null
+    }
   };
   const histRes = await insertAssignmentHistoryToSupabase(historyEntry);
   if (!histRes.success) {
@@ -5653,13 +5933,14 @@ async function reassignTicketInSupabase(options) {
   if (resolvedNewInstallerId) {
     matchedInstaller = allInstallers.find((u) => u.id === resolvedNewInstallerId) || null;
   } else {
-    const cleanNeedle = effNewInstaller.toLowerCase();
-    const byUsername = allInstallers.filter((u) => !u.isDeleted && String(u.username || "").trim().toLowerCase() === cleanNeedle);
+    const cleanNeedle = effNewInstaller.toLowerCase().replace(/\s+/g, " ");
+    const normStr = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+    const byUsername = allInstallers.filter((u) => !u.isDeleted && normStr(u.username) === cleanNeedle);
     if (byUsername.length === 1) {
       matchedInstaller = byUsername[0];
     } else {
       const activeByName = allInstallers.filter(
-        (u) => !u.isDeleted && u.active !== false && String(u.name || "").trim().toLowerCase() === cleanNeedle
+        (u) => !u.isDeleted && u.active !== false && normStr(u.name) === cleanNeedle
       );
       const scopedActiveByName = userContractor || userContractorId ? activeByName.filter(
         (u) => doesContractorScopeMatch({
@@ -5682,7 +5963,7 @@ async function reassignTicketInSupabase(options) {
         };
       }
       matchedInstaller = candidateList[0] || allInstallers.find(
-        (u) => String(u.name || "").trim().toLowerCase() === cleanNeedle || String(u.username || "").trim().toLowerCase() === cleanNeedle
+        (u) => normStr(u.name) === cleanNeedle || normStr(u.username) === cleanNeedle
       ) || null;
     }
   }
@@ -5800,7 +6081,12 @@ async function reassignTicketInSupabase(options) {
     notes: reason.trim(),
     performedById: performedById || null,
     performedBy,
-    performedByRole
+    performedByRole,
+    payload: {
+      newInstallerId: resolvedNewInstallerId || null,
+      newInstallerUsername: matchedInstaller.username || null,
+      previousInstallerId: targetTicket.installerId || targetTicket.installerUid || null
+    }
   };
   const histRes = await insertAssignmentHistoryToSupabase(historyEntry);
   if (!histRes.success) {
@@ -7977,6 +8263,153 @@ async function consumeResetTokenAndSetPassword(params) {
 
 // server.ts
 import { EventEmitter as EventEmitter2 } from "events";
+
+// src/utils/photoEvidenceValidation.ts
+var MANDATORY_PHOTO_SLOT_KEYS = [
+  "customer_house",
+  "fat_pole",
+  "fat_attenuation"
+];
+var OPTIONAL_PHOTO_SLOT_KEYS = [
+  "fat_port",
+  "customer_install",
+  "barcode_sn",
+  "opm"
+];
+var ALL_PHOTO_SLOT_KEYS = [
+  ...MANDATORY_PHOTO_SLOT_KEYS,
+  ...OPTIONAL_PHOTO_SLOT_KEYS
+];
+var MANDATORY_PHOTO_SLOT_DESCRIPTORS = [
+  {
+    slotKey: "customer_house",
+    order: 1,
+    label: "Bukti Foto Fisik No. 1",
+    title: "Foto Lokasi Rumah"
+  },
+  {
+    slotKey: "fat_pole",
+    order: 2,
+    label: "Bukti Foto Fisik No. 2",
+    title: "Foto Lokasi FAT"
+  },
+  {
+    slotKey: "fat_attenuation",
+    order: 3,
+    label: "Bukti Foto Fisik No. 3",
+    title: "Foto Redaman FAT"
+  }
+];
+var ALLOWED_SLOT_KEY_SET = new Set(ALL_PHOTO_SLOT_KEYS);
+var MANDATORY_SLOT_KEY_SET = new Set(MANDATORY_PHOTO_SLOT_KEYS);
+function isPersistedStoragePhotoUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return false;
+  const url = rawUrl.trim();
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("javascript:")) {
+    return false;
+  }
+  return url.startsWith("/api/storage/") || url.includes("/api/storage/public/") || url.startsWith("/uploads/") || lower.startsWith("https://") || lower.startsWith("http://");
+}
+function isVerifiedPersistedPhotoSlot(slot, runtimeUploadState) {
+  if (!slot || typeof slot !== "object") return false;
+  const s = slot;
+  const slotKey = typeof s.slotKey === "string" ? s.slotKey.trim() : "";
+  if (!slotKey || !ALLOWED_SLOT_KEY_SET.has(slotKey)) return false;
+  if (runtimeUploadState?.status === "uploading" || runtimeUploadState?.status === "failed" || runtimeUploadState?.status === "pending_offline") {
+    return false;
+  }
+  if (s.uploadStatus === "uploading" || s.uploadStatus === "failed" || s.uploadStatus === "pending_offline") {
+    return false;
+  }
+  if (!isPersistedStoragePhotoUrl(s.url)) {
+    return false;
+  }
+  const hasStoragePath = typeof s.storagePath === "string" && s.storagePath.trim().length > 0;
+  const hasUploadedAt = typeof s.uploadedAt === "string" && s.uploadedAt.trim().length > 0;
+  return hasStoragePath || hasUploadedAt;
+}
+function evaluatePhotoEvidenceCompleteness(slotsInput, runtimeUploadState) {
+  const verifiedMap = /* @__PURE__ */ new Map();
+  const considerSlot = (candidate, fallbackKey) => {
+    if (!candidate || typeof candidate !== "object") return;
+    const raw = candidate;
+    const key = typeof raw.slotKey === "string" && raw.slotKey.trim() ? raw.slotKey.trim() : fallbackKey || "";
+    if (!key || !ALLOWED_SLOT_KEY_SET.has(key)) return;
+    const normalizedSlot = raw.slotKey === key ? raw : { ...raw, slotKey: key };
+    const runtimeState = runtimeUploadState ? runtimeUploadState[key] : void 0;
+    if (!isVerifiedPersistedPhotoSlot(normalizedSlot, runtimeState)) {
+      return;
+    }
+    const existing = verifiedMap.get(key);
+    if (!existing) {
+      verifiedMap.set(key, normalizedSlot);
+      return;
+    }
+    const existingTs = existing.uploadedAt ? Date.parse(existing.uploadedAt) : 0;
+    const nextTs = normalizedSlot.uploadedAt ? Date.parse(normalizedSlot.uploadedAt) : 0;
+    if (Number.isFinite(nextTs) && (!Number.isFinite(existingTs) || nextTs >= existingTs)) {
+      verifiedMap.set(key, normalizedSlot);
+    }
+  };
+  if (Array.isArray(slotsInput)) {
+    for (const item of slotsInput) {
+      considerSlot(item);
+    }
+  } else if (slotsInput && typeof slotsInput === "object") {
+    for (const [k, v] of Object.entries(slotsInput)) {
+      considerSlot(v, k);
+    }
+  }
+  const mandatorySlots = [];
+  const missingMandatorySlots = [];
+  const verifiedByKey = {};
+  for (const desc of MANDATORY_PHOTO_SLOT_DESCRIPTORS) {
+    const slot = verifiedMap.get(desc.slotKey);
+    if (slot) {
+      mandatorySlots.push(slot);
+      verifiedByKey[desc.slotKey] = true;
+    } else {
+      missingMandatorySlots.push(desc);
+      verifiedByKey[desc.slotKey] = false;
+    }
+  }
+  const optionalSlots = [];
+  for (const optKey of OPTIONAL_PHOTO_SLOT_KEYS) {
+    const slot = verifiedMap.get(optKey);
+    if (slot) {
+      optionalSlots.push(slot);
+      verifiedByKey[optKey] = true;
+    } else {
+      verifiedByKey[optKey] = false;
+    }
+  }
+  const verifiedSlots = [...mandatorySlots, ...optionalSlots];
+  const missingMandatorySummary = missingMandatorySlots.map((m) => `${m.label} (${m.title})`).join(", ");
+  return {
+    mandatoryCount: mandatorySlots.length,
+    requiredMandatoryCount: 3,
+    optionalCount: optionalSlots.length,
+    verifiedTotalCount: verifiedSlots.length,
+    totalSlotCount: 7,
+    isMandatoryComplete: mandatorySlots.length === MANDATORY_PHOTO_SLOT_KEYS.length,
+    mandatorySlots,
+    optionalSlots,
+    verifiedSlots,
+    missingMandatorySlots,
+    missingMandatorySummary,
+    verifiedByKey
+  };
+}
+function buildPhotoEvidenceIncompleteErrorMessage(evaluation) {
+  if (evaluation.isMandatoryComplete) {
+    return "";
+  }
+  const missingText = evaluation.missingMandatorySummary || "Foto Wajib #1, #2, dan #3";
+  const extraHint = evaluation.optionalCount > 0 ? " Catatan: foto tambahan (slot #4-#7) tidak dapat menggantikan slot foto wajib." : "";
+  return `Check-Out ditolak: Wajib mengunggah 3 foto bukti wajib (${missingText} belum terunggah & terverifikasi di server; saat ini Wajib ${evaluation.mandatoryCount}/3, Total ${evaluation.verifiedTotalCount}/7).${extraHint}`;
+}
 
 // server/woLifecycleService.ts
 function normalizeDispatchWoAgentStatus(rawValue) {
@@ -22496,6 +22929,12 @@ async function resolveUserFromHeader(req, res, next) {
       code: "EXTERNAL_AUTH_DISABLED"
     });
   }
+  const cleanPath = (req.originalUrl || req.path || "").split("?")[0];
+  const isRefreshOrLoginRoute = cleanPath === "/api/health" || cleanPath === "/api/auth/login" || cleanPath === "/api/auth/supabase-login" || cleanPath === "/api/auth/refresh" || cleanPath === "/api/auth/supabase-refresh" || cleanPath === "/api/auth/reset-password-token" || cleanPath === "/api/auth/resolve-identity";
+  if (isRefreshOrLoginRoute) {
+    return next();
+  }
+  const isLogoutRoute = cleanPath === "/api/auth/logout" || cleanPath === "/api/auth/supabase-logout";
   let found;
   let activeSession;
   let authSource;
@@ -22509,6 +22948,9 @@ async function resolveUserFromHeader(req, res, next) {
     const token = rawToken;
     const knownSession = SERVER_SESSIONS.find((s) => s.token === token);
     if (knownSession && knownSession.status === "revoked") {
+      if (isLogoutRoute) {
+        return next();
+      }
       return res.status(401).json({
         error: "Sesi login telah dicabut atau Anda telah logout. Silakan login kembali.",
         code: "SESSION_REVOKED"
@@ -22540,16 +22982,25 @@ async function resolveUserFromHeader(req, res, next) {
           code: "DATABASE_UNAVAILABLE"
         });
       } else if (customRes.error?.code === "SESSION_REVOKED") {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(401).json({
           error: "Sesi login telah dicabut karena perubahan akun atau logout.",
           code: "SESSION_REVOKED"
         });
       } else if (customRes.error?.code === "TOKEN_EXPIRED") {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(401).json({
           error: customRes.error.message || "Token sesi login telah kedaluwarsa.",
           code: "TOKEN_EXPIRED"
         });
       } else if (customRes.error?.code === "ACCOUNT_DELETED" || customRes.error?.code === "ACCOUNT_DISABLED") {
+        if (isLogoutRoute) {
+          return next();
+        }
         return res.status(403).json({
           error: customRes.error.message || "Akun pengguna tidak aktif, diarsipkan, atau telah dihapus.",
           code: customRes.error.code
@@ -22564,11 +23015,17 @@ async function resolveUserFromHeader(req, res, next) {
           authSource = "server_session";
           found = saRes.data;
         } else if (saRes.error?.code === "SESSION_REVOKED") {
+          if (isLogoutRoute) {
+            return next();
+          }
           return res.status(401).json({
             error: "Sesi login telah dicabut karena perubahan akun atau logout.",
             code: "SESSION_REVOKED"
           });
         } else if (saRes.error?.code === "TOKEN_EXPIRED") {
+          if (isLogoutRoute) {
+            return next();
+          }
           return res.status(401).json({
             error: saRes.error.message || "Token telah kedaluwarsa.",
             code: "TOKEN_EXPIRED"
@@ -24180,7 +24637,16 @@ async function createExpressApp(options) {
     const tokenFromCookie = req.cookies?.mora_refresh_token;
     const tokenFromBody = req.body?.refreshToken;
     const refreshToken = tokenFromCookie || tokenFromBody;
+    const clearStaleAuthCookies = () => {
+      const accessClearOpts = getAuthCookieOptions(req, 0, "/");
+      const refreshClearOpts = getAuthCookieOptions(req, 0, "/api/auth");
+      delete accessClearOpts.maxAge;
+      delete refreshClearOpts.maxAge;
+      res.clearCookie("mora_access_token", accessClearOpts);
+      res.clearCookie("mora_refresh_token", refreshClearOpts);
+    };
     if (!refreshToken) {
+      clearStaleAuthCookies();
       return res.status(400).json({
         success: false,
         error: "Refresh token wajib disertakan via cookie atau body.",
@@ -24191,6 +24657,7 @@ async function createExpressApp(options) {
     const userAgent = req.headers["user-agent"] || "Web Browser";
     const refreshRes = await rotateRefreshToken(refreshToken, clientIp, userAgent);
     if (!refreshRes.success || !refreshRes.data) {
+      clearStaleAuthCookies();
       return res.status(401).json({
         success: false,
         error: refreshRes.error?.message || "Gagal memperbarui sesi token.",
@@ -25603,8 +26070,9 @@ async function createExpressApp(options) {
       }
     }
     if (isLocalJsonModeAllowed()) {
+      const normStr = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
       const targetInstaller = db.users.find(
-        (u) => u.role === "installer" && !u.isDeleted && u.active !== false && (installerId && u.id === String(installerId).trim() || installerName && u.name.trim().toLowerCase() === String(installerName).trim().toLowerCase() || installerName && u.username.trim().toLowerCase() === String(installerName).trim().toLowerCase())
+        (u) => u.role === "installer" && !u.isDeleted && u.active !== false && (installerId && u.id === String(installerId).trim() || installerName && normStr(u.name) === normStr(installerName) || installerName && normStr(u.username) === normStr(installerName))
       );
       if (!targetInstaller) {
         return res.status(400).json({
@@ -25946,6 +26414,9 @@ async function createExpressApp(options) {
     if (!checkTicketAccess(ticket, req.user)) {
       return res.status(403).json({ error: "Akses Ditolak: Anda tidak memiliki wewenang untuk menyimpan laporan untuk tiket ini." });
     }
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
+    }
     if (req.user.role === "installer") {
       let woMsgs = [];
       if (isSupabaseMode()) {
@@ -25971,14 +26442,17 @@ async function createExpressApp(options) {
           error: "Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan."
         });
       }
-      const verifiedCount = countVerifiedPhotoEvidence(ticket, report?.photoSlots);
-      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+      const evidenceEval = evaluateServerTicketPhotoEvidence(ticket);
+      if (!evidenceEval.isMandatoryComplete) {
         return res.status(400).json({
           success: false,
           code: "PHOTO_EVIDENCE_INCOMPLETE",
           requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
-          uploadedCount: verifiedCount,
-          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi (saat ini baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+          uploadedCount: evidenceEval.mandatoryCount,
+          mandatoryCount: evidenceEval.mandatoryCount,
+          verifiedTotalCount: evidenceEval.verifiedTotalCount,
+          missingMandatorySlots: evidenceEval.missingMandatorySlots,
+          error: buildPhotoEvidenceIncompleteErrorMessage(evidenceEval)
         });
       }
     }
@@ -26086,32 +26560,9 @@ async function createExpressApp(options) {
     opm: "Redaman OPM"
   };
   const MIN_CHECKOUT_PHOTO_EVIDENCE = 3;
-  function isVerifiedPersistedPhotoSlot(slot) {
-    if (!slot || typeof slot !== "object") return false;
-    if (slot.uploadStatus === "failed" || slot.uploadStatus === "uploading" || slot.uploadStatus === "pending_offline") {
-      return false;
-    }
-    const url = typeof slot.url === "string" ? slot.url.trim() : "";
-    if (!url || url.startsWith("data:")) return false;
-    const isAllowedUrl = url.startsWith("/api/storage/") || url.startsWith("https://") || url.startsWith("http://");
-    if (!isAllowedUrl) return false;
-    return true;
-  }
-  function countVerifiedPhotoEvidence(ticket, overrideSlots) {
+  function evaluateServerTicketPhotoEvidence(ticket) {
     const serverSlots = Array.isArray(ticket?.technicalReport?.photoSlots) ? ticket.technicalReport.photoSlots : [];
-    const candidateSlots = Array.isArray(overrideSlots) ? overrideSlots : serverSlots;
-    const verifiedKeys = /* @__PURE__ */ new Set();
-    serverSlots.forEach((s) => {
-      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
-        verifiedKeys.add(String(s.slotKey));
-      }
-    });
-    candidateSlots.forEach((s) => {
-      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
-        verifiedKeys.add(String(s.slotKey));
-      }
-    });
-    return verifiedKeys.size;
+    return evaluatePhotoEvidenceCompleteness(serverSlots);
   }
   function isValidServerGeoCoord(lat, lng) {
     if (typeof lat !== "number" || typeof lng !== "number") return false;
@@ -26189,6 +26640,9 @@ async function createExpressApp(options) {
     }
     if (!ticket) {
       return res.status(404).json({ success: false, error: "Work Order tidak ditemukan." });
+    }
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
     if (!checkTicketAccess(ticket, req.user)) {
       return res.status(403).json({
@@ -26417,7 +26871,7 @@ async function createExpressApp(options) {
         });
       }
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
-      await Promise.allSettled([
+      const [evPersistRes, attPersistRes] = await Promise.allSettled([
         upsertWoPhotoEvidenceToSupabase({
           id: slotRecord.id,
           ticketId: ticket.id,
@@ -26467,6 +26921,14 @@ async function createExpressApp(options) {
           uploadedAt: slotRecord.uploadedAt
         })
       ]);
+      if (evPersistRes.status === "rejected") {
+        console.warn(`[WO Photo Evidence] wo_photo_evidence upsert rejected (${ticket.woNumber}/${slotRecord.slotKey}):`, evPersistRes.reason);
+      } else if (!evPersistRes.value.persisted && !evPersistRes.value.skippedSchemaPending) {
+        console.warn(`[WO Photo Evidence] wo_photo_evidence upsert skipped/failed (${ticket.woNumber}/${slotRecord.slotKey}):`, evPersistRes.value.error);
+      }
+      if (attPersistRes.status === "rejected") {
+        console.warn(`[WO Photo Evidence] attachments insert rejected (${ticket.woNumber}/${slotRecord.slotKey}):`, attPersistRes.reason);
+      }
     }
     if (isLocalJsonModeAllowed()) {
       const localIdx = db.tickets.findIndex((t) => t.id === ticket.id || t.woNumber === ticket.woNumber);
@@ -26659,8 +27121,9 @@ async function createExpressApp(options) {
       reasonReportLabel,
       rootcauseId,
       rootcauseLabel,
-      technicalTelemetry
-    } = req.body;
+      technicalTelemetry,
+      idempotencyKey
+    } = req.body || {};
     const cleanId = (id || "").trim();
     if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
       return res.status(503).json({
@@ -26683,6 +27146,9 @@ async function createExpressApp(options) {
     }
     if (!ticket) {
       return res.status(404).json({ error: "Work Order tidak ditemukan." });
+    }
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
     if (!checkTicketAccess(ticket, req.user)) {
       return res.status(403).json({
@@ -26714,14 +27180,17 @@ async function createExpressApp(options) {
           error: "Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan."
         });
       }
-      const verifiedCount = countVerifiedPhotoEvidence(ticket, technicalTelemetry?.photoSlots);
-      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+      const evidenceEval = evaluateServerTicketPhotoEvidence(ticket);
+      if (!evidenceEval.isMandatoryComplete) {
         return res.status(400).json({
           success: false,
           code: "PHOTO_EVIDENCE_INCOMPLETE",
           requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
-          uploadedCount: verifiedCount,
-          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi sebelum menyelesaikan pekerjaan (baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+          uploadedCount: evidenceEval.mandatoryCount,
+          mandatoryCount: evidenceEval.mandatoryCount,
+          verifiedTotalCount: evidenceEval.verifiedTotalCount,
+          missingMandatorySlots: evidenceEval.missingMandatorySlots,
+          error: buildPhotoEvidenceIncompleteErrorMessage(evidenceEval)
         });
       }
     }
@@ -26733,9 +27202,29 @@ async function createExpressApp(options) {
     const nextVersionNumber = existingReports.length + 1;
     const resolvedReasonLabel = reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || "";
     const resolvedRootcauseLabel = rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || void 0;
+    const cleanIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.trim() ? idempotencyKey.trim() : typeof entry?.idempotencyKey === "string" && entry.idempotencyKey.trim() ? entry.idempotencyKey.trim() : void 0;
+    const resolvedRemarks = remarks || entry?.remarksReport || resolvedReasonLabel || "-";
+    const duplicateReport = existingReports.find((r) => {
+      if (!r || typeof r !== "object") return false;
+      if (entry?.id && r.id === entry.id) return true;
+      if (cleanIdempotencyKey && r.idempotencyKey === cleanIdempotencyKey) return true;
+      const sameActor = String(r.submittedById || "") === String(req.user.id || "");
+      const samePayload = String(r.reportStatusLabel || r.reportStatus || "") === finalReportStatusLabel && String(r.reasonReportId || "") === String(reasonReportId || entry?.reasonReportId || "") && String(r.remarksReport || "") === String(resolvedRemarks);
+      if (sameActor && samePayload && r.timestamp) {
+        const elapsedMs = Date.now() - Date.parse(String(r.timestamp));
+        if (Number.isFinite(elapsedMs) && elapsedMs >= 0 && elapsedMs < 8e3) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (duplicateReport) {
+      return res.json({ success: true, deduplicated: true, entry: duplicateReport, ticket });
+    }
     const reportEntry = {
       ...entry,
       id: entry?.id || "prog_" + Date.now(),
+      ...cleanIdempotencyKey ? { idempotencyKey: cleanIdempotencyKey } : {},
       ticketId: ticket.id,
       versionNumber: nextVersionNumber,
       timestamp: entry?.timestamp || now,
@@ -26751,7 +27240,7 @@ async function createExpressApp(options) {
       reasonReportLabel: resolvedReasonLabel,
       ...resolvedRootcauseLabel ? { rootCause: resolvedRootcauseLabel, rootcauseLabel: resolvedRootcauseLabel } : {},
       ...rootcauseId || entry?.rootcauseId ? { rootcauseId: rootcauseId || entry?.rootcauseId } : {},
-      remarksReport: remarks || entry?.remarksReport || resolvedReasonLabel || "-",
+      remarksReport: resolvedRemarks,
       approvalStatus: "BUTUH APPROVAL"
     };
     if (!existingReports.some((r) => r?.id === reportEntry.id)) {
@@ -26826,15 +27315,27 @@ async function createExpressApp(options) {
       const telemetrySn = technicalTelemetry.ontSerialNumber !== void 0 ? String(technicalTelemetry.ontSerialNumber).trim() : prevTr.deviceSerialNumber || ticket.ontSerialNumber || "";
       const telemetryDropcore = technicalTelemetry.dropcoreLength !== void 0 ? String(technicalTelemetry.dropcoreLength).trim() : prevTr.dropcoreLength || (ticket.dropcoreLength ? String(ticket.dropcoreLength) : "");
       const telemetryFatPort = technicalTelemetry.fatPort !== void 0 ? String(technicalTelemetry.fatPort).trim() : prevTr.fatPort || ticket.fatPort || "";
-      const rawSlots = Array.isArray(technicalTelemetry.photoSlots) ? technicalTelemetry.photoSlots : prevTr.photoSlots;
-      const telemetryPhotoSlots = Array.isArray(rawSlots) ? rawSlots.map((slot) => {
-        if (!slot || typeof slot !== "object") return slot;
-        const existingMatch = Array.isArray(prevTr.photoSlots) ? prevTr.photoSlots.find((p) => p && p.slotKey === slot.slotKey) : void 0;
-        const sanitizedSlot = { ...slot };
-        if (existingMatch && existingMatch.storagePath && (!sanitizedSlot.storagePath || String(sanitizedSlot.url || "").startsWith("data:"))) {
-          sanitizedSlot.url = existingMatch.url;
-          sanitizedSlot.storagePath = existingMatch.storagePath;
+      const serverSlots = Array.isArray(prevTr.photoSlots) ? prevTr.photoSlots : [];
+      const rawSlots = Array.isArray(technicalTelemetry.photoSlots) ? technicalTelemetry.photoSlots : [];
+      const mergedSlotMap = /* @__PURE__ */ new Map();
+      serverSlots.forEach((s) => {
+        if (s && s.slotKey) mergedSlotMap.set(String(s.slotKey), { ...s });
+      });
+      rawSlots.forEach((slot) => {
+        if (!slot || typeof slot !== "object" || !slot.slotKey) return;
+        const key = String(slot.slotKey);
+        const existingMatch = mergedSlotMap.get(key);
+        if (!existingMatch) {
+          return;
         }
+        const sanitizedSlot = {
+          ...existingMatch,
+          ...slot,
+          url: existingMatch.url,
+          storagePath: existingMatch.storagePath || slot.storagePath,
+          uploadedAt: existingMatch.uploadedAt || slot.uploadedAt,
+          uploadStatus: existingMatch.uploadStatus || "uploaded"
+        };
         if (sanitizedSlot.latitude !== void 0 || sanitizedSlot.longitude !== void 0) {
           if (!isValidServerGeoCoord(Number(sanitizedSlot.latitude), Number(sanitizedSlot.longitude))) {
             delete sanitizedSlot.latitude;
@@ -26842,9 +27343,10 @@ async function createExpressApp(options) {
             sanitizedSlot.geotagStatus = "missing";
           }
         }
-        return sanitizedSlot;
-      }) : prevTr.photoSlots;
-      const telemetryPhotos = Array.isArray(telemetryPhotoSlots) ? telemetryPhotoSlots.map((s) => s?.url).filter((u) => typeof u === "string" && u.trim().length > 0) : Array.isArray(technicalTelemetry.photos) ? technicalTelemetry.photos.filter((p) => typeof p === "string" && p.trim().length > 0) : prevTr.photos;
+        mergedSlotMap.set(key, sanitizedSlot);
+      });
+      const telemetryPhotoSlots = Array.from(mergedSlotMap.values());
+      const telemetryPhotos = telemetryPhotoSlots.map((s) => s?.url).filter((u) => typeof u === "string" && u.trim().length > 0);
       if (Array.isArray(telemetryPhotoSlots)) {
         const houseSlot = telemetryPhotoSlots.find(
           (s) => s?.slotKey === "customer_house" && isValidServerGeoCoord(Number(s?.latitude), Number(s?.longitude))
@@ -34311,8 +34813,9 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     if (scoped.length === 0) {
       return res.status(403).json({ error: "Akses Ditolak: Anda tidak memiliki wewenang untuk melihat data Work Order ini." });
     }
+    const hydratedTicket = isSupabaseMode() ? await hydrateTicketPhotoEvidenceFromSupabase(scoped[0]) : scoped[0];
     const todayWIB = getJakartaDateStringServer2(getNow());
-    const enrichedTicket = attachClassificationMetadata(scoped[0], todayWIB);
+    const enrichedTicket = attachClassificationMetadata(hydratedTicket, todayWIB);
     let messages;
     if (includeSet.has("messages")) {
       if (isSupabaseMode()) {
@@ -35466,8 +35969,9 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         }
       }
     } else if (isLocalJsonModeAllowed()) {
+      const normStr = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
       const targetInstaller = db.users.find(
-        (u) => u.role === "installer" && !u.isDeleted && u.active !== false && (cleanTargetId && u.id === cleanTargetId || cleanTargetName && u.name.trim().toLowerCase() === cleanTargetName.toLowerCase() || cleanTargetName && u.username.trim().toLowerCase() === cleanTargetName.toLowerCase())
+        (u) => u.role === "installer" && !u.isDeleted && u.active !== false && (cleanTargetId && u.id === cleanTargetId || cleanTargetName && normStr(u.name) === normStr(cleanTargetName) || cleanTargetName && normStr(u.username) === normStr(cleanTargetName))
       );
       if (!targetInstaller || !isLeaderAllowedToManageInstaller(user, targetInstaller)) {
         return res.status(403).json({
@@ -35558,18 +36062,36 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       const hasScope = failed.some((f) => f.code === "SCOPE_MISMATCH");
       return res.status(hasScope ? 403 : 400).json({
         success: false,
+        partialSuccess: false,
+        count: 0,
+        failedCount: failed.length,
         error: failed[0].error || "Seluruh proses Bulk Reassign gagal.",
         code: failed[0].code || "BULK_REASSIGN_FAILED",
         reassigned,
         failed
       });
     }
+    if (failed.length > 0 && reassigned.length > 0) {
+      return res.status(207).json({
+        success: false,
+        partialSuccess: true,
+        count: reassigned.length,
+        failedCount: failed.length,
+        error: failed[0].error,
+        code: "PARTIAL_BULK_REASSIGN_FAILURE",
+        reassigned,
+        failed,
+        message: `Sebagian Bulk Reassign selesai: ${reassigned.length} Work Order berhasil dialihkan ke ${resolvedBulkLabel}, ${failed.length} gagal.`
+      });
+    }
     return res.json({
       success: true,
+      partialSuccess: false,
       count: reassigned.length,
+      failedCount: 0,
       reassigned,
       failed,
-      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${resolvedBulkLabel}${failed.length > 0 ? ` (${failed.length} gagal)` : ""}.`
+      message: `Berhasil mereassign ${reassigned.length} Work Order ke ${resolvedBulkLabel}.`
     });
   });
   app.get("/api/leader/assignment-feed", requireAuth, async (req, res) => {

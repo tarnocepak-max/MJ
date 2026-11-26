@@ -24,6 +24,7 @@ import { getTicketAppointmentDate, formatAppointmentDateDisplay } from '../../se
 import { openCustomerAddressInGoogleMaps, openCoordinatesInGoogleMaps, isValidCoordinatePair } from '../../services/mapsService';
 import { formatJakartaTimeOnly } from '../../services/workSessionService';
 import { PHOTO_SLOT_DEFINITIONS } from './fullview/types';
+import { evaluatePhotoEvidenceCompleteness } from '../../utils/photoEvidenceValidation';
 import {
   Wrench,
   Phone,
@@ -75,7 +76,7 @@ function parseNumericDbm(raw?: string | number | null): number | null {
 
 export function getTicketPhotoEvidenceCount(ticket: Ticket): number {
   if (Array.isArray(ticket.technicalReport?.photoSlots) && ticket.technicalReport!.photoSlots.length > 0) {
-    return ticket.technicalReport!.photoSlots.filter(s => Boolean(s.url)).length;
+    return evaluatePhotoEvidenceCompleteness(ticket.technicalReport!.photoSlots).verifiedTotalCount;
   }
   if (typeof ticket.photoEvidenceCount === 'number' && ticket.photoEvidenceCount > 0) {
     return ticket.photoEvidenceCount;

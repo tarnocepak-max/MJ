@@ -101,6 +101,12 @@ import {
 import { PhotoEvidenceMatrixSection } from './fullview/PhotoEvidenceMatrixSection';
 import { PhotoLightboxModal } from './fullview/PhotoLightboxModal';
 import { FullviewLiveChatSection } from './fullview/FullviewLiveChatSection';
+import {
+  evaluatePhotoEvidenceCompleteness,
+  isVerifiedPersistedPhotoSlot,
+  isPersistedStoragePhotoUrl,
+  buildPhotoEvidenceIncompleteErrorMessage
+} from '../../utils/photoEvidenceValidation';
 
 export type FullviewFocusSection = 'checkin' | 'installation' | 'photos' | 'report' | 'checkout';
 
@@ -144,6 +150,7 @@ function buildInitialPhotoSlots(ticket: Ticket): PhotoSlotsRecord {
   legacyMapping.forEach(item => {
     if (!map[item.slotKey] && item.url) {
       const def = PHOTO_SLOT_DEFINITIONS.find(d => d.slotKey === item.slotKey);
+      const isPersisted = isPersistedStoragePhotoUrl(item.url);
       map[item.slotKey] = {
         slotKey: item.slotKey,
         title: def?.title || item.slotKey,
@@ -151,6 +158,8 @@ function buildInitialPhotoSlots(ticket: Ticket): PhotoSlotsRecord {
         capturedAt: ticket.technicalReport?.submittedAt
           ? formatJakartaTimeOnly(ticket.technicalReport.submittedAt)
           : undefined,
+        uploadedAt: isPersisted ? ticket.technicalReport?.submittedAt : undefined,
+        uploadStatus: isPersisted ? 'uploaded' : undefined,
         statusTag: def?.verifiedTag || 'GPS OK'
       };
     }
@@ -194,9 +203,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return tickets.find(t => t.id === initialTicket.id) || initialTicket;
   }, [tickets, initialTicket]);
 
-  // Hydrate full ticket detail (photoSlots, technicalReport, workSessions) on demand when opened from lightweight list
+  const hydratedTicketIdsRef = useRef<Set<string>>(new Set());
+  const submitReportInFlightRef = useRef(false);
+  const activeIdempotencyKeyRef = useRef<string | null>(null);
+
+  // Hydrate full ticket detail (photoSlots, wo_photo_evidence, technicalReport, workSessions) when opened or reloaded
   useEffect(() => {
-    if ((activeTicket as any)?._isCriticalPartial && activeTicket?.id) {
+    if (!activeTicket?.id) return;
+    const isPartial = Boolean((activeTicket as any)?._isCriticalPartial);
+    if (isPartial || !hydratedTicketIdsRef.current.has(activeTicket.id)) {
+      hydratedTicketIdsRef.current.add(activeTicket.id);
       void loadTicketDetailOnDemand(activeTicket.id);
     }
   }, [activeTicket?.id, (activeTicket as any)?._isCriticalPartial, loadTicketDetailOnDemand]);
@@ -411,7 +427,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 const draftSlot = val as TechnicalPhotoSlot;
                 if (!draftSlot.url) return;
                 const existing = next[key];
-                if (!existing || existing.uploadStatus !== 'uploaded') {
+                const draftStatus = (draftSlot as Partial<TechnicalPhotoSlot>).uploadStatus;
+                const canUseDraft =
+                  draftStatus === 'failed' ||
+                  draftStatus === 'pending_offline' ||
+                  isVerifiedPersistedPhotoSlot(draftSlot);
+                if (canUseDraft && (!existing || !isVerifiedPersistedPhotoSlot(existing))) {
                   next[key] = draftSlot;
                 }
               });
@@ -773,37 +794,46 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   // -------------------------------------------------------------
   useEffect(() => {
     const serverSlots = activeTicket.technicalReport?.photoSlots;
-    if (!Array.isArray(serverSlots) || serverSlots.length === 0) return;
+    const isPartial = Boolean((activeTicket as any)?._isCriticalPartial);
+    if (!Array.isArray(serverSlots) || (serverSlots.length === 0 && isPartial)) return;
     setPhotoSlots(prev => {
       const next = { ...prev };
       let changed = false;
+      const serverByKey = new Map<PhotoSlotKey, TechnicalPhotoSlot>();
       serverSlots.forEach(s => {
         if (s && s.url && s.slotKey in next) {
-          const current = next[s.slotKey];
+          serverByKey.set(s.slotKey, s);
+        }
+      });
+
+      serverByKey.forEach((s, slotKey) => {
+        const current = next[slotKey];
+        if (
+          !current ||
+          (current.uploadStatus !== 'uploading' &&
+            current.uploadStatus !== 'pending_offline' &&
+            current.uploadStatus !== 'failed') ||
+          (s.clientCaptureId && current.clientCaptureId === s.clientCaptureId)
+        ) {
           if (
             !current ||
-            (current.uploadStatus !== 'uploading' &&
-              current.uploadStatus !== 'pending_offline' &&
-              current.uploadStatus !== 'failed') ||
-            current.clientCaptureId === s.clientCaptureId
+            current.url !== s.url ||
+            current.storagePath !== s.storagePath ||
+            current.uploadedAt !== s.uploadedAt ||
+            current.capturedAtIso !== s.capturedAtIso ||
+            current.latitude !== s.latitude ||
+            current.longitude !== s.longitude ||
+            current.uploadStatus !== s.uploadStatus
           ) {
-            if (
-              !current ||
-              current.url !== s.url ||
-              current.capturedAtIso !== s.capturedAtIso ||
-              current.latitude !== s.latitude ||
-              current.longitude !== s.longitude ||
-              current.uploadStatus !== s.uploadStatus
-            ) {
-              next[s.slotKey] = s;
-              changed = true;
-            }
+            next[slotKey] = s;
+            changed = true;
           }
         }
       });
+
       return changed ? next : prev;
     });
-  }, [activeTicket.technicalReport?.photoSlots]);
+  }, [activeTicket.technicalReport?.photoSlots, (activeTicket as any)?._isCriticalPartial]);
 
   const uploadedPhotoSlotsList = useMemo(() => {
     return PHOTO_SLOT_DEFINITIONS.map(def => photoSlots[def.slotKey]).filter(
@@ -944,23 +974,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     [opmDbm, ontSerialNumber, activeTicket.fatCode, fatPort, activeTicket.fatPort]
   );
 
-  const verifiedUploadedSlotsList = useMemo(() => {
-    return uploadedPhotoSlotsList.filter(slot => {
-      const url = String(slot.url || '').trim();
-      if (!url || url.startsWith('data:')) return false;
-      const meta = slotUploadState[slot.slotKey];
-      if (meta?.status === 'uploading' || meta?.status === 'failed') return false;
-      if (slot.uploadStatus === 'uploading' || slot.uploadStatus === 'failed') return false;
-      const isPersistedUrl =
-        url.startsWith('/uploads/') ||
-        url.includes('/api/storage/public/') ||
-        url.startsWith('https://') ||
-        url.startsWith('http://');
-      return isPersistedUrl && Boolean((slot.storagePath && slot.storagePath.trim()) || slot.uploadedAt);
-    });
-  }, [uploadedPhotoSlotsList, slotUploadState]);
+  const photoEvidenceEval = useMemo(
+    () => evaluatePhotoEvidenceCompleteness(photoSlots, slotUploadState),
+    [photoSlots, slotUploadState]
+  );
 
-  const verifiedUploadedPhotoCount = verifiedUploadedSlotsList.length;
+  const verifiedUploadedSlotsList = photoEvidenceEval.verifiedSlots;
+  const mandatoryPhotoCount = photoEvidenceEval.mandatoryCount;
+  const verifiedUploadedPhotoCount = photoEvidenceEval.verifiedTotalCount;
+  const isMandatoryEvidenceReady = photoEvidenceEval.isMandatoryComplete;
 
   const isAnySlotUploading = useMemo(() => {
     return Object.values(slotUploadState).some(m => m?.status === 'uploading') || deletingSlotKey !== null;
@@ -1497,11 +1519,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return false;
     }
 
-    if (verifiedUploadedPhotoCount < 3) {
+    if (!isMandatoryEvidenceReady) {
       playErrorSound();
-      const msg = `Check-Out wajib melampirkan minimal 3 foto bukti fisik yang berhasil diunggah ke server (saat ini ${verifiedUploadedPhotoCount}/3).`;
+      const msg = buildPhotoEvidenceIncompleteErrorMessage(photoEvidenceEval);
       setReportError(msg);
-      toast.error(msg, 'Foto Bukti Kurang (Min. 3)');
+      toast.error(msg, 'Foto Bukti Wajib Kurang (Min. 3)');
       if (photoAccordionRef.current) photoAccordionRef.current.open = true;
       photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return false;
@@ -1537,14 +1559,20 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const handleOpenQcSheet = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isSubmittingReport || isAnySlotUploading) return;
+    if (submitReportInFlightRef.current || isSubmittingReport || isAnySlotUploading) return;
     if (!validateBeforeSubmit()) return;
     setShowQcConfirmSheet(true);
   };
 
   const handleSaveReport = async () => {
-    if (isSubmittingReport || isAnySlotUploading) return;
+    if (submitReportInFlightRef.current || isSubmittingReport || isAnySlotUploading) return;
     if (!validateBeforeSubmit()) return;
+
+    submitReportInFlightRef.current = true;
+    const submitIdempotencyKey =
+      activeIdempotencyKeyRef.current ||
+      `checkout_${activeTicket.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    activeIdempotencyKeyRef.current = submitIdempotencyKey;
 
     setShowQcConfirmSheet(false);
     setReportError(null);
@@ -1588,6 +1616,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         reasonReport,
         reasonReportId,
         remarksReport: remarksReport.trim(),
+        idempotencyKey: submitIdempotencyKey,
         technicalTelemetry: {
           opticalPowerDbm: normalizedOpm || undefined,
           fatRedamanDbm: activeTicket.fatRedamanDbm ? String(activeTicket.fatRedamanDbm) : undefined,
@@ -1603,6 +1632,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       });
 
       if (res.success) {
+        activeIdempotencyKeyRef.current = null;
         safeLocalStorageRemove(draftStorageKey);
         void deleteMasterCacheValue(`draft_sig_${activeTicket.id}`).catch(() => {});
         setDraftSavedAt(null);
@@ -1655,6 +1685,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         onRetry: () => handleSaveReport()
       });
     } finally {
+      submitReportInFlightRef.current = false;
       setIsSubmittingReport(false);
       stopLoading();
     }
@@ -1785,12 +1816,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const isSignatureReady = Boolean(customerSignatureUrl) && customerConsentConfirmed;
   const totalPhotoSlots = PHOTO_SLOT_DEFINITIONS.length;
-  const uploadedPhotoCount = uploadedPhotoSlotsList.length;
+  const uploadedPhotoCount = verifiedUploadedPhotoCount;
 
   const isCheckInStepDone = !requiresProgressCheckIn || Boolean(activeTicket.checkInAt);
   const isInstallationStepDone =
     isCheckInStepDone && (Boolean(opmDbm.trim()) || Boolean(ontSerialNumber.trim()) || Boolean(fatPort.trim()));
-  const isPhotosStepDone = verifiedUploadedPhotoCount >= 3;
+  const isPhotosStepDone = isMandatoryEvidenceReady;
   const isReportStepDone = Boolean(
     (reportStatus && reasonReport && remarksReport.trim()) ||
       (activeTicket.progressReports && activeTicket.progressReports.length > 0 && canonicalApproval !== 'REVISION')
@@ -1798,7 +1829,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const isCheckOutDone = Boolean(activeTicket.checkOutAt) || ticketClosed;
 
   const isCheckoutFormReady = Boolean(
-    reportStatus && reasonReport && remarksReport.trim() && verifiedUploadedPhotoCount >= 3 && !isAnySlotUploading
+    reportStatus && reasonReport && remarksReport.trim() && isMandatoryEvidenceReady && !isAnySlotUploading
   );
 
   const relatedActivities = useMemo(() => {
@@ -2301,7 +2332,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   label: 'Foto',
                   done: isPhotosStepDone,
                   active: isInstallationStepDone && !isPhotosStepDone,
-                  sub: `${uploadedPhotoCount}/${totalPhotoSlots}`,
+                  sub: `Wajib ${mandatoryPhotoCount}/3`,
                   onClick: () => {
                     if (photoAccordionRef.current) photoAccordionRef.current.open = true;
                     photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2530,7 +2561,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold tabular-nums border border-[#DCE3F2] dark:border-[#d8ccf3]">
-                  {uploadedPhotoCount}/{totalPhotoSlots}
+                  Wajib {mandatoryPhotoCount}/3 · {verifiedUploadedPhotoCount}/{totalPhotoSlots}
                 </span>
                 <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
@@ -3299,14 +3330,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 Foto Wajib:{' '}
                 <strong
                   className={
-                    verifiedUploadedPhotoCount >= 3
+                    isMandatoryEvidenceReady
                       ? 'text-[#218A63] dark:text-emerald-400'
                       : 'text-[#9B2C37] dark:text-rose-300'
                   }
                 >
-                  {Math.min(3, verifiedUploadedPhotoCount)}/3
+                  {mandatoryPhotoCount}/3
                 </strong>{' '}
-                <span className="text-[#8492A5] dark:text-[#A79BC0]">(Total {uploadedPhotoCount}/{totalPhotoSlots})</span>
+                <span className="text-[#8492A5] dark:text-[#A79BC0]">(Total {verifiedUploadedPhotoCount}/{totalPhotoSlots})</span>
               </span>
 
               {ticketClosed ? (
@@ -3319,10 +3350,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   <Camera className="w-3.5 h-3.5" />
                   <span>Lakukan CHECK-IN Dahulu</span>
                 </span>
-              ) : verifiedUploadedPhotoCount < 3 ? (
+              ) : !isMandatoryEvidenceReady ? (
                 <span className="text-[#9B2C37] dark:text-rose-300 font-bold inline-flex items-center gap-1">
                   <Camera className="w-3.5 h-3.5" />
-                  <span>Unggah Min. 3 Foto Wajib</span>
+                  <span>Unggah Foto Wajib ({mandatoryPhotoCount}/3)</span>
                 </span>
               ) : !isCheckoutFormReady ? (
                 <span className="text-[#5145A6] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1">
@@ -3538,13 +3569,13 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     Bukti Foto Fisik
                   </h4>
                   <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
-                    {uploadedPhotoCount}/{totalPhotoSlots} Terlampir
+                    Wajib {mandatoryPhotoCount}/3 · {verifiedUploadedPhotoCount}/{totalPhotoSlots} Terverifikasi
                   </span>
                 </div>
 
-                {uploadedPhotoCount > 0 ? (
+                {verifiedUploadedPhotoCount > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
-                    {uploadedPhotoSlotsList.map(slot => (
+                    {verifiedUploadedSlotsList.map(slot => (
                       <button
                         key={slot.slotKey}
                         type="button"
@@ -3566,7 +3597,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 ) : (
                   <div className="p-3 rounded-lg border border-dashed border-[#CBD5E1] dark:border-[#4B386B] bg-[#F8FAFD] dark:bg-[#160D29] text-center space-y-2">
                     <p className="text-xs text-[#52647A] dark:text-[#C4B5D6]">
-                      Belum ada foto bukti SOP yang diunggah. Disarankan melampirkan bukti foto fisik sebelum Check-Out.
+                      Belum ada foto bukti SOP yang tersimpan di server. Unggah 3 foto wajib sebelum Check-Out.
                     </p>
                     <button
                       type="button"
@@ -3613,7 +3644,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 disabled={
                   isSubmittingReport ||
                   isAnySlotUploading ||
-                  verifiedUploadedPhotoCount < 3 ||
+                  !isMandatoryEvidenceReady ||
                   !sopChecks.dropcoreNeat ||
                   !sopChecks.opmClean ||
                   !sopChecks.customerTested

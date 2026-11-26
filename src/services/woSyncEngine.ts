@@ -152,20 +152,34 @@ export function mergeDeltaTickets(
       orderedIds.unshift(idStr);
       changedCount++;
     } else {
-      // Preserve full secondary fields if incoming update is partial critical snapshot
-      const merged =
+      // Preserve full secondary fields (especially technicalReport.photoSlots) if incoming update is partial critical snapshot
+      const merged: Ticket =
         (upd as any)._isCriticalPartial && !(prev as any)._isCriticalPartial
-          ? {
+          ? ({
               ...prev,
               ...upd,
-              technicalReport: upd.technicalReport || prev.technicalReport,
+              technicalReport:
+                prev.technicalReport || upd.technicalReport
+                  ? ({
+                      ...(prev.technicalReport || {}),
+                      ...(upd.technicalReport || {}),
+                      photoSlots:
+                        Array.isArray(upd.technicalReport?.photoSlots) && upd.technicalReport!.photoSlots!.length > 0
+                          ? upd.technicalReport!.photoSlots
+                          : prev.technicalReport?.photoSlots,
+                      photos:
+                        Array.isArray(upd.technicalReport?.photos) && upd.technicalReport!.photos!.length > 0
+                          ? upd.technicalReport!.photos
+                          : prev.technicalReport?.photos
+                    } as Ticket['technicalReport'])
+                  : undefined,
               workSessions: prev.workSessions,
               progressReports:
                 Array.isArray(prev.progressReports) && prev.progressReports.length > (upd.progressReports?.length || 0)
                   ? prev.progressReports
                   : upd.progressReports,
               _isCriticalPartial: false
-            }
+            } as Ticket)
           : upd;
       existingMap.set(idStr, merged);
       changedCount++;

@@ -3227,6 +3227,129 @@ export async function deleteWoPhotoEvidenceRowFromSupabase(
   }
 }
 
+export async function getWoPhotoEvidenceByTicketFromSupabase(
+  ticketId: string
+): Promise<{ success: boolean; data: any[]; skippedSchemaPending?: boolean; error?: string }> {
+  const client = getSupabaseBackendClient();
+  if (!client) return { success: false, data: [], error: 'Supabase client belum dikonfigurasi.' };
+  const cleanTicketId = String(ticketId || '').trim();
+  if (!cleanTicketId) return { success: true, data: [] };
+
+  try {
+    const { data, error } = await client
+      .from('wo_photo_evidence')
+      .select('*')
+      .eq('ticket_id', cleanTicketId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) {
+      if (isMissingSchemaObjectError(error)) {
+        return { success: true, data: [], skippedSchemaPending: true };
+      }
+      return { success: false, data: [], error: error.message };
+    }
+
+    const mapped = (data || []).map((row: any) => {
+      const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+      const capturedAtIso = row.captured_at ? new Date(row.captured_at).toISOString() : undefined;
+      const uploadedAtIso = row.uploaded_at ? new Date(row.uploaded_at).toISOString() : undefined;
+      return {
+        id: row.id,
+        slotKey: row.slot_key,
+        title: row.slot_title || row.slot_key,
+        url: row.photo_url,
+        storagePath: row.storage_path || undefined,
+        fileName: row.file_name || undefined,
+        fileSizeBytes: typeof row.file_size_bytes === 'number' ? row.file_size_bytes : undefined,
+        mimeType: row.mime_type || undefined,
+        capturedAt: capturedAtIso
+          ? new Intl.DateTimeFormat('id-ID', {
+              timeZone: 'Asia/Jakarta',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            }).format(new Date(capturedAtIso))
+          : undefined,
+        capturedAtIso,
+        uploadedAt: uploadedAtIso,
+        latitude: typeof row.latitude === 'number' ? row.latitude : undefined,
+        longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
+        gpsAccuracyMeters: typeof row.gps_accuracy_meters === 'number' ? row.gps_accuracy_meters : undefined,
+        altitudeMeters: typeof row.altitude_meters === 'number' ? row.altitude_meters : undefined,
+        headingDeg: typeof row.heading_deg === 'number' ? row.heading_deg : undefined,
+        speedMps: typeof row.speed_mps === 'number' ? row.speed_mps : undefined,
+        locationSource: row.location_source || undefined,
+        permissionStatus: row.permission_status || undefined,
+        geotagStatus: row.geotag_status || 'missing',
+        captureMethod: row.capture_method === 'gallery' ? 'gallery' : 'camera',
+        technicianId: row.technician_id || undefined,
+        technicianName: row.technician_name || undefined,
+        woNumber: row.wo_number || undefined,
+        clientCaptureId: row.client_capture_id || undefined,
+        sha256: row.sha256 || undefined,
+        badgeText: typeof meta.badgeText === 'string' ? meta.badgeText : undefined,
+        statusTag: typeof meta.statusTag === 'string' ? meta.statusTag : undefined,
+        fieldNotes: typeof meta.fieldNotes === 'string' ? meta.fieldNotes : undefined,
+        uploadStatus: 'uploaded'
+      };
+    });
+
+    return { success: true, data: mapped };
+  } catch (err: any) {
+    return { success: false, data: [], error: err?.message || 'Gagal mengambil wo_photo_evidence.' };
+  }
+}
+
+export async function hydrateTicketPhotoEvidenceFromSupabase<T extends Record<string, any>>(ticket: T): Promise<T> {
+  if (!ticket || !ticket.id) return ticket;
+  const evRes = await getWoPhotoEvidenceByTicketFromSupabase(String(ticket.id));
+  if (!evRes.success || !Array.isArray(evRes.data) || evRes.data.length === 0) {
+    return ticket;
+  }
+
+  const prevTr = ticket.technicalReport && typeof ticket.technicalReport === 'object'
+    ? ticket.technicalReport
+    : {};
+  const existingSlots: any[] = Array.isArray(prevTr.photoSlots) ? prevTr.photoSlots : [];
+  const mergedByKey = new Map<string, any>();
+
+  // Start with wo_photo_evidence rows (ordered newest first -> keep first per slotKey)
+  for (const dbSlot of evRes.data) {
+    if (dbSlot?.slotKey && !mergedByKey.has(dbSlot.slotKey)) {
+      mergedByKey.set(dbSlot.slotKey, dbSlot);
+    }
+  }
+  // Overlay any slots already recorded in work_orders.technical_report.photoSlots if newer or missing from table (e.g. fat_port)
+  for (const s of existingSlots) {
+    if (!s || !s.slotKey) continue;
+    const prev = mergedByKey.get(s.slotKey);
+    if (!prev) {
+      mergedByKey.set(s.slotKey, s);
+      continue;
+    }
+    const prevTs = prev.uploadedAt ? Date.parse(prev.uploadedAt) : 0;
+    const nextTs = s.uploadedAt ? Date.parse(s.uploadedAt) : 0;
+    if (Number.isFinite(nextTs) && (!Number.isFinite(prevTs) || nextTs >= prevTs)) {
+      mergedByKey.set(s.slotKey, s);
+    }
+  }
+
+  const mergedSlots = Array.from(mergedByKey.values());
+  const mergedPhotos = mergedSlots.map(s => s?.url).filter(Boolean);
+
+  return {
+    ...ticket,
+    technicalReport: {
+      ...prevTr,
+      ticketId: prevTr.ticketId || ticket.id,
+      photoSlots: mergedSlots,
+      photos: mergedPhotos.length > 0 ? mergedPhotos : prevTr.photos
+    },
+    photoEvidenceCount: mergedSlots.length
+  };
+}
+
 export async function appendDistributionLogToSupabase(entry: {
   id: string;
   ticketId?: string;

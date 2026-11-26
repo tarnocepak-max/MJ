@@ -166,6 +166,10 @@ import {
   isTicketClosed,
   normalizeDispatchWoAgentStatus
 } from '../services/woLifecycleService';
+import {
+  evaluatePhotoEvidenceCompleteness,
+  buildPhotoEvidenceIncompleteErrorMessage
+} from '../utils/photoEvidenceValidation';
 
 interface AppContextType {
   // Current user & RBAC
@@ -271,6 +275,7 @@ interface AppContextType {
       reasonReportLabel?: string;
       rootcauseId?: string;
       rootcauseLabel?: string;
+      idempotencyKey?: string;
       technicalTelemetry?: {
         opticalPowerDbm?: string;
         fatRedamanDbm?: string;
@@ -804,6 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const inFlightAssignmentKeysRef = useRef<Set<string>>(new Set());
+  const progressReportInFlightRef = useRef<Set<string>>(new Set());
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
       const stored = safeLocalStorageGet('morajaws_logged_in');
@@ -2013,12 +2019,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hydratedMessages: TicketMessage[] | undefined = Array.isArray(data.messages) ? data.messages : undefined;
         const hydratedActivities: any[] | undefined = Array.isArray(data.activities) ? data.activities : undefined;
 
-        if (hydratedTicket && hydratedTicket.id && !isTicketBeingEdited(hydratedTicket.id)) {
+        if (hydratedTicket && hydratedTicket.id) {
+          const isEditing = isTicketBeingEdited(hydratedTicket.id);
           setTickets(prev => {
             const idx = prev.findIndex(t => t.id === hydratedTicket.id);
             if (idx >= 0) {
               const copy = [...prev];
-              copy[idx] = { ...copy[idx], ...hydratedTicket };
+              const curr = copy[idx];
+              if (!isEditing) {
+                copy[idx] = { ...curr, ...hydratedTicket };
+              } else {
+                // Even while the user has open draft fields in fullview, merge authoritative server photoSlots & timestamps
+                const currTr: Partial<TechnicalReport> = curr.technicalReport || {};
+                const hydTr: Partial<TechnicalReport> = hydratedTicket.technicalReport || {};
+                const mergedTechReport: TechnicalReport | undefined =
+                  curr.technicalReport || hydratedTicket.technicalReport
+                    ? ({
+                        ...currTr,
+                        ...hydTr,
+                        photoSlots:
+                          Array.isArray(hydTr.photoSlots) && hydTr.photoSlots.length > 0
+                            ? hydTr.photoSlots
+                            : currTr.photoSlots,
+                        photos:
+                          Array.isArray(hydTr.photos) && hydTr.photos.length > 0
+                            ? hydTr.photos
+                            : currTr.photos
+                      } as TechnicalReport)
+                    : undefined;
+                copy[idx] = {
+                  ...curr,
+                  checkInAt: hydratedTicket.checkInAt || curr.checkInAt,
+                  checkOutAt: hydratedTicket.checkOutAt || curr.checkOutAt,
+                  houseLocation: hydratedTicket.houseLocation || curr.houseLocation,
+                  fatLocation: hydratedTicket.fatLocation || curr.fatLocation,
+                  photoEvidenceCount:
+                    typeof hydratedTicket.photoEvidenceCount === 'number'
+                      ? hydratedTicket.photoEvidenceCount
+                      : curr.photoEvidenceCount,
+                  technicalReport: mergedTechReport,
+                  _isCriticalPartial: false
+                } as unknown as Ticket;
+              }
               return copy;
             }
             return [hydratedTicket, ...prev];
@@ -4445,6 +4487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reasonReportLabel?: string;
       rootcauseId?: string;
       rootcauseLabel?: string;
+      idempotencyKey?: string;
       technicalTelemetry?: {
         opticalPowerDbm?: string;
         fatRedamanDbm?: string;
@@ -4462,6 +4505,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
+    if (progressReportInFlightRef.current.has(ticketId)) {
+      return {
+        success: false,
+        code: 'IN_FLIGHT',
+        error: 'Pengiriman laporan Check-Out sedang diproses. Mohon tunggu...'
+      };
+    }
+    progressReportInFlightRef.current.add(ticketId);
+
+    try {
     // 1. Strict Installer Assignment Verification & Check-in Requirement (App Flow 5)
     if (currentUser.role === 'installer') {
       const myId = currentUser.id || '';
@@ -4510,25 +4563,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           error: msg
         };
       }
-      // Check-out requires >= 3 uploaded & storage-verified physical photo evidence slots
+      // Check-out requires all 3 mandatory photo evidence slots (#1 Rumah, #2 Tiang FAT, #3 Redaman FAT) persisted to server
       const candidateSlots = Array.isArray(data.technicalTelemetry?.photoSlots) && data.technicalTelemetry!.photoSlots!.length > 0
         ? data.technicalTelemetry!.photoSlots!
         : (Array.isArray(ticket.technicalReport?.photoSlots) ? ticket.technicalReport!.photoSlots! : []);
-      const verifiedPhotoCount = candidateSlots.filter(slot => {
-        if (!slot || typeof slot.url !== 'string') return false;
-        const url = slot.url.trim();
-        if (!url || url.startsWith('data:')) return false;
-        const isPersistedUrl =
-          url.startsWith('/uploads/') ||
-          url.includes('/api/storage/public/') ||
-          url.startsWith('https://') ||
-          url.startsWith('http://');
-        if (!isPersistedUrl) return false;
-        return Boolean((slot.storagePath && slot.storagePath.trim()) || slot.uploadedAt);
-      }).length;
-      if (verifiedPhotoCount < 3) {
-        const msg = `Check-out membutuhkan minimal 3 foto bukti fisik yang berhasil diunggah ke server (terunggah ${verifiedPhotoCount}/3).`;
-        toast.error(msg, 'Bukti Foto Wajib Kurang');
+      const evidenceEval = evaluatePhotoEvidenceCompleteness(candidateSlots);
+      if (!evidenceEval.isMandatoryComplete) {
+        const msg = buildPhotoEvidenceIncompleteErrorMessage(evidenceEval);
+        toast.error(msg, 'Bukti Foto Wajib Kurang (Min. 3)');
         return {
           success: false,
           code: 'PHOTO_EVIDENCE_INCOMPLETE',
@@ -4766,6 +4808,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             reportStatusLabel: finalStatusName,
             reasonReportId: finalReasonId,
             reasonReportLabel: finalReasonName,
+            idempotencyKey: data.idempotencyKey,
             technicalTelemetry: data.technicalTelemetry
           })
         });
@@ -4800,6 +4843,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Failed writing progress report to server:', err);
       toast.error('Gagal menyimpan progress report ke Supabase PostgreSQL: ' + (err?.message || err), 'Penyimpanan Gagal');
       return { success: false, error: err?.message || 'Gagal menyimpan ke Supabase PostgreSQL' };
+    }
+    } finally {
+      progressReportInFlightRef.current.delete(ticketId);
     }
   };
 

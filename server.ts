@@ -121,8 +121,13 @@ import {
   insertAttachmentToSupabase,
   upsertWoPhotoEvidenceToSupabase,
   deleteWoPhotoEvidenceRowFromSupabase,
+  hydrateTicketPhotoEvidenceFromSupabase,
   postgresRowToTicket
 } from './server/supabaseAdapter.ts';
+import {
+  evaluatePhotoEvidenceCompleteness,
+  buildPhotoEvidenceIncompleteErrorMessage
+} from './src/utils/photoEvidenceValidation.ts';
 import {
   resolveLeaderForWorkOrder,
   isProgressCategoryOnly,
@@ -6233,6 +6238,10 @@ export async function createExpressApp(options?: {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk menyimpan laporan untuk tiket ini.' });
     }
 
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
+    }
+
     // App Flow 5: Check-in via LiveChat PROGRESS (specific to WO ID & logged-in technician User ID) is mandatory before Installer Save Report
     if (req.user!.role === 'installer') {
       let woMsgs: any[] = [];
@@ -6260,14 +6269,17 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const verifiedCount = countVerifiedPhotoEvidence(ticket, report?.photoSlots);
-      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+      const evidenceEval = evaluateServerTicketPhotoEvidence(ticket);
+      if (!evidenceEval.isMandatoryComplete) {
         return res.status(400).json({
           success: false,
           code: 'PHOTO_EVIDENCE_INCOMPLETE',
           requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
-          uploadedCount: verifiedCount,
-          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi (saat ini baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+          uploadedCount: evidenceEval.mandatoryCount,
+          mandatoryCount: evidenceEval.mandatoryCount,
+          verifiedTotalCount: evidenceEval.verifiedTotalCount,
+          missingMandatorySlots: evidenceEval.missingMandatorySlots,
+          error: buildPhotoEvidenceIncompleteErrorMessage(evidenceEval)
         });
       }
     }
@@ -6392,41 +6404,11 @@ export async function createExpressApp(options?: {
 
   const MIN_CHECKOUT_PHOTO_EVIDENCE = 3;
 
-  function isVerifiedPersistedPhotoSlot(slot: any): boolean {
-    if (!slot || typeof slot !== 'object') return false;
-    if (slot.uploadStatus === 'failed' || slot.uploadStatus === 'uploading' || slot.uploadStatus === 'pending_offline') {
-      return false;
-    }
-    const url = typeof slot.url === 'string' ? slot.url.trim() : '';
-    if (!url || url.startsWith('data:')) return false;
-    const isAllowedUrl =
-      url.startsWith('/api/storage/') ||
-      url.startsWith('https://') ||
-      url.startsWith('http://');
-    if (!isAllowedUrl) return false;
-    return true;
-  }
-
-  function countVerifiedPhotoEvidence(ticket: any, overrideSlots?: any): number {
+  function evaluateServerTicketPhotoEvidence(ticket: any) {
     const serverSlots: any[] = Array.isArray(ticket?.technicalReport?.photoSlots)
       ? ticket.technicalReport.photoSlots
       : [];
-    const candidateSlots: any[] = Array.isArray(overrideSlots) ? overrideSlots : serverSlots;
-    const verifiedKeys = new Set<string>();
-
-    // Always prefer authoritative persisted server slots first, and only accept candidate slots that match a real persisted storage URL
-    serverSlots.forEach(s => {
-      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
-        verifiedKeys.add(String(s.slotKey));
-      }
-    });
-    candidateSlots.forEach(s => {
-      if (isVerifiedPersistedPhotoSlot(s) && s.slotKey) {
-        verifiedKeys.add(String(s.slotKey));
-      }
-    });
-
-    return verifiedKeys.size;
+    return evaluatePhotoEvidenceCompleteness(serverSlots);
   }
 
   function isValidServerGeoCoord(lat: unknown, lng: unknown): boolean {
@@ -6511,6 +6493,9 @@ export async function createExpressApp(options?: {
     }
     if (!ticket) {
       return res.status(404).json({ success: false, error: 'Work Order tidak ditemukan.' });
+    }
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
 
     // Strict RBAC check: Installer only on assigned WO, Dispatch/SuperAdmin allowed
@@ -6774,7 +6759,7 @@ export async function createExpressApp(options?: {
       if (supaRes.success && supaRes.data) updatedTicket = supaRes.data;
 
       // Persist structured photo evidence & attachment metadata into Supabase tables
-      await Promise.allSettled([
+      const [evPersistRes, attPersistRes] = await Promise.allSettled([
         upsertWoPhotoEvidenceToSupabase({
           id: slotRecord.id,
           ticketId: ticket.id,
@@ -6824,6 +6809,14 @@ export async function createExpressApp(options?: {
           uploadedAt: slotRecord.uploadedAt
         })
       ]);
+      if (evPersistRes.status === 'rejected') {
+        console.warn(`[WO Photo Evidence] wo_photo_evidence upsert rejected (${ticket.woNumber}/${slotRecord.slotKey}):`, evPersistRes.reason);
+      } else if (!evPersistRes.value.persisted && !evPersistRes.value.skippedSchemaPending) {
+        console.warn(`[WO Photo Evidence] wo_photo_evidence upsert skipped/failed (${ticket.woNumber}/${slotRecord.slotKey}):`, evPersistRes.value.error);
+      }
+      if (attPersistRes.status === 'rejected') {
+        console.warn(`[WO Photo Evidence] attachments insert rejected (${ticket.woNumber}/${slotRecord.slotKey}):`, attPersistRes.reason);
+      }
     }
 
     if (isLocalJsonModeAllowed()) {
@@ -7042,8 +7035,9 @@ export async function createExpressApp(options?: {
       reasonReportLabel,
       rootcauseId,
       rootcauseLabel,
-      technicalTelemetry
-    } = req.body;
+      technicalTelemetry,
+      idempotencyKey
+    } = req.body || {};
 
     const cleanId = (id || '').trim();
     if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
@@ -7070,6 +7064,10 @@ export async function createExpressApp(options?: {
 
     if (!ticket) {
       return res.status(404).json({ error: 'Work Order tidak ditemukan.' });
+    }
+
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
 
     // Role Permission Validation: Authoritative checkTicketAccess
@@ -7106,14 +7104,17 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const verifiedCount = countVerifiedPhotoEvidence(ticket, technicalTelemetry?.photoSlots);
-      if (verifiedCount < MIN_CHECKOUT_PHOTO_EVIDENCE) {
+      const evidenceEval = evaluateServerTicketPhotoEvidence(ticket);
+      if (!evidenceEval.isMandatoryComplete) {
         return res.status(400).json({
           success: false,
           code: 'PHOTO_EVIDENCE_INCOMPLETE',
           requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
-          uploadedCount: verifiedCount,
-          error: `Check-out ditolak: Minimal ${MIN_CHECKOUT_PHOTO_EVIDENCE} foto bukti fisik wajib diunggah & terverifikasi sebelum menyelesaikan pekerjaan (baru ${verifiedCount}/${MIN_CHECKOUT_PHOTO_EVIDENCE} foto).`
+          uploadedCount: evidenceEval.mandatoryCount,
+          mandatoryCount: evidenceEval.mandatoryCount,
+          verifiedTotalCount: evidenceEval.verifiedTotalCount,
+          missingMandatorySlots: evidenceEval.missingMandatorySlots,
+          error: buildPhotoEvidenceIncompleteErrorMessage(evidenceEval)
         });
       }
     }
@@ -7126,10 +7127,40 @@ export async function createExpressApp(options?: {
     const nextVersionNumber = existingReports.length + 1;
     const resolvedReasonLabel = reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '';
     const resolvedRootcauseLabel = rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || undefined;
+    const cleanIdempotencyKey =
+      typeof idempotencyKey === 'string' && idempotencyKey.trim()
+        ? idempotencyKey.trim()
+        : (typeof entry?.idempotencyKey === 'string' && entry.idempotencyKey.trim()
+            ? entry.idempotencyKey.trim()
+            : undefined);
+    const resolvedRemarks = remarks || entry?.remarksReport || resolvedReasonLabel || '-';
+
+    // Idempotency / Double-submit guard: return existing entry cleanly if identical submission was already recorded
+    const duplicateReport = existingReports.find((r: any) => {
+      if (!r || typeof r !== 'object') return false;
+      if (entry?.id && r.id === entry.id) return true;
+      if (cleanIdempotencyKey && r.idempotencyKey === cleanIdempotencyKey) return true;
+      const sameActor = String(r.submittedById || '') === String(req.user!.id || '');
+      const samePayload =
+        String(r.reportStatusLabel || r.reportStatus || '') === finalReportStatusLabel &&
+        String(r.reasonReportId || '') === String(reasonReportId || entry?.reasonReportId || '') &&
+        String(r.remarksReport || '') === String(resolvedRemarks);
+      if (sameActor && samePayload && r.timestamp) {
+        const elapsedMs = Date.now() - Date.parse(String(r.timestamp));
+        if (Number.isFinite(elapsedMs) && elapsedMs >= 0 && elapsedMs < 8000) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (duplicateReport) {
+      return res.json({ success: true, deduplicated: true, entry: duplicateReport, ticket });
+    }
 
     const reportEntry = {
       ...entry,
       id: entry?.id || ('prog_' + Date.now()),
+      ...(cleanIdempotencyKey ? { idempotencyKey: cleanIdempotencyKey } : {}),
       ticketId: ticket.id,
       versionNumber: nextVersionNumber,
       timestamp: entry?.timestamp || now,
@@ -7145,7 +7176,7 @@ export async function createExpressApp(options?: {
       reasonReportLabel: resolvedReasonLabel,
       ...(resolvedRootcauseLabel ? { rootCause: resolvedRootcauseLabel, rootcauseLabel: resolvedRootcauseLabel } : {}),
       ...(rootcauseId || entry?.rootcauseId ? { rootcauseId: rootcauseId || entry?.rootcauseId } : {}),
-      remarksReport: remarks || entry?.remarksReport || resolvedReasonLabel || '-',
+      remarksReport: resolvedRemarks,
       approvalStatus: 'BUTUH APPROVAL'
     };
 
@@ -7246,40 +7277,41 @@ export async function createExpressApp(options?: {
       const telemetryFatPort = technicalTelemetry.fatPort !== undefined
         ? String(technicalTelemetry.fatPort).trim()
         : (prevTr.fatPort || ticket.fatPort || '');
+      const serverSlots: any[] = Array.isArray(prevTr.photoSlots) ? prevTr.photoSlots : [];
       const rawSlots = Array.isArray(technicalTelemetry.photoSlots)
         ? technicalTelemetry.photoSlots
-        : prevTr.photoSlots;
-      // Preserve server-stored photo URLs and never allow spoofed (0,0) coordinates
-      const telemetryPhotoSlots = Array.isArray(rawSlots)
-        ? rawSlots.map((slot: any) => {
-            if (!slot || typeof slot !== 'object') return slot;
-            const existingMatch = Array.isArray(prevTr.photoSlots)
-              ? prevTr.photoSlots.find((p: any) => p && p.slotKey === slot.slotKey)
-              : undefined;
-            const sanitizedSlot = { ...slot };
-            if (
-              existingMatch &&
-              existingMatch.storagePath &&
-              (!sanitizedSlot.storagePath || String(sanitizedSlot.url || '').startsWith('data:'))
-            ) {
-              sanitizedSlot.url = existingMatch.url;
-              sanitizedSlot.storagePath = existingMatch.storagePath;
-            }
-            if (sanitizedSlot.latitude !== undefined || sanitizedSlot.longitude !== undefined) {
-              if (!isValidServerGeoCoord(Number(sanitizedSlot.latitude), Number(sanitizedSlot.longitude))) {
-                delete sanitizedSlot.latitude;
-                delete sanitizedSlot.longitude;
-                sanitizedSlot.geotagStatus = 'missing';
-              }
-            }
-            return sanitizedSlot;
-          })
-        : prevTr.photoSlots;
-      const telemetryPhotos = Array.isArray(telemetryPhotoSlots)
-        ? telemetryPhotoSlots.map((s: any) => s?.url).filter((u: unknown) => typeof u === 'string' && u.trim().length > 0)
-        : (Array.isArray(technicalTelemetry.photos)
-            ? technicalTelemetry.photos.filter((p: unknown) => typeof p === 'string' && p.trim().length > 0)
-            : prevTr.photos);
+        : [];
+      // Preserve authoritative server-stored photo slots and merge without ever overwriting storagePath/url with unpersisted client data
+      const mergedSlotMap = new Map<string, any>();
+      serverSlots.forEach((s: any) => {
+        if (s && s.slotKey) mergedSlotMap.set(String(s.slotKey), { ...s });
+      });
+      rawSlots.forEach((slot: any) => {
+        if (!slot || typeof slot !== 'object' || !slot.slotKey) return;
+        const key = String(slot.slotKey);
+        const existingMatch = mergedSlotMap.get(key);
+        if (!existingMatch) {
+          return;
+        }
+        const sanitizedSlot = {
+          ...existingMatch,
+          ...slot,
+          url: existingMatch.url,
+          storagePath: existingMatch.storagePath || slot.storagePath,
+          uploadedAt: existingMatch.uploadedAt || slot.uploadedAt,
+          uploadStatus: existingMatch.uploadStatus || 'uploaded'
+        };
+        if (sanitizedSlot.latitude !== undefined || sanitizedSlot.longitude !== undefined) {
+          if (!isValidServerGeoCoord(Number(sanitizedSlot.latitude), Number(sanitizedSlot.longitude))) {
+            delete sanitizedSlot.latitude;
+            delete sanitizedSlot.longitude;
+            sanitizedSlot.geotagStatus = 'missing';
+          }
+        }
+        mergedSlotMap.set(key, sanitizedSlot);
+      });
+      const telemetryPhotoSlots = Array.from(mergedSlotMap.values());
+      const telemetryPhotos = telemetryPhotoSlots.map((s: any) => s?.url).filter((u: unknown) => typeof u === 'string' && u.trim().length > 0);
 
       // Derive houseLocation strictly from customer_house slot & fatLocation strictly from fat_attenuation slot
       if (Array.isArray(telemetryPhotoSlots)) {
@@ -15751,8 +15783,11 @@ export async function createExpressApp(options?: {
       return res.status(403).json({ error: 'Akses Ditolak: Anda tidak memiliki wewenang untuk melihat data Work Order ini.' });
     }
 
+    const hydratedTicket = isSupabaseMode()
+      ? await hydrateTicketPhotoEvidenceFromSupabase(scoped[0])
+      : scoped[0];
     const todayWIB = getJakartaDateStringServer(getNow());
-    const enrichedTicket = attachClassificationMetadata(scoped[0], todayWIB);
+    const enrichedTicket = attachClassificationMetadata(hydratedTicket, todayWIB);
 
     let messages: any[] | undefined;
     if (includeSet.has('messages')) {
