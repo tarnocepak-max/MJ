@@ -4,6 +4,7 @@ import { useResponsiveViewport } from '../../hooks/useResponsiveViewport';
 import { Ticket, User, TicketStatusWOInstaller } from '../../types/index.ts';
 import { StatusAgentBadge, StatusInstallerBadge, StatusWhatsAppBadge, StatusBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 import { DashboardKpiSummaryCards } from '../dashboard/DashboardKpiSummaryCards';
 import { matchesKpiFilter, KPI_FILTER_LABELS } from '../../services/woLifecycleService';
@@ -1993,8 +1994,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
         );
       case 'action':
         return (
-          <th key={col.id} className="py-2.5 px-3 text-center min-w-[120px]">
-            Action
+          <th key={col.id} className="py-2.5 px-3 text-center min-w-[84px]">
+            ACTION
           </th>
         );
       default:
@@ -2230,31 +2231,78 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
             {t.updatedAt?.slice(5, 16).replace('T', ' ') || '-'}
           </td>
         );
-      case 'action':
-        return (
-          <td key={col.id} className="py-2.5 px-3 text-center">
-            <div className="flex items-center justify-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onSelectTicket(t)}
-                className="mj-btn-leader-neutral mj-btn-xs px-2.5 py-1 rounded-lg text-xs cursor-pointer"
-              >
-                Detail
-              </button>
+      case 'action': {
+        const items: DropdownActionItem[] = [
+          {
+            id: 'detail_wo',
+            label: 'Buka Detail WO',
+            icon: <Eye className="w-3.5 h-3.5" />,
+            tone: 'primary',
+            onClick: () => onSelectTicket(t)
+          },
+          {
+            id: 'toggle_expand',
+            label: isExpanded ? 'Tutup Rincian Baris' : 'Lihat Rincian Teknis & Alamat',
+            icon: isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />,
+            onClick: () => toggleRowExpansion(t.id)
+          },
+          {
+            id: 'livechat',
+            label: 'Buka LiveChat WO',
+            icon: <MessageSquare className="w-3.5 h-3.5" />,
+            onClick: () => onSelectTicket(t, 'chat')
+          }
+        ];
 
-              {onOpenWhatsApp && (
-                <button
-                  type="button"
-                  onClick={() => onOpenWhatsApp(t)}
-                  className="mj-btn-icon-3d-wa w-8 h-8 cursor-pointer"
-                  title="Kirim pesan WhatsApp pelanggan"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+        if (isLeaderRole && t.installerName && t.statusWOInstaller !== 'Completed' && t.statusWOInstaller !== 'Installed' && t.statusWOAgent !== 'Closed') {
+          items.push({
+            id: 'reassign_wo',
+            label: 'Reassign Teknisi',
+            icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
+            tone: 'warning',
+            onClick: () => handleOpenReassignModal(t)
+          });
+        }
+
+        if (onOpenWhatsApp) {
+          items.push({
+            id: 'whatsapp',
+            label: 'WhatsApp Pelanggan',
+            icon: <Phone className="w-3.5 h-3.5" />,
+            tone: 'success',
+            onClick: () => onOpenWhatsApp(t)
+          });
+        }
+
+        items.push({
+          id: 'maps',
+          label: 'Buka Google Maps',
+          icon: <MapPin className="w-3.5 h-3.5" />,
+          onClick: () => openCustomerAddressInGoogleMaps(t)
+        });
+
+        items.push({
+          id: 'copy_wo',
+          label: 'Salin No. WO',
+          icon: <Copy className="w-3.5 h-3.5" />,
+          dividerBefore: true,
+          onClick: () => {
+            navigator.clipboard?.writeText(t.woNumber);
+            toast.info(`Nomor WO ${t.woNumber} disalin.`);
+          }
+        });
+
+        return (
+          <td key={col.id} className="py-2.5 px-3 text-center whitespace-nowrap">
+            <ActionDropdownMenu
+              actions={items}
+              triggerLabel={`Aksi WO ${t.woNumber}`}
+              align="right"
+              size="sm"
+            />
           </td>
         );
+      }
       default:
         return (
           <td key={col.id} className="py-2.5 px-3">

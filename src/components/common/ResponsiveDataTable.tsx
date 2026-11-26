@@ -135,7 +135,7 @@ export function ResponsiveDataTable<T>({
   onRowClick,
   getRowActions,
   renderDesktopActions,
-  desktopActionHeader = 'Aksi',
+  desktopActionHeader = 'ACTION',
   stickyHeader = true,
   maxTableHeightClass = 'max-h-[600px]',
   pagination,

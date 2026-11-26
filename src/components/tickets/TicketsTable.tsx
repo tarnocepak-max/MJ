@@ -86,6 +86,7 @@ import {
   TableResetFilterButton
 } from '../common/InteractiveTableHeader';
 import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 
 const PRIORITY_1_CANONICAL_KEYS = new Set([
   'woNumber',
@@ -1556,7 +1557,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       )}
 
       {/* 0. STITCH WORK ORDER DISPATCH & TRIAGE CONTROL HERO */}
-      <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <section className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative overflow-hidden">
         <div className="flex items-start gap-3.5 min-w-0">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#3f186d] dark:to-[#240c45] text-white flex items-center justify-center shrink-0 shadow-[0_3px_0_#3E3588] dark:shadow-[0_3px_0_#120624]">
             <Sparkles className="w-5 h-5 text-[#DDF4F4] dark:text-[#DAB9FF]" />
@@ -2507,7 +2508,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       </div>
                     </th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap sticky right-0 z-20 bg-[#EDF3F8] dark:bg-[#251545] shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.06)]">
-                      Aksi Operasional
+                      ACTION
                     </th>
                   </tr>
                 </thead>
@@ -2527,6 +2528,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                       )}
                       {virtualizedTickets.map((ticket, rowIdx) => {
                       const isSelected = selectedIds.has(ticket.id);
+                      const unread = getTicketUnreadCount(ticket.id);
                       const isExpanded = expandedDrawerTicketId === ticket.id;
                       const isRejectedRow =
                         ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI';
@@ -2754,38 +2756,90 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               </div>
                             </td>
 
-                            {/* 9. Sticky-Right Aksi Operasional (3D Dispatch Review + Detail Ticket) */}
+                            {/* 9. Sticky-Right ACTION (Kebab Menu) */}
                             <td
                               className={`py-3 px-3 align-top text-right whitespace-nowrap sticky right-0 z-10 ${stickyBg} shadow-[-4px_0_6px_-2px_rgba(38,54,74,0.05)] transition-colors`}
                             >
-                              <div className="flex items-center justify-end gap-1.5">
-                                {canApproveInline && (isUrgentRow || hasInlineEvidence) && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      toggleInlineDrawer(ticket);
-                                    }}
-                                    className="btn-3d-amber px-2.5 py-1 rounded-lg text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                                    title="Buka Quick Dispatch Review & Approval"
-                                  >
-                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                    <span>{isExpanded ? 'Tutup Review' : 'Dispatch Review'}</span>
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    onSelectTicket(ticket);
-                                  }}
-                                  className="btn-3d-ceramic px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                                  title="Buka Detail Ticket"
-                                >
-                                  <Eye className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
-                                  <span>Detail</span>
-                                </button>
-                              </div>
+                              {(() => {
+                                const actionItems: DropdownActionItem[] = [];
+                                if (canApproveInline && (isUrgentRow || hasInlineEvidence)) {
+                                  actionItems.push({
+                                    id: 'dispatch_review',
+                                    label: isExpanded ? 'Tutup Dispatch Review' : 'Dispatch Review',
+                                    icon: <ShieldCheck className="w-3.5 h-3.5" />,
+                                    tone: 'warning',
+                                    onClick: () => toggleInlineDrawer(ticket)
+                                  });
+                                }
+                                if (canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL') {
+                                  actionItems.push({
+                                    id: 'quick_approve',
+                                    label: 'Approve Laporan',
+                                    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                                    tone: 'success',
+                                    onClick: () => {
+                                      if (!isExpanded) {
+                                        toggleInlineDrawer(ticket);
+                                      } else {
+                                        handleInlineApprove(ticket);
+                                      }
+                                    }
+                                  });
+                                }
+                                actionItems.push({
+                                  id: 'detail_wo',
+                                  label: 'Buka Detail WO',
+                                  icon: <Eye className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () => onSelectTicket(ticket)
+                                });
+                                if (['super_admin', 'dispatch', 'installer'].includes(currentUser.role)) {
+                                  actionItems.push({
+                                    id: 'livechat',
+                                    label: unread > 0 ? `LiveChat (${unread} baru)` : 'Buka LiveChat',
+                                    icon: <MessageCircle className="w-3.5 h-3.5" />,
+                                    tone: unread > 0 ? 'danger' : 'default',
+                                    onClick: () => onSelectTicket(ticket, 'chat')
+                                  });
+                                }
+                                if (phoneStr) {
+                                  actionItems.push({
+                                    id: 'whatsapp',
+                                    label: 'WhatsApp Pelanggan',
+                                    icon: <MessageSquare className="w-3.5 h-3.5" />,
+                                    tone: 'success',
+                                    onClick: () => onOpenWhatsApp(ticket)
+                                  });
+                                }
+                                if (addressStr) {
+                                  actionItems.push({
+                                    id: 'maps',
+                                    label: 'Buka Google Maps',
+                                    icon: <MapPin className="w-3.5 h-3.5" />,
+                                    onClick: () => openCustomerAddressInGoogleMaps(ticket)
+                                  });
+                                }
+                                actionItems.push({
+                                  id: 'copy_wo',
+                                  label: 'Salin No. WO',
+                                  icon: <Copy className="w-3.5 h-3.5" />,
+                                  dividerBefore: true,
+                                  onClick: () => {
+                                    navigator.clipboard?.writeText(ticket.woNumber);
+                                    toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+                                  }
+                                });
+                                return (
+                                  <div className="flex items-center justify-end">
+                                    <ActionDropdownMenu
+                                      actions={actionItems}
+                                      triggerLabel={`Aksi WO ${ticket.woNumber}`}
+                                      align="right"
+                                      size="sm"
+                                    />
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
 
@@ -3135,7 +3189,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           : 'border-l border-[#DDE6F0] dark:border-[#35105E]'
                       }`}
                     >
-                      Aksi Operasional
+                      ACTION
                     </th>
                   </tr>
                 </thead>
@@ -3597,7 +3651,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               );
                             })}
 
-                            {/* Sticky-Right Actions Cell */}
+                            {/* Sticky-Right ACTION (Kebab Menu) */}
                             <td
                               className={`${densityClass} text-center whitespace-nowrap ${stickyCellBg} border-l border-[#DDE6F0] dark:border-[#35105E] transition-colors ${
                                 stickyColumnsEnabled
@@ -3605,86 +3659,82 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   : ''
                               }`}
                             >
-                              <div className="flex items-center justify-center gap-1.5">
-                                {hasInlineEvidence && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      toggleInlineDrawer(ticket);
-                                    }}
-                                    className={`px-2 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap ${
-                                      isExpanded ? 'btn-3d-primary' : 'btn-3d-ceramic'
-                                    }`}
-                                    title="Buka Drawer Verifikasi Teknis"
-                                  >
-                                    {isExpanded ? 'Tutup' : 'Review'}
-                                  </button>
-                                )}
-
-                                {canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL' && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
+                              {(() => {
+                                const canonicalItems: DropdownActionItem[] = [];
+                                if (hasInlineEvidence) {
+                                  canonicalItems.push({
+                                    id: 'review_drawer',
+                                    label: isExpanded ? 'Tutup Drawer Review' : 'Review Verifikasi',
+                                    icon: <ShieldCheck className="w-3.5 h-3.5" />,
+                                    tone: 'warning',
+                                    onClick: () => toggleInlineDrawer(ticket)
+                                  });
+                                }
+                                if (canApproveInline && ticket.approvalStatus === 'BUTUH APPROVAL') {
+                                  canonicalItems.push({
+                                    id: 'approve_report',
+                                    label: 'Approve Laporan',
+                                    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                                    tone: 'success',
+                                    onClick: () => {
                                       if (!isExpanded) {
                                         toggleInlineDrawer(ticket);
                                       } else {
                                         handleInlineApprove(ticket);
                                       }
-                                    }}
-                                    className="btn-3d-success px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                                    title="Verifikasi & Approve Laporan"
-                                  >
-                                    Approve
-                                  </button>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    onSelectTicket(ticket);
-                                  }}
-                                  className="btn-3d-icon w-7 h-7 cursor-pointer"
-                                  title="Buka Detail Lengkap WO"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-
-                                {['super_admin', 'dispatch', 'installer'].includes(currentUser.role) && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      onSelectTicket(ticket, 'chat');
-                                    }}
-                                    className={`relative btn-3d-icon w-7 h-7 cursor-pointer ${
-                                      unread > 0 ? 'text-[#DC4C5A] border-[#FECACA]' : ''
-                                    }`}
-                                    title={unread > 0 ? `${unread} Chat Belum Dibaca` : 'Buka Live Chat'}
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5" />
-                                    {unread > 0 && (
-                                      <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-[#DC4C5A] text-white text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums">
-                                        {unread > 99 ? '99+' : unread}
-                                      </span>
-                                    )}
-                                  </button>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    onOpenWhatsApp(ticket);
-                                  }}
-                                  className="btn-3d-icon w-7 h-7 text-[#16A36A] cursor-pointer"
-                                  title="WhatsApp Confirmation"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                                    }
+                                  });
+                                }
+                                canonicalItems.push({
+                                  id: 'detail_wo',
+                                  label: 'Buka Detail Lengkap WO',
+                                  icon: <Eye className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () => onSelectTicket(ticket)
+                                });
+                                if (['super_admin', 'dispatch', 'installer'].includes(currentUser.role)) {
+                                  canonicalItems.push({
+                                    id: 'livechat',
+                                    label: unread > 0 ? `LiveChat (${unread} baru)` : 'Buka LiveChat',
+                                    icon: <MessageCircle className="w-3.5 h-3.5" />,
+                                    tone: unread > 0 ? 'danger' : 'default',
+                                    onClick: () => onSelectTicket(ticket, 'chat')
+                                  });
+                                }
+                                canonicalItems.push({
+                                  id: 'whatsapp',
+                                  label: 'WhatsApp Pelanggan',
+                                  icon: <MessageSquare className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  onClick: () => onOpenWhatsApp(ticket)
+                                });
+                                canonicalItems.push({
+                                  id: 'maps',
+                                  label: 'Buka Google Maps',
+                                  icon: <MapPin className="w-3.5 h-3.5" />,
+                                  onClick: () => openCustomerAddressInGoogleMaps(ticket)
+                                });
+                                canonicalItems.push({
+                                  id: 'copy_wo',
+                                  label: 'Salin No. WO',
+                                  icon: <Copy className="w-3.5 h-3.5" />,
+                                  dividerBefore: true,
+                                  onClick: () => {
+                                    navigator.clipboard?.writeText(ticket.woNumber);
+                                    toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+                                  }
+                                });
+                                return (
+                                  <div className="flex items-center justify-center">
+                                    <ActionDropdownMenu
+                                      actions={canonicalItems}
+                                      triggerLabel={`Aksi WO ${ticket.woNumber}`}
+                                      align="right"
+                                      size="sm"
+                                    />
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
 

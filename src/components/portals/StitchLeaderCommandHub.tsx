@@ -1114,7 +1114,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       {/* 1. LEADER COMMAND HUB HEADER SUB-BAR & SCOPE BANNER                  */}
       {/* ==================================================================== */}
-      <section className="w-full bg-white dark:bg-[#1A0E2E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.05),0_8px_18px_-4px_rgba(53,16,94,0.07)] border border-[#DDE6F0] dark:border-[#35105E]">
+      <section className="w-full bg-white dark:bg-[#1A0E2E] mj-banner-glossy-3d rounded-2xl p-4 sm:p-5 shadow-[0_4px_20px_-4px_rgba(38,54,74,0.06)] dark:shadow-[0_1px_3px_rgba(33,24,58,0.05),0_8px_18px_-4px_rgba(53,16,94,0.07)] border border-[#DDE6F0] dark:border-[#35105E] relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-11 h-11 rounded-xl bg-[#DDF4F4] dark:bg-[#2B174D] flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_2px_6px_rgba(46,125,139,0.12)] shrink-0">

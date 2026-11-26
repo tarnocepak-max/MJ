@@ -649,7 +649,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {/* ============================================================ */}
       {/* HEADER, SHIFT BANNER, TACTILE TABS & DEBOSSED SEARCH BAR     */}
       {/* ============================================================ */}
-      <section className="card-3d-lavender rounded-2xl p-3.5 sm:p-4 space-y-3">
+      <section className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-3.5 sm:p-4 space-y-3 relative overflow-hidden">
         {/* Top Area / Shift Banner */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
           <div className="min-w-0">
@@ -1126,7 +1126,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 space-y-1 text-xs text-[#52647A] dark:text-[#C4B5D6]">
                       <div className="flex items-start gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{addressDisplay}</span>
+                        <span className="whitespace-normal break-words leading-snug">{addressDisplay}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
                         <span className="inline-flex items-center gap-1 font-semibold text-[#26364A] dark:text-[#f5eeff]">
@@ -1310,7 +1310,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     </div>
                     <div className="flex items-start gap-1.5 text-xs text-[#52647A] dark:text-[#C4B5D6]">
                       <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                      <span className="line-clamp-2">{addressDisplay}</span>
+                      <span className="whitespace-normal break-words leading-snug">{addressDisplay}</span>
                     </div>
                   </div>
 

@@ -495,7 +495,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
       {/* =============================================================== */}
       {/* 1. TECHNICIAN GREETING HERO + 3-TILE PERFORMANCE STRIP          */}
       {/* =============================================================== */}
-      <section className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-3.5">
+      <section className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-4 sm:p-5 space-y-3.5 relative overflow-hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5145A6] via-[#6657C8] to-[#2E7D8B] dark:from-[#58149C] dark:to-[#2D115B] text-white font-display font-extrabold text-sm flex items-center justify-center shrink-0 shadow-sm border border-[#BDE4E8]/60 dark:border-[#A380FE]/30">
@@ -635,7 +635,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 </h2>
                 <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] flex items-start gap-1.5 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">
+                  <span className="whitespace-normal break-words leading-snug">
                     {[activeHeroTicket.streetName || activeHeroTicket.address, activeHeroTicket.clusterName, activeHeroTicket.area]
                       .filter(Boolean)
                       .join(' · ') || 'Alamat belum tersedia'}

@@ -2131,7 +2131,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   ) : (
                     <Copy className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
                   )}
-                  <span className="line-clamp-2 leading-snug">
+                  <span className="whitespace-normal break-words leading-snug">
                     {[activeTicket.streetName || activeTicket.address, activeTicket.clusterName, activeTicket.area]
                       .filter(Boolean)
                       .join(', ') || 'Alamat belum tercatat'}

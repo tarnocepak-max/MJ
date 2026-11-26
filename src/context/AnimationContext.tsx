@@ -122,13 +122,9 @@ export const AnimationProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setRefreshMessage({ message, subMessage });
     setIsRefreshing(true);
 
-    const minDisplayPromise = new Promise(resolve => setTimeout(resolve, 600));
-
     try {
       if (action) {
-        await Promise.all([Promise.resolve(action()), minDisplayPromise]);
-      } else {
-        await minDisplayPromise;
+        await Promise.resolve(action());
       }
     } finally {
       setIsRefreshing(false);

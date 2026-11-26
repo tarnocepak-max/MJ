@@ -950,6 +950,68 @@ html.dark .mj-btn-secondary:hover:not(:disabled) {
   }
 }
 
+@keyframes morajaws-rocket-hover {
+  0%, 100% {
+    transform: translateY(2px) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) scale(1.03);
+  }
+}
+
+@keyframes morajaws-rocket-exhaust {
+  0%, 100% {
+    opacity: 0.65;
+    transform: translateX(-50%) scaleX(0.9) scaleY(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1.18) scaleY(1.25);
+  }
+}
+
+@keyframes morajaws-rocket-particle {
+  0%, 100% {
+    transform: translateY(0px) scale(0.85);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-9px) scale(1.2);
+    opacity: 0.95;
+  }
+}
+
+@keyframes morajaws-banner-sheen {
+  0%, 100% {
+    transform: translateX(-125%) skewX(-22deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  55% {
+    transform: translateX(220%) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+.mj-rocket-launch-emblem {
+  animation: morajaws-rocket-hover 1.75s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.mj-rocket-exhaust-glow {
+  background: radial-gradient(ellipse at center, rgba(192, 132, 252, 0.85) 0%, rgba(34, 211, 238, 0.55) 55%, transparent 80%);
+  animation: morajaws-rocket-exhaust 0.9s ease-in-out infinite;
+}
+
+.mj-rocket-star-particle {
+  animation: morajaws-rocket-particle 2.4s ease-in-out infinite;
+}
+
+.mj-rocket-star-particle-delay {
+  animation: morajaws-rocket-particle 2.8s ease-in-out 0.9s infinite;
+}
+
 /* -------------------------------------------------------------
    Custom Luxury Utility Classes
    ------------------------------------------------------------- */
@@ -1112,7 +1174,12 @@ html.dark .tactile-debossed-input {
   .animate-spin,
   .animate-pulse,
   .mj-toast-enter,
-  .mj-sheet-enter {
+  .mj-sheet-enter,
+  .mj-rocket-launch-emblem,
+  .mj-rocket-exhaust-glow,
+  .mj-rocket-star-particle,
+  .mj-rocket-star-particle-delay,
+  .mj-banner-glossy-3d::after {
     animation: none !important;
   }
 }
@@ -2513,16 +2580,62 @@ html:not(.dark) .mj-focus-glow:focus {
 
 /* Unified Aqua-Violet Glass Role Banner (Light Mode) */
 html:not(.dark) .banner-maroon-superadmin {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(234, 232, 255, 0.78) 54%, rgba(221, 244, 244, 0.80) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.96);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(234, 232, 255, 0.82) 52%, rgba(216, 240, 240, 0.84) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.98);
   color: #26364A;
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.98),
-    0 0 0 1px #DDE6F0,
-    0 4px 0 #DDE6F0,
-    0 14px 28px -10px rgba(38, 54, 74, 0.10);
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(102, 87, 200, 0.12),
+    0 0 0 1px rgba(214, 224, 242, 0.9),
+    0 5px 0 rgba(214, 224, 242, 0.82),
+    0 18px 34px -12px rgba(81, 69, 166, 0.16);
+}
+
+/* Glossy Exclusive 3D Top Banner Card (Light Mode Crystal Aqua-Lavender; Night Mode Untouched) */
+html:not(.dark) .mj-banner-glossy-3d {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 12%, rgba(101, 184, 196, 0.22) 0%, transparent 46%),
+    radial-gradient(circle at 14% 92%, rgba(139, 92, 246, 0.14) 0%, transparent 48%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(242, 245, 254, 0.90) 48%, rgba(226, 244, 248, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(102, 87, 200, 0.10),
+    0 0 0 1px rgba(210, 223, 240, 0.92),
+    0 4px 0 rgba(214, 225, 240, 0.80),
+    0 18px 36px -14px rgba(81, 69, 166, 0.15);
+}
+
+html:not(.dark) .mj-banner-glossy-3d::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.04) 100%);
+  pointer-events: none;
+}
+
+html:not(.dark) .mj-banner-glossy-3d::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42%;
+  height: 100%;
+  background: linear-gradient(
+    95deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 28%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(216, 180, 254, 0.16) 66%,
+    transparent 100%
+  );
+  animation: morajaws-banner-sheen 7.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* Floating Capsules & Pills (Light Mode) */

@@ -460,33 +460,7 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                 ];
                 return items;
               }}
-              renderDesktopActions={
-                onSelectTicket
-                  ? ticket => (
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onSelectTicket(ticket, 'chat')}
-                          className="mj-tactile-btn-secondary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                          title="Buka LiveChat WO"
-                        >
-                          <MessageSquare className="w-3 h-3 text-[#6657C8] dark:text-[#dab9ff]" />
-                          <span>LiveChat</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSelectTicket(ticket, 'overview')}
-                          className="mj-tactile-btn-primary px-2.5 py-1.5 rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                          title="Buka 17-Section Ticket Fullview"
-                        >
-                          <Eye className="w-3 h-3" />
-                          <span>Detail WO</span>
-                        </button>
-                      </div>
-                    )
-                  : undefined
-              }
-              desktopActionHeader="Aksi Cepat"
+              desktopActionHeader="ACTION"
               emptyState={{
                 title: 'Belum ada Work Order aktif',
                 description: 'Belum ada Work Order aktif dalam scope Anda saat ini.'

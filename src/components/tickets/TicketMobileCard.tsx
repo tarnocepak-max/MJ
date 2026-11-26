@@ -3,6 +3,7 @@ import { Ticket } from '../../types/index.ts';
 import { useUIConfig } from '../../context/UIConfigContext';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
+import { normalizeAndroidCardSettings } from '../../utils/uiLayoutHelpers';
 import {
   StatusAgentBadge,
   StatusInstallerBadge,
@@ -48,16 +49,13 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
   const { toast } = useToast();
   const [copiedWo, setCopiedWo] = useState(false);
 
-  const androidConfig = config.device?.android || {
-    touchTargetSize: 'comfortable',
-    cardDensity: 'comfortable',
-    showQuickCall: true,
-    showQuickWhatsApp: true,
-    showQuickDetail: true,
-    highContrastBadges: true
-  };
+  const androidConfig = normalizeAndroidCardSettings(config.device?.android);
 
-  const isComfortableTouch = androidConfig.touchTargetSize !== 'compact';
+  const ticketClosed = isTicketClosed(ticket);
+  const unread = getTicketUnreadCount(ticket.id);
+  const isComfortableTouch = androidConfig.touchTargetSize !== 'standard';
+  const showQuickBar =
+    androidConfig.showQuickCall || androidConfig.showQuickWhatsApp || unread >= 0;
   const densityPadding =
     androidConfig.cardDensity === 'spacious'
       ? 'p-4 gap-3'
@@ -65,8 +63,6 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       ? 'p-3 gap-2'
       : 'p-3.5 gap-2.5';
 
-  const ticketClosed = isTicketClosed(ticket);
-  const unread = getTicketUnreadCount(ticket.id);
   const isRevision = ticket.approvalStatus === 'REJECTED' || ticket.approvalStatus === 'REVISI';
   const isButuhApproval = ticket.approvalStatus === 'BUTUH APPROVAL';
   const isLiveProgress =
@@ -208,7 +204,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
               <p className="text-xs font-bold text-[#26364A] dark:text-white truncate">
                 {ticket.clusterName || ticket.area || 'Lokasi Pelanggan'}
               </p>
-              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2 leading-snug">
+              <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] whitespace-normal break-words leading-snug">
                 {addressStr || 'Alamat belum tercatat'}
                 {ticket.fatCode ? ` • FAT ${ticket.fatCode}${ticket.fatPort ? ` #${ticket.fatPort}` : ''}` : ''}
               </p>
@@ -256,7 +252,11 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       </div>
 
       {/* Metadata Badges Strip */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div
+        className={`flex flex-wrap items-center gap-1.5 ${
+          androidConfig.highContrastBadges ? 'saturate-110' : 'opacity-90'
+        }`}
+      >
         {ticket.approvalStatus && ticket.approvalStatus !== 'NONE' && (
           <StatusApprovalBadge status={ticket.approvalStatus} />
         )}
@@ -275,72 +275,85 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
       </div>
 
       {/* Compact Phone / WhatsApp & LiveChat Bar */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {phoneStr ? (
-            <>
-              <a
-                href={`tel:${phoneStr}`}
-                onClick={e => e.stopPropagation()}
-                className="btn-3d-ceramic inline-flex items-center gap-1 px-2.5 min-h-[38px] rounded-lg text-[11px] font-mono font-semibold truncate"
-                title={`Telepon ${phoneStr}`}
-              >
-                <Phone className="w-3 h-3 text-[#218A63] dark:text-emerald-600 shrink-0" />
-                <span className="truncate">{phoneStr}</span>
-              </a>
-              <button
-                type="button"
-                onClick={e => {
-                  e.stopPropagation();
-                  onOpenWhatsApp(ticket);
-                }}
-                className="btn-3d-emerald inline-flex items-center gap-1 px-2.5 min-h-[38px] rounded-lg text-[11px] font-bold cursor-pointer shrink-0"
-                title="Buka WhatsApp Pelanggan"
-              >
-                <MessageSquare className="w-3 h-3" />
-                <span>WA</span>
-              </button>
-            </>
-          ) : (
-            <span className="text-[11px] text-[#8492A5] dark:text-[#C5B3DF] italic">Tanpa nomor kontak</span>
-          )}
-        </div>
+      {showQuickBar && (
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {phoneStr ? (
+              <>
+                {androidConfig.showQuickCall && (
+                  <a
+                    href={`tel:${phoneStr}`}
+                    onClick={e => e.stopPropagation()}
+                    className="btn-3d-ceramic inline-flex items-center gap-1 px-2.5 min-h-[38px] rounded-lg text-[11px] font-mono font-semibold truncate"
+                    title={`Telepon ${phoneStr}`}
+                  >
+                    <Phone className="w-3 h-3 text-[#218A63] dark:text-emerald-600 shrink-0" />
+                    <span className="truncate">{phoneStr}</span>
+                  </a>
+                )}
+                {androidConfig.showQuickWhatsApp && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onOpenWhatsApp(ticket);
+                    }}
+                    className="btn-3d-emerald inline-flex items-center gap-1 px-2.5 min-h-[38px] rounded-lg text-[11px] font-bold cursor-pointer shrink-0"
+                    title="Buka WhatsApp Pelanggan"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>WA</span>
+                  </button>
+                )}
+                {!androidConfig.showQuickCall && !androidConfig.showQuickWhatsApp && (
+                  <span className="text-[11px] font-mono text-[#52647A] dark:text-[#CEC0E8] truncate">
+                    {phoneStr}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[11px] text-[#8492A5] dark:text-[#C5B3DF] italic">Tanpa nomor kontak</span>
+            )}
+          </div>
 
-        <button
-          type="button"
-          onClick={e => {
-            e.stopPropagation();
-            onSelectTicket(ticket, 'chat');
-          }}
-          className={`inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-lg text-[11px] font-bold cursor-pointer shrink-0 ${
-            unread > 0
-              ? 'bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/70 dark:border-rose-800 dark:text-rose-200'
-              : 'btn-3d-lilac'
-          }`}
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-          <span>Chat</span>
-          {unread > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9.5px] font-bold tabular-nums">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              onSelectTicket(ticket, 'chat');
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 min-h-[38px] rounded-lg text-[11px] font-bold cursor-pointer shrink-0 ${
+              unread > 0
+                ? 'bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/70 dark:border-rose-800 dark:text-rose-200'
+                : 'btn-3d-lilac'
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>Chat</span>
+            {unread > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[9.5px] font-bold tabular-nums">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Thumb-Zone Bottom CTA Row (Lihat Detail) */}
-      <div className="grid grid-cols-1 gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => onSelectTicket(ticket, 'overview')}
-          className={`btn-3d-lilac flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold cursor-pointer ${
-            isComfortableTouch ? 'min-h-[44px] text-xs' : 'min-h-[42px] text-[11px]'
-          }`}
-        >
-          <Eye className="w-4 h-4 shrink-0" />
-          <span>Lihat Detail</span>
-        </button>
-      </div>
+      {androidConfig.showQuickDetail && (
+        <div className="grid grid-cols-1 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onSelectTicket(ticket, 'overview')}
+            className={`btn-3d-lilac flex items-center justify-center gap-1.5 px-3 rounded-xl font-bold cursor-pointer ${
+              isComfortableTouch ? 'min-h-[44px] text-xs' : 'min-h-[40px] text-[11px]'
+            }`}
+          >
+            <Eye className="w-4 h-4 shrink-0" />
+            <span>Lihat Detail</span>
+          </button>
+        </div>
+      )}
     </article>
   );
 };

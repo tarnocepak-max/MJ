@@ -837,9 +837,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onNavigate, onSelectT
                     <span className={`w-1.5 h-1.5 rounded-full ${sseVisualState.dotClass}`} />
                     <span>{sseVisualState.label}</span>
                   </span>
-                  <span className="hidden xl:inline text-[#CFDCE8] dark:text-white/25">•</span>
-                  <Calendar className="hidden xl:inline w-3.5 h-3.5 text-[#6657C8] dark:text-[#A7A1F0] shrink-0" />
-                  <span className="hidden xl:inline text-[11px] font-bold text-[#5145A6] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
+                  <span className="hidden 2xl:inline text-[#CFDCE8] dark:text-white/25">•</span>
+                  <Calendar className="hidden 2xl:inline w-3.5 h-3.5 text-[#6657C8] dark:text-[#A7A1F0] shrink-0" />
+                  <span className="hidden 2xl:inline text-[11px] font-bold text-[#5145A6] dark:text-[#dab9ff] tracking-tight whitespace-nowrap tabular-nums">
                     {activeArea ? `${activeArea} · ${formattedToday}` : formattedToday}
                   </span>
                 </button>

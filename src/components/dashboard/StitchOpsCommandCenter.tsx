@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Clock,
   CloudDownload,
+  Copy,
   Database,
   Download,
   ExternalLink,
@@ -61,6 +62,7 @@ import {
   TableResetFilterButton
 } from '../common/InteractiveTableHeader';
 import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 
 interface StitchOpsCommandCenterProps {
   onNavigate: (tab: string) => void;
@@ -784,7 +786,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       {/* 1. Superadmin Maroon Master Console OR Standard Command Header */}
       {currentUser.role === 'super_admin' ? (
         <div className="space-y-3">
-          <div className="banner-maroon-superadmin rounded-2xl p-5 sm:p-6 text-[#26364A] dark:text-white relative overflow-hidden">
+          <div className="banner-maroon-superadmin mj-banner-glossy-3d rounded-2xl p-5 sm:p-6 text-[#26364A] dark:text-white relative overflow-hidden">
             <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-45" />
             <div className="absolute -right-14 -top-14 w-72 h-72 rounded-full bg-[#65B8C4]/12 dark:bg-white/5 blur-3xl pointer-events-none" />
             <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
@@ -946,7 +948,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
         </div>
       ) : (
-        <div className="card-3d-lavender relative rounded-xl p-5 sm:p-6 overflow-hidden">
+        <div className="card-3d-lavender mj-banner-glossy-3d relative rounded-xl p-5 sm:p-6 overflow-hidden">
           <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-40" />
           <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#65B8C4]/12 via-[#6657C8]/5 to-transparent blur-3xl pointer-events-none" />
 
@@ -1961,7 +1963,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                     }
                   />
                 </th>
-                <th className="py-3 px-3 text-right rounded-r-lg">Aksi Command</th>
+                <th className="py-3 px-3 text-right rounded-r-lg">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105e] text-xs">
@@ -2102,33 +2104,64 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       </td>
 
                       <td className="py-3.5 px-3 align-top text-right">
-                        <div className="inline-flex items-center justify-end gap-1.5">
-                          {showVerifyAction ? (
-                            <button
-                              type="button"
-                              onClick={() => (onSelectTicket ? onSelectTicket(ticket, 'report') : onNavigate('tickets'))}
-                              className="btn-3d-primary px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                            >
-                              Verify Now
-                            </button>
-                          ) : showAssignAction ? (
-                            <button
-                              type="button"
-                              onClick={() => onNavigate('wo_assignment')}
-                              className="btn-3d-amber px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                            >
-                              Assign
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => (onSelectTicket ? onSelectTicket(ticket, 'overview') : onNavigate('tickets'))}
-                            className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>Detail</span>
-                          </button>
-                        </div>
+                        {(() => {
+                          const commandActions: DropdownActionItem[] = [];
+                          if (showVerifyAction) {
+                            commandActions.push({
+                              id: 'verify_now',
+                              label: 'Verify Now',
+                              icon: <ShieldCheck className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              onClick: () =>
+                                onSelectTicket ? onSelectTicket(ticket, 'report') : onNavigate('tickets')
+                            });
+                          }
+                          if (showAssignAction) {
+                            commandActions.push({
+                              id: 'assign_wo',
+                              label: 'Assign Teknisi',
+                              icon: <UserCheck className="w-3.5 h-3.5" />,
+                              tone: 'warning',
+                              onClick: () => onNavigate('wo_assignment')
+                            });
+                          }
+                          commandActions.push({
+                            id: 'detail_wo',
+                            label: 'Buka Detail WO',
+                            icon: <Eye className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            onClick: () =>
+                              onSelectTicket ? onSelectTicket(ticket, 'overview') : onNavigate('tickets')
+                          });
+                          if (mapsInfo.url) {
+                            commandActions.push({
+                              id: 'maps',
+                              label: 'Buka Google Maps',
+                              icon: <MapPin className="w-3.5 h-3.5" />,
+                              onClick: () => window.location.assign(mapsInfo.url!)
+                            });
+                          }
+                          commandActions.push({
+                            id: 'copy_wo',
+                            label: 'Salin No. WO',
+                            icon: <Copy className="w-3.5 h-3.5" />,
+                            dividerBefore: true,
+                            onClick: () => {
+                              navigator.clipboard?.writeText(ticket.woNumber);
+                              toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+                            }
+                          });
+                          return (
+                            <div className="inline-flex items-center justify-end">
+                              <ActionDropdownMenu
+                                actions={commandActions}
+                                triggerLabel={`Aksi WO ${ticket.woNumber}`}
+                                align="right"
+                                size="sm"
+                              />
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

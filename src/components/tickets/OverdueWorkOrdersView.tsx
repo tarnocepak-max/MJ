@@ -5,16 +5,17 @@ import {
   ArrowRightLeft,
   Calendar,
   Clock,
+  Copy,
   Download,
   Eye,
   Filter,
   History,
+  MapPin,
   MessageCircle,
   MessageSquare,
   RefreshCw,
   RotateCcw,
   ShieldAlert,
-  Database,
   Wrench,
   CheckCircle2
 } from 'lucide-react';
@@ -27,7 +28,10 @@ import {
   getOverdueBucketLabel,
   getOverdueDurationLabel
 } from '../../services/woClassificationService';
-import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import {
+  formatAppointmentDateDisplay,
+  getTicketAppointmentDate
+} from '../../services/appointmentDateParser';
 import { isTicketClosed } from '../../services/woLifecycleService';
 import {
   buildTechnicianCapacitySummaries,
@@ -38,7 +42,7 @@ import {
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
 import { PaginationBar } from '../common/PaginationBar';
 import { LeaderTwoStepReassignModal } from '../portals/LeaderTwoStepReassignModal';
-import { navigateToDataDeletion } from '../../services/deletionManagementService';
+import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 import {
   HeaderCategoryDropdown,
   HeaderDateSortFilterPopover,
@@ -47,6 +51,7 @@ import {
   TableResetFilterButton
 } from '../common/InteractiveTableHeader';
 import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
 
 interface OverdueWorkOrdersViewProps {
@@ -148,16 +153,12 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     refreshOverdueTickets,
     reassignTicketPersonnel,
     contractorsList,
-    areasList,
-    hasPermission
+    areasList
   } = useApp();
   const { toast } = useToast();
   const { isCompactUI } = useResponsiveViewport();
 
   const canViewExceptions = currentUser.role === 'super_admin';
-  const canOpenDataDeletion =
-    currentUser.role === 'super_admin' ||
-    (currentUser.role === 'dispatch' && hasPermission('delete_wo_data'));
   const isLeaderRole = currentUser.role === 'leader';
 
   const [viewMode, setViewMode] = useState<'overdue' | 'exception'>('overdue');
@@ -775,22 +776,14 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         label="WO Overdue terpilih pada halaman aktif"
         testId="overdue-selection-toolbar"
       >
-        {canOpenDataDeletion && (
-          <button
-            type="button"
-            onClick={() =>
-              navigateToDataDeletion({
-                category: 'work_orders',
-                mode: 'soft_delete',
-                search: selectedTicketsList.length === 1 ? selectedTicketsList[0].woNumber : ''
-              })
-            }
-            className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>Kelola Penghapusan di Data Deletion</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          className="btn-3d-success px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>Export Excel</span>
+        </button>
       </TableSelectionToolbar>
 
       {/* Results Area */}
@@ -1213,7 +1206,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                       testId="overdue-hdr-updated"
                     />
                   </th>
-                  <th className="px-3.5 py-3 text-right whitespace-nowrap">Actions</th>
+                  <th className="px-3.5 py-3 text-right whitespace-nowrap">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105E]">
@@ -1328,53 +1321,73 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                         {formatLastUpdatedJakarta(ticket.updatedAt || ticket.createdAt)}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap text-right">
-                        <div className="inline-flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(ticket, 'overview')}
-                            title="Buka Detail & Laporan Teknisi"
-                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(ticket, 'history')}
-                            title="Lihat Activity History"
-                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
-                          >
-                            <History className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(ticket, 'chat')}
-                            title="Buka LiveChat Komunikasi"
-                            className="p-1.5 rounded-lg border border-[#DDE6F0] dark:border-[#4B386B] text-[#52647A] dark:text-[#CEC0E8] hover:bg-[#EAE8FF] dark:hover:bg-[#261942] cursor-pointer"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
-                          {onOpenWhatsApp && ticket.customerPhone && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenWhatsApp(ticket)}
-                              title="Kirim WhatsApp Pelanggan"
-                              className="p-1.5 rounded-lg border border-[#B7E4CC] dark:border-emerald-800 text-[#218A63] dark:text-emerald-300 hover:bg-[#E4F5EC] dark:hover:bg-emerald-950/50 cursor-pointer"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {canReassign && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReassign(ticket)}
-                              title="Reassign Teknisi (Tetap Pertahankan Riwayat & Appointment)"
-                              className="btn-3d-primary px-2.5 py-1 rounded-lg text-[10.5px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <ArrowRightLeft className="w-3 h-3" />
-                              <span>Reassign</span>
-                            </button>
-                          )}
-                        </div>
+                        {(() => {
+                          const overdueActions: DropdownActionItem[] = [
+                            {
+                              id: 'detail_wo',
+                              label: 'Buka Detail & Laporan',
+                              icon: <Eye className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              onClick: () => onSelectTicket(ticket, 'overview')
+                            },
+                            {
+                              id: 'history_wo',
+                              label: 'Activity History',
+                              icon: <History className="w-3.5 h-3.5" />,
+                              onClick: () => onSelectTicket(ticket, 'history')
+                            },
+                            {
+                              id: 'livechat_wo',
+                              label: 'Buka LiveChat WO',
+                              icon: <MessageSquare className="w-3.5 h-3.5" />,
+                              onClick: () => onSelectTicket(ticket, 'chat')
+                            }
+                          ];
+                          if (canReassign) {
+                            overdueActions.push({
+                              id: 'reassign_wo',
+                              label: 'Reassign Teknisi',
+                              icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
+                              tone: 'warning',
+                              onClick: () => handleOpenReassign(ticket)
+                            });
+                          }
+                          if (onOpenWhatsApp && ticket.customerPhone) {
+                            overdueActions.push({
+                              id: 'whatsapp',
+                              label: 'WhatsApp Pelanggan',
+                              icon: <MessageCircle className="w-3.5 h-3.5" />,
+                              tone: 'success',
+                              onClick: () => onOpenWhatsApp(ticket)
+                            });
+                          }
+                          overdueActions.push({
+                            id: 'maps',
+                            label: 'Buka Google Maps',
+                            icon: <MapPin className="w-3.5 h-3.5" />,
+                            onClick: () => openCustomerAddressInGoogleMaps(ticket)
+                          });
+                          overdueActions.push({
+                            id: 'copy_wo',
+                            label: 'Salin No. WO',
+                            icon: <Copy className="w-3.5 h-3.5" />,
+                            dividerBefore: true,
+                            onClick: () => {
+                              navigator.clipboard?.writeText(ticket.woNumber);
+                              toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+                            }
+                          });
+                          return (
+                            <div className="inline-flex items-center justify-end">
+                              <ActionDropdownMenu
+                                actions={overdueActions}
+                                triggerLabel={`Aksi WO ${ticket.woNumber}`}
+                                align="right"
+                                size="sm"
+                              />
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

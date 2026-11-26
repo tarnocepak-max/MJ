@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  Copy,
   Download,
   Eye,
   Filter,
@@ -46,6 +47,8 @@ import {
   getNextSortDirection,
   sortDataArray
 } from '../../utils/tableSorting';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
+import { openCustomerAddressInGoogleMaps } from '../../services/mapsService';
 
 interface LeaderReassignViewProps {
   todayTickets: Ticket[];
@@ -1320,7 +1323,7 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
                         onCycleSort={() => handleSort('status')}
                       />
                     </th>
-                    <th className="py-3 px-4 text-right min-w-[140px]">Action</th>
+                    <th className="py-3 px-4 text-right min-w-[90px]">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#2E1859]">
@@ -1469,32 +1472,56 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
 
                       {/* 7. ACTION */}
                       <td className="py-3 px-4 align-top text-right whitespace-nowrap">
-                        <div className="inline-flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onSelectTicket(t)}
-                            title="Lihat 17-Section Fullview"
-                            className="mj-btn-icon-3d-leader w-9 h-9 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {eligible ? (
-                            <button
-                              type="button"
-                              disabled={!isLeaderRole}
-                              onClick={() => onOpenReassignModal(t)}
-                              className="mj-btn-leader-primary mj-btn-compact px-3.5 py-1.5 text-xs inline-flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5" />
-                              <span>Reassign</span>
-                            </button>
-                          ) : (
-                            <span className="text-[10.5px] font-semibold text-[#8492A5] dark:text-[#A79BC0] px-2">
-                              Terkunci
-                            </span>
-                          )}
-                        </div>
+                        {(() => {
+                          const reassignActions: DropdownActionItem[] = [
+                            {
+                              id: 'detail_wo',
+                              label: 'Lihat 17-Section Fullview',
+                              icon: <Eye className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              onClick: () => onSelectTicket(t)
+                            },
+                            {
+                              id: 'preview_wo',
+                              label: 'Preview & Riwayat',
+                              icon: <History className="w-3.5 h-3.5" />,
+                              onClick: () => setPreviewTicketId(t.id)
+                            }
+                          ];
+                          if (eligible) {
+                            reassignActions.push({
+                              id: 'reassign_wo',
+                              label: 'Reassign Teknisi',
+                              icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
+                              tone: 'warning',
+                              disabled: !isLeaderRole,
+                              onClick: () => onOpenReassignModal(t)
+                            });
+                          }
+                          reassignActions.push({
+                            id: 'maps',
+                            label: 'Buka Google Maps',
+                            icon: <MapPin className="w-3.5 h-3.5" />,
+                            onClick: () => openCustomerAddressInGoogleMaps(t)
+                          });
+                          reassignActions.push({
+                            id: 'copy_wo',
+                            label: 'Salin No. WO',
+                            icon: <Copy className="w-3.5 h-3.5" />,
+                            dividerBefore: true,
+                            onClick: () => navigator.clipboard?.writeText(t.woNumber)
+                          });
+                          return (
+                            <div className="inline-flex items-center justify-end">
+                              <ActionDropdownMenu
+                                actions={reassignActions}
+                                triggerLabel={`Aksi WO ${t.woNumber}`}
+                                align="right"
+                                size="sm"
+                              />
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

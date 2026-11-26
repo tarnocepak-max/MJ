@@ -1,7 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 import { useModalPopoverZIndex } from '../../hooks/useModalLayer';
+import {
+  computeDropdownMenuPosition,
+  sanitizeOperationalQueueActions
+} from '../../utils/uiLayoutHelpers';
 
 export interface DropdownActionItem {
   id: string;
@@ -20,6 +24,7 @@ export interface ActionDropdownMenuProps {
   align?: 'left' | 'right';
   size?: 'sm' | 'md';
   triggerClassName?: string;
+  allowDestructive?: boolean;
 }
 
 export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
@@ -27,15 +32,26 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
   triggerLabel = 'Menu Aksi',
   align = 'right',
   size = 'md',
-  triggerClassName = ''
+  triggerClassName = '',
+  allowDestructive = false
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [coords, setCoords] = useState<{ top: number; left: number; maxHeight: number }>({
+    top: 0,
+    left: 0,
+    maxHeight: 320
+  });
   const zIndex = useModalPopoverZIndex();
 
-  const visibleActions = actions.filter(a => !a.hidden);
+  const visibleActions = useMemo(
+    () =>
+      allowDestructive
+        ? actions.filter(a => !a.hidden)
+        : sanitizeOperationalQueueActions(actions),
+    [actions, allowDestructive]
+  );
 
   const updatePosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -44,21 +60,29 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
     const vv = window.visualViewport;
     const vw = vv?.width ?? window.innerWidth;
     const vh = vv?.height ?? window.innerHeight;
-    const menuWidth = Math.min(220, vw - 16);
-    const estHeight = Math.min(280, visibleActions.length * 40 + 16);
+    const measuredRect = menuRef.current?.getBoundingClientRect();
+    const menuWidth = measuredRect?.width || Math.min(232, vw - 16);
+    const menuHeight = measuredRect?.height || Math.min(300, visibleActions.length * 40 + 16);
 
-    let left = align === 'right' ? rect.right - menuWidth : rect.left;
-    if (left + menuWidth > vw - 8) left = vw - menuWidth - 8;
-    if (left < 8) left = 8;
+    const pos = computeDropdownMenuPosition({
+      triggerTop: rect.top,
+      triggerBottom: rect.bottom,
+      triggerLeft: rect.left,
+      triggerRight: rect.right,
+      viewportWidth: vw,
+      viewportHeight: vh,
+      menuWidth,
+      menuHeight,
+      align
+    });
 
-    let top = rect.bottom + 6;
-    if (top + estHeight > vh - 10 && rect.top - estHeight - 6 > 8) {
-      top = rect.top - estHeight - 6;
-    }
-    top = Math.max(8, Math.min(top, vh - estHeight - 8));
-
-    setCoords({ top, left });
+    setCoords(pos);
   }, [align, visibleActions.length]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+  }, [open, updatePosition, visibleActions.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,9 +154,9 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
           <div
             ref={menuRef}
             role="menu"
-            style={{ top: coords.top, left: coords.left, zIndex }}
+            style={{ top: coords.top, left: coords.left, maxHeight: coords.maxHeight, zIndex }}
             onClick={e => e.stopPropagation()}
-            className="fixed min-w-[200px] max-w-[calc(100vw-1rem)] bg-white/96 dark:bg-[#1E1238] backdrop-blur-xl border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl shadow-xl py-1.5 text-xs"
+            className="fixed min-w-[208px] max-w-[calc(100vw-1rem)] overflow-y-auto bg-white/96 dark:bg-[#1E1238] backdrop-blur-xl border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl shadow-xl py-1.5 text-xs"
           >
             {visibleActions.map(action => (
               <React.Fragment key={action.id}>
@@ -163,3 +187,4 @@ export const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
     </div>
   );
 };
+

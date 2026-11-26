@@ -231,7 +231,7 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
   return (
     <div className="space-y-5">
       {/* 1. Dispatch Context Hero Banner */}
-      <div className="card-3d-lavender rounded-2xl p-5 sm:p-6 relative overflow-hidden">
+      <div className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-5 sm:p-6 relative overflow-hidden">
         <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-gradient-to-br from-[#65B8C4]/14 to-transparent blur-3xl pointer-events-none" />
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
           <div className="space-y-2 min-w-0">

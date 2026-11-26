@@ -60,6 +60,7 @@ import {
   getNextSortDirection,
   sortDataArray
 } from '../../utils/tableSorting';
+import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 
 interface LeaderProgressDashboardViewProps {
   onSelectTicket: (ticket: Ticket) => void;
@@ -1364,7 +1365,7 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                     />
                   </th>
                   <th className="py-3 px-3 text-center font-bold min-w-[85px]">Bukti Foto</th>
-                  <th className="py-3 px-3 text-right font-bold min-w-[135px]">Aksi</th>
+                  <th className="py-3 px-3 text-right font-bold min-w-[85px]">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE6F0] dark:divide-purple-900/30">
@@ -1531,15 +1532,55 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                             )}
                           </td>
                           <td className="py-3 px-3 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => onSelectTicket(t)}
-                              className="mj-btn-leader-primary mj-btn-xs px-3 py-1 rounded-lg text-[11px] cursor-pointer inline-flex items-center gap-1"
-                              title="Buka Lembar Kerja WO"
-                            >
-                              <Eye className="w-3 h-3" />
-                              <span>Detail Pekerjaan</span>
-                            </button>
+                            {(() => {
+                              const progressActions: DropdownActionItem[] = [
+                                {
+                                  id: 'detail_wo',
+                                  label: 'Detail Pekerjaan',
+                                  icon: <Eye className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () => onSelectTicket(t)
+                                },
+                                {
+                                  id: 'toggle_expand',
+                                  label: isExpanded ? 'Tutup Rincian' : 'Buka Rincian',
+                                  icon: isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />,
+                                  onClick: () => toggleRowExpand(t.id)
+                                }
+                              ];
+                              if (onOpenWhatsApp) {
+                                progressActions.push({
+                                  id: 'whatsapp',
+                                  label: 'WhatsApp Pelanggan',
+                                  icon: <MessageSquare className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  onClick: () => onOpenWhatsApp(t)
+                                });
+                              }
+                              progressActions.push({
+                                id: 'maps',
+                                label: 'Buka Google Maps',
+                                icon: <MapPin className="w-3.5 h-3.5" />,
+                                onClick: () => openCustomerAddressInGoogleMaps(t)
+                              });
+                              progressActions.push({
+                                id: 'copy_wo',
+                                label: 'Salin No. WO',
+                                icon: <Copy className="w-3.5 h-3.5" />,
+                                dividerBefore: true,
+                                onClick: () => navigator.clipboard?.writeText(t.woNumber)
+                              });
+                              return (
+                                <div className="inline-flex items-center justify-end">
+                                  <ActionDropdownMenu
+                                    actions={progressActions}
+                                    triggerLabel={`Aksi WO ${t.woNumber}`}
+                                    align="right"
+                                    size="sm"
+                                  />
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
 

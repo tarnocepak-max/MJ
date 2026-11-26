@@ -258,3 +258,113 @@ export function mergeLeaderColumnsConfig<T extends LeaderColumnConfigShape>(
 
   return orderedCols;
 }
+
+const FORBIDDEN_OPERATIONAL_ACTION_PATTERN =
+  /(^|[-_.\s])(delete|hapus|soft_delete|hard_delete|purge|archive|arsip)([-_.\s]|$)/i;
+
+export function isForbiddenOperationalQueueActionId(actionId?: string): boolean {
+  const normalized = String(actionId || '').trim();
+  if (!normalized) return false;
+  return FORBIDDEN_OPERATIONAL_ACTION_PATTERN.test(normalized);
+}
+
+/**
+ * Ensures Delete WO / Archive WO actions are never rendered inside Operational Queue
+ * menus while leaving dedicated admin portals & backend services untouched.
+ */
+export function sanitizeOperationalQueueActions<T extends { id: string; hidden?: boolean }>(
+  actions: T[]
+): T[] {
+  return (actions || []).filter(
+    item => item && !item.hidden && !isForbiddenOperationalQueueActionId(item.id)
+  );
+}
+
+export interface DropdownMenuRectInput {
+  triggerTop: number;
+  triggerBottom: number;
+  triggerLeft: number;
+  triggerRight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  menuWidth: number;
+  menuHeight: number;
+  align?: 'left' | 'right';
+  bottomNavSafeInset?: number;
+}
+
+export function computeDropdownMenuPosition(input: DropdownMenuRectInput): {
+  top: number;
+  left: number;
+  maxHeight: number;
+} {
+  const vw = Math.max(240, Number(input.viewportWidth || 1024));
+  const vh = Math.max(280, Number(input.viewportHeight || 768));
+  const menuW = Math.min(Number(input.menuWidth || 220), vw - 16);
+  const bottomInset =
+    typeof input.bottomNavSafeInset === 'number'
+      ? Math.max(8, input.bottomNavSafeInset)
+      : vw < 768
+      ? 84
+      : 12;
+  const usableBottom = vh - bottomInset;
+  const maxHeight = Math.max(160, usableBottom - 16);
+  const menuH = Math.min(Math.max(48, Number(input.menuHeight || 160)), maxHeight);
+
+  let left = input.align === 'left' ? input.triggerLeft : input.triggerRight - menuW;
+  if (left + menuW > vw - 8) left = vw - menuW - 8;
+  if (left < 8) left = 8;
+
+  let top = input.triggerBottom + 6;
+  const spaceBelow = usableBottom - top;
+  const spaceAbove = input.triggerTop - 14;
+  if (spaceBelow < menuH && spaceAbove > spaceBelow) {
+    top = input.triggerTop - menuH - 6;
+  }
+  top = Math.max(8, Math.min(top, Math.max(8, usableBottom - menuH)));
+
+  return {
+    top: Math.round(top),
+    left: Math.round(left),
+    maxHeight: Math.round(maxHeight)
+  };
+}
+
+export interface AndroidCardConfigInput {
+  layoutType?: string;
+  touchTargetSize?: string;
+  cardDensity?: string;
+  showQuickCall?: boolean;
+  showQuickWhatsApp?: boolean;
+  showQuickDetail?: boolean;
+  highContrastBadges?: boolean;
+}
+
+export interface NormalizedAndroidCardConfig {
+  layoutType: 'cards' | 'compact_list';
+  touchTargetSize: 'standard' | 'comfortable';
+  cardDensity: 'compact' | 'comfortable' | 'spacious';
+  showQuickCall: boolean;
+  showQuickWhatsApp: boolean;
+  showQuickDetail: boolean;
+  highContrastBadges: boolean;
+}
+
+export function normalizeAndroidCardSettings(
+  raw?: AndroidCardConfigInput | null
+): NormalizedAndroidCardConfig {
+  const cfg = raw || {};
+  return {
+    layoutType: cfg.layoutType === 'compact_list' ? 'compact_list' : 'cards',
+    touchTargetSize: cfg.touchTargetSize === 'standard' ? 'standard' : 'comfortable',
+    cardDensity:
+      cfg.cardDensity === 'compact' || cfg.cardDensity === 'spacious'
+        ? cfg.cardDensity
+        : 'comfortable',
+    showQuickCall: cfg.showQuickCall !== false,
+    showQuickWhatsApp: cfg.showQuickWhatsApp !== false,
+    showQuickDetail: cfg.showQuickDetail !== false,
+    highContrastBadges: cfg.highContrastBadges !== false
+  };
+}
+
