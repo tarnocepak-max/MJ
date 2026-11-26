@@ -10,6 +10,8 @@ import {
   InstallerWoBucket
 } from './InstallerPortal';
 import { InstallerTicketFullview, FullviewFocusSection } from './InstallerTicketFullview';
+import { WorkOrderAddressBlock } from './WorkOrderAddressBlock';
+import { buildTicketAddressSearchHaystack } from '../../utils/addressFormatter';
 import { StatusInstallerBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -294,7 +296,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
     const q = searchQuery.trim().toLowerCase();
     const filtered = todayTickets.filter(t => {
       if (!q) return true;
-      const addr = [t.streetName, t.address, t.clusterName, t.area].filter(Boolean).join(' ').toLowerCase();
+      const addr = buildTicketAddressSearchHaystack(t);
       return (
         String(t.woNumber || '').toLowerCase().includes(q) ||
         String(t.customerName || '').toLowerCase().includes(q) ||
@@ -633,14 +635,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 <h2 className="font-display font-extrabold text-base sm:text-lg text-[#26364A] dark:text-[#f5eeff] truncate">
                   {activeHeroTicket.customerName}
                 </h2>
-                <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] flex items-start gap-1.5 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                  <span className="whitespace-normal break-words leading-snug">
-                    {[activeHeroTicket.streetName || activeHeroTicket.address, activeHeroTicket.clusterName, activeHeroTicket.area]
-                      .filter(Boolean)
-                      .join(' · ') || 'Alamat belum tersedia'}
-                  </span>
-                </p>
+                <div className="mt-1">
+                  <WorkOrderAddressBlock
+                    ticket={activeHeroTicket}
+                    variant="card"
+                    fallbackText="Alamat belum tersedia"
+                  />
+                </div>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[10px] font-bold shrink-0">
                 {activeHeroTicket.ticketCategory || activeHeroTicket.appointmentType || 'PSB'}
@@ -780,11 +781,14 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
             <h3 className="font-display font-extrabold text-sm sm:text-base text-white truncate">
               {newestAssignedTicket.customerName}
             </h3>
-            <p className="text-[11.5px] text-white/85 dark:text-white/80 truncate">
-              {[newestAssignedTicket.clusterName, newestAssignedTicket.streetName || newestAssignedTicket.address]
-                .filter(Boolean)
-                .join(' · ') || 'Alamat siap dicek di detail WO'}
-            </p>
+            <div className="mt-1">
+              <WorkOrderAddressBlock
+                ticket={newestAssignedTicket}
+                variant="banner"
+                showIcon={false}
+                fallbackText="Alamat siap dicek di detail WO"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2 pt-0.5">
@@ -1220,10 +1224,6 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
               const canonicalReport = getTicketCanonicalReportStatus(ticket);
               const photoCount = getTicketPhotoEvidenceCount(ticket);
               const opmMeasured = parseNumericDbm(ticket.technicalReport?.opticalPowerDbm || ticket.rosetRedamanDbm);
-              const addressDisplay =
-                [ticket.clusterName, ticket.streetName || ticket.address, ticket.area]
-                  .filter(Boolean)
-                  .join(' · ') || 'Alamat belum tersedia';
               const workTypeLabel = ticket.ticketCategory || ticket.appointmentType || 'New Installation';
               const hasHouseGps = isValidCoordinatePair(
                 ticket.houseLocation?.latitude,
@@ -1283,10 +1283,13 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                       <h3 className="font-display text-sm font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
                         {ticket.customerName}
                       </h3>
-                      <p className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0" />
-                        <span className="truncate">{addressDisplay}</span>
-                      </p>
+                      <div className="pt-0.5">
+                        <WorkOrderAddressBlock
+                          ticket={ticket}
+                          variant="card"
+                          fallbackText="Alamat belum tersedia"
+                        />
+                      </div>
                     </div>
                   </div>
 

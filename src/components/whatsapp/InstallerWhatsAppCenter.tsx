@@ -27,6 +27,8 @@ import {
   renderWhatsAppMessage
 } from '../../services/whatsappService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { WorkOrderAddressBlock } from '../portals/WorkOrderAddressBlock';
+import { buildTicketAddressSearchHaystack } from '../../utils/addressFormatter';
 
 interface InstallerWhatsAppCenterProps {
   onOpenWhatsAppModal: (ticket: Ticket) => void;
@@ -128,9 +130,8 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
         const matchWO = (t.woNumber || '').toLowerCase().includes(q);
         const matchCust = (t.customerName || '').toLowerCase().includes(q);
         const matchPhone = (t.customerPhone || '').includes(q);
-        const matchArea = (t.area || '').toLowerCase().includes(q);
-        const matchStreet = (t.streetName || t.address || '').toLowerCase().includes(q);
-        return matchWO || matchCust || matchPhone || matchArea || matchStreet;
+        const matchAddr = buildTicketAddressSearchHaystack(t).includes(q);
+        return matchWO || matchCust || matchPhone || matchAddr;
       }
 
       return true;
@@ -433,13 +434,12 @@ export const InstallerWhatsAppCenter: React.FC<InstallerWhatsAppCenterProps> = (
                 </div>
 
                 {/* Address Inset Well */}
-                <div className="text-xs text-[#52647A] dark:text-[#C4B5D6] flex items-start gap-1.5 bg-[#F4F7FB] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
-                  <MapPin className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">
-                    {[ticket.streetName || ticket.address, ticket.clusterName, ticket.area]
-                      .filter(Boolean)
-                      .join(' · ') || 'Alamat tidak tersedia'}
-                  </span>
+                <div className="bg-[#F4F7FB] dark:bg-[#160D29] p-2.5 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                  <WorkOrderAddressBlock
+                    ticket={ticket}
+                    variant="whatsapp"
+                    fallbackText="Alamat tidak tersedia"
+                  />
                 </div>
 
                 {/* Quick Template Selector for Unconfirmed Tickets */}

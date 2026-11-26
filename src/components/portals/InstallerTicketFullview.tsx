@@ -41,6 +41,8 @@ import { acquireCurrentDeviceGps } from '../../services/geolocationService';
 import { GeoTagCameraModal, CapturedPhotoPayload } from '../camera/GeoTagCameraModal';
 import { GeoTagCameraCheckInModal } from '../camera/GeoTagCameraCheckInModal';
 import { BarcodeScannerModal, ParsedBarcodePayload } from '../camera/BarcodeScannerModal';
+import { WorkOrderAddressBlock } from './WorkOrderAddressBlock';
+import { formatWorkOrderAddress } from '../../utils/addressFormatter';
 import {
   ArrowLeft,
   ArrowRight,
@@ -1733,13 +1735,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   );
 
   const handleCopyAddress = () => {
-    const fullAddr = [
-      activeTicket.streetName || activeTicket.address,
-      activeTicket.clusterName,
-      activeTicket.area
-    ]
-      .filter(Boolean)
-      .join(', ');
+    const fullAddr = formatWorkOrderAddress(activeTicket).copyText;
     if (navigator.clipboard && fullAddr) {
       navigator.clipboard.writeText(fullAddr);
       setCopiedAddress(true);
@@ -2154,7 +2150,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 <button
                   type="button"
                   onClick={handleCopyAddress}
-                  className="w-full text-left flex items-start gap-1.5 p-2 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] hover:text-[#26364A] dark:hover:text-[#f5eeff] cursor-pointer"
+                  className="w-full text-left flex items-start gap-2 p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] hover:text-[#26364A] dark:hover:text-[#f5eeff] cursor-pointer"
                   title="Ketuk untuk menyalin alamat"
                 >
                   {copiedAddress ? (
@@ -2162,11 +2158,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                   ) : (
                     <Copy className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
                   )}
-                  <span className="whitespace-normal break-words leading-snug">
-                    {[activeTicket.streetName || activeTicket.address, activeTicket.clusterName, activeTicket.area]
-                      .filter(Boolean)
-                      .join(', ') || 'Alamat belum tercatat'}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <WorkOrderAddressBlock
+                      ticket={activeTicket}
+                      variant="detail"
+                      showIcon={false}
+                      fallbackText="Alamat belum tercatat"
+                    />
+                  </div>
                 </button>
               </div>
 

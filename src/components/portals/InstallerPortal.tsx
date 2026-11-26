@@ -6,6 +6,8 @@ import { Ticket, WOKpiFilterKey } from '../../types/index.ts';
 import { StatusInstallerBadge, StatusWhatsAppBadge, StatusApprovalBadge, StatusBadge } from '../common/Badge';
 import { TicketLiveChat } from '../chat/TicketLiveChat';
 import { InstallerTicketFullview, FullviewFocusSection } from './InstallerTicketFullview';
+import { WorkOrderAddressBlock } from './WorkOrderAddressBlock';
+import { buildTicketAddressSearchHaystack } from '../../utils/addressFormatter';
 import { TactileAlertBanner } from '../common/TactileAlertBanner';
 import { KendalaReportModal } from '../tickets/KendalaReportModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -462,11 +464,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
         const matchCust = String(t.customerName ?? '').toLowerCase().includes(q);
         const matchCustId = String(t.idCustomer || t.customerId || '').toLowerCase().includes(q);
         const matchPhone = String(t.customerPhone ?? '').toLowerCase().includes(q);
-        const matchAddr = [t.streetName, t.address, t.clusterName, t.area]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(q);
+        const matchAddr = buildTicketAddressSearchHaystack(t).includes(q);
         return matchWO || matchCust || matchCustId || matchPhone || matchAddr;
       }
 
@@ -953,9 +951,6 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
               ticket.houseLocation?.latitude,
               ticket.houseLocation?.longitude
             );
-            const addressDisplay = [ticket.clusterName, ticket.streetName || ticket.address, ticket.area]
-              .filter(Boolean)
-              .join(' · ') || 'Alamat belum tersedia';
             const appDateDisplay =
               formatAppointmentDateDisplay(getTicketAppointmentDate(ticket)) ||
               ticket.appointmentDate ||
@@ -1124,11 +1119,12 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                     )}
 
                     {/* Customer Info Inset Well */}
-                    <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 space-y-1 text-xs text-[#52647A] dark:text-[#C4B5D6]">
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                        <span className="whitespace-normal break-words leading-snug">{addressDisplay}</span>
-                      </div>
+                    <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 space-y-1.5 text-xs text-[#52647A] dark:text-[#C4B5D6]">
+                      <WorkOrderAddressBlock
+                        ticket={ticket}
+                        variant="card"
+                        fallbackText="Alamat belum tersedia"
+                      />
                       <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
                         <span className="inline-flex items-center gap-1 font-semibold text-[#26364A] dark:text-[#f5eeff]">
                           <Clock className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
@@ -1309,10 +1305,11 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-start gap-1.5 text-xs text-[#52647A] dark:text-[#C4B5D6]">
-                      <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#A380FE] shrink-0 mt-0.5" />
-                      <span className="whitespace-normal break-words leading-snug">{addressDisplay}</span>
-                    </div>
+                    <WorkOrderAddressBlock
+                      ticket={ticket}
+                      variant="card"
+                      fallbackText="Alamat belum tersedia"
+                    />
                   </div>
 
                   {/* 5. Appointment Date & 6. Work Type / Category */}

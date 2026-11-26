@@ -1,4 +1,5 @@
 import { Ticket } from '../types/index.ts';
+import { formatWorkOrderAddress } from '../utils/addressFormatter.ts';
 
 /**
  * Validates that latitude/longitude represent a real non-null-island geographic point.
@@ -56,27 +57,8 @@ export function openCoordinatesInGoogleMaps(lat?: number | null, lng?: number | 
 export function buildGoogleMapsSearchUrl(ticket: Partial<Ticket>): { url: string; address: string } {
   if (!ticket) return { url: '', address: '' };
 
-  const fields = [
-    ticket.streetName,
-    ticket.address,
-    ticket.streetAlternatif,
-    ticket.clusterName,
-    ticket.area,
-    ticket.city,
-    ticket.postalCode
-  ];
-
-  const address = fields
-    .filter((value): value is string =>
-      typeof value === 'string' &&
-      value.trim() !== '' &&
-      value.trim() !== '-' &&
-      value.toLowerCase() !== 'null' &&
-      value.toLowerCase() !== 'undefined'
-    )
-    .map(value => value.trim())
-    .filter((value, index, array) => array.indexOf(value) === index)
-    .join(', ');
+  const formatted = formatWorkOrderAddress(ticket);
+  const address = formatted.mapsQueryText || formatted.formattedSingleLine || '';
 
   if (!address) {
     return { url: '', address: '' };

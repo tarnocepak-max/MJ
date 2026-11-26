@@ -40,6 +40,8 @@ import {
   isValidCoordinatePair
 } from '../../services/mapsService.ts';
 import { formatJakartaTimeOnly } from '../../services/workSessionService.ts';
+import { WorkOrderAddressBlock } from '../portals/WorkOrderAddressBlock';
+import { formatWorkOrderAddress } from '../../utils/addressFormatter.ts';
 
 interface GeoTagCameraCheckInModalProps {
   isOpen: boolean;
@@ -594,7 +596,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
   })();
 
   const displayAddress =
-    [ticket.streetName || ticket.address, ticket.clusterName, ticket.area].filter(Boolean).join(', ') ||
+    formatWorkOrderAddress(ticket).formattedSingleLine ||
     'Alamat pelanggan belum tercatat';
 
   const zoomScaleClass =
@@ -1216,9 +1218,13 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
               </div>
             </div>
 
-            <div className="pt-2 border-t border-white/10 text-[11px] text-[#cbc3d7] flex items-start gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-[#d0bcff] shrink-0 mt-0.5" />
-              <span className="leading-snug">Target: {displayAddress}</span>
+            <div className="pt-2 border-t border-white/10">
+              <WorkOrderAddressBlock
+                ticket={ticket}
+                variant="camera"
+                prefixLabel="Target:"
+                fallbackText="Alamat pelanggan belum tercatat"
+              />
             </div>
 
             {gpsErrorMsg && (
