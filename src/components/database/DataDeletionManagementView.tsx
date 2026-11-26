@@ -12,16 +12,24 @@ import {
   DeletionFacets,
   WoDependencySummary,
   DeletionLogRecord,
+  PermanentDeleteOperationState,
+  RecentPermanentAuditResponse,
   fetchDeletionCategoriesSummary,
   fetchDeletionFacets,
   fetchDeletionItems,
   inspectRecordDependencies,
   inspectBatchDependencies,
   executeCentralizedSoftDelete,
-  executeCentralizedPermanentDelete,
   executeCentralizedPermanentDeleteBatch,
   executeCentralizedRestore,
-  fetchDeletionHistory
+  fetchDeletionHistory,
+  createClientOperationId,
+  loadSavedPermanentDeleteOpId,
+  clearSavedPermanentDeleteOpId,
+  fetchPermanentDeleteOperationStatus,
+  fetchActivePermanentDeleteOperations,
+  resumeOrExecutePermanentDeleteOperation,
+  fetchRecentPermanentDeleteAudit
 } from '../../services/deletionManagementService';
 import {
   DeletionHeaderFilters,
@@ -68,6 +76,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  Clock,
+  FileSearch,
   X
 } from 'lucide-react';
 
@@ -287,7 +297,20 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const [actionProgressText, setActionProgressText] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Tracked Permanent Delete Operation state (chunked progress, timeout/refresh recovery, per-WO report)
+  const [permOperationId, setPermOperationId] = useState<string | null>(null);
+  const [activePermOp, setActivePermOp] = useState<PermanentDeleteOperationState | null>(null);
+  const [permOpNeedsResume, setPermOpNeedsResume] = useState(false);
+  const [isRecoveredNotice, setIsRecoveredNotice] = useState(false);
+
+  // Read-only recent permanent delete audit panel (Superadmin only)
+  const [recentAuditOpen, setRecentAuditOpen] = useState(false);
+  const [recentAuditData, setRecentAuditData] = useState<RecentPermanentAuditResponse | null>(null);
+  const [isLoadingRecentAudit, setIsLoadingRecentAudit] = useState(false);
+
   const itemsReqSeq = useRef(0);
+  const isSubmittingRef = useRef(false);
+  const didAttemptMountRecoveryRef = useRef(false);
 
   // Sync deep-link context when triggered externally
   useEffect(() => {
@@ -525,6 +548,173 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       .map(s => ({ value: s, label: s }));
   }, [facets.assignmentStatuses]);
 
+  const applyCompletedPermOpSideEffects = useCallback(
+    async (op: PermanentDeleteOperationState, recoveredFromTimeout?: boolean) => {
+      const doneSuccess = op.succeededCount + op.alreadyDeletedCount;
+      const doneIssues = op.blockedCount + op.failedCount;
+      if (recoveredFromTimeout) {
+        setIsRecoveredNotice(true);
+      }
+      if (doneIssues === 0 && doneSuccess > 0) {
+        toast.success(
+          op.alreadyDeletedCount > 0
+            ? `Selesai: ${op.succeededCount} dihapus permanen, ${op.alreadyDeletedCount} sudah terhapus sebelumnya.`
+            : `Berhasil menghapus permanen ${op.succeededCount} data.`,
+          'Hapus Permanen Berhasil'
+        );
+      } else if (doneSuccess > 0 && doneIssues > 0) {
+        toast.warning(
+          `Selesai sebagian: ${doneSuccess} selesai, ${op.blockedCount} diblokir FK/proteksi, ${op.failedCount} gagal.`,
+          'Hapus Permanen Parsial'
+        );
+      } else if (doneIssues > 0) {
+        toast.error(
+          `Hapus permanen selesai dengan ${doneIssues} kegagalan/penolakan.`,
+          'Hapus Permanen Ditolak'
+        );
+      }
+
+      setSelectedIds([]);
+      await Promise.all([loadSummary(), loadItems()]);
+      await Promise.allSettled([
+        refreshDatabaseData(),
+        refreshActiveTickets(),
+        refreshKpiSummary({ silent: true })
+      ]);
+    },
+    [toast, loadSummary, loadItems, refreshDatabaseData, refreshActiveTickets, refreshKpiSummary]
+  );
+
+  // Refresh recovery: if Superadmin reloads mid-operation or after timeout, check server operation status
+  useEffect(() => {
+    if (!isSuperAdmin || didAttemptMountRecoveryRef.current) return;
+    didAttemptMountRecoveryRef.current = true;
+
+    let cancelled = false;
+    const recoverActiveOp = async () => {
+      let savedOpId = loadSavedPermanentDeleteOpId();
+      let foundOp: PermanentDeleteOperationState | undefined;
+
+      if (savedOpId) {
+        try {
+          const res = await fetchPermanentDeleteOperationStatus(savedOpId);
+          if (res.success && res.operation) {
+            foundOp = res.operation;
+          } else {
+            clearSavedPermanentDeleteOpId();
+            savedOpId = null;
+          }
+        } catch {
+          // Keep saved ID if transient error
+        }
+      }
+
+      if (!foundOp && !savedOpId) {
+        try {
+          const activeList = await fetchActivePermanentDeleteOperations();
+          if (activeList.success && activeList.operations.length > 0) {
+            foundOp = activeList.operations[0];
+          }
+        } catch {
+          // Ignore silent check failure
+        }
+      }
+
+      if (cancelled || !foundOp) return;
+
+      const reconstructedTargets: DeletionItemRow[] = (foundOp.targets || []).map(t => ({
+        id: t.recordId,
+        category: t.category,
+        subEntity: t.subEntity,
+        woNumber: t.woNumber,
+        label: t.label,
+        isDeleted: false,
+        deletionStatus: 'ACTIVE'
+      }));
+
+      setActiveTab('permanent_delete');
+      setActionModal({ open: true, mode: 'permanent_delete', targets: reconstructedTargets });
+      setActionReason(foundOp.reason || '');
+      setPermOperationId(foundOp.operationId);
+      setActivePermOp(foundOp);
+      setActionError(null);
+
+      const isInFlight =
+        foundOp.status === 'preparing' || foundOp.status === 'verifying' || foundOp.status === 'processing';
+
+      if (!isInFlight) {
+        setActionProgressText(foundOp.stageLabel);
+        return;
+      }
+
+      if (isSubmittingRef.current) return;
+      isSubmittingRef.current = true;
+      setIsSubmittingAction(true);
+      setPermOpNeedsResume(false);
+      setActionProgressText(
+        `Memulihkan pemantauan setelah refresh: ${foundOp.processedCount} dari ${foundOp.totalCount} data diproses...`
+      );
+
+      try {
+        const res = await resumeOrExecutePermanentDeleteOperation({
+          operationId: foundOp.operationId,
+          existingOperation: foundOp,
+          chunkSize: 5,
+          onProgress: (op, stageText) => {
+            if (!cancelled) {
+              setActivePermOp(op);
+              setActionProgressText(stageText);
+            }
+          }
+        });
+        if (cancelled) return;
+        if (res.operation) {
+          setActivePermOp(res.operation);
+        }
+        if (res.needsResume) {
+          setPermOpNeedsResume(true);
+          setActionError(res.error || 'Koneksi terputus saat melanjutkan operasi.');
+          await Promise.all([loadSummary(), loadItems()]);
+          return;
+        }
+        if (res.completed && res.operation) {
+          clearSavedPermanentDeleteOpId();
+          await applyCompletedPermOpSideEffects(res.operation, true);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSubmittingAction(false);
+          setActionProgressText(null);
+        }
+        isSubmittingRef.current = false;
+      }
+    };
+
+    void recoverActiveOp();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, applyCompletedPermOpSideEffects, loadSummary, loadItems]);
+
+  const handleLoadRecentPermanentAudit = async (forceReload = false) => {
+    if (!isSuperAdmin) return;
+    if (recentAuditOpen && !forceReload) {
+      setRecentAuditOpen(false);
+      return;
+    }
+    setRecentAuditOpen(true);
+    setIsLoadingRecentAudit(true);
+    try {
+      const res = await fetchRecentPermanentDeleteAudit(60);
+      setRecentAuditData(res);
+      if (!res.success && res.error) {
+        toast.error(res.error);
+      }
+    } finally {
+      setIsLoadingRecentAudit(false);
+    }
+  };
+
   const handleOpenDetail = async (row: DeletionItemRow) => {
     setDetailItem(row);
     setDetailDeps(null);
@@ -551,6 +741,10 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     setActionError(null);
     setActionProgressText(null);
     setActionBatchDeps(null);
+    setActivePermOp(null);
+    setPermOpNeedsResume(false);
+    setIsRecoveredNotice(false);
+    setPermOperationId(mode === 'permanent_delete' ? createClientOperationId() : null);
 
     if (targets[0].category === 'work_orders') {
       setIsLoadingActionDeps(true);
@@ -587,6 +781,21 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     }
   };
 
+  const handleCloseActionModal = () => {
+    if (isSubmittingAction) return;
+    const opStatus = activePermOp?.status;
+    if (opStatus === 'completed' || opStatus === 'partial' || opStatus === 'failed') {
+      clearSavedPermanentDeleteOpId();
+    }
+    setActionModal({ open: false, mode: 'soft_delete', targets: [] });
+    setActivePermOp(null);
+    setPermOpNeedsResume(false);
+    setIsRecoveredNotice(false);
+    setPermOperationId(null);
+    setActionError(null);
+    setActionProgressText(null);
+  };
+
   const handleExcludeBlockedFromModal = () => {
     if (!actionBatchDeps) return;
     const eligibleIds = new Set(actionBatchDeps.items.filter(d => d.found && d.canPermanentDelete).map(d => d.id));
@@ -602,8 +811,51 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     setActionError(null);
   };
 
+  const handleResumePermanentOperation = async () => {
+    if (!activePermOp || isSubmittingRef.current || isSubmittingAction) return;
+    isSubmittingRef.current = true;
+    setIsSubmittingAction(true);
+    setActionError(null);
+    setPermOpNeedsResume(false);
+    setActionProgressText('Memeriksa status transaksi di server & melanjutkan sisa data...');
+
+    try {
+      const res = await resumeOrExecutePermanentDeleteOperation({
+        operationId: activePermOp.operationId,
+        existingOperation: activePermOp,
+        chunkSize: 5,
+        onProgress: (op, stageText) => {
+          setActivePermOp(op);
+          setActionProgressText(stageText);
+        }
+      });
+      if (res.operation) {
+        setActivePermOp(res.operation);
+      }
+      if (res.needsResume) {
+        setPermOpNeedsResume(true);
+        setActionError(res.error || 'Koneksi terputus saat melanjutkan operasi.');
+        await Promise.all([loadSummary(), loadItems()]);
+        return;
+      }
+      if (res.completed && res.operation) {
+        clearSavedPermanentDeleteOpId();
+        await applyCompletedPermOpSideEffects(res.operation, true);
+      } else if (res.error) {
+        setActionError(res.error);
+      }
+    } catch (err: any) {
+      setPermOpNeedsResume(true);
+      setActionError(err?.message || 'Gagal menghubungi server.');
+    } finally {
+      setIsSubmittingAction(false);
+      setActionProgressText(null);
+      isSubmittingRef.current = false;
+    }
+  };
+
   const handleConfirmAction = async () => {
-    if (isSubmittingAction) return;
+    if (isSubmittingRef.current || isSubmittingAction) return;
     const { mode, targets } = actionModal;
     if (targets.length === 0) return;
 
@@ -629,11 +881,14 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       }
     }
 
+    isSubmittingRef.current = true;
     setIsSubmittingAction(true);
     setActionError(null);
+    setPermOpNeedsResume(false);
+    setIsRecoveredNotice(false);
     setActionProgressText(
       mode === 'permanent_delete'
-        ? `Memproses hapus permanen ${targets.length} data secara atomik...`
+        ? `Menyiapkan penghapusan & memverifikasi dependensi ${targets.length} data...`
         : mode === 'restore'
         ? `Memulihkan ${targets.length} data...`
         : `Memproses soft delete ${targets.length} data...`
@@ -665,45 +920,48 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
           );
         }
       } else if (mode === 'permanent_delete') {
-        if (targets.length === 1) {
-          const t = targets[0];
-          const res = await executeCentralizedPermanentDelete({
+        const opId = permOperationId || createClientOperationId();
+        if (!permOperationId) setPermOperationId(opId);
+
+        const res = await executeCentralizedPermanentDeleteBatch({
+          targets: targets.map(t => ({
             category: t.category,
-            subEntity: t.subEntity,
             recordId: t.id,
-            confirmText: permanentConfirmText.trim(),
-            reason: cleanReason
-          });
-          if (!res.success) {
-            setActionError(res.error || 'Hapus permanen ditolak oleh server.');
-            return;
+            subEntity: t.subEntity,
+            woNumber: t.woNumber,
+            label: t.label
+          })),
+          confirmText: permanentConfirmText.trim(),
+          reason: cleanReason,
+          operationId: opId,
+          onProgress: (op, stageText) => {
+            setActivePermOp(op);
+            setActionProgressText(stageText);
           }
-          toast.success(res.message || 'Data berhasil dihapus permanen.', 'Hapus Permanen Berhasil');
-        } else {
-          const res = await executeCentralizedPermanentDeleteBatch({
-            targets: targets.map(t => ({
-              category: t.category,
-              recordId: t.id,
-              subEntity: t.subEntity
-            })),
-            confirmText: permanentConfirmText.trim(),
-            reason: cleanReason
-          });
-          if (!res.success && (!res.succeeded || res.succeeded.length === 0)) {
-            setActionError(res.error || 'Hapus permanen batch ditolak oleh server.');
-            return;
-          }
-          if (res.failed && res.failed.length > 0) {
-            toast.warning(
-              `Hapus permanen selesai parsial: ${res.succeeded?.length || 0} berhasil, ${res.failed.length} gagal (${res.failed[0].error}).`,
-              'Hapus Permanen Parsial'
-            );
-          } else {
-            toast.success(
-              res.message || `Berhasil menghapus permanen ${targets.length} data.`,
-              'Hapus Permanen Berhasil'
-            );
-          }
+        });
+
+        if (res.operation) {
+          setActivePermOp(res.operation);
+        }
+
+        if (res.needsResume) {
+          setPermOpNeedsResume(true);
+          setActionError(
+            res.error ||
+              'Koneksi ke server terputus. Klik "Cek Status & Lanjutkan" untuk melanjutkan sisa data tanpa menghapus ulang data yang sudah selesai.'
+          );
+          await Promise.all([loadSummary(), loadItems()]);
+          return;
+        }
+
+        if (!res.operation && !res.success) {
+          setActionError(res.error || 'Hapus permanen ditolak oleh server.');
+          return;
+        }
+
+        if (res.operation) {
+          await applyCompletedPermOpSideEffects(res.operation, res.recoveredFromTimeout);
+          return;
         }
       } else if (mode === 'restore') {
         const res = await executeCentralizedRestore({
@@ -744,6 +1002,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
     } finally {
       setIsSubmittingAction(false);
       setActionProgressText(null);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -968,12 +1227,98 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       {activeTab !== 'history' && (
         <div className="space-y-3">
           {activeTab === 'permanent_delete' && (
-            <div className="p-3 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <strong>Zero-Cascade Policy:</strong> Hapus permanen WO <strong>ditolak otomatis</strong> apabila masih memiliki relasi di{' '}
-                <code>assignment_history</code>, <code>ticket_messages</code>, <code>technical_reports</code>, atau <code>attachments</code>.
+            <div className="space-y-2.5">
+              <div className="p-3 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-900 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Zero-Cascade Policy:</strong> Hapus permanen WO <strong>ditolak otomatis</strong> apabila masih memiliki relasi di{' '}
+                    <code>assignment_history</code>, <code>ticket_messages</code>, <code>technical_reports</code>, atau <code>attachments</code>.
+                    Eksekusi batch berjalan bertahap per 5 data dengan pelacakan idempoten.
+                  </div>
+                </div>
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    data-testid="audit-recent-permanent-btn"
+                    onClick={() => void handleLoadRecentPermanentAudit(false)}
+                    className="btn-3d-lilac px-3 py-1.5 min-h-[32px] rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <FileSearch className="w-3.5 h-3.5" />
+                    <span>{recentAuditOpen ? 'Tutup Audit Terbaru' : 'Audit Status Terbaru'}</span>
+                  </button>
+                )}
               </div>
+
+              {recentAuditOpen && isSuperAdmin && (
+                <div
+                  data-testid="recent-permanent-audit-panel"
+                  className="card-3d-lavender rounded-2xl p-3.5 border border-[#C5BEEF] dark:border-[#4A2580] text-xs space-y-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-extrabold text-[#26394E] dark:text-white flex items-center gap-1.5">
+                      <FileSearch className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+                      <span>Audit Read-Only Transaksi Hapus Permanen Terbaru</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadRecentPermanentAudit(true)}
+                      disabled={isLoadingRecentAudit}
+                      className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isLoadingRecentAudit ? 'animate-spin' : ''}`} />
+                      <span>Muat Ulang</span>
+                    </button>
+                  </div>
+                  {isLoadingRecentAudit ? (
+                    <div className="text-[#52647A] dark:text-[#CEC0E8]">Memeriksa log hapus permanen & keberadaan WO di database...</div>
+                  ) : !recentAuditData || recentAuditData.recentLogs.length === 0 ? (
+                    <div className="text-[#52647A] dark:text-[#CEC0E8]">Belum ada log transaksi hapus permanen yang tercatat.</div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-56 overflow-y-auto rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                      <table className="w-full text-left border-collapse text-[11px]">
+                        <thead>
+                          <tr className="bg-[#EDF3F8] dark:bg-[#22123F] text-[#52647A] dark:text-[#D8B4FE] font-extrabold">
+                            <th className="py-2 px-2.5">Waktu</th>
+                            <th className="py-2 px-2.5">WO / Record ID</th>
+                            <th className="py-2 px-2.5">Status Log</th>
+                            <th className="py-2 px-2.5">Status Aktual di DB</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#2D1852]">
+                          {recentAuditData.recentLogs.map(log => {
+                            const dbCheck = recentAuditData.woExistenceMap[log.recordId];
+                            return (
+                              <tr key={log.id} className="bg-white/80 dark:bg-[#160D29]/60">
+                                <td className="py-1.5 px-2.5 font-mono whitespace-nowrap">
+                                  {new Date(log.createdAt).toLocaleString('id-ID')}
+                                </td>
+                                <td className="py-1.5 px-2.5 font-mono">
+                                  <span className="font-bold text-[#5145A6] dark:text-[#D8B4FE]">{log.woNumber || log.recordId}</span>
+                                </td>
+                                <td className="py-1.5 px-2.5 uppercase font-bold">{log.status}</td>
+                                <td className="py-1.5 px-2.5">
+                                  {log.category !== 'work_orders' ? (
+                                    <span className="text-[#52647A] dark:text-[#CEC0E8]">{log.category}</span>
+                                  ) : dbCheck?.exists ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold">
+                                      Masih Ada ({dbCheck.isDeleted ? 'Soft Deleted' : 'Aktif'})
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                                      Sudah Terhapus Permanen
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1775,15 +2120,24 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       {/* CONFIRMATION MODAL: SOFT DELETE / PERMANENT DELETE (SINGLE & BATCH) / RESTORE */}
       <ResponsiveModal
         isOpen={actionModal.open}
-        onClose={() => !isSubmittingAction && setActionModal({ open: false, mode: 'soft_delete', targets: [] })}
+        onClose={handleCloseActionModal}
         title={
           actionModal.mode === 'permanent_delete'
-            ? 'Konfirmasi Hapus Permanen (Permanent Delete)'
+            ? activePermOp &&
+              (activePermOp.status === 'completed' ||
+                activePermOp.status === 'partial' ||
+                activePermOp.status === 'failed')
+              ? 'Laporan Hasil Hapus Permanen'
+              : 'Konfirmasi Hapus Permanen (Permanent Delete)'
             : actionModal.mode === 'restore'
             ? 'Konfirmasi Pemulihan Data (Restore)'
             : 'Konfirmasi Soft Delete Data'
         }
-        subtitle={`${actionModal.targets.length} record dipilih`}
+        subtitle={
+          activePermOp
+            ? `${activePermOp.processedCount} dari ${activePermOp.totalCount} data diproses · ${activePermOp.stageLabel}`
+            : `${actionModal.targets.length} record dipilih`
+        }
         icon={
           actionModal.mode === 'permanent_delete' ? (
             <ShieldAlert className="w-4 h-4 text-rose-600" />
@@ -1793,185 +2147,369 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
             <Trash2 className="w-4 h-4 text-rose-600" />
           )
         }
-        size="md"
+        size={activePermOp ? 'lg' : 'md'}
         mobileVariant="sheet"
-        footer={
-          <>
-            <button
-              type="button"
-              disabled={isSubmittingAction}
-              onClick={() => setActionModal({ open: false, mode: 'soft_delete', targets: [] })}
-              className="btn-3d-lilac px-4 py-2 min-h-[38px] rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              data-testid="confirm-deletion-action-btn"
-              disabled={
-                isSubmittingAction ||
-                isLoadingActionDeps ||
-                actionModal.targets.length === 0 ||
-                (actionModal.mode === 'permanent_delete' && Boolean(actionBatchDeps && actionBatchDeps.blockedCount > 0))
-              }
-              onClick={() => void handleConfirmAction()}
-              className={`px-4 py-2 min-h-[38px] rounded-xl text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                actionModal.mode === 'restore' ? 'btn-3d-emerald' : 'btn-3d-crimson'
-              }`}
-            >
-              {isSubmittingAction ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Memproses...</span>
-                </>
-              ) : actionModal.mode === 'permanent_delete' ? (
-                <span>Eksekusi Hapus Permanen ({actionModal.targets.length})</span>
-              ) : actionModal.mode === 'restore' ? (
-                <span>Pulihkan Data Sekarang</span>
+        footer={(() => {
+          const isPermTerminal =
+            actionModal.mode === 'permanent_delete' &&
+            Boolean(
+              activePermOp &&
+                (activePermOp.status === 'completed' ||
+                  activePermOp.status === 'partial' ||
+                  activePermOp.status === 'failed')
+            );
+
+          if (isPermTerminal) {
+            return (
+              <button
+                type="button"
+                data-testid="close-permanent-delete-report-btn"
+                onClick={handleCloseActionModal}
+                className="btn-3d-primary px-5 py-2 min-h-[38px] rounded-xl text-white font-bold text-xs cursor-pointer"
+              >
+                Selesai & Tutup
+              </button>
+            );
+          }
+
+          return (
+            <>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={handleCloseActionModal}
+                className="btn-3d-lilac px-4 py-2 min-h-[38px] rounded-xl font-bold text-xs cursor-pointer disabled:opacity-50"
+              >
+                {permOpNeedsResume ? 'Tutup Sementara' : 'Batal'}
+              </button>
+
+              {permOpNeedsResume && activePermOp ? (
+                <button
+                  type="button"
+                  data-testid="resume-permanent-delete-btn"
+                  disabled={isSubmittingAction}
+                  onClick={() => void handleResumePermanentOperation()}
+                  className="btn-3d-crimson px-4 py-2 min-h-[38px] rounded-xl text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingAction ? 'animate-spin' : ''}`} />
+                  <span>Cek Status & Lanjutkan Sisa</span>
+                </button>
               ) : (
-                <span>Konfirmasi Soft Delete ({actionModal.targets.length})</span>
+                <button
+                  type="button"
+                  data-testid="confirm-deletion-action-btn"
+                  disabled={
+                    isSubmittingAction ||
+                    isLoadingActionDeps ||
+                    actionModal.targets.length === 0 ||
+                    (actionModal.mode === 'permanent_delete' && Boolean(actionBatchDeps && actionBatchDeps.blockedCount > 0))
+                  }
+                  onClick={() => void handleConfirmAction()}
+                  className={`px-4 py-2 min-h-[38px] rounded-xl text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                    actionModal.mode === 'restore' ? 'btn-3d-emerald' : 'btn-3d-crimson'
+                  }`}
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : actionModal.mode === 'permanent_delete' ? (
+                    <span>Eksekusi Hapus Permanen ({actionModal.targets.length})</span>
+                  ) : actionModal.mode === 'restore' ? (
+                    <span>Pulihkan Data Sekarang</span>
+                  ) : (
+                    <span>Konfirmasi Soft Delete ({actionModal.targets.length})</span>
+                  )}
+                </button>
               )}
-            </button>
-          </>
-        }
+            </>
+          );
+        })()}
       >
         <div className="space-y-4 text-xs">
-          {/* Selected items preview */}
-          <div className="p-3 rounded-xl bg-[#F3F8FC] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1 max-h-36 overflow-y-auto">
-            {actionModal.targets.map(t => {
-              const dep = actionBatchDeps?.items.find(d => d.id === t.id);
-              const isBlocked = actionModal.mode === 'permanent_delete' && dep && !dep.canPermanentDelete;
-              return (
-                <div key={t.id} className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
-                    {t.woNumber || t.label || t.id}
-                  </span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[11px] text-[#52647A] dark:text-[#A78BFA] truncate">
-                      {t.customerName || t.subEntity || t.category}
-                    </span>
-                    {dep && actionModal.mode === 'permanent_delete' && (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                          isBlocked
-                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                        }`}
-                      >
-                        {isBlocked ? `Blok (${dep.blockingTotal} relasi)` : 'Aman'}
-                      </span>
-                    )}
-                  </div>
+          {/* Live / Completed Tracked Permanent Delete Progress & Per-WO Report */}
+          {actionModal.mode === 'permanent_delete' && activePermOp && (
+            <div
+              data-testid="permanent-delete-operation-panel"
+              className="p-3.5 rounded-2xl bg-[#F3F8FC] dark:bg-[#160D29] border border-[#C5BEEF] dark:border-[#4A2580] space-y-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-extrabold text-[#26394E] dark:text-white">
+                  {activePermOp.status === 'completed' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : activePermOp.status === 'partial' ? (
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  ) : activePermOp.status === 'failed' ? (
+                    <XCircle className="w-4 h-4 text-rose-600" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[#5145A6] dark:text-[#D8B4FE]" />
+                  )}
+                  <span data-testid="perm-op-stage-label">{activePermOp.stageLabel}</span>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* WO Dependency Inspection Block (Single & Multi-Select) */}
-          {actionModal.targets.length > 0 && actionModal.targets[0].category === 'work_orders' && (
-            <div className="p-3.5 rounded-xl bg-[#EAE8FF]/60 dark:bg-[#22123F] border border-[#C5BEEF] dark:border-[#4A2580] space-y-2">
-              <div className="font-bold text-[#5145A6] dark:text-[#E8DDFF] flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>Pemeriksaan Dependensi Relasi WO ({actionModal.targets.length} item)</span>
+                <span className="font-mono text-[10.5px] px-2 py-0.5 rounded-full bg-white dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#4A2580] text-[#52647A] dark:text-[#D8B4FE]">
+                  {activePermOp.processedCount} / {activePermOp.totalCount} diproses
+                </span>
               </div>
-              {isLoadingActionDeps ? (
-                <div className="text-[#52647A] dark:text-[#CEC0E8]">
-                  Memeriksa assignment_history, ticket_messages, technical_reports, attachments...
+
+              {/* Progress bar */}
+              <div className="w-full h-2.5 rounded-full bg-[#E2E8F0] dark:bg-[#2D1852] overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    activePermOp.status === 'failed'
+                      ? 'bg-rose-500'
+                      : activePermOp.status === 'partial'
+                      ? 'bg-amber-500'
+                      : 'bg-gradient-to-r from-[#6657C8] to-emerald-500'
+                  }`}
+                  style={{
+                    width: `${
+                      activePermOp.totalCount > 0
+                        ? Math.min(100, Math.round((activePermOp.processedCount / activePermOp.totalCount) * 100))
+                        : 0
+                    }%`
+                  }}
+                />
+              </div>
+
+              {isRecoveredNotice && (
+                <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200 text-[11px] font-semibold">
+                  Status transaksi berhasil direkonsiliasi langsung dari server tanpa menjalankan hapus ulang ganda.
                 </div>
-              ) : singleActionDeps ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-                    <div>assignment_history: <strong>{singleActionDeps.counts.assignment_history}</strong></div>
-                    <div>ticket_messages: <strong>{singleActionDeps.counts.ticket_messages}</strong></div>
-                    <div>technical_reports: <strong>{singleActionDeps.counts.technical_reports}</strong></div>
-                    <div>attachments: <strong>{singleActionDeps.counts.attachments}</strong></div>
+              )}
+
+              {/* Summary Counters */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono">
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-300">Berhasil</div>
+                  <div className="text-sm font-black text-emerald-800 dark:text-emerald-200" data-testid="perm-op-succeeded-count">
+                    {activePermOp.succeededCount}
                   </div>
-                  {actionModal.mode === 'soft_delete' && (
-                    <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                      Soft delete aman: seluruh histori assignment, LiveChat, laporan teknisi, dan lampiran tetap terjaga di database.
-                    </div>
-                  )}
-                  {actionModal.mode === 'permanent_delete' && !singleActionDeps.canPermanentDelete && (
-                    <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-[11px]">
-                      <strong>DITOLAK (Zero-Cascade):</strong> {singleActionDeps.blockingReasons.join(' ')}
-                    </div>
-                  )}
                 </div>
-              ) : actionBatchDeps ? (
-                <div className="space-y-2 text-[11px]">
-                  <div className="flex flex-wrap items-center gap-3 font-mono">
-                    <span className="text-emerald-700 dark:text-emerald-300">
-                      Siap hapus permanen: <strong>{actionBatchDeps.eligibleCount}</strong>
-                    </span>
-                    <span className="text-rose-700 dark:text-rose-300">
-                      Diblokir relasi FK: <strong>{actionBatchDeps.blockedCount}</strong>
-                    </span>
+                <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800">
+                  <div className="text-[10px] text-sky-700 dark:text-sky-300">Sudah Terhapus</div>
+                  <div className="text-sm font-black text-sky-800 dark:text-sky-200" data-testid="perm-op-already-deleted-count">
+                    {activePermOp.alreadyDeletedCount}
                   </div>
-                  {actionModal.mode === 'permanent_delete' && actionBatchDeps.blockedCount > 0 && (
-                    <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 space-y-2">
-                      <div>
-                        <strong>DITOLAK (Zero-Cascade):</strong> {actionBatchDeps.blockedCount} WO masih memiliki data historis atau dilindungi. Gunakan Soft Delete atau keluarkan item terblokir sebelum eksekusi.
+                </div>
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800">
+                  <div className="text-[10px] text-amber-700 dark:text-amber-300">Diblokir FK</div>
+                  <div className="text-sm font-black text-amber-800 dark:text-amber-200" data-testid="perm-op-blocked-count">
+                    {activePermOp.blockedCount}
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800">
+                  <div className="text-[10px] text-rose-700 dark:text-rose-300">Gagal</div>
+                  <div className="text-sm font-black text-rose-800 dark:text-rose-200" data-testid="perm-op-failed-count">
+                    {activePermOp.failedCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-WO Breakdown List */}
+              <div className="max-h-56 overflow-y-auto rounded-xl border border-[#DDE6F0] dark:border-[#35105E] divide-y divide-[#E2E8F0] dark:divide-[#2D1852] bg-white dark:bg-[#1E1038]">
+                {activePermOp.results.map(item => (
+                  <div
+                    key={`${item.category}:${item.recordId}`}
+                    className="px-3 py-2 flex items-start justify-between gap-2 text-[11px]"
+                    data-testid={`perm-op-item-${item.recordId}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-[#26394E] dark:text-white truncate">
+                        {item.woNumber || item.label || item.recordId}
                       </div>
-                      {actionBatchDeps.eligibleCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleExcludeBlockedFromModal}
-                          className="btn-3d-lilac px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer"
-                        >
-                          Keluarkan {actionBatchDeps.blockedCount} data terblokir
-                        </button>
+                      {item.message && (
+                        <div className="text-[10.5px] text-[#52647A] dark:text-[#CEC0E8] break-words">
+                          {item.message}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              ) : null}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 uppercase ${
+                        item.status === 'deleted'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          : item.status === 'already_deleted'
+                          ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                          : item.status === 'blocked_fk' || item.status === 'protected'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          : item.status === 'failed'
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      {item.status === 'deleted'
+                        ? 'Berhasil'
+                        : item.status === 'already_deleted'
+                        ? 'Sudah Terhapus'
+                        : item.status === 'blocked_fk'
+                        ? 'Diblokir FK'
+                        : item.status === 'protected'
+                        ? 'Dilindungi'
+                        : item.status === 'failed'
+                        ? 'Gagal'
+                        : 'Antrean'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-[10px] font-mono text-[#8492A5] dark:text-[#A78BFA]">
+                Operation ID: {activePermOp.operationId}
+              </div>
             </div>
           )}
 
-          {/* Reason Input */}
-          <div>
-            <label
-              htmlFor="deletion-reason-textarea"
-              className="block font-bold text-[#26394E] dark:text-[#E8DDFF] mb-1"
-            >
-              Alasan {actionModal.mode === 'restore' ? 'Pemulihan (Opsional)' : 'Penghapusan (Wajib min. 5 karakter)'}
-            </label>
-            <textarea
-              id="deletion-reason-textarea"
-              rows={2}
-              data-testid="deletion-reason-input"
-              disabled={isSubmittingAction}
-              value={actionReason}
-              onChange={e => setActionReason(e.target.value)}
-              placeholder="Contoh: Duplikasi impor WO atau permintaan koreksi operasional..."
-              className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white"
-            />
-          </div>
+          {/* Confirmation Form (Hidden once terminal Permanent Delete report is shown) */}
+          {!(
+            actionModal.mode === 'permanent_delete' &&
+            activePermOp &&
+            (activePermOp.status === 'completed' ||
+              activePermOp.status === 'partial' ||
+              activePermOp.status === 'failed')
+          ) && (
+            <>
+              {/* Selected items preview (shown before operation starts) */}
+              {!activePermOp && (
+                <div className="p-3 rounded-xl bg-[#F3F8FC] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] space-y-1 max-h-36 overflow-y-auto">
+                  {actionModal.targets.map(t => {
+                    const dep = actionBatchDeps?.items.find(d => d.id === t.id);
+                    const isBlocked = actionModal.mode === 'permanent_delete' && dep && !dep.canPermanentDelete;
+                    return (
+                      <div key={t.id} className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-bold text-[#5145A6] dark:text-[#D8B4FE]">
+                          {t.woNumber || t.label || t.id}
+                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11px] text-[#52647A] dark:text-[#A78BFA] truncate">
+                            {t.customerName || t.subEntity || t.category}
+                          </span>
+                          {dep && actionModal.mode === 'permanent_delete' && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                isBlocked
+                                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                  : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                              }`}
+                            >
+                              {isBlocked ? `Blok (${dep.blockingTotal} relasi)` : 'Aman'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-          {/* Exact Confirmation Text for Permanent Delete (Single or Multi) */}
-          {actionModal.mode === 'permanent_delete' && actionModal.targets.length > 0 && (
-            <div>
-              <label
-                htmlFor="permanent-confirm-input"
-                className="block font-bold text-rose-700 dark:text-rose-300 mb-1"
-              >
-                Ketik persis{' '}
-                <code className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 font-mono">
-                  {expectedPermanentPhrase}
-                </code>{' '}
-                untuk konfirmasi hapus permanen:
-              </label>
-              <input
-                id="permanent-confirm-input"
-                type="text"
-                data-testid="permanent-confirm-input"
-                disabled={isSubmittingAction}
-                value={permanentConfirmText}
-                onChange={e => setPermanentConfirmText(e.target.value)}
-                placeholder={`Ketik "${expectedPermanentPhrase}"...`}
-                className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-mono"
-              />
-            </div>
+              {/* WO Dependency Inspection Block (Single & Multi-Select) */}
+              {!activePermOp && actionModal.targets.length > 0 && actionModal.targets[0].category === 'work_orders' && (
+                <div className="p-3.5 rounded-xl bg-[#EAE8FF]/60 dark:bg-[#22123F] border border-[#C5BEEF] dark:border-[#4A2580] space-y-2">
+                  <div className="font-bold text-[#5145A6] dark:text-[#E8DDFF] flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <span>Pemeriksaan Dependensi Relasi WO ({actionModal.targets.length} item)</span>
+                  </div>
+                  {isLoadingActionDeps ? (
+                    <div className="text-[#52647A] dark:text-[#CEC0E8]">
+                      Memeriksa assignment_history, ticket_messages, technical_reports, attachments...
+                    </div>
+                  ) : singleActionDeps ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                        <div>assignment_history: <strong>{singleActionDeps.counts.assignment_history}</strong></div>
+                        <div>ticket_messages: <strong>{singleActionDeps.counts.ticket_messages}</strong></div>
+                        <div>technical_reports: <strong>{singleActionDeps.counts.technical_reports}</strong></div>
+                        <div>attachments: <strong>{singleActionDeps.counts.attachments}</strong></div>
+                      </div>
+                      {actionModal.mode === 'soft_delete' && (
+                        <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                          Soft delete aman: seluruh histori assignment, LiveChat, laporan teknisi, dan lampiran tetap terjaga di database.
+                        </div>
+                      )}
+                      {actionModal.mode === 'permanent_delete' && !singleActionDeps.canPermanentDelete && (
+                        <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-[11px]">
+                          <strong>DITOLAK (Zero-Cascade):</strong> {singleActionDeps.blockingReasons.join(' ')}
+                        </div>
+                      )}
+                    </div>
+                  ) : actionBatchDeps ? (
+                    <div className="space-y-2 text-[11px]">
+                      <div className="flex flex-wrap items-center gap-3 font-mono">
+                        <span className="text-emerald-700 dark:text-emerald-300">
+                          Siap hapus permanen: <strong>{actionBatchDeps.eligibleCount}</strong>
+                        </span>
+                        <span className="text-rose-700 dark:text-rose-300">
+                          Diblokir relasi FK: <strong>{actionBatchDeps.blockedCount}</strong>
+                        </span>
+                      </div>
+                      {actionModal.mode === 'permanent_delete' && actionBatchDeps.blockedCount > 0 && (
+                        <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 space-y-2">
+                          <div>
+                            <strong>DITOLAK (Zero-Cascade):</strong> {actionBatchDeps.blockedCount} WO masih memiliki data historis atau dilindungi. Gunakan Soft Delete atau keluarkan item terblokir sebelum eksekusi.
+                          </div>
+                          {actionBatchDeps.eligibleCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleExcludeBlockedFromModal}
+                              className="btn-3d-lilac px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer"
+                            >
+                              Keluarkan {actionBatchDeps.blockedCount} data terblokir
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Reason Input */}
+              {!activePermOp && (
+                <div>
+                  <label
+                    htmlFor="deletion-reason-textarea"
+                    className="block font-bold text-[#26394E] dark:text-[#E8DDFF] mb-1"
+                  >
+                    Alasan {actionModal.mode === 'restore' ? 'Pemulihan (Opsional)' : 'Penghapusan (Wajib min. 5 karakter)'}
+                  </label>
+                  <textarea
+                    id="deletion-reason-textarea"
+                    rows={2}
+                    data-testid="deletion-reason-input"
+                    disabled={isSubmittingAction}
+                    value={actionReason}
+                    onChange={e => setActionReason(e.target.value)}
+                    placeholder="Contoh: Duplikasi impor WO atau permintaan koreksi operasional..."
+                    className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white"
+                  />
+                </div>
+              )}
+
+              {/* Exact Confirmation Text for Permanent Delete (Single or Multi) */}
+              {!activePermOp && actionModal.mode === 'permanent_delete' && actionModal.targets.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="permanent-confirm-input"
+                    className="block font-bold text-rose-700 dark:text-rose-300 mb-1"
+                  >
+                    Ketik persis{' '}
+                    <code className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 font-mono">
+                      {expectedPermanentPhrase}
+                    </code>{' '}
+                    untuk konfirmasi hapus permanen:
+                  </label>
+                  <input
+                    id="permanent-confirm-input"
+                    type="text"
+                    data-testid="permanent-confirm-input"
+                    disabled={isSubmittingAction}
+                    value={permanentConfirmText}
+                    onChange={e => setPermanentConfirmText(e.target.value)}
+                    placeholder={`Ketik "${expectedPermanentPhrase}"...`}
+                    className="tactile-debossed-input w-full px-3 py-2 rounded-xl text-[#26394E] dark:text-white font-mono"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {actionProgressText && (

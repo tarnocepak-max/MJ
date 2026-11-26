@@ -172,6 +172,75 @@ export interface BatchDependenciesResponse {
   code?: string;
 }
 
+export type PermanentDeleteOperationStatus =
+  | 'preparing'
+  | 'verifying'
+  | 'processing'
+  | 'completed'
+  | 'partial'
+  | 'failed';
+
+export type PermanentDeleteItemStatus =
+  | 'pending'
+  | 'deleted'
+  | 'already_deleted'
+  | 'blocked_fk'
+  | 'protected'
+  | 'failed';
+
+export interface PermanentDeleteItemResult {
+  recordId: string;
+  category: DeletionCategory;
+  subEntity?: DeletionSubEntity;
+  woNumber?: string;
+  label?: string;
+  status: PermanentDeleteItemStatus;
+  code?: string;
+  message?: string;
+  transactionId?: string;
+  processedAt?: string;
+}
+
+export interface PermanentDeleteOperationState {
+  operationId: string;
+  fingerprint: string;
+  status: PermanentDeleteOperationStatus;
+  stageLabel: string;
+  actorUserId: string;
+  actorName: string;
+  actorRole: string;
+  reason: string;
+  confirmText: string;
+  totalCount: number;
+  processedCount: number;
+  succeededCount: number;
+  alreadyDeletedCount: number;
+  blockedCount: number;
+  failedCount: number;
+  chunkSize: number;
+  nextIndex: number;
+  targets: Array<{
+    category: DeletionCategory;
+    recordId: string;
+    subEntity?: DeletionSubEntity;
+    woNumber?: string;
+    label?: string;
+  }>;
+  results: PermanentDeleteItemResult[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  lastError?: string | null;
+}
+
+export interface RecentPermanentAuditResponse {
+  success: boolean;
+  totalLogsChecked: number;
+  recentLogs: DeletionLogRecord[];
+  woExistenceMap: Record<string, { exists: boolean; isDeleted?: boolean; woNumber?: string }>;
+  error?: string;
+}
+
 async function safeParseJson(res: Response): Promise<any> {
   const text = await res.text();
   if (!text) return {};
@@ -182,14 +251,38 @@ async function safeParseJson(res: Response): Promise<any> {
   }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): Promise<Response> {
+class RequestTimeoutError extends Error {
+  constructor(message = 'Koneksi atau waktu permintaan habis saat menunggu respons server.') {
+    super(message);
+    this.name = 'RequestTimeoutError';
+  }
+}
+
+export function isTimeoutOrNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof RequestTimeoutError) return true;
+  const msg = String((err as any)?.message || '').toLowerCase();
+  const name = String((err as any)?.name || '');
+  return (
+    name === 'AbortError' ||
+    name === 'TypeError' ||
+    msg.includes('timeout') ||
+    msg.includes('batas waktu') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('504') ||
+    msg.includes('502')
+  );
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 25_000): Promise<Response> {
   const controller = new AbortController();
   const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new Error('Permintaan ke server melebihi batas waktu (timeout). Silakan periksa koneksi lalu coba lagi.');
+      throw new RequestTimeoutError('Permintaan ke server melebihi batas waktu (timeout). Memeriksa status operasi di server...');
     }
     throw err;
   } finally {
@@ -436,40 +529,458 @@ export async function executeCentralizedPermanentDelete(payload: {
   return json;
 }
 
-export async function executeCentralizedPermanentDeleteBatch(payload: {
-  targets: Array<{ category: DeletionCategory; recordId: string; subEntity?: DeletionSubEntity }>;
+const ACTIVE_PERM_DELETE_STORAGE_KEY = 'morajaws_active_perm_delete_op';
+
+export function saveActivePermanentDeleteOpId(operationId: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem(
+        ACTIVE_PERM_DELETE_STORAGE_KEY,
+        JSON.stringify({ operationId, savedAt: Date.now() })
+      );
+    }
+  } catch {}
+}
+
+export function loadSavedPermanentDeleteOpId(): string | null {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const raw = window.sessionStorage.getItem(ACTIVE_PERM_DELETE_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed?.operationId && Date.now() - Number(parsed.savedAt || 0) < 30 * 60_000) {
+        return String(parsed.operationId);
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export function clearSavedPermanentDeleteOpId(): void {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(ACTIVE_PERM_DELETE_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+export function createClientOperationId(): string {
+  const rnd =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 14)
+      : Math.random().toString(36).slice(2, 12);
+  return `op_pd_${Date.now()}_${rnd}`;
+}
+
+export async function startPermanentDeleteOperationApi(payload: {
+  targets: Array<{
+    category: DeletionCategory;
+    recordId: string;
+    subEntity?: DeletionSubEntity;
+    woNumber?: string;
+    label?: string;
+  }>;
   confirmText: string;
   reason: string;
+  operationId?: string;
+  chunkSize?: number;
+}): Promise<{
+  success: boolean;
+  alreadyInProgress?: boolean;
+  alreadyCompleted?: boolean;
+  operation?: PermanentDeleteOperationState;
+  error?: string;
+  code?: string;
+}> {
+  const res = await fetchWithTimeout(
+    '/api/deletion/permanent-delete-batch/start',
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    },
+    20_000
+  );
+  if (res.status === 502 || res.status === 504) {
+    throw new RequestTimeoutError(`Server gateway timeout (${res.status}).`);
+  }
+  const json = await safeParseJson(res);
+  if (!res.ok || !json.success) {
+    return {
+      success: false,
+      error: json.error || `Gagal memulai operasi hapus permanen (${res.status})`,
+      code: json.code
+    };
+  }
+  return json;
+}
+
+export async function stepPermanentDeleteOperationApi(
+  operationId: string,
+  chunkSize = 5
+): Promise<{
+  success: boolean;
+  inProgress?: boolean;
+  operation?: PermanentDeleteOperationState;
+  error?: string;
+  code?: string;
+}> {
+  const res = await fetchWithTimeout(
+    '/api/deletion/permanent-delete-batch/step',
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ operationId, chunkSize })
+    },
+    22_000
+  );
+  if (res.status === 502 || res.status === 504) {
+    throw new RequestTimeoutError(`Server gateway timeout (${res.status}).`);
+  }
+  const json = await safeParseJson(res);
+  if (!res.ok || !json.success) {
+    return {
+      success: false,
+      error: json.error || `Gagal memproses chunk hapus permanen (${res.status})`,
+      code: json.code,
+      operation: json.operation
+    };
+  }
+  return json;
+}
+
+export async function fetchPermanentDeleteOperationStatus(operationId: string): Promise<{
+  success: boolean;
+  operation?: PermanentDeleteOperationState;
+  error?: string;
+  code?: string;
+}> {
+  const res = await fetchWithTimeout(
+    `/api/deletion/operations/${encodeURIComponent(operationId)}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    },
+    12_000
+  );
+  const json = await safeParseJson(res);
+  if (!res.ok || !json.success) {
+    return {
+      success: false,
+      error: json.error || `Status operasi tidak ditemukan (${res.status})`,
+      code: json.code
+    };
+  }
+  return json;
+}
+
+export async function fetchActivePermanentDeleteOperations(): Promise<{
+  success: boolean;
+  operations: PermanentDeleteOperationState[];
+  error?: string;
+}> {
+  const res = await fetchWithTimeout(
+    '/api/deletion/operations/active',
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    },
+    12_000
+  );
+  const json = await safeParseJson(res);
+  if (!res.ok || !json.success) {
+    return { success: false, operations: [], error: json.error };
+  }
+  return { success: true, operations: json.operations || [] };
+}
+
+export async function fetchRecentPermanentDeleteAudit(limit = 60): Promise<RecentPermanentAuditResponse> {
+  const res = await fetchWithTimeout(
+    `/api/deletion/audit-permanent-recent?limit=${encodeURIComponent(String(limit))}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    },
+    15_000
+  );
+  const json = await safeParseJson(res);
+  if (!res.ok || !json.success) {
+    return {
+      success: false,
+      totalLogsChecked: 0,
+      recentLogs: [],
+      woExistenceMap: {},
+      error: json.error || `Gagal memuat audit hapus permanen (${res.status})`
+    };
+  }
+  return json as RecentPermanentAuditResponse;
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise(resolve => globalThis.setTimeout(resolve, ms));
+}
+
+export async function resumeOrExecutePermanentDeleteOperation(params: {
+  operationId: string;
+  existingOperation?: PermanentDeleteOperationState;
+  chunkSize?: number;
+  onProgress?: (op: PermanentDeleteOperationState, stageText: string) => void;
+}): Promise<{
+  completed: boolean;
+  recoveredFromTimeout?: boolean;
+  needsResume?: boolean;
+  operation?: PermanentDeleteOperationState;
+  error?: string;
+}> {
+  const { operationId, chunkSize = 5, onProgress } = params;
+  saveActivePermanentDeleteOpId(operationId);
+
+  let op = params.existingOperation;
+  if (!op) {
+    const statusRes = await fetchPermanentDeleteOperationStatus(operationId);
+    if (!statusRes.success || !statusRes.operation) {
+      return { completed: false, error: statusRes.error || 'Status operasi tidak ditemukan.' };
+    }
+    op = statusRes.operation;
+  }
+
+  let recoveredFromTimeout = false;
+  let consecutiveWaitLoops = 0;
+
+  while (op.status === 'preparing' || op.status === 'verifying' || op.status === 'processing') {
+    onProgress?.(
+      op,
+      `Sedang menghapus: ${op.processedCount} dari ${op.totalCount} data diproses (${op.succeededCount} berhasil)...`
+    );
+
+    try {
+      const stepRes = await stepPermanentDeleteOperationApi(operationId, chunkSize);
+      if (stepRes.operation) {
+        op = stepRes.operation;
+      }
+
+      if (!stepRes.success) {
+        return {
+          completed: false,
+          recoveredFromTimeout,
+          needsResume: true,
+          operation: op,
+          error: stepRes.error || 'Gagal memproses batch hapus permanen.'
+        };
+      }
+
+      if (stepRes.inProgress) {
+        consecutiveWaitLoops++;
+        onProgress?.(
+          op,
+          `Operasi sedang diproses di server (${op.processedCount} dari ${op.totalCount})... Menunggu penyelesaian.`
+        );
+        if (consecutiveWaitLoops > 20) {
+          return {
+            completed: false,
+            needsResume: true,
+            operation: op,
+            error: 'Operasi masih berjalan di server. Silakan pantau atau klik Lanjutkan nanti.'
+          };
+        }
+        await sleepMs(1000);
+        const pollRes = await fetchPermanentDeleteOperationStatus(operationId);
+        if (pollRes.success && pollRes.operation) {
+          op = pollRes.operation;
+        }
+      } else {
+        consecutiveWaitLoops = 0;
+      }
+    } catch (err: any) {
+      if (!isTimeoutOrNetworkError(err)) {
+        return {
+          completed: false,
+          needsResume: true,
+          operation: op,
+          error: err?.message || 'Terjadi kesalahan saat menghapus.'
+        };
+      }
+
+      // Timeout or dropped connection: reconcile actual status from server instead of failing blindly!
+      onProgress?.(op, 'Koneksi terputus / melewati waktu tunggu. Memeriksa status transaksi di server...');
+      let reconciled = false;
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await sleepMs(attempt * 1000);
+        try {
+          const checkRes = await fetchPermanentDeleteOperationStatus(operationId);
+          if (checkRes.success && checkRes.operation) {
+            op = checkRes.operation;
+            reconciled = true;
+            recoveredFromTimeout = true;
+            break;
+          }
+        } catch {
+          // continue retry backoff
+        }
+      }
+
+      if (!reconciled) {
+        return {
+          completed: false,
+          recoveredFromTimeout,
+          needsResume: true,
+          operation: op,
+          error:
+            'Koneksi ke server terputus saat memproses batch. Klik "Cek Status & Lanjutkan" untuk memeriksa progres aktual tanpa menghapus ulang data yang sudah selesai.'
+        };
+      }
+
+      if (op.status === 'completed' || op.status === 'partial' || op.status === 'failed') {
+        break;
+      }
+    }
+  }
+
+  onProgress?.(op, op.stageLabel);
+  return {
+    completed: true,
+    recoveredFromTimeout,
+    operation: op
+  };
+}
+
+export async function executeCentralizedPermanentDeleteBatch(payload: {
+  targets: Array<{
+    category: DeletionCategory;
+    recordId: string;
+    subEntity?: DeletionSubEntity;
+    woNumber?: string;
+    label?: string;
+  }>;
+  confirmText: string;
+  reason: string;
+  operationId?: string;
+  onProgress?: (op: PermanentDeleteOperationState, stageText: string) => void;
 }): Promise<{
   success: boolean;
   transactionId?: string;
+  operationId?: string;
+  operation?: PermanentDeleteOperationState;
+  recoveredFromTimeout?: boolean;
+  needsResume?: boolean;
   succeeded?: any[];
   failed?: Array<{ recordId: string; category: string; code: string; error: string }>;
   message?: string;
   error?: string;
   code?: string;
 }> {
-  const res = await fetchWithTimeout('/api/deletion/permanent-delete-batch', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify(payload)
-  }, 30_000);
-  const json = await safeParseJson(res);
-  if (!res.ok || (!json.success && (!json.succeeded || json.succeeded.length === 0))) {
+  const operationId = payload.operationId || createClientOperationId();
+  saveActivePermanentDeleteOpId(operationId);
+
+  let startRes: Awaited<ReturnType<typeof startPermanentDeleteOperationApi>>;
+  try {
+    startRes = await startPermanentDeleteOperationApi({
+      targets: payload.targets,
+      confirmText: payload.confirmText,
+      reason: payload.reason,
+      operationId,
+      chunkSize: 5
+    });
+  } catch (err: any) {
+    if (isTimeoutOrNetworkError(err)) {
+      // Check whether start already registered the operation on server before timing out
+      try {
+        await sleepMs(900);
+        const checkRes = await fetchPermanentDeleteOperationStatus(operationId);
+        if (checkRes.success && checkRes.operation) {
+          startRes = { success: true, operation: checkRes.operation };
+        } else {
+          return {
+            success: false,
+            operationId,
+            needsResume: false,
+            error: 'Koneksi ke server terputus sebelum operasi dimulai. Tidak ada data yang dihapus; silakan coba lagi.'
+          };
+        }
+      } catch {
+        return {
+          success: false,
+          operationId,
+          needsResume: false,
+          error: 'Gagal menghubungi server. Periksa koneksi lalu coba lagi.'
+        };
+      }
+    } else {
+      throw err;
+    }
+  }
+
+  if (!startRes.success || !startRes.operation) {
+    clearSavedPermanentDeleteOpId();
     return {
       success: false,
-      transactionId: json.transactionId,
-      succeeded: json.succeeded || [],
-      failed: json.failed || [],
-      error: json.error || `Hapus permanen batch ditolak (${res.status})`,
-      code: json.code
+      operationId,
+      error: startRes.error || 'Hapus permanen batch ditolak oleh server.',
+      code: startRes.code
     };
   }
-  return json;
+
+  const runRes = await resumeOrExecutePermanentDeleteOperation({
+    operationId: startRes.operation.operationId,
+    existingOperation: startRes.operation,
+    chunkSize: 5,
+    onProgress: payload.onProgress
+  });
+
+  const op = runRes.operation;
+  if (!op) {
+    return {
+      success: false,
+      operationId,
+      needsResume: runRes.needsResume,
+      error: runRes.error || 'Gagal menyelesaikan operasi hapus permanen.'
+    };
+  }
+
+  const succeeded = op.results
+    .filter(r => r.status === 'deleted' || r.status === 'already_deleted')
+    .map(r => ({ deletedId: r.recordId, woNumber: r.woNumber, status: r.status }));
+  const failed = op.results
+    .filter(r => r.status === 'blocked_fk' || r.status === 'protected' || r.status === 'failed')
+    .map(r => ({
+      recordId: r.recordId,
+      category: r.category,
+      code: r.code || 'PERMANENT_DELETE_FAILED',
+      error: r.message || 'Gagal menghapus.'
+    }));
+
+  if (runRes.completed) {
+    clearSavedPermanentDeleteOpId();
+  }
+
+  return {
+    success: runRes.completed && failed.length === 0 && succeeded.length > 0,
+    transactionId: op.results.find(r => r.transactionId)?.transactionId || op.operationId,
+    operationId: op.operationId,
+    operation: op,
+    recoveredFromTimeout: runRes.recoveredFromTimeout,
+    needsResume: runRes.needsResume,
+    succeeded,
+    failed,
+    error: runRes.error || (failed.length > 0 && succeeded.length === 0 ? failed[0].error : undefined),
+    message:
+      op.status === 'completed'
+        ? `Berhasil menghapus permanen ${op.succeededCount} data (${op.alreadyDeletedCount} sudah terhapus sebelumnya).`
+        : op.status === 'partial'
+        ? `Selesai sebagian: ${op.succeededCount + op.alreadyDeletedCount} selesai, ${op.blockedCount + op.failedCount} gagal/diblokir.`
+        : undefined
+  };
 }
 
 export async function executeCentralizedRestore(payload: {

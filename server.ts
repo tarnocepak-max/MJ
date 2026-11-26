@@ -261,6 +261,11 @@ import {
   executeSoftDeleteBatch,
   executePermanentDelete,
   executePermanentDeleteBatch,
+  startPermanentDeleteOperation,
+  stepPermanentDeleteOperation,
+  loadPermanentDeleteOperation,
+  getActiveOrRecentPermanentDeleteOperations,
+  auditRecentPermanentDeletes,
   executeRestoreBatch,
   isCategoryAllowedForRole,
   recordDeletionLog,
@@ -19775,6 +19780,188 @@ export async function createExpressApp(options?: {
     }
   });
 
+  const resolveDeletionTargetsFromBody = (body: any): DeletionTargetInput[] => {
+    const { category, subEntity, recordIds, targets } = body || {};
+    if (Array.isArray(targets) && targets.length > 0) {
+      return targets
+        .filter((t: any) => t && isValidCategory(String(t.category || '')) && String(t.recordId || '').trim())
+        .map((t: any) => ({
+          category: t.category as DeletionCategory,
+          recordId: String(t.recordId).trim(),
+          subEntity: t.subEntity as DeletionSubEntity | undefined,
+          woNumber: typeof t.woNumber === 'string' ? t.woNumber.trim() : undefined,
+          label: typeof t.label === 'string' ? t.label.trim() : undefined
+        }));
+    }
+    if (isValidCategory(String(category || '')) && Array.isArray(recordIds) && recordIds.length > 0) {
+      return recordIds
+        .map((id: any) => String(id || '').trim())
+        .filter(Boolean)
+        .map((id: string) => ({
+          category: category as DeletionCategory,
+          recordId: id,
+          subEntity: subEntity as DeletionSubEntity | undefined
+        }));
+    }
+    return [];
+  };
+
+  app.post('/api/deletion/permanent-delete-batch/start', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        logServerAudit(
+          'Access Denied (Permanent Delete Batch Start Superadmin Only)',
+          'rbac',
+          req.originalUrl,
+          `User ${req.user.name} (${req.user.role}) ditolak memulai Permanent Delete Batch.`,
+          req.user
+        );
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          error: 'Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.'
+        });
+      }
+
+      const resolvedTargets = resolveDeletionTargetsFromBody(req.body);
+      if (resolvedTargets.length === 0) {
+        return res.status(400).json({ success: false, code: 'INVALID_TARGETS', error: 'Pilih minimal satu record valid untuk dihapus permanen.' });
+      }
+
+      const { confirmText, reason, operationId, chunkSize } = req.body || {};
+      const startRes = await startPermanentDeleteOperation(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        resolvedTargets,
+        String(confirmText || ''),
+        String(reason || ''),
+        {
+          operationId: typeof operationId === 'string' ? operationId : undefined,
+          chunkSize: Number(chunkSize || 5)
+        }
+      );
+
+      if (!startRes.success) {
+        const status =
+          startRes.code === 'FORBIDDEN_ROLE' || startRes.code === 'FORBIDDEN_OPERATION'
+            ? 403
+            : startRes.code === 'DATABASE_UNAVAILABLE'
+            ? 503
+            : 400;
+        return res.status(status).json(startRes);
+      }
+
+      return res.json(startRes);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        code: 'PERMANENT_DELETE_START_ERROR',
+        error: err?.message || 'Gagal menyiapkan operasi hapus permanen.'
+      });
+    }
+  });
+
+  app.post('/api/deletion/permanent-delete-batch/step', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({
+          success: false,
+          code: 'FORBIDDEN_ROLE',
+          error: 'Akses Ditolak: Hapus Permanen dibatasi secara MUTLAK hanya untuk Superadmin.'
+        });
+      }
+
+      const operationId = String(req.body?.operationId || '').trim();
+      if (!/^[A-Za-z0-9_-]{6,100}$/.test(operationId)) {
+        return res.status(400).json({ success: false, code: 'INVALID_OPERATION_ID', error: 'Format Operation ID tidak valid.' });
+      }
+
+      const stepRes = await stepPermanentDeleteOperation(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        operationId,
+        req.body?.chunkSize ? Number(req.body.chunkSize) : undefined
+      );
+
+      if (!stepRes.success) {
+        const status =
+          stepRes.code === 'OPERATION_NOT_FOUND' ? 404 : stepRes.code === 'FORBIDDEN_ROLE' ? 403 : 400;
+        return res.status(status).json(stepRes);
+      }
+
+      return res.json(stepRes);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        code: 'PERMANENT_DELETE_STEP_ERROR',
+        error: err?.message || 'Gagal memproses batch hapus permanen.'
+      });
+    }
+  });
+
+  app.get('/api/deletion/operations/active', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_ROLE', error: 'Khusus Superadmin.' });
+      }
+      const operations = await getActiveOrRecentPermanentDeleteOperations(deletionStoreBridge, {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role
+      });
+      return res.json({ success: true, operations });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat daftar operasi penghapusan.' });
+    }
+  });
+
+  app.get('/api/deletion/operations/:operationId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_ROLE', error: 'Khusus Superadmin.' });
+      }
+      const operationId = String(req.params.operationId || '').trim();
+      if (!/^[A-Za-z0-9_-]{6,100}$/.test(operationId)) {
+        return res.status(400).json({ success: false, code: 'INVALID_OPERATION_ID', error: 'Operation ID tidak valid.' });
+      }
+      const operation = await loadPermanentDeleteOperation(deletionStoreBridge, operationId);
+      if (!operation) {
+        return res.status(404).json({ success: false, code: 'OPERATION_NOT_FOUND', error: 'Status operasi tidak ditemukan.' });
+      }
+      return res.json({ success: true, operation });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal membaca status operasi.' });
+    }
+  });
+
+  app.get('/api/deletion/audit-permanent-recent', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: 'UNAUTHENTICATED', error: 'Tidak terautentikasi.' });
+      }
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({ success: false, code: 'FORBIDDEN_ROLE', error: 'Khusus Superadmin.' });
+      }
+      const limit = Number(req.query.limit || 60);
+      const audit = await auditRecentPermanentDeletes(deletionStoreBridge, limit);
+      return res.json({ success: true, ...audit });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal mengaudit log hapus permanen terbaru.' });
+    }
+  });
+
   app.post('/api/deletion/permanent-delete-batch', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user) {
@@ -19795,26 +19982,8 @@ export async function createExpressApp(options?: {
         });
       }
 
-      const { category, subEntity, recordIds, targets, confirmText, reason } = req.body || {};
-      let resolvedTargets: DeletionTargetInput[] = [];
-      if (Array.isArray(targets) && targets.length > 0) {
-        resolvedTargets = targets
-          .filter((t: any) => t && isValidCategory(String(t.category || '')) && String(t.recordId || '').trim())
-          .map((t: any) => ({
-            category: t.category as DeletionCategory,
-            recordId: String(t.recordId).trim(),
-            subEntity: t.subEntity as DeletionSubEntity | undefined
-          }));
-      } else if (isValidCategory(String(category || '')) && Array.isArray(recordIds) && recordIds.length > 0) {
-        resolvedTargets = recordIds
-          .map((id: any) => String(id || '').trim())
-          .filter(Boolean)
-          .map(id => ({
-            category: category as DeletionCategory,
-            recordId: id,
-            subEntity: subEntity as DeletionSubEntity | undefined
-          }));
-      }
+      const { confirmText, reason, operationId, chunkSize } = req.body || {};
+      const resolvedTargets = resolveDeletionTargetsFromBody(req.body);
 
       if (resolvedTargets.length === 0) {
         return res.status(400).json({ success: false, code: 'INVALID_TARGETS', error: 'Pilih minimal satu record valid untuk dihapus permanen.' });
@@ -19825,7 +19994,11 @@ export async function createExpressApp(options?: {
         { id: req.user.id, name: req.user.name, role: req.user.role },
         resolvedTargets,
         String(confirmText || ''),
-        String(reason || '')
+        String(reason || ''),
+        {
+          operationId: typeof operationId === 'string' ? operationId : undefined,
+          chunkSize: chunkSize ? Number(chunkSize) : undefined
+        }
       );
 
       if (!result.success && result.succeeded.length === 0) {
