@@ -257,11 +257,13 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
 
   // Data state
   const [summary, setSummary] = useState<CategoryCountsSummaryMap | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [facets, setFacets] = useState<DeletionFacets>({
     contractors: [],
     areas: [],
     assignmentStatuses: ['Assigned', 'Unassigned']
   });
+  const [facetsError, setFacetsError] = useState<string | null>(null);
   const [items, setItems] = useState<DeletionItemRow[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -274,10 +276,12 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   // Detail & Action Confirmation Modals
   const [detailItem, setDetailItem] = useState<DeletionItemRow | null>(null);
   const [detailDeps, setDetailDeps] = useState<WoDependencySummary | null>(null);
+  const [detailDepsError, setDetailDepsError] = useState<string | null>(null);
   const [isLoadingDetailDeps, setIsLoadingDetailDeps] = useState(false);
 
   const [actionModal, setActionModal] = useState<{
@@ -402,17 +406,34 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
 
   const loadSummary = useCallback(async () => {
     if (!hasAccess) return;
-    const res = await fetchDeletionCategoriesSummary();
-    if (res.success && res.summary) {
-      setSummary(res.summary);
+    setSummaryError(null);
+    try {
+      const res = await fetchDeletionCategoriesSummary();
+      if (res.success && res.summary) {
+        setSummary(res.summary);
+      } else {
+        setSummaryError(res.error || 'Gagal memuat ringkasan kategori dari server.');
+      }
+    } catch (err: any) {
+      setSummaryError(err?.message || 'Gagal menghubungi server untuk ringkasan kategori.');
     }
   }, [hasAccess]);
 
   const loadFacets = useCallback(async () => {
-    if (!hasAccess || selectedCategory !== 'work_orders') return;
-    const res = await fetchDeletionFacets('work_orders');
-    if (res.success && res.facets) {
-      setFacets(res.facets);
+    if (!hasAccess || selectedCategory !== 'work_orders') {
+      setFacetsError(null);
+      return;
+    }
+    setFacetsError(null);
+    try {
+      const res = await fetchDeletionFacets('work_orders');
+      if (res.success && res.facets) {
+        setFacets(res.facets);
+      } else {
+        setFacetsError(res.error || 'Gagal memuat opsi filter dropdown.');
+      }
+    } catch (err: any) {
+      setFacetsError(err?.message || 'Gagal menghubungi server untuk opsi filter.');
     }
   }, [hasAccess, selectedCategory]);
 
@@ -475,6 +496,7 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const loadHistory = useCallback(async () => {
     if (!hasAccess || activeTab !== 'history') return;
     setIsLoadingHistory(true);
+    setHistoryError(null);
     try {
       const res = await fetchDeletionHistory({
         txIdQuery: debouncedHistoryFilters.txIdQuery,
@@ -495,8 +517,17 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
         setHistoryTotal(res.total || 0);
         setHistoryTotalPages(res.totalPages || 1);
       } else {
-        toast.error(res.error || 'Gagal memuat Deletion History.');
+        const errMsg = res.error || 'Gagal memuat Deletion History.';
+        setHistoryError(errMsg);
+        setHistoryLogs([]);
+        setHistoryTotal(0);
+        setHistoryTotalPages(1);
+        toast.error(errMsg);
       }
+    } catch (err: any) {
+      const errMsg = err?.message || 'Gagal menghubungi server untuk Deletion History.';
+      setHistoryError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -718,13 +749,18 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
   const handleOpenDetail = async (row: DeletionItemRow) => {
     setDetailItem(row);
     setDetailDeps(null);
+    setDetailDepsError(null);
     if (row.category === 'work_orders') {
       setIsLoadingDetailDeps(true);
       try {
         const res = await inspectRecordDependencies('work_orders', row.id);
         if (res.success && res.dependencies) {
           setDetailDeps(res.dependencies);
+        } else {
+          setDetailDepsError(res.error || 'Gagal memeriksa dependensi Work Order dari server.');
         }
+      } catch (err: any) {
+        setDetailDepsError(err?.message || 'Gagal menghubungi server saat memeriksa dependensi.');
       } finally {
         setIsLoadingDetailDeps(false);
       }
@@ -1172,6 +1208,26 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
           })}
       </div>
 
+      {activeTab !== 'history' && summaryError && (
+        <div
+          data-testid="deletion-summary-error-banner"
+          className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{summaryError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadSummary()}
+            className="btn-3d-lilac px-3 py-1 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Coba Lagi</span>
+          </button>
+        </div>
+      )}
+
       {/* Category Selector */}
       {activeTab !== 'history' && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
@@ -1322,10 +1378,44 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
             </div>
           )}
 
+          {facetsError && selectedCategory === 'work_orders' && (
+            <div
+              data-testid="deletion-facets-error-banner"
+              className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{facetsError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadFacets()}
+                className="btn-3d-lilac px-3 py-1 rounded-xl text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Coba Lagi</span>
+              </button>
+            </div>
+          )}
+
           {loadError && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{loadError}</span>
+            <div
+              data-testid="deletion-items-error-banner"
+              className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex flex-wrap items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loadError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadItems()}
+                disabled={isLoading}
+                className="btn-3d-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Coba Lagi</span>
+              </button>
             </div>
           )}
 
@@ -1796,6 +1886,26 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
       {/* TAB CONTENT: DELETION HISTORY — Header Controls Embedded in <thead> */}
       {activeTab === 'history' && (
         <div className="space-y-3">
+          {historyError && (
+            <div
+              data-testid="deletion-history-error-banner"
+              className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex flex-wrap items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{historyError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadHistory()}
+                disabled={isLoadingHistory}
+                className="btn-3d-lilac px-3 py-1.5 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+                <span>Coba Lagi</span>
+              </button>
+            </div>
+          )}
           <div className="card-3d-lavender rounded-2xl overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
             <div className="px-3.5 py-2.5 bg-[#F3F8FC]/95 dark:bg-[#1E1038] border-b border-[#DDE6F0] dark:border-[#35105E] flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2">
@@ -2082,6 +2192,24 @@ export const DataDeletionManagementView: React.FC<DataDeletionManagementViewProp
                 </div>
                 {isLoadingDetailDeps ? (
                   <div className="text-[#52647A] dark:text-[#CEC0E8]">Memeriksa jumlah relasi di database...</div>
+                ) : detailDepsError ? (
+                  <div
+                    data-testid="detail-deps-error-banner"
+                    className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{detailDepsError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenDetail(detailItem)}
+                      className="btn-3d-lilac px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Coba Lagi</span>
+                    </button>
+                  </div>
                 ) : detailDeps ? (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="p-2.5 rounded-xl bg-white dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E]">

@@ -2249,12 +2249,15 @@ export async function getWorkOrderByIdOrWoNumberFromSupabase(
   const byId = await getWorkOrderByIdFromSupabase(clean);
   if (byId.success && byId.data) {
     if (!options.includeDeleted && byId.data.isDeleted) {
-      // Fall through to check if an active re-imported WO exists with same WO number when active-only is requested;
-      // otherwise return byId if caller handles deleted state or when no active replacement exists.
-      const byActiveWo = await getWorkOrderByWoNumberFromSupabase(clean, options);
-      if (byActiveWo.success && byActiveWo.data) {
-        return byActiveWo;
+      // Check if an active re-imported WO exists with the same WO number; otherwise treat as deleted (not found)
+      const woCandidate = byId.data.woNumber ? String(byId.data.woNumber).trim() : '';
+      if (woCandidate) {
+        const byActiveWo = await getWorkOrderByWoNumberFromSupabase(woCandidate, { includeDeleted: false });
+        if (byActiveWo.success && byActiveWo.data) {
+          return byActiveWo;
+        }
       }
+      return { success: true, data: null };
     }
     return byId;
   }

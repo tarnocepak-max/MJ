@@ -61,7 +61,8 @@ import {
   markTicketEditingState,
   isTicketBeingEdited,
   mergeDeltaTickets,
-  mergeProgressiveHydration
+  mergeProgressiveHydration,
+  reconcileFullTicketSnapshot
 } from '../services/woSyncEngine';
 
 import {
@@ -1693,6 +1694,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setSyncStatus('SYNCING');
     setDatabaseStatus('connecting');
+    invalidateWoCache();
     await loadCentralData();
   };
 
@@ -2269,49 +2271,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           tickets: Ticket[];
           serverTime?: string;
           ok: boolean;
+          complete: boolean;
         }> => {
           const PAGE_SIZE = 250;
           const MAX_HYDRATION_PAGES = 100; // Safe ceiling (25,000 WOs) so older WOs beyond 3,000 rows remain hydrated across refresh
           const collected: Ticket[] = [];
           let earliestServerTime: string | undefined;
+          let complete = true;
 
           try {
             const firstRes = await authenticatedFetch(`/api/work-orders/progressive?phase=full&page=1&limit=${PAGE_SIZE}`, {
               signal: bootController.signal
             });
             if (firstRes.status === 401) {
-              return { tickets: [], ok: false };
+              return { tickets: [], ok: false, complete: false };
             }
-            if (!firstRes.ok) return { tickets: [], ok: false };
+            if (!firstRes.ok) return { tickets: [], ok: false, complete: false };
             const firstJson = await firstRes.json().catch(() => null);
             if (!firstJson?.success || !Array.isArray(firstJson.tickets)) {
-              return { tickets: [], ok: false };
+              return { tickets: [], ok: false, complete: false };
             }
             collected.push(...firstJson.tickets);
             earliestServerTime = firstJson.serverTime;
 
-            const totalPages = Math.min(MAX_HYDRATION_PAGES, Math.max(1, Number(firstJson.totalPages || 1)));
-            // Non-destructively overlay Page 1 onto Phase 1 critical rows so older rows are never discarded
+            const rawTotalPages = Math.max(1, Number(firstJson.totalPages || 1));
+            if (rawTotalPages > MAX_HYDRATION_PAGES) {
+              complete = false;
+            }
+            const totalPages = Math.min(MAX_HYDRATION_PAGES, rawTotalPages);
+            // Non-destructively overlay Page 1 onto Phase 1 critical rows so older rows are never discarded mid-stream
             setTickets(prev => mergeProgressiveHydration(prev, firstJson.tickets));
 
             for (let page = 2; page <= totalPages; page++) {
-              if (bootController.signal.aborted) break;
+              if (bootController.signal.aborted) {
+                complete = false;
+                break;
+              }
               const pageRes = await authenticatedFetch(
                 `/api/work-orders/progressive?phase=full&page=${page}&limit=${PAGE_SIZE}`,
                 { signal: bootController.signal }
               );
-              if (!pageRes.ok) break;
+              if (!pageRes.ok) {
+                complete = false;
+                break;
+              }
               const pageJson = await pageRes.json().catch(() => null);
-              if (!pageJson?.success || !Array.isArray(pageJson.tickets) || pageJson.tickets.length === 0) {
+              if (!pageJson?.success || !Array.isArray(pageJson.tickets)) {
+                complete = false;
+                break;
+              }
+              if (pageJson.tickets.length === 0) {
+                if (page < totalPages) complete = false;
                 break;
               }
               collected.push(...pageJson.tickets);
               setTickets(prev => mergeProgressiveHydration(prev, pageJson.tickets));
             }
 
-            return { tickets: collected, serverTime: earliestServerTime, ok: true };
+            return { tickets: collected, serverTime: earliestServerTime, ok: true, complete };
           } catch {
-            return { tickets: collected, serverTime: earliestServerTime, ok: false };
+            return { tickets: collected, serverTime: earliestServerTime, ok: false, complete: false };
           }
         };
 
@@ -2335,9 +2354,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           resolvedActive = p2Meta.resolvedActive;
         }
 
-        if (progressiveFullRes.ok && progressiveFullRes.tickets.length > 0) {
-          setTickets(prev => mergeProgressiveHydration(prev, progressiveFullRes.tickets));
-          setWoCache('wo:full', progressiveFullRes.tickets, progressiveFullRes.serverTime);
+        if (progressiveFullRes.ok) {
+          const liveTodayWIB = getJakartaDateString(0);
+          const authoritativeFull =
+            resolvedRole === 'installer'
+              ? progressiveFullRes.tickets.filter(
+                  (t: Ticket) => !t?.isDeleted && !t?.isArchived && isTicketVisibleToInstallerToday(t, liveTodayWIB)
+                )
+              : progressiveFullRes.tickets.filter((t: Ticket) => !t?.isDeleted);
+
+          if (progressiveFullRes.complete) {
+            setTickets(prev => reconcileFullTicketSnapshot(prev, authoritativeFull));
+            setWoCache('wo:full', authoritativeFull, progressiveFullRes.serverTime);
+          } else if (authoritativeFull.length > 0) {
+            setTickets(prev => mergeProgressiveHydration(prev, authoritativeFull));
+            setWoCache('wo:full', authoritativeFull, progressiveFullRes.serverTime);
+          }
         }
 
         // Advance watermark conservatively to earliest timestamp from Phase 2 start so concurrent updates are caught by next delta

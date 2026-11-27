@@ -247,3 +247,51 @@ export function mergeProgressiveHydration(
     .map(id => nextMap.get(id))
     .filter((t): t is Ticket => Boolean(t));
 }
+
+/**
+ * Reconciles local React ticket state against a COMPLETE authoritative full server
+ * snapshot (e.g., after all pages of `/api/work-orders/progressive?phase=full` succeed).
+ * Prunes any stale or soft-deleted rows absent from the authoritative active snapshot
+ * while protecting rows currently open in an active edit form/modal.
+ */
+export function reconcileFullTicketSnapshot(
+  current: Ticket[],
+  authoritativeTickets: Ticket[],
+  protectedIds: Set<string> = editingTicketIds
+): Ticket[] {
+  const currentMap = new Map<string, Ticket>();
+  for (const t of Array.isArray(current) ? current : []) {
+    if (t?.id) currentMap.set(String(t.id), t);
+  }
+
+  const nextMap = new Map<string, Ticket>();
+  const orderedIds: string[] = [];
+
+  for (const ft of Array.isArray(authoritativeTickets) ? authoritativeTickets : []) {
+    if (!ft?.id || ft.isDeleted) continue;
+    const idStr = String(ft.id);
+    if (protectedIds.has(idStr) && currentMap.has(idStr)) {
+      nextMap.set(idStr, currentMap.get(idStr)!);
+    } else {
+      nextMap.set(idStr, ft);
+    }
+    if (!orderedIds.includes(idStr)) {
+      orderedIds.push(idStr);
+    }
+  }
+
+  // Keep protected rows even if momentarily absent, unless explicitly marked deleted
+  for (const protId of protectedIds) {
+    if (!nextMap.has(protId) && currentMap.has(protId)) {
+      const existing = currentMap.get(protId)!;
+      if (!existing.isDeleted) {
+        nextMap.set(protId, existing);
+        orderedIds.unshift(protId);
+      }
+    }
+  }
+
+  return orderedIds
+    .map(id => nextMap.get(id))
+    .filter((t): t is Ticket => Boolean(t));
+}

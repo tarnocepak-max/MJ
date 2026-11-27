@@ -12,7 +12,8 @@ import {
   deleteWorkOrderFromSupabase,
   restoreWorkOrderInSupabase,
   getDeletedWorkOrdersFromSupabase,
-  getWorkOrderByWoNumberFromSupabase
+  getWorkOrderByWoNumberFromSupabase,
+  getWorkOrderByIdOrWoNumberFromSupabase
 } from './supabaseAdapter.ts';
 
 /**
@@ -209,10 +210,18 @@ test('Supabase DAL Soft Delete & Restore preserves related records, blocks dupli
     assert.equal(mock.tables.ticket_messages.length, 1);
     assert.equal(mock.tables.file_attachments.length, 1);
 
-    // 2. Active WO lookup excludes soft-deleted WO by default
+    // 2. Active WO lookup excludes soft-deleted WO by default (both by WO Number and by ID)
     const activeLookup = await getWorkOrderByWoNumberFromSupabase('WO-DAL-1001');
     assert.equal(activeLookup.success, true);
     assert.equal(activeLookup.data, null);
+
+    const activeByIdOrWo = await getWorkOrderByIdOrWoNumberFromSupabase('wo-dal-1');
+    assert.equal(activeByIdOrWo.success, true);
+    assert.equal(activeByIdOrWo.data, null);
+
+    const adminIncludeDeleted = await getWorkOrderByIdOrWoNumberFromSupabase('wo-dal-1', { includeDeleted: true });
+    assert.equal(adminIncludeDeleted.success, true);
+    assert.equal(adminIncludeDeleted.data?.id, 'wo-dal-1');
 
     // 3. Deleted list returns the soft-deleted WO
     const deletedList = await getDeletedWorkOrdersFromSupabase({ search: 'WO-DAL-1001' });
@@ -280,6 +289,12 @@ test('End-to-End Soft Delete & Restore across all 8 mandatory scenarios + re-imp
   const serverMod = await import('../server.ts');
   const { createExpressApp, db, SERVER_SESSIONS } = serverMod;
 
+  const app = await createExpressApp({ skipVite: true, apiOnly: true });
+  const server = http.createServer(app);
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
   const mkUser = (
     id: string,
     name: string,
@@ -341,12 +356,6 @@ test('End-to-End Soft Delete & Restore across all 8 mandatory scenarios + re-imp
   const dispToken = makeToken(dispatchUser);
   const ldrToken = makeToken(leaderUser);
   const instToken = makeToken(installerUser);
-
-  const app = await createExpressApp({ skipVite: true, apiOnly: true });
-  const server = http.createServer(app);
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address() as { port: number };
-  const baseUrl = `http://127.0.0.1:${address.port}`;
 
   const reqJson = (urlPath: string, token?: string, init: RequestInit = {}) => {
     const headers: Record<string, string> = {
@@ -512,6 +521,9 @@ test('End-to-End Soft Delete & Restore across all 8 mandatory scenarios + re-imp
         false,
         `${roleLabel} /api/tickets must exclude soft-deleted WO`
       );
+
+      const singleWoRes = await reqJson(`/api/work-orders/${encodeURIComponent(targetId)}`, tok);
+      assert.equal(singleWoRes.status, 404, `${roleLabel} GET /api/work-orders/:id must hide soft-deleted WO`);
     }
 
     // Delta sync reports deleted ID & excludes from active tickets array

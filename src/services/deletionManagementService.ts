@@ -241,14 +241,153 @@ export interface RecentPermanentAuditResponse {
   error?: string;
 }
 
-async function safeParseJson(res: Response): Promise<any> {
-  const text = await res.text();
-  if (!text) return {};
+export interface ParsedDeletionApiResponse<T = any> {
+  ok: boolean;
+  data: T | null;
+  statusCode: number;
+  contentType: string;
+  requestId?: string;
+  code?: string;
+  error?: string;
+  isHtml?: boolean;
+  isWarmupHtml?: boolean;
+}
+
+const HTML_WARMUP_MARKERS = [
+  'starting server...',
+  '<title>starting server',
+  'please wait while your application starts',
+  'application is starting'
+];
+
+export function detectHtmlPayload(text: string, contentType: string): { isHtml: boolean; isWarmupHtml: boolean } {
+  const ct = String(contentType || '').toLowerCase();
+  const trimmed = String(text || '').trim().toLowerCase();
+  const looksLikeHtmlBody =
+    trimmed.startsWith('<!doctype html') ||
+    trimmed.startsWith('<html') ||
+    trimmed.startsWith('<!doctype') ||
+    (trimmed.includes('<head>') && trimmed.includes('<body')) ||
+    trimmed.includes('<title>');
+  const isWarmupHtml = HTML_WARMUP_MARKERS.some(marker => trimmed.includes(marker));
+  const isHtml = ct.includes('text/html') || looksLikeHtmlBody || isWarmupHtml;
+  return { isHtml, isWarmupHtml };
+}
+
+export async function parseDeletionApiResponse<T = any>(
+  res: Response,
+  endpoint: string
+): Promise<ParsedDeletionApiResponse<T>> {
+  const contentType = res.headers?.get?.('content-type') || '';
+  const headerReqId = res.headers?.get?.('x-request-id') || undefined;
+  let text = '';
   try {
-    return JSON.parse(text);
+    text = await res.text();
   } catch {
-    return { error: text };
+    return {
+      ok: false,
+      data: null,
+      statusCode: res.status,
+      contentType,
+      requestId: headerReqId,
+      code: 'READ_RESPONSE_FAILED',
+      error: `Gagal membaca respons dari ${endpoint} (HTTP ${res.status}).`
+    };
   }
+
+  const { isHtml, isWarmupHtml } = detectHtmlPayload(text, contentType);
+  if (isHtml) {
+    return {
+      ok: false,
+      data: null,
+      statusCode: res.status,
+      contentType,
+      requestId: headerReqId,
+      isHtml: true,
+      isWarmupHtml,
+      code: isWarmupHtml ? 'HTML_WARMUP_RESPONSE' : 'HTML_RESPONSE',
+      error: isWarmupHtml
+        ? 'Server backend sedang memulai ulang atau merespons halaman warmup (HTML), bukan data JSON. Silakan klik Coba Lagi dalam beberapa detik.'
+        : `Endpoint ${endpoint} mengembalikan halaman HTML (HTTP ${res.status}), bukan JSON. Periksa routing backend API.`
+    };
+  }
+
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {
+      ok: res.ok,
+      data: res.ok ? ({} as T) : null,
+      statusCode: res.status,
+      contentType,
+      requestId: headerReqId,
+      code: res.ok ? undefined : 'EMPTY_RESPONSE',
+      error: res.ok ? undefined : `Server mengembalikan respons kosong dari ${endpoint} (HTTP ${res.status}).`
+    };
+  }
+
+  if (contentType && !contentType.toLowerCase().includes('json') && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return {
+      ok: false,
+      data: null,
+      statusCode: res.status,
+      contentType,
+      requestId: headerReqId,
+      code: 'NON_JSON_RESPONSE',
+      error: `Respons dari ${endpoint} bertipe "${contentType}" (HTTP ${res.status}), bukan JSON.`
+    };
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return {
+      ok: false,
+      data: null,
+      statusCode: res.status,
+      contentType,
+      requestId: headerReqId,
+      code: 'INVALID_JSON_RESPONSE',
+      error: `Respons dari ${endpoint} bukan format JSON yang valid (HTTP ${res.status}).`
+    };
+  }
+
+  const requestId = parsed?.requestId || headerReqId;
+  if (!res.ok) {
+    const code =
+      parsed?.code ||
+      (res.status === 503
+        ? 'SERVICE_UNAVAILABLE'
+        : res.status === 502 || res.status === 504
+        ? 'GATEWAY_TIMEOUT'
+        : res.status === 401
+        ? 'UNAUTHENTICATED'
+        : res.status === 403
+        ? 'FORBIDDEN'
+        : 'HTTP_ERROR');
+    return {
+      ok: false,
+      data: parsed,
+      statusCode: res.status,
+      contentType,
+      requestId,
+      code,
+      error:
+        parsed?.error ||
+        (res.status === 503
+          ? 'Layanan backend atau database sementara tidak tersedia (HTTP 503). Silakan coba lagi.'
+          : `Permintaan ke ${endpoint} gagal (HTTP ${res.status}).`)
+    };
+  }
+
+  return {
+    ok: true,
+    data: parsed as T,
+    statusCode: res.status,
+    contentType,
+    requestId,
+    code: parsed?.code
+  };
 }
 
 class RequestTimeoutError extends Error {
@@ -282,7 +421,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 25_0
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new RequestTimeoutError('Permintaan ke server melebihi batas waktu (timeout). Memeriksa status operasi di server...');
+      throw new RequestTimeoutError('Permintaan ke server melebihi batas waktu (timeout).');
     }
     throw err;
   } finally {
@@ -290,44 +429,77 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 25_0
   }
 }
 
+function formatTransportError(err: unknown, fallback: string): { error: string; code: string } {
+  if (err instanceof RequestTimeoutError) {
+    return { error: err.message, code: 'REQUEST_TIMEOUT' };
+  }
+  const msg = String((err as any)?.message || '');
+  if (isTimeoutOrNetworkError(err)) {
+    return {
+      error: 'Koneksi jaringan ke server terputus atau timeout. Periksa koneksi lalu klik Coba Lagi.',
+      code: 'NETWORK_ERROR'
+    };
+  }
+  return { error: msg || fallback, code: 'CLIENT_FETCH_ERROR' };
+}
+
 export async function fetchDeletionCategoriesSummary(): Promise<{
   success: boolean;
   summary?: CategoryCountsSummaryMap;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout('/api/deletion/categories-summary', {
-    method: 'GET',
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return {
-      success: false,
-      error: json.error || `Gagal memuat ringkasan kategori (${res.status})`,
-      code: json.code
-    };
+  try {
+    const res = await fetchWithTimeout('/api/deletion/categories-summary', {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    });
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/categories-summary');
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        error: parsed.error || parsed.data?.error || `Gagal memuat ringkasan kategori (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { success: true, summary: parsed.data.summary, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memuat ringkasan kategori.');
+    return { success: false, ...info };
   }
-  return { success: true, summary: json.summary };
 }
 
 export async function fetchDeletionFacets(category: DeletionCategory): Promise<{
   success: boolean;
   facets?: DeletionFacets;
   error?: string;
+  code?: string;
+  requestId?: string;
 }> {
-  const qs = new URLSearchParams({ category });
-  const res = await fetchWithTimeout(`/api/deletion/facets?${qs.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return { success: false, error: json.error || `Gagal memuat opsi filter (${res.status})` };
+  try {
+    const qs = new URLSearchParams({ category });
+    const res = await fetchWithTimeout(`/api/deletion/facets?${qs.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    });
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/facets');
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        error: parsed.error || parsed.data?.error || `Gagal memuat opsi filter (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { success: true, facets: parsed.data.facets, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memuat opsi dropdown filter.');
+    return { success: false, ...info };
   }
-  return { success: true, facets: json.facets };
 }
 
 export interface FetchDeletionItemsParams {
@@ -355,7 +527,9 @@ export interface FetchDeletionItemsParams {
   pageSize?: number;
 }
 
-export async function fetchDeletionItems(params: FetchDeletionItemsParams): Promise<DeletionListResponse> {
+export async function fetchDeletionItems(
+  params: FetchDeletionItemsParams
+): Promise<DeletionListResponse & { requestId?: string }> {
   const qs = new URLSearchParams();
   qs.set('category', params.category);
   if (params.subEntity) qs.set('subEntity', params.subEntity);
@@ -384,13 +558,29 @@ export async function fetchDeletionItems(params: FetchDeletionItemsParams): Prom
   qs.set('page', String(params.page || 1));
   qs.set('pageSize', String(params.pageSize || 25));
 
-  const res = await fetchWithTimeout(`/api/deletion/items?${qs.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+  try {
+    const res = await fetchWithTimeout(`/api/deletion/items?${qs.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    });
+    const parsed = await parseDeletionApiResponse<DeletionListResponse>(res, '/api/deletion/items');
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: params.pageSize || 25,
+        totalPages: 1,
+        error: parsed.error || parsed.data?.error || `Gagal mengambil daftar data (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...(parsed.data as DeletionListResponse), requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal mengambil daftar data.');
     return {
       success: false,
       items: [],
@@ -398,11 +588,9 @@ export async function fetchDeletionItems(params: FetchDeletionItemsParams): Prom
       page: 1,
       pageSize: params.pageSize || 25,
       totalPages: 1,
-      error: json.error || `Gagal mengambil daftar data (${res.status})`,
-      code: json.code
+      ...info
     };
   }
-  return json as DeletionListResponse;
 }
 
 export async function inspectRecordDependencies(
@@ -413,48 +601,68 @@ export async function inspectRecordDependencies(
   dependencies?: WoDependencySummary;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout(`/api/deletion/dependencies/${encodeURIComponent(category)}/${encodeURIComponent(id)}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return {
-      success: false,
-      error: json.error || `Gagal memeriksa dependensi (${res.status})`,
-      code: json.code
-    };
+  const endpoint = `/api/deletion/dependencies/${encodeURIComponent(category)}/${encodeURIComponent(id)}`;
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    });
+    const parsed = await parseDeletionApiResponse<any>(res, endpoint);
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        error: parsed.error || parsed.data?.error || `Gagal memeriksa dependensi (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { success: true, dependencies: parsed.data.dependencies, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memeriksa dependensi record.');
+    return { success: false, ...info };
   }
-  return { success: true, dependencies: json.dependencies };
 }
 
 export async function inspectBatchDependencies(
   category: DeletionCategory,
   recordIds: string[]
-): Promise<BatchDependenciesResponse> {
-  const res = await fetchWithTimeout('/api/deletion/dependencies/batch', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify({ category, recordIds })
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+): Promise<BatchDependenciesResponse & { requestId?: string }> {
+  try {
+    const res = await fetchWithTimeout('/api/deletion/dependencies/batch', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ category, recordIds })
+    });
+    const parsed = await parseDeletionApiResponse<BatchDependenciesResponse>(res, '/api/deletion/dependencies/batch');
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        items: [],
+        blockedCount: 0,
+        eligibleCount: 0,
+        error: parsed.error || parsed.data?.error || `Gagal memeriksa dependensi batch (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...(parsed.data as BatchDependenciesResponse), requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memeriksa dependensi batch.');
     return {
       success: false,
       items: [],
       blockedCount: 0,
       eligibleCount: 0,
-      error: json.error || `Gagal memeriksa dependensi batch (${res.status})`,
-      code: json.code
+      ...info
     };
   }
-  return json as BatchDependenciesResponse;
 }
 
 export async function executeCentralizedSoftDelete(payload: {
@@ -468,28 +676,36 @@ export async function executeCentralizedSoftDelete(payload: {
   message?: string;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout('/api/deletion/soft-delete', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify(payload)
-  }, 30_000);
-  const json = await safeParseJson(res);
-  if (!res.ok || (!json.success && (!json.succeeded || json.succeeded.length === 0))) {
-    return {
-      success: false,
-      transactionId: json.transactionId,
-      succeeded: json.succeeded || [],
-      failed: json.failed || [],
-      error: json.error || `Gagal menjalankan soft delete (${res.status})`,
-      code: json.code
-    };
+  try {
+    const res = await fetchWithTimeout('/api/deletion/soft-delete', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    }, 30_000);
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/soft-delete');
+    const json = parsed.data || {};
+    if (!parsed.ok || (!json.success && (!json.succeeded || json.succeeded.length === 0))) {
+      return {
+        success: false,
+        transactionId: json.transactionId,
+        succeeded: json.succeeded || [],
+        failed: json.failed || [],
+        error: parsed.error || json.error || `Gagal menjalankan soft delete (${res.status})`,
+        code: parsed.code || json.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...json, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal menghubungi server saat soft delete.');
+    return { success: false, succeeded: [], failed: [], ...info };
   }
-  return json;
 }
 
 export async function executeCentralizedPermanentDelete(payload: {
@@ -506,27 +722,35 @@ export async function executeCentralizedPermanentDelete(payload: {
   message?: string;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout('/api/deletion/permanent-delete', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify(payload)
-  }, 30_000);
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return {
-      success: false,
-      transactionId: json.transactionId,
-      relatedCounts: json.relatedCounts,
-      error: json.error || `Hapus permanen ditolak (${res.status})`,
-      code: json.code
-    };
+  try {
+    const res = await fetchWithTimeout('/api/deletion/permanent-delete', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    }, 30_000);
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/permanent-delete');
+    const json = parsed.data || {};
+    if (!parsed.ok || !json.success) {
+      return {
+        success: false,
+        transactionId: json.transactionId,
+        relatedCounts: json.relatedCounts,
+        error: parsed.error || json.error || `Hapus permanen ditolak (${res.status})`,
+        code: parsed.code || json.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...json, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal menghubungi server saat hapus permanen.');
+    return { success: false, ...info };
   }
-  return json;
 }
 
 const ACTIVE_PERM_DELETE_STORAGE_KEY = 'morajaws_active_perm_delete_op';
@@ -591,6 +815,7 @@ export async function startPermanentDeleteOperationApi(payload: {
   operation?: PermanentDeleteOperationState;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
   const res = await fetchWithTimeout(
     '/api/deletion/permanent-delete-batch/start',
@@ -608,15 +833,20 @@ export async function startPermanentDeleteOperationApi(payload: {
   if (res.status === 502 || res.status === 504) {
     throw new RequestTimeoutError(`Server gateway timeout (${res.status}).`);
   }
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+  const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/permanent-delete-batch/start');
+  if (parsed.isWarmupHtml) {
+    throw new RequestTimeoutError(parsed.error || 'Server merespons halaman warmup saat memulai operasi.');
+  }
+  const json = parsed.data || {};
+  if (!parsed.ok || !json.success) {
     return {
       success: false,
-      error: json.error || `Gagal memulai operasi hapus permanen (${res.status})`,
-      code: json.code
+      error: parsed.error || json.error || `Gagal memulai operasi hapus permanen (${res.status})`,
+      code: parsed.code || json.code,
+      requestId: parsed.requestId
     };
   }
-  return json;
+  return { ...json, requestId: parsed.requestId };
 }
 
 export async function stepPermanentDeleteOperationApi(
@@ -628,6 +858,7 @@ export async function stepPermanentDeleteOperationApi(
   operation?: PermanentDeleteOperationState;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
   const res = await fetchWithTimeout(
     '/api/deletion/permanent-delete-batch/step',
@@ -645,16 +876,21 @@ export async function stepPermanentDeleteOperationApi(
   if (res.status === 502 || res.status === 504) {
     throw new RequestTimeoutError(`Server gateway timeout (${res.status}).`);
   }
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+  const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/permanent-delete-batch/step');
+  if (parsed.isWarmupHtml) {
+    throw new RequestTimeoutError(parsed.error || 'Server merespons halaman warmup saat memproses chunk.');
+  }
+  const json = parsed.data || {};
+  if (!parsed.ok || !json.success) {
     return {
       success: false,
-      error: json.error || `Gagal memproses chunk hapus permanen (${res.status})`,
-      code: json.code,
-      operation: json.operation
+      error: parsed.error || json.error || `Gagal memproses chunk hapus permanen (${res.status})`,
+      code: parsed.code || json.code,
+      operation: json.operation,
+      requestId: parsed.requestId
     };
   }
-  return json;
+  return { ...json, requestId: parsed.requestId };
 }
 
 export async function fetchPermanentDeleteOperationStatus(operationId: string): Promise<{
@@ -662,69 +898,106 @@ export async function fetchPermanentDeleteOperationStatus(operationId: string): 
   operation?: PermanentDeleteOperationState;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout(
-    `/api/deletion/operations/${encodeURIComponent(operationId)}`,
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: getAuthHeaders()
-    },
-    12_000
-  );
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return {
-      success: false,
-      error: json.error || `Status operasi tidak ditemukan (${res.status})`,
-      code: json.code
-    };
+  const endpoint = `/api/deletion/operations/${encodeURIComponent(operationId)}`;
+  try {
+    const res = await fetchWithTimeout(
+      endpoint,
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: getAuthHeaders()
+      },
+      12_000
+    );
+    const parsed = await parseDeletionApiResponse<any>(res, endpoint);
+    const json = parsed.data || {};
+    if (!parsed.ok || !json.success) {
+      return {
+        success: false,
+        error: parsed.error || json.error || `Status operasi tidak ditemukan (${res.status})`,
+        code: parsed.code || json.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...json, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal membaca status operasi.');
+    return { success: false, ...info };
   }
-  return json;
 }
 
 export async function fetchActivePermanentDeleteOperations(): Promise<{
   success: boolean;
   operations: PermanentDeleteOperationState[];
   error?: string;
+  code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout(
-    '/api/deletion/operations/active',
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: getAuthHeaders()
-    },
-    12_000
-  );
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
-    return { success: false, operations: [], error: json.error };
+  try {
+    const res = await fetchWithTimeout(
+      '/api/deletion/operations/active',
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: getAuthHeaders()
+      },
+      12_000
+    );
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/operations/active');
+    const json = parsed.data || {};
+    if (!parsed.ok || !json.success) {
+      return {
+        success: false,
+        operations: [],
+        error: parsed.error || json.error,
+        code: parsed.code || json.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { success: true, operations: json.operations || [], requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memuat operasi penghapusan aktif.');
+    return { success: false, operations: [], ...info };
   }
-  return { success: true, operations: json.operations || [] };
 }
 
-export async function fetchRecentPermanentDeleteAudit(limit = 60): Promise<RecentPermanentAuditResponse> {
-  const res = await fetchWithTimeout(
-    `/api/deletion/audit-permanent-recent?limit=${encodeURIComponent(String(limit))}`,
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: getAuthHeaders()
-    },
-    15_000
-  );
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+export async function fetchRecentPermanentDeleteAudit(limit = 60): Promise<RecentPermanentAuditResponse & { code?: string; requestId?: string }> {
+  try {
+    const res = await fetchWithTimeout(
+      `/api/deletion/audit-permanent-recent?limit=${encodeURIComponent(String(limit))}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: getAuthHeaders()
+      },
+      15_000
+    );
+    const parsed = await parseDeletionApiResponse<RecentPermanentAuditResponse>(res, '/api/deletion/audit-permanent-recent');
+    const json = parsed.data;
+    if (!parsed.ok || !json?.success) {
+      return {
+        success: false,
+        totalLogsChecked: 0,
+        recentLogs: [],
+        woExistenceMap: {},
+        error: parsed.error || json?.error || `Gagal memuat audit hapus permanen (${res.status})`,
+        code: parsed.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...json, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memuat audit hapus permanen terbaru.');
     return {
       success: false,
       totalLogsChecked: 0,
       recentLogs: [],
       woExistenceMap: {},
-      error: json.error || `Gagal memuat audit hapus permanen (${res.status})`
+      ...info
     };
   }
-  return json as RecentPermanentAuditResponse;
 }
 
 function sleepMs(ms: number): Promise<void> {
@@ -994,28 +1267,36 @@ export async function executeCentralizedRestore(payload: {
   message?: string;
   error?: string;
   code?: string;
+  requestId?: string;
 }> {
-  const res = await fetchWithTimeout('/api/deletion/restore', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders()
-    },
-    body: JSON.stringify(payload)
-  }, 30_000);
-  const json = await safeParseJson(res);
-  if (!res.ok || (!json.success && (!json.succeeded || json.succeeded.length === 0))) {
-    return {
-      success: false,
-      transactionId: json.transactionId,
-      succeeded: json.succeeded || [],
-      failed: json.failed || [],
-      error: json.error || `Gagal memulihkan data (${res.status})`,
-      code: json.code
-    };
+  try {
+    const res = await fetchWithTimeout('/api/deletion/restore', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    }, 30_000);
+    const parsed = await parseDeletionApiResponse<any>(res, '/api/deletion/restore');
+    const json = parsed.data || {};
+    if (!parsed.ok || (!json.success && (!json.succeeded || json.succeeded.length === 0))) {
+      return {
+        success: false,
+        transactionId: json.transactionId,
+        succeeded: json.succeeded || [],
+        failed: json.failed || [],
+        error: parsed.error || json.error || `Gagal memulihkan data (${res.status})`,
+        code: parsed.code || json.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...json, requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal menghubungi server saat memulihkan data.');
+    return { success: false, succeeded: [], failed: [], ...info };
   }
-  return json;
 }
 
 export async function fetchDeletionHistory(params: {
@@ -1032,7 +1313,7 @@ export async function fetchDeletionHistory(params: {
   sortDir?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
-}): Promise<DeletionHistoryResponse> {
+}): Promise<DeletionHistoryResponse & { requestId?: string }> {
   const qs = new URLSearchParams();
   if (params.search) qs.set('search', params.search);
   if (params.txIdQuery) qs.set('txIdQuery', params.txIdQuery);
@@ -1048,13 +1329,29 @@ export async function fetchDeletionHistory(params: {
   qs.set('page', String(params.page || 1));
   qs.set('pageSize', String(params.pageSize || 25));
 
-  const res = await fetchWithTimeout(`/api/deletion/history?${qs.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: getAuthHeaders()
-  });
-  const json = await safeParseJson(res);
-  if (!res.ok || !json.success) {
+  try {
+    const res = await fetchWithTimeout(`/api/deletion/history?${qs.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders()
+    });
+    const parsed = await parseDeletionApiResponse<DeletionHistoryResponse>(res, '/api/deletion/history');
+    if (!parsed.ok || !parsed.data?.success) {
+      return {
+        success: false,
+        logs: [],
+        total: 0,
+        page: 1,
+        pageSize: params.pageSize || 25,
+        totalPages: 1,
+        error: parsed.error || parsed.data?.error || `Gagal memuat riwayat penghapusan (${res.status})`,
+        code: parsed.code || parsed.data?.code,
+        requestId: parsed.requestId
+      };
+    }
+    return { ...(parsed.data as DeletionHistoryResponse), requestId: parsed.requestId };
+  } catch (err) {
+    const info = formatTransportError(err, 'Gagal memuat riwayat penghapusan.');
     return {
       success: false,
       logs: [],
@@ -1062,11 +1359,9 @@ export async function fetchDeletionHistory(params: {
       page: 1,
       pageSize: params.pageSize || 25,
       totalPages: 1,
-      error: json.error || `Gagal memuat riwayat penghapusan (${res.status})`,
-      code: json.code
+      ...info
     };
   }
-  return json as DeletionHistoryResponse;
 }
 
 export function navigateToDataDeletion(context?: DeletionNavContext): void {

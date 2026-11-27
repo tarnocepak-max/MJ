@@ -204,6 +204,70 @@ export function isProtectedWorkOrder(record: { id?: string; woNumber?: string; w
   return PROTECTED_PRODUCTION_WO_IDS.has(id) || PROTECTED_WO_NUMBERS.has(wo);
 }
 
+function isSchemaObjectMissing(err: any): boolean {
+  if (!err) return false;
+  const code = String(err.code || '').toUpperCase();
+  const msg = String(err.message || err.details || err.hint || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === '42703' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find the') ||
+    msg.includes('schema cache')
+  );
+}
+
+function isTableMissingError(err: any): boolean {
+  if (!err) return false;
+  const code = String(err.code || '').toUpperCase();
+  const msg = String(err.message || err.details || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    (msg.includes('relation') && msg.includes('does not exist')) ||
+    msg.includes('could not find the table')
+  );
+}
+
+function extractMissingColumn(err: any): string | null {
+  const msg = String(err?.message || err?.details || '');
+  const pgMatch = msg.match(/column\s+(?:[a-z0-9_]+\.)?([a-z0-9_]+)\s+does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  const pgrstMatch = msg.match(/Could not find the ['"]([a-z0-9_]+)['"] column/i);
+  if (pgrstMatch?.[1]) return pgrstMatch[1];
+  return null;
+}
+
+function isConnectivityUnavailable(err: any): boolean {
+  if (!err) return false;
+  const classified = classifySupabaseError(err);
+  if (classified.isUnavailable) return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('etimedout') ||
+    msg.includes('fetch failed') ||
+    msg.includes('networkerror')
+  );
+}
+
+function makeQueryError(err: any, fallbackMsg: string): Error {
+  const classified = classifySupabaseError(err);
+  if (isConnectivityUnavailable(err)) {
+    return Object.assign(new Error(classified.message || fallbackMsg), {
+      statusCode: 503,
+      code: 'DATABASE_UNAVAILABLE'
+    });
+  }
+  return Object.assign(new Error(classified.message || fallbackMsg), {
+    statusCode: 400,
+    code: classified.code || 'DELETION_QUERY_ERROR'
+  });
+}
+
 // Concurrency lock guard (prevents simultaneous delete/restore on same record)
 const inFlightDeletionLocks = new Map<string, { transactionId: string; actor: string; startedAt: number }>();
 const LOCK_STALE_MS = 60_000;
@@ -570,7 +634,20 @@ export async function inspectWoDependencies(
         // Fallback to manual Supabase multi-table count query if Migration 022 RPC is not deployed yet
       }
 
-      const { data: woRow } = await client.from('work_orders').select('*').eq('id', cleanId).maybeSingle();
+      let { data: woRow, error: woLookupErr } = await client
+        .from('work_orders')
+        .select('id, wo_number, customer_name, is_deleted, is_archived, import_batch_id')
+        .eq('id', cleanId)
+        .maybeSingle();
+      if (woLookupErr && isSchemaObjectMissing(woLookupErr)) {
+        const retry = await client
+          .from('work_orders')
+          .select('id, wo_number, customer_name, is_deleted, is_archived')
+          .eq('id', cleanId)
+          .maybeSingle();
+        woRow = retry.data as any;
+        woLookupErr = retry.error;
+      }
       if (!woRow) {
         return {
           found: false,
@@ -597,17 +674,26 @@ export async function inspectWoDependencies(
         };
       }
       const woNum = String(woRow.wo_number || '');
-      const [ah, tm, tr, att] = await Promise.all([
-        client.from('assignment_history').select('id', { count: 'exact', head: true }).or(`work_order_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ''}`),
-        client.from('ticket_messages').select('id', { count: 'exact', head: true }).or(`ticket_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ''}`),
-        client.from('technical_reports').select('id', { count: 'exact', head: true }).or(`work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}`),
-        client.from('attachments').select('id', { count: 'exact', head: true }).or(`work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ''}`)
+      const safeCount = async (table: string, filterExpr: string) => {
+        try {
+          const r = await client.from(table).select('id', { count: 'exact', head: true }).or(filterExpr);
+          return r.error ? 0 : Number(r.count || 0);
+        } catch {
+          return 0;
+        }
+      };
+      const safeQuotedWo = woNum ? `"${woNum.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : '';
+      const [ahCount, tmCount, trCount, attCount] = await Promise.all([
+        safeCount('assignment_history', `work_order_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ''}`),
+        safeCount('ticket_messages', `ticket_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ''}`),
+        safeCount('technical_reports', `work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}`),
+        safeCount('attachments', `work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ''}`)
       ]);
       const counts = {
-        assignment_history: Number(ah.count || 0),
-        ticket_messages: Number(tm.count || 0),
-        technical_reports: Number(tr.count || 0),
-        attachments: Number(att.count || 0),
+        assignment_history: ahCount,
+        ticket_messages: tmCount,
+        technical_reports: trCount,
+        attachments: attCount,
         wo_progress_report_history: 0,
         wo_distribution_logs: 0,
         wo_kendala_reports: 0,
@@ -770,8 +856,9 @@ export async function getCategoryCountsSummary(
             client.from(table).select('id', { count: 'exact', head: true }),
             client.from(table).select('id', { count: 'exact', head: true }).eq('is_deleted', true)
           ]);
+          if (totRes.error) return empty();
           const total = Number(totRes.count || 0);
-          const deleted = Number(delRes.count || 0);
+          const deleted = delRes.error ? 0 : Number(delRes.count || 0);
           return { active: Math.max(0, total - deleted), deleted, total };
         } catch {
           return empty();
@@ -797,7 +884,7 @@ export async function getCategoryCountsSummary(
         summary.ticket_messages = tm;
         summary.attachments = att;
         summary.import_history = ih;
-        const ijTotal = Number(ijRes.count || 0);
+        const ijTotal = ijRes.error ? 0 : Number(ijRes.count || 0);
         summary.import_staging = { active: ijTotal, deleted: 0, total: ijTotal };
         summary.other_data = {
           active: usr.active + con.active + area.active + tpl.active,
@@ -983,28 +1070,81 @@ export async function listDeletionItems(
 
   if (bridge.isSupabaseMode()) {
     const client = getSupabaseBackendClient();
+    if (!client) {
+      throw Object.assign(new Error('Koneksi database Supabase tidak tersedia.'), {
+        statusCode: 503,
+        code: 'DATABASE_UNAVAILABLE'
+      });
+    }
     if (client) {
       // Server-side PostgreSQL filtering, sorting (NULLS LAST), and pagination BEFORE slicing
       if (params.category === 'work_orders') {
+        const WO_COMPACT_COLS = [
+          'id',
+          'wo_number',
+          'work_order_number',
+          'id_customer',
+          'customer_id',
+          'customer_name',
+          'appointment_date',
+          'slot_time',
+          'contractor_id',
+          'contractor_name',
+          'contactor_name',
+          'area',
+          'installer_id',
+          'installer_name',
+          'status_wo_agent',
+          'status_wo_installer',
+          'is_archived',
+          'archived_at',
+          'archived_by',
+          'is_deleted',
+          'deleted_at',
+          'deleted_by',
+          'deletion_reason',
+          'import_batch_id',
+          'created_at',
+          'updated_at'
+        ];
+        const omittedCols = new Set<string>();
+
         const buildWoQuery = (targetPage: number) => {
-          let q = client.from('work_orders').select('*', { count: 'exact' });
-          if (deletionStatusFilter === 'active') q = q.eq('is_deleted', false);
-          else if (deletionStatusFilter === 'soft_deleted') q = q.eq('is_deleted', true);
+          const selectCols = WO_COMPACT_COLS.filter(c => !omittedCols.has(c)).join(', ');
+          let q = client.from('work_orders').select(selectCols || 'id, wo_number, customer_name, is_deleted', { count: 'exact' });
+          if (!omittedCols.has('is_deleted')) {
+            if (deletionStatusFilter === 'active') q = q.eq('is_deleted', false);
+            else if (deletionStatusFilter === 'soft_deleted') q = q.eq('is_deleted', true);
+          }
 
           if (woNumberQ) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(woNumberQ)}%`);
-            q = q.or(`wo_number.ilike.${pat},work_order_number.ilike.${pat}`);
+            if (!omittedCols.has('work_order_number')) {
+              q = q.or(`wo_number.ilike.${pat},work_order_number.ilike.${pat}`);
+            } else {
+              q = q.ilike('wo_number', `%${escapePostgrestIlike(woNumberQ)}%`);
+            }
           }
           if (customerIdQ) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(customerIdQ)}%`);
-            q = q.or(`customer_id.ilike.${pat},id_customer.ilike.${pat}`);
+            if (!omittedCols.has('id_customer')) {
+              q = q.or(`customer_id.ilike.${pat},id_customer.ilike.${pat}`);
+            } else {
+              q = q.ilike('customer_id', `%${escapePostgrestIlike(customerIdQ)}%`);
+            }
           }
           if (customerNameQ) {
             q = q.ilike('customer_name', `%${escapePostgrestIlike(customerNameQ)}%`);
           }
           if (contractorQ && contractorQ !== 'all') {
             const val = quotePostgrestFilterVal(escapePostgrestIlike(contractorQ));
-            q = q.or(`contactor_name.ilike.${val},contractor_name.ilike.${val}`);
+            if (!omittedCols.has('contractor_name') && !omittedCols.has('contactor_name')) {
+              q = q.or(`contactor_name.ilike.${val},contractor_name.ilike.${val}`);
+            } else if (!omittedCols.has('contactor_name')) {
+              q = q.ilike('contactor_name', escapePostgrestIlike(contractorQ));
+            } else if (!omittedCols.has('contractor_name')) {
+              q = q.ilike('contractor_name', escapePostgrestIlike(contractorQ));
+            }
           }
           if (areaQ && areaQ !== 'all') {
             q = q.ilike('area', escapePostgrestIlike(areaQ));
@@ -1031,18 +1171,20 @@ export async function listDeletionItems(
           }
           if (search) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
-            q = q.or(
-              `id.ilike.${pat},wo_number.ilike.${pat},customer_id.ilike.${pat},customer_name.ilike.${pat},contactor_name.ilike.${pat},area.ilike.${pat},installer_name.ilike.${pat}`
-            );
+            const ors = [`id.ilike.${pat}`, `wo_number.ilike.${pat}`, `customer_id.ilike.${pat}`, `customer_name.ilike.${pat}`, `area.ilike.${pat}`, `installer_name.ilike.${pat}`];
+            if (!omittedCols.has('contactor_name')) ors.push(`contactor_name.ilike.${pat}`);
+            if (!omittedCols.has('contractor_name')) ors.push(`contractor_name.ilike.${pat}`);
+            q = q.or(ors.join(','));
           }
 
-          if (sortBy === 'appointment_date') {
+          const tieOrderCol = !omittedCols.has('updated_at') ? 'updated_at' : 'created_at';
+          if (sortBy === 'appointment_date' && !omittedCols.has('appointment_date')) {
             q = q
               .order('appointment_date', { ascending: sortDir === 'asc', nullsFirst: false })
-              .order('updated_at', { ascending: false })
+              .order(tieOrderCol, { ascending: false })
               .order('id', { ascending: true });
           } else {
-            q = q.order('updated_at', { ascending: false }).order('id', { ascending: true });
+            q = q.order(tieOrderCol, { ascending: false }).order('id', { ascending: true });
           }
 
           const from = (targetPage - 1) * pageSize;
@@ -1050,15 +1192,43 @@ export async function listDeletionItems(
           return q.range(from, to);
         };
 
-        let { data, count, error } = await buildWoQuery(page);
-        if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
+        const runWoWithSchemaFallback = async (targetPage: number) => {
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const res = await buildWoQuery(targetPage);
+            if (!res.error) return res;
+            if (!isSchemaObjectMissing(res.error)) return res;
+            const missingCol = extractMissingColumn(res.error);
+            if (missingCol && !omittedCols.has(missingCol)) {
+              omittedCols.add(missingCol);
+              continue;
+            }
+            if (!omittedCols.has('deletion_reason')) {
+              omittedCols.add('deletion_reason');
+              omittedCols.add('work_order_number');
+              omittedCols.add('contractor_name');
+              continue;
+            }
+            return res;
+          }
+          return buildWoQuery(targetPage);
+        };
+
+        let { data, count, error } = await runWoWithSchemaFallback(page);
+        if (error) {
+          if (isTableMissingError(error)) {
+            return { items: [], total: 0, page: 1, pageSize, totalPages: 1 };
+          }
+          throw makeQueryError(error, 'Gagal mengambil data Work Order dari database.');
+        }
 
         const total = Number(count ?? (data ? data.length : 0));
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
         let safePage = Math.min(page, totalPages);
         if (safePage < page && total > 0) {
-          const retryRes = await buildWoQuery(safePage);
-          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          const retryRes = await runWoWithSchemaFallback(safePage);
+          if (retryRes.error) {
+            throw makeQueryError(retryRes.error, 'Gagal mengambil halaman Work Order dari database.');
+          }
           data = retryRes.data;
         } else if (total === 0) {
           safePage = 1;
@@ -1081,20 +1251,89 @@ export async function listDeletionItems(
       ) {
         const tableCfg: Record<
           string,
-          { table: string; dateCol: string; idCol: string; summaryCol: string; actorCol: string; hasIsDeleted: boolean; hasWo: boolean }
+          {
+            table: string;
+            dateCols: string[];
+            idCol: string;
+            summaryCols: string[];
+            actorCols: string[];
+            hasIsDeleted: boolean;
+            hasWo: boolean;
+          }
         > = {
-          assignment_history: { table: 'assignment_history', dateCol: 'assigned_at', idCol: 'id', summaryCol: 'installer_name', actorCol: 'assigned_by', hasIsDeleted: true, hasWo: true },
-          technical_reports: { table: 'technical_reports', dateCol: 'submitted_at', idCol: 'id', summaryCol: 'notes', actorCol: 'installer_name', hasIsDeleted: true, hasWo: true },
-          ticket_messages: { table: 'ticket_messages', dateCol: 'created_at', idCol: 'id', summaryCol: 'message', actorCol: 'sender_name', hasIsDeleted: true, hasWo: true },
-          attachments: { table: 'attachments', dateCol: 'uploaded_at', idCol: 'id', summaryCol: 'file_name', actorCol: 'sender_name', hasIsDeleted: true, hasWo: true },
-          import_history: { table: 'import_history', dateCol: 'created_at', idCol: 'id', summaryCol: 'source_file', actorCol: 'imported_by', hasIsDeleted: true, hasWo: false },
-          import_staging: { table: 'import_jobs', dateCol: 'created_at', idCol: 'id', summaryCol: 'source_file', actorCol: 'created_by', hasIsDeleted: false, hasWo: false }
+          assignment_history: {
+            table: 'assignment_history',
+            dateCols: ['assigned_at', 'created_at'],
+            idCol: 'id',
+            summaryCols: ['installer_name', 'assigned_installer'],
+            actorCols: ['assigned_by', 'performed_by'],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          technical_reports: {
+            table: 'technical_reports',
+            dateCols: ['submitted_at', 'created_at'],
+            idCol: 'id',
+            summaryCols: ['notes', 'technical_description', 'additional_notes'],
+            actorCols: ['installer_name', 'submitted_by'],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          ticket_messages: {
+            table: 'ticket_messages',
+            dateCols: ['created_at'],
+            idCol: 'id',
+            summaryCols: ['message', 'message_text'],
+            actorCols: ['sender_name'],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          attachments: {
+            table: 'attachments',
+            dateCols: ['uploaded_at', 'created_at'],
+            idCol: 'id',
+            summaryCols: ['file_name'],
+            actorCols: ['sender_name'],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          import_history: {
+            table: 'import_history',
+            dateCols: ['created_at'],
+            idCol: 'id',
+            summaryCols: ['source_file', 'import_name'],
+            actorCols: ['imported_by'],
+            hasIsDeleted: true,
+            hasWo: false
+          },
+          import_staging: {
+            table: 'import_jobs',
+            dateCols: ['created_at'],
+            idCol: 'id',
+            summaryCols: ['source_file', 'import_name'],
+            actorCols: ['created_by'],
+            hasIsDeleted: false,
+            hasWo: false
+          }
         };
         const cfg = tableCfg[params.category];
+        const missingCols = new Set<string>();
+        let skipIsDeletedFilter = !cfg.hasIsDeleted;
+
+        const pickCol = (candidates: string[], fallback?: string): string | null => {
+          for (const c of candidates) {
+            if (!missingCols.has(c)) return c;
+          }
+          return fallback && !missingCols.has(fallback) ? fallback : null;
+        };
 
         const buildCatQuery = (targetPage: number) => {
+          if (skipIsDeletedFilter && deletionStatusFilter === 'soft_deleted' && cfg.hasIsDeleted) {
+            // Table exists without Migration 022 is_deleted column yet -> no soft-deleted rows exist
+            return null;
+          }
           let q = client.from(cfg.table).select('*', { count: 'exact' });
-          if (cfg.hasIsDeleted) {
+          if (!skipIsDeletedFilter && cfg.hasIsDeleted) {
             if (deletionStatusFilter === 'active') q = q.eq('is_deleted', false);
             else if (deletionStatusFilter === 'soft_deleted') q = q.eq('is_deleted', true);
           }
@@ -1106,41 +1345,99 @@ export async function listDeletionItems(
             if (cfg.hasWo) q = q.ilike('wo_number', pat);
             else q = q.ilike('import_name', pat);
           }
-          if (summaryQ) {
-            q = q.ilike(cfg.summaryCol, `%${escapePostgrestIlike(summaryQ)}%`);
+          const summaryCol = pickCol(cfg.summaryCols);
+          if (summaryQ && summaryCol) {
+            q = q.ilike(summaryCol, `%${escapePostgrestIlike(summaryQ)}%`);
           }
-          if (actorQ) {
-            q = q.ilike(cfg.actorCol, `%${escapePostgrestIlike(actorQ)}%`);
+          const actorCol = pickCol(cfg.actorCols);
+          if (actorQ && actorCol) {
+            q = q.ilike(actorCol, `%${escapePostgrestIlike(actorQ)}%`);
           }
-          if (exactDateQ) {
-            q = q.gte(cfg.dateCol, `${exactDateQ}T00:00:00.000Z`).lte(cfg.dateCol, `${exactDateQ}T23:59:59.999Z`);
-          } else {
-            if (dateFromQ) q = q.gte(cfg.dateCol, `${dateFromQ}T00:00:00.000Z`);
-            if (dateToQ) q = q.lte(cfg.dateCol, `${dateToQ}T23:59:59.999Z`);
+          const dateCol = pickCol(cfg.dateCols);
+          if (dateCol) {
+            if (exactDateQ) {
+              q = q.gte(dateCol, `${exactDateQ}T00:00:00.000Z`).lte(dateCol, `${exactDateQ}T23:59:59.999Z`);
+            } else {
+              if (dateFromQ) q = q.gte(dateCol, `${dateFromQ}T00:00:00.000Z`);
+              if (dateToQ) q = q.lte(dateCol, `${dateToQ}T23:59:59.999Z`);
+            }
           }
           if (search) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
-            const ors = [`${cfg.idCol}.ilike.${pat}`, `${cfg.summaryCol}.ilike.${pat}`, `${cfg.actorCol}.ilike.${pat}`];
+            const ors = [`${cfg.idCol}.ilike.${pat}`];
+            if (summaryCol) ors.push(`${summaryCol}.ilike.${pat}`);
+            if (actorCol) ors.push(`${actorCol}.ilike.${pat}`);
             if (cfg.hasWo) ors.push(`wo_number.ilike.${pat}`);
             q = q.or(ors.join(','));
           }
 
-          q = q
-            .order(cfg.dateCol, { ascending: sortBy === 'created_at' ? sortDir === 'asc' : false, nullsFirst: false })
-            .order('id', { ascending: true });
+          if (dateCol) {
+            q = q.order(dateCol, { ascending: sortBy === 'created_at' ? sortDir === 'asc' : false, nullsFirst: false });
+          }
+          q = q.order('id', { ascending: true });
 
           const from = (targetPage - 1) * pageSize;
           return q.range(from, from + pageSize - 1);
         };
 
-        let { data, count, error } = await buildCatQuery(page);
-        if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
+        const runCatWithSchemaFallback = async (targetPage: number) => {
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const query = buildCatQuery(targetPage);
+            if (!query) {
+              return { data: [], count: 0, error: null };
+            }
+            const res = await query;
+            if (!res.error) return res;
+            if (isTableMissingError(res.error)) {
+              return { data: [], count: 0, error: null };
+            }
+            if (!isSchemaObjectMissing(res.error)) return res;
+            const missingCol = extractMissingColumn(res.error);
+            if (missingCol === 'is_deleted') {
+              skipIsDeletedFilter = true;
+              continue;
+            }
+            if (missingCol && !missingCols.has(missingCol)) {
+              missingCols.add(missingCol);
+              continue;
+            }
+            // Fallback: strip first optional col or is_deleted if column name wasn't parsed
+            if (!skipIsDeletedFilter) {
+              skipIsDeletedFilter = true;
+              continue;
+            }
+            const firstSummary = pickCol(cfg.summaryCols);
+            const firstActor = pickCol(cfg.actorCols);
+            const firstDate = pickCol(cfg.dateCols);
+            if (firstSummary && cfg.summaryCols.length > 1) {
+              missingCols.add(firstSummary);
+              continue;
+            }
+            if (firstActor && cfg.actorCols.length > 1) {
+              missingCols.add(firstActor);
+              continue;
+            }
+            if (firstDate && cfg.dateCols.length > 1) {
+              missingCols.add(firstDate);
+              continue;
+            }
+            return res;
+          }
+          return { data: [], count: 0, error: null };
+        };
+
+        let { data, count, error } = await runCatWithSchemaFallback(page);
+        if (error) {
+          throw makeQueryError(error, `Gagal mengambil data kategori ${params.category} dari database.`);
+        }
         const total = Number(count ?? (data ? data.length : 0));
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
         let safePage = Math.min(page, totalPages);
         if (safePage < page && total > 0) {
-          const retryRes = await buildCatQuery(safePage);
-          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          const retryRes = await runCatWithSchemaFallback(safePage);
+          if (retryRes.error) {
+            throw makeQueryError(retryRes.error, `Gagal mengambil halaman kategori ${params.category} dari database.`);
+          }
           data = retryRes.data;
         } else if (total === 0) {
           safePage = 1;
@@ -1153,8 +1450,8 @@ export async function listDeletionItems(
               category: 'assignment_history',
               woNumber: r.wo_number || '',
               workOrderId: r.work_order_id || '',
-              installerName: r.installer_name || '',
-              assignedBy: r.assigned_by || '',
+              installerName: r.installer_name || r.assigned_installer || '',
+              assignedBy: r.assigned_by || r.performed_by || '',
               contractor: r.contractor_name || '',
               area: r.area || '',
               reason: r.reason || '',
@@ -1173,9 +1470,9 @@ export async function listDeletionItems(
               category: 'technical_reports',
               woNumber: r.wo_number || '',
               workOrderId: r.work_order_id || r.ticket_id || '',
-              installerName: r.installer_name || '',
-              statusInstaller: r.status_installer || '',
-              notes: r.notes || '',
+              installerName: r.installer_name || r.submitted_by || '',
+              statusInstaller: r.status_installer || r.work_result || '',
+              notes: r.notes || r.technical_description || r.additional_notes || '',
               createdAt: r.submitted_at || r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
@@ -1193,7 +1490,7 @@ export async function listDeletionItems(
               ticketId: r.ticket_id || '',
               senderName: r.sender_name || '',
               senderRole: r.sender_role || '',
-              message: r.message || '',
+              message: r.message || r.message_text || '',
               createdAt: r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
@@ -1215,7 +1512,7 @@ export async function listDeletionItems(
               storageProvider: r.storage_provider || '',
               storagePath: r.storage_path || '',
               senderName: r.sender_name || '',
-              createdAt: r.uploaded_at,
+              createdAt: r.uploaded_at || r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
               deletedBy: r.deleted_by || null,
@@ -1275,8 +1572,20 @@ export async function listDeletionItems(
         const sub = params.subEntity || 'all';
         const items: any[] = [];
         if (sub === 'all' || sub === 'users') {
-          const { data } = await client.from('users').select('id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, deletion_reason, created_at').limit(1000);
-          for (const u of data || []) {
+          let uRes: { data: any[] | null; error: any } = await client
+            .from('users')
+            .select('id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, deletion_reason, created_at')
+            .limit(1000);
+          if (uRes.error && isSchemaObjectMissing(uRes.error)) {
+            uRes = await client
+              .from('users')
+              .select('id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, created_at')
+              .limit(1000);
+          }
+          if (uRes.error && isConnectivityUnavailable(uRes.error)) {
+            throw makeQueryError(uRes.error, 'Gagal mengambil data pengguna dari database.');
+          }
+          for (const u of uRes.data || []) {
             items.push({
               id: u.id,
               category: 'other_data',
@@ -1298,8 +1607,11 @@ export async function listDeletionItems(
           }
         }
         if (sub === 'all' || sub === 'contractors') {
-          const { data } = await client.from('contractors').select('*').limit(500);
-          for (const c of data || []) {
+          const cRes = await client.from('contractors').select('*').limit(500);
+          if (cRes.error && isConnectivityUnavailable(cRes.error)) {
+            throw makeQueryError(cRes.error, 'Gagal mengambil data kontraktor dari database.');
+          }
+          for (const c of cRes.data || []) {
             items.push({
               id: c.id,
               category: 'other_data',
@@ -1317,8 +1629,11 @@ export async function listDeletionItems(
           }
         }
         if (sub === 'all' || sub === 'coverage_areas') {
-          const { data } = await client.from('coverage_areas').select('*').limit(500);
-          for (const a of data || []) {
+          const aRes = await client.from('coverage_areas').select('*').limit(500);
+          if (aRes.error && isConnectivityUnavailable(aRes.error)) {
+            throw makeQueryError(aRes.error, 'Gagal mengambil data area dari database.');
+          }
+          for (const a of aRes.data || []) {
             items.push({
               id: a.id,
               category: 'other_data',
@@ -1336,8 +1651,11 @@ export async function listDeletionItems(
           }
         }
         if (sub === 'all' || sub === 'wa_templates') {
-          const { data } = await client.from('wa_templates').select('*').limit(500);
-          for (const t of data || []) {
+          const tRes = await client.from('wa_templates').select('*').limit(500);
+          if (tRes.error && isConnectivityUnavailable(tRes.error)) {
+            throw makeQueryError(tRes.error, 'Gagal mengambil template WhatsApp dari database.');
+          }
+          for (const t of tRes.data || []) {
             items.push({
               id: t.id,
               category: 'other_data',
@@ -2086,18 +2404,28 @@ async function executeSingleSoftDelete(
       if (deps.isProtected) return { success: false, code: 'PROTECTED_RECORD', error: 'Record WO produksi dilindungi.' };
       if (deps.activeImportLock) return { success: false, code: 'ACTIVE_IMPORT_IN_PROGRESS', error: 'WO terkait import aktif.' };
 
-      const { data: upData, error: upErr } = await client
+      let upPatch: Record<string, any> = {
+        is_deleted: true,
+        deleted_at: nowIso,
+        deleted_by: actor.name,
+        deletion_reason: cleanReason,
+        updated_at: nowIso,
+        updated_by: actor.name
+      };
+      let { data: upData, error: upErr } = await client
         .from('work_orders')
-        .update({
-          is_deleted: true,
-          deleted_at: nowIso,
-          deleted_by: actor.name,
-          deletion_reason: cleanReason,
-          updated_at: nowIso,
-          updated_by: actor.name
-        })
+        .update(upPatch)
         .eq('id', deps.id)
         .select('*');
+      if (upErr && isSchemaObjectMissing(upErr)) {
+        const missingCol = extractMissingColumn(upErr);
+        if (missingCol && missingCol in upPatch) {
+          delete upPatch[missingCol];
+          const retry = await client.from('work_orders').update(upPatch).eq('id', deps.id).select('*');
+          upData = retry.data;
+          upErr = retry.error;
+        }
+      }
 
       if (upErr || !upData?.length) {
         const errInfo = classifySupabaseError(upErr);
@@ -4001,7 +4329,16 @@ async function executeSingleRestore(
     }
     if (tbl === 'users') patch.active = true;
 
-    const { data, error } = await client.from(tbl).update(patch).eq('id', recordId).select('*');
+    let { data, error } = await client.from(tbl).update(patch).eq('id', recordId).select('*');
+    if (error && isSchemaObjectMissing(error)) {
+      const missingCol = extractMissingColumn(error);
+      if (missingCol && missingCol in patch) {
+        delete patch[missingCol];
+        const retry = await client.from(tbl).update(patch).eq('id', recordId).select('*');
+        data = retry.data;
+        error = retry.error;
+      }
+    }
     if (error || !data?.length) {
       const msg = error ? classifySupabaseError(error).message : `Record "${recordId}" tidak ditemukan di ${tbl}.`;
       return { success: false, code: 'RESTORE_FAILED', error: msg };

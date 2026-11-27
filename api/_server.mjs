@@ -2928,10 +2928,14 @@ async function getWorkOrderByIdOrWoNumberFromSupabase(identifier, options = {}) 
   const byId = await getWorkOrderByIdFromSupabase(clean);
   if (byId.success && byId.data) {
     if (!options.includeDeleted && byId.data.isDeleted) {
-      const byActiveWo = await getWorkOrderByWoNumberFromSupabase(clean, options);
-      if (byActiveWo.success && byActiveWo.data) {
-        return byActiveWo;
+      const woCandidate = byId.data.woNumber ? String(byId.data.woNumber).trim() : "";
+      if (woCandidate) {
+        const byActiveWo = await getWorkOrderByWoNumberFromSupabase(woCandidate, { includeDeleted: false });
+        if (byActiveWo.success && byActiveWo.data) {
+          return byActiveWo;
+        }
       }
+      return { success: true, data: null };
     }
     return byId;
   }
@@ -18678,6 +18682,46 @@ function isProtectedWorkOrder(record) {
   const wo = String(record.woNumber || record.wo_number || "").trim().toUpperCase();
   return PROTECTED_PRODUCTION_WO_IDS.has(id) || PROTECTED_WO_NUMBERS.has(wo);
 }
+function isSchemaObjectMissing(err) {
+  if (!err) return false;
+  const code = String(err.code || "").toUpperCase();
+  const msg = String(err.message || err.details || err.hint || "").toLowerCase();
+  return code === "42P01" || code === "42703" || code === "PGRST204" || code === "PGRST205" || msg.includes("does not exist") || msg.includes("could not find the") || msg.includes("schema cache");
+}
+function isTableMissingError2(err) {
+  if (!err) return false;
+  const code = String(err.code || "").toUpperCase();
+  const msg = String(err.message || err.details || "").toLowerCase();
+  return code === "42P01" || code === "PGRST205" || msg.includes("relation") && msg.includes("does not exist") || msg.includes("could not find the table");
+}
+function extractMissingColumn(err) {
+  const msg = String(err?.message || err?.details || "");
+  const pgMatch = msg.match(/column\s+(?:[a-z0-9_]+\.)?([a-z0-9_]+)\s+does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  const pgrstMatch = msg.match(/Could not find the ['"]([a-z0-9_]+)['"] column/i);
+  if (pgrstMatch?.[1]) return pgrstMatch[1];
+  return null;
+}
+function isConnectivityUnavailable(err) {
+  if (!err) return false;
+  const classified = classifySupabaseError(err);
+  if (classified.isUnavailable) return true;
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("econnrefused") || msg.includes("enotfound") || msg.includes("etimedout") || msg.includes("fetch failed") || msg.includes("networkerror");
+}
+function makeQueryError(err, fallbackMsg) {
+  const classified = classifySupabaseError(err);
+  if (isConnectivityUnavailable(err)) {
+    return Object.assign(new Error(classified.message || fallbackMsg), {
+      statusCode: 503,
+      code: "DATABASE_UNAVAILABLE"
+    });
+  }
+  return Object.assign(new Error(classified.message || fallbackMsg), {
+    statusCode: 400,
+    code: classified.code || "DELETION_QUERY_ERROR"
+  });
+}
 var inFlightDeletionLocks = /* @__PURE__ */ new Map();
 var LOCK_STALE_MS = 6e4;
 function acquireRecordLock(lockKey, transactionId, actorName) {
@@ -18723,6 +18767,7 @@ function ensureLocalCollections(db2) {
   if (!Array.isArray(db2.coverageAreas)) db2.coverageAreas = [];
   if (!Array.isArray(db2.templates)) db2.templates = [];
   if (!Array.isArray(db2.deletionLogs)) db2.deletionLogs = [];
+  if (!Array.isArray(db2.deletionOperations)) db2.deletionOperations = [];
   if (!db2.appSettings || typeof db2.appSettings !== "object") db2.appSettings = {};
 }
 function resolveSourceTable(category, subEntity) {
@@ -19011,7 +19056,12 @@ async function inspectWoDependencies(bridge, woId) {
         }
       } catch {
       }
-      const { data: woRow } = await client.from("work_orders").select("*").eq("id", cleanId).maybeSingle();
+      let { data: woRow, error: woLookupErr } = await client.from("work_orders").select("id, wo_number, customer_name, is_deleted, is_archived, import_batch_id").eq("id", cleanId).maybeSingle();
+      if (woLookupErr && isSchemaObjectMissing(woLookupErr)) {
+        const retry = await client.from("work_orders").select("id, wo_number, customer_name, is_deleted, is_archived").eq("id", cleanId).maybeSingle();
+        woRow = retry.data;
+        woLookupErr = retry.error;
+      }
       if (!woRow) {
         return {
           found: false,
@@ -19038,17 +19088,26 @@ async function inspectWoDependencies(bridge, woId) {
         };
       }
       const woNum = String(woRow.wo_number || "");
-      const [ah, tm, tr, att] = await Promise.all([
-        client.from("assignment_history").select("id", { count: "exact", head: true }).or(`work_order_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ""}`),
-        client.from("ticket_messages").select("id", { count: "exact", head: true }).or(`ticket_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ""}`),
-        client.from("technical_reports").select("id", { count: "exact", head: true }).or(`work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}`),
-        client.from("attachments").select("id", { count: "exact", head: true }).or(`work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}${woNum ? `,wo_number.ilike.${woNum}` : ""}`)
+      const safeCount = async (table, filterExpr) => {
+        try {
+          const r = await client.from(table).select("id", { count: "exact", head: true }).or(filterExpr);
+          return r.error ? 0 : Number(r.count || 0);
+        } catch {
+          return 0;
+        }
+      };
+      const safeQuotedWo = woNum ? `"${woNum.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : "";
+      const [ahCount, tmCount, trCount, attCount] = await Promise.all([
+        safeCount("assignment_history", `work_order_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ""}`),
+        safeCount("ticket_messages", `ticket_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ""}`),
+        safeCount("technical_reports", `work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}`),
+        safeCount("attachments", `work_order_id.eq.${woRow.id},ticket_id.eq.${woRow.id}${safeQuotedWo ? `,wo_number.ilike.${safeQuotedWo}` : ""}`)
       ]);
       const counts = {
-        assignment_history: Number(ah.count || 0),
-        ticket_messages: Number(tm.count || 0),
-        technical_reports: Number(tr.count || 0),
-        attachments: Number(att.count || 0),
+        assignment_history: ahCount,
+        ticket_messages: tmCount,
+        technical_reports: trCount,
+        attachments: attCount,
         wo_progress_report_history: 0,
         wo_distribution_logs: 0,
         wo_kendala_reports: 0,
@@ -19185,8 +19244,9 @@ async function getCategoryCountsSummary(bridge, actorRole) {
             client.from(table).select("id", { count: "exact", head: true }),
             client.from(table).select("id", { count: "exact", head: true }).eq("is_deleted", true)
           ]);
+          if (totRes.error) return empty();
           const total = Number(totRes.count || 0);
-          const deleted = Number(delRes.count || 0);
+          const deleted = delRes.error ? 0 : Number(delRes.count || 0);
           return { active: Math.max(0, total - deleted), deleted, total };
         } catch {
           return empty();
@@ -19211,7 +19271,7 @@ async function getCategoryCountsSummary(bridge, actorRole) {
         summary.ticket_messages = tm;
         summary.attachments = att;
         summary.import_history = ih;
-        const ijTotal = Number(ijRes.count || 0);
+        const ijTotal = ijRes.error ? 0 : Number(ijRes.count || 0);
         summary.import_staging = { active: ijTotal, deleted: 0, total: ijTotal };
         summary.other_data = {
           active: usr.active + con.active + area.active + tpl.active,
@@ -19346,26 +19406,78 @@ async function listDeletionItems(bridge, params) {
   let rows = [];
   if (bridge.isSupabaseMode()) {
     const client = getSupabaseBackendClient();
+    if (!client) {
+      throw Object.assign(new Error("Koneksi database Supabase tidak tersedia."), {
+        statusCode: 503,
+        code: "DATABASE_UNAVAILABLE"
+      });
+    }
     if (client) {
       if (params.category === "work_orders") {
+        const WO_COMPACT_COLS = [
+          "id",
+          "wo_number",
+          "work_order_number",
+          "id_customer",
+          "customer_id",
+          "customer_name",
+          "appointment_date",
+          "slot_time",
+          "contractor_id",
+          "contractor_name",
+          "contactor_name",
+          "area",
+          "installer_id",
+          "installer_name",
+          "status_wo_agent",
+          "status_wo_installer",
+          "is_archived",
+          "archived_at",
+          "archived_by",
+          "is_deleted",
+          "deleted_at",
+          "deleted_by",
+          "deletion_reason",
+          "import_batch_id",
+          "created_at",
+          "updated_at"
+        ];
+        const omittedCols = /* @__PURE__ */ new Set();
         const buildWoQuery = (targetPage) => {
-          let q = client.from("work_orders").select("*", { count: "exact" });
-          if (deletionStatusFilter === "active") q = q.eq("is_deleted", false);
-          else if (deletionStatusFilter === "soft_deleted") q = q.eq("is_deleted", true);
+          const selectCols = WO_COMPACT_COLS.filter((c) => !omittedCols.has(c)).join(", ");
+          let q = client.from("work_orders").select(selectCols || "id, wo_number, customer_name, is_deleted", { count: "exact" });
+          if (!omittedCols.has("is_deleted")) {
+            if (deletionStatusFilter === "active") q = q.eq("is_deleted", false);
+            else if (deletionStatusFilter === "soft_deleted") q = q.eq("is_deleted", true);
+          }
           if (woNumberQ) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(woNumberQ)}%`);
-            q = q.or(`wo_number.ilike.${pat},work_order_number.ilike.${pat}`);
+            if (!omittedCols.has("work_order_number")) {
+              q = q.or(`wo_number.ilike.${pat},work_order_number.ilike.${pat}`);
+            } else {
+              q = q.ilike("wo_number", `%${escapePostgrestIlike(woNumberQ)}%`);
+            }
           }
           if (customerIdQ) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(customerIdQ)}%`);
-            q = q.or(`customer_id.ilike.${pat},id_customer.ilike.${pat}`);
+            if (!omittedCols.has("id_customer")) {
+              q = q.or(`customer_id.ilike.${pat},id_customer.ilike.${pat}`);
+            } else {
+              q = q.ilike("customer_id", `%${escapePostgrestIlike(customerIdQ)}%`);
+            }
           }
           if (customerNameQ) {
             q = q.ilike("customer_name", `%${escapePostgrestIlike(customerNameQ)}%`);
           }
           if (contractorQ && contractorQ !== "all") {
             const val = quotePostgrestFilterVal(escapePostgrestIlike(contractorQ));
-            q = q.or(`contactor_name.ilike.${val},contractor_name.ilike.${val}`);
+            if (!omittedCols.has("contractor_name") && !omittedCols.has("contactor_name")) {
+              q = q.or(`contactor_name.ilike.${val},contractor_name.ilike.${val}`);
+            } else if (!omittedCols.has("contactor_name")) {
+              q = q.ilike("contactor_name", escapePostgrestIlike(contractorQ));
+            } else if (!omittedCols.has("contractor_name")) {
+              q = q.ilike("contractor_name", escapePostgrestIlike(contractorQ));
+            }
           }
           if (areaQ && areaQ !== "all") {
             q = q.ilike("area", escapePostgrestIlike(areaQ));
@@ -19392,27 +19504,56 @@ async function listDeletionItems(bridge, params) {
           }
           if (search) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
-            q = q.or(
-              `id.ilike.${pat},wo_number.ilike.${pat},customer_id.ilike.${pat},customer_name.ilike.${pat},contactor_name.ilike.${pat},area.ilike.${pat},installer_name.ilike.${pat}`
-            );
+            const ors = [`id.ilike.${pat}`, `wo_number.ilike.${pat}`, `customer_id.ilike.${pat}`, `customer_name.ilike.${pat}`, `area.ilike.${pat}`, `installer_name.ilike.${pat}`];
+            if (!omittedCols.has("contactor_name")) ors.push(`contactor_name.ilike.${pat}`);
+            if (!omittedCols.has("contractor_name")) ors.push(`contractor_name.ilike.${pat}`);
+            q = q.or(ors.join(","));
           }
-          if (sortBy === "appointment_date") {
-            q = q.order("appointment_date", { ascending: sortDir === "asc", nullsFirst: false }).order("updated_at", { ascending: false }).order("id", { ascending: true });
+          const tieOrderCol = !omittedCols.has("updated_at") ? "updated_at" : "created_at";
+          if (sortBy === "appointment_date" && !omittedCols.has("appointment_date")) {
+            q = q.order("appointment_date", { ascending: sortDir === "asc", nullsFirst: false }).order(tieOrderCol, { ascending: false }).order("id", { ascending: true });
           } else {
-            q = q.order("updated_at", { ascending: false }).order("id", { ascending: true });
+            q = q.order(tieOrderCol, { ascending: false }).order("id", { ascending: true });
           }
           const from = (targetPage - 1) * pageSize;
           const to = from + pageSize - 1;
           return q.range(from, to);
         };
-        let { data, count, error } = await buildWoQuery(page);
-        if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
+        const runWoWithSchemaFallback = async (targetPage) => {
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const res = await buildWoQuery(targetPage);
+            if (!res.error) return res;
+            if (!isSchemaObjectMissing(res.error)) return res;
+            const missingCol = extractMissingColumn(res.error);
+            if (missingCol && !omittedCols.has(missingCol)) {
+              omittedCols.add(missingCol);
+              continue;
+            }
+            if (!omittedCols.has("deletion_reason")) {
+              omittedCols.add("deletion_reason");
+              omittedCols.add("work_order_number");
+              omittedCols.add("contractor_name");
+              continue;
+            }
+            return res;
+          }
+          return buildWoQuery(targetPage);
+        };
+        let { data, count, error } = await runWoWithSchemaFallback(page);
+        if (error) {
+          if (isTableMissingError2(error)) {
+            return { items: [], total: 0, page: 1, pageSize, totalPages: 1 };
+          }
+          throw makeQueryError(error, "Gagal mengambil data Work Order dari database.");
+        }
         const total2 = Number(count ?? (data ? data.length : 0));
         const totalPages2 = Math.max(1, Math.ceil(total2 / pageSize));
         let safePage2 = Math.min(page, totalPages2);
         if (safePage2 < page && total2 > 0) {
-          const retryRes = await buildWoQuery(safePage2);
-          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          const retryRes = await runWoWithSchemaFallback(safePage2);
+          if (retryRes.error) {
+            throw makeQueryError(retryRes.error, "Gagal mengambil halaman Work Order dari database.");
+          }
           data = retryRes.data;
         } else if (total2 === 0) {
           safePage2 = 1;
@@ -19426,17 +19567,76 @@ async function listDeletionItems(bridge, params) {
         };
       } else if (params.category === "assignment_history" || params.category === "technical_reports" || params.category === "ticket_messages" || params.category === "attachments" || params.category === "import_history" || params.category === "import_staging") {
         const tableCfg = {
-          assignment_history: { table: "assignment_history", dateCol: "assigned_at", idCol: "id", summaryCol: "installer_name", actorCol: "assigned_by", hasIsDeleted: true, hasWo: true },
-          technical_reports: { table: "technical_reports", dateCol: "submitted_at", idCol: "id", summaryCol: "notes", actorCol: "installer_name", hasIsDeleted: true, hasWo: true },
-          ticket_messages: { table: "ticket_messages", dateCol: "created_at", idCol: "id", summaryCol: "message", actorCol: "sender_name", hasIsDeleted: true, hasWo: true },
-          attachments: { table: "attachments", dateCol: "uploaded_at", idCol: "id", summaryCol: "file_name", actorCol: "sender_name", hasIsDeleted: true, hasWo: true },
-          import_history: { table: "import_history", dateCol: "created_at", idCol: "id", summaryCol: "source_file", actorCol: "imported_by", hasIsDeleted: true, hasWo: false },
-          import_staging: { table: "import_jobs", dateCol: "created_at", idCol: "id", summaryCol: "source_file", actorCol: "created_by", hasIsDeleted: false, hasWo: false }
+          assignment_history: {
+            table: "assignment_history",
+            dateCols: ["assigned_at", "created_at"],
+            idCol: "id",
+            summaryCols: ["installer_name", "assigned_installer"],
+            actorCols: ["assigned_by", "performed_by"],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          technical_reports: {
+            table: "technical_reports",
+            dateCols: ["submitted_at", "created_at"],
+            idCol: "id",
+            summaryCols: ["notes", "technical_description", "additional_notes"],
+            actorCols: ["installer_name", "submitted_by"],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          ticket_messages: {
+            table: "ticket_messages",
+            dateCols: ["created_at"],
+            idCol: "id",
+            summaryCols: ["message", "message_text"],
+            actorCols: ["sender_name"],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          attachments: {
+            table: "attachments",
+            dateCols: ["uploaded_at", "created_at"],
+            idCol: "id",
+            summaryCols: ["file_name"],
+            actorCols: ["sender_name"],
+            hasIsDeleted: true,
+            hasWo: true
+          },
+          import_history: {
+            table: "import_history",
+            dateCols: ["created_at"],
+            idCol: "id",
+            summaryCols: ["source_file", "import_name"],
+            actorCols: ["imported_by"],
+            hasIsDeleted: true,
+            hasWo: false
+          },
+          import_staging: {
+            table: "import_jobs",
+            dateCols: ["created_at"],
+            idCol: "id",
+            summaryCols: ["source_file", "import_name"],
+            actorCols: ["created_by"],
+            hasIsDeleted: false,
+            hasWo: false
+          }
         };
         const cfg = tableCfg[params.category];
+        const missingCols = /* @__PURE__ */ new Set();
+        let skipIsDeletedFilter = !cfg.hasIsDeleted;
+        const pickCol = (candidates, fallback) => {
+          for (const c of candidates) {
+            if (!missingCols.has(c)) return c;
+          }
+          return fallback && !missingCols.has(fallback) ? fallback : null;
+        };
         const buildCatQuery = (targetPage) => {
+          if (skipIsDeletedFilter && deletionStatusFilter === "soft_deleted" && cfg.hasIsDeleted) {
+            return null;
+          }
           let q = client.from(cfg.table).select("*", { count: "exact" });
-          if (cfg.hasIsDeleted) {
+          if (!skipIsDeletedFilter && cfg.hasIsDeleted) {
             if (deletionStatusFilter === "active") q = q.eq("is_deleted", false);
             else if (deletionStatusFilter === "soft_deleted") q = q.eq("is_deleted", true);
           }
@@ -19448,36 +19648,94 @@ async function listDeletionItems(bridge, params) {
             if (cfg.hasWo) q = q.ilike("wo_number", pat);
             else q = q.ilike("import_name", pat);
           }
-          if (summaryQ) {
-            q = q.ilike(cfg.summaryCol, `%${escapePostgrestIlike(summaryQ)}%`);
+          const summaryCol = pickCol(cfg.summaryCols);
+          if (summaryQ && summaryCol) {
+            q = q.ilike(summaryCol, `%${escapePostgrestIlike(summaryQ)}%`);
           }
-          if (actorQ) {
-            q = q.ilike(cfg.actorCol, `%${escapePostgrestIlike(actorQ)}%`);
+          const actorCol = pickCol(cfg.actorCols);
+          if (actorQ && actorCol) {
+            q = q.ilike(actorCol, `%${escapePostgrestIlike(actorQ)}%`);
           }
-          if (exactDateQ) {
-            q = q.gte(cfg.dateCol, `${exactDateQ}T00:00:00.000Z`).lte(cfg.dateCol, `${exactDateQ}T23:59:59.999Z`);
-          } else {
-            if (dateFromQ) q = q.gte(cfg.dateCol, `${dateFromQ}T00:00:00.000Z`);
-            if (dateToQ) q = q.lte(cfg.dateCol, `${dateToQ}T23:59:59.999Z`);
+          const dateCol = pickCol(cfg.dateCols);
+          if (dateCol) {
+            if (exactDateQ) {
+              q = q.gte(dateCol, `${exactDateQ}T00:00:00.000Z`).lte(dateCol, `${exactDateQ}T23:59:59.999Z`);
+            } else {
+              if (dateFromQ) q = q.gte(dateCol, `${dateFromQ}T00:00:00.000Z`);
+              if (dateToQ) q = q.lte(dateCol, `${dateToQ}T23:59:59.999Z`);
+            }
           }
           if (search) {
             const pat = quotePostgrestFilterVal(`%${escapePostgrestIlike(search)}%`);
-            const ors = [`${cfg.idCol}.ilike.${pat}`, `${cfg.summaryCol}.ilike.${pat}`, `${cfg.actorCol}.ilike.${pat}`];
+            const ors = [`${cfg.idCol}.ilike.${pat}`];
+            if (summaryCol) ors.push(`${summaryCol}.ilike.${pat}`);
+            if (actorCol) ors.push(`${actorCol}.ilike.${pat}`);
             if (cfg.hasWo) ors.push(`wo_number.ilike.${pat}`);
             q = q.or(ors.join(","));
           }
-          q = q.order(cfg.dateCol, { ascending: sortBy === "created_at" ? sortDir === "asc" : false, nullsFirst: false }).order("id", { ascending: true });
+          if (dateCol) {
+            q = q.order(dateCol, { ascending: sortBy === "created_at" ? sortDir === "asc" : false, nullsFirst: false });
+          }
+          q = q.order("id", { ascending: true });
           const from = (targetPage - 1) * pageSize;
           return q.range(from, from + pageSize - 1);
         };
-        let { data, count, error } = await buildCatQuery(page);
-        if (error) throw Object.assign(new Error(error.message), { statusCode: 503 });
+        const runCatWithSchemaFallback = async (targetPage) => {
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const query = buildCatQuery(targetPage);
+            if (!query) {
+              return { data: [], count: 0, error: null };
+            }
+            const res = await query;
+            if (!res.error) return res;
+            if (isTableMissingError2(res.error)) {
+              return { data: [], count: 0, error: null };
+            }
+            if (!isSchemaObjectMissing(res.error)) return res;
+            const missingCol = extractMissingColumn(res.error);
+            if (missingCol === "is_deleted") {
+              skipIsDeletedFilter = true;
+              continue;
+            }
+            if (missingCol && !missingCols.has(missingCol)) {
+              missingCols.add(missingCol);
+              continue;
+            }
+            if (!skipIsDeletedFilter) {
+              skipIsDeletedFilter = true;
+              continue;
+            }
+            const firstSummary = pickCol(cfg.summaryCols);
+            const firstActor = pickCol(cfg.actorCols);
+            const firstDate = pickCol(cfg.dateCols);
+            if (firstSummary && cfg.summaryCols.length > 1) {
+              missingCols.add(firstSummary);
+              continue;
+            }
+            if (firstActor && cfg.actorCols.length > 1) {
+              missingCols.add(firstActor);
+              continue;
+            }
+            if (firstDate && cfg.dateCols.length > 1) {
+              missingCols.add(firstDate);
+              continue;
+            }
+            return res;
+          }
+          return { data: [], count: 0, error: null };
+        };
+        let { data, count, error } = await runCatWithSchemaFallback(page);
+        if (error) {
+          throw makeQueryError(error, `Gagal mengambil data kategori ${params.category} dari database.`);
+        }
         const total2 = Number(count ?? (data ? data.length : 0));
         const totalPages2 = Math.max(1, Math.ceil(total2 / pageSize));
         let safePage2 = Math.min(page, totalPages2);
         if (safePage2 < page && total2 > 0) {
-          const retryRes = await buildCatQuery(safePage2);
-          if (retryRes.error) throw Object.assign(new Error(retryRes.error.message), { statusCode: 503 });
+          const retryRes = await runCatWithSchemaFallback(safePage2);
+          if (retryRes.error) {
+            throw makeQueryError(retryRes.error, `Gagal mengambil halaman kategori ${params.category} dari database.`);
+          }
           data = retryRes.data;
         } else if (total2 === 0) {
           safePage2 = 1;
@@ -19489,8 +19747,8 @@ async function listDeletionItems(bridge, params) {
               category: "assignment_history",
               woNumber: r.wo_number || "",
               workOrderId: r.work_order_id || "",
-              installerName: r.installer_name || "",
-              assignedBy: r.assigned_by || "",
+              installerName: r.installer_name || r.assigned_installer || "",
+              assignedBy: r.assigned_by || r.performed_by || "",
               contractor: r.contractor_name || "",
               area: r.area || "",
               reason: r.reason || "",
@@ -19509,9 +19767,9 @@ async function listDeletionItems(bridge, params) {
               category: "technical_reports",
               woNumber: r.wo_number || "",
               workOrderId: r.work_order_id || r.ticket_id || "",
-              installerName: r.installer_name || "",
-              statusInstaller: r.status_installer || "",
-              notes: r.notes || "",
+              installerName: r.installer_name || r.submitted_by || "",
+              statusInstaller: r.status_installer || r.work_result || "",
+              notes: r.notes || r.technical_description || r.additional_notes || "",
               createdAt: r.submitted_at || r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
@@ -19529,7 +19787,7 @@ async function listDeletionItems(bridge, params) {
               ticketId: r.ticket_id || "",
               senderName: r.sender_name || "",
               senderRole: r.sender_role || "",
-              message: r.message || "",
+              message: r.message || r.message_text || "",
               createdAt: r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
@@ -19551,7 +19809,7 @@ async function listDeletionItems(bridge, params) {
               storageProvider: r.storage_provider || "",
               storagePath: r.storage_path || "",
               senderName: r.sender_name || "",
-              createdAt: r.uploaded_at,
+              createdAt: r.uploaded_at || r.created_at,
               isDeleted: Boolean(r.is_deleted),
               deletedAt: r.deleted_at || null,
               deletedBy: r.deleted_by || null,
@@ -19610,8 +19868,14 @@ async function listDeletionItems(bridge, params) {
         const sub = params.subEntity || "all";
         const items2 = [];
         if (sub === "all" || sub === "users") {
-          const { data } = await client.from("users").select("id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, deletion_reason, created_at").limit(1e3);
-          for (const u of data || []) {
+          let uRes = await client.from("users").select("id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, deletion_reason, created_at").limit(1e3);
+          if (uRes.error && isSchemaObjectMissing(uRes.error)) {
+            uRes = await client.from("users").select("id, name, username, email, role, contractor_name, area, active, is_deleted, deleted_at, deleted_by, created_at").limit(1e3);
+          }
+          if (uRes.error && isConnectivityUnavailable(uRes.error)) {
+            throw makeQueryError(uRes.error, "Gagal mengambil data pengguna dari database.");
+          }
+          for (const u of uRes.data || []) {
             items2.push({
               id: u.id,
               category: "other_data",
@@ -19633,8 +19897,11 @@ async function listDeletionItems(bridge, params) {
           }
         }
         if (sub === "all" || sub === "contractors") {
-          const { data } = await client.from("contractors").select("*").limit(500);
-          for (const c of data || []) {
+          const cRes = await client.from("contractors").select("*").limit(500);
+          if (cRes.error && isConnectivityUnavailable(cRes.error)) {
+            throw makeQueryError(cRes.error, "Gagal mengambil data kontraktor dari database.");
+          }
+          for (const c of cRes.data || []) {
             items2.push({
               id: c.id,
               category: "other_data",
@@ -19652,8 +19919,11 @@ async function listDeletionItems(bridge, params) {
           }
         }
         if (sub === "all" || sub === "coverage_areas") {
-          const { data } = await client.from("coverage_areas").select("*").limit(500);
-          for (const a of data || []) {
+          const aRes = await client.from("coverage_areas").select("*").limit(500);
+          if (aRes.error && isConnectivityUnavailable(aRes.error)) {
+            throw makeQueryError(aRes.error, "Gagal mengambil data area dari database.");
+          }
+          for (const a of aRes.data || []) {
             items2.push({
               id: a.id,
               category: "other_data",
@@ -19671,8 +19941,11 @@ async function listDeletionItems(bridge, params) {
           }
         }
         if (sub === "all" || sub === "wa_templates") {
-          const { data } = await client.from("wa_templates").select("*").limit(500);
-          for (const t of data || []) {
+          const tRes = await client.from("wa_templates").select("*").limit(500);
+          if (tRes.error && isConnectivityUnavailable(tRes.error)) {
+            throw makeQueryError(tRes.error, "Gagal mengambil template WhatsApp dari database.");
+          }
+          for (const t of tRes.data || []) {
             items2.push({
               id: t.id,
               category: "other_data",
@@ -20101,7 +20374,13 @@ async function getDeletionFacets(bridge, actorRole, category) {
 }
 async function inspectWoDependenciesBatch(bridge, woIds) {
   const uniqueIds = Array.from(new Set(woIds.map((x) => String(x || "").trim()).filter(Boolean))).slice(0, 100);
-  const items = await Promise.all(uniqueIds.map((id) => inspectWoDependencies(bridge, id)));
+  const items = [];
+  const CONCURRENCY = 5;
+  for (let i = 0; i < uniqueIds.length; i += CONCURRENCY) {
+    const chunk = uniqueIds.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.all(chunk.map((id) => inspectWoDependencies(bridge, id)));
+    items.push(...chunkResults);
+  }
   const blockedCount = items.filter((d) => !d.found || !d.canPermanentDelete).length;
   const eligibleCount = items.filter((d) => d.found && d.canPermanentDelete).length;
   return { items, blockedCount, eligibleCount };
@@ -20320,14 +20599,24 @@ async function executeSingleSoftDelete(bridge, actor, target, cleanReason, txId)
       if (!deps.found) return { success: false, code: "NOT_FOUND", error: "Work Order tidak ditemukan." };
       if (deps.isProtected) return { success: false, code: "PROTECTED_RECORD", error: "Record WO produksi dilindungi." };
       if (deps.activeImportLock) return { success: false, code: "ACTIVE_IMPORT_IN_PROGRESS", error: "WO terkait import aktif." };
-      const { data: upData, error: upErr } = await client.from("work_orders").update({
+      let upPatch = {
         is_deleted: true,
         deleted_at: nowIso,
         deleted_by: actor.name,
         deletion_reason: cleanReason,
         updated_at: nowIso,
         updated_by: actor.name
-      }).eq("id", deps.id).select("*");
+      };
+      let { data: upData, error: upErr } = await client.from("work_orders").update(upPatch).eq("id", deps.id).select("*");
+      if (upErr && isSchemaObjectMissing(upErr)) {
+        const missingCol = extractMissingColumn(upErr);
+        if (missingCol && missingCol in upPatch) {
+          delete upPatch[missingCol];
+          const retry = await client.from("work_orders").update(upPatch).eq("id", deps.id).select("*");
+          upData = retry.data;
+          upErr = retry.error;
+        }
+      }
       if (upErr || !upData?.length) {
         const errInfo = classifySupabaseError(upErr);
         await recordDeletionLog(bridge, {
@@ -20704,7 +20993,13 @@ async function executeSingleSoftDelete(bridge, actor, target, cleanReason, txId)
     return { success: false, code: "TRANSACTION_ROLLED_BACK", error: errMsg };
   }
 }
-async function executePermanentDelete(bridge, actor, target, confirmText, reason) {
+function isRpcMissingError(rpcErr) {
+  if (!rpcErr) return false;
+  const code = String(rpcErr.code || "").toUpperCase();
+  const msg = String(rpcErr.message || "").toLowerCase();
+  return code === "PGRST202" || code === "42883" || msg.includes("could not find the function") || msg.includes("function") && msg.includes("does not exist");
+}
+async function executePermanentDelete(bridge, actor, target, confirmText, reason, options) {
   const txId = makeTxId("tx_pd");
   const sourceTable = resolveSourceTable(target.category, target.subEntity);
   if (actor.role !== "super_admin") {
@@ -20720,7 +21015,8 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
       reason: String(reason || ""),
       relatedCounts: {},
       status: "rejected",
-      errorMessage: "FORBIDDEN_ROLE: Permanent delete hanya untuk Superadmin."
+      errorMessage: "FORBIDDEN_ROLE: Permanent delete hanya untuk Superadmin.",
+      metadata: options?.operationId ? { operationId: options.operationId } : {}
     });
     return {
       success: false,
@@ -20775,6 +21071,26 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
           bridge.broadcastSupabaseChange("work_orders", "DELETE", { id: target.recordId, permanent: true });
           return { success: true, transactionId: txId, data: d, relatedCounts: d.relatedCounts };
         }
+        if (rpcRes.error && !isRpcMissingError(rpcRes.error)) {
+          const classified = classifySupabaseError(rpcRes.error);
+          await recordDeletionLog(bridge, {
+            transactionId: txId,
+            deletionType: "permanent_delete",
+            category: "work_orders",
+            sourceTable: "work_orders",
+            recordId: target.recordId,
+            woNumber: options?.knownWoNumber || target.woNumber || null,
+            actorUserId: actor.id,
+            actorName: actor.name,
+            actorRole: actor.role,
+            reason: cleanReason,
+            relatedCounts: {},
+            status: "failed",
+            errorMessage: classified.message,
+            metadata: options?.operationId ? { operationId: options.operationId } : {}
+          });
+          return { success: false, transactionId: txId, code: classified.code, error: classified.message };
+        }
         const deps2 = await inspectWoDependencies(bridge, target.recordId);
         if (!deps2.found) return { success: false, transactionId: txId, code: "NOT_FOUND", error: "Work Order tidak ditemukan." };
         if (canonicalWoKey(confirmText) !== canonicalWoKey(deps2.woNumber)) {
@@ -20797,7 +21113,8 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
             reason: cleanReason,
             relatedCounts: deps2.counts,
             status: "rejected",
-            errorMessage: blockMsg
+            errorMessage: blockMsg,
+            metadata: options?.operationId ? { operationId: options.operationId } : {}
           });
           return { success: false, transactionId: txId, code: "HAS_BLOCKING_RELATIONS", error: blockMsg, relatedCounts: deps2.counts };
         }
@@ -20817,7 +21134,8 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
             reason: cleanReason,
             relatedCounts: deps2.counts,
             status: "failed",
-            errorMessage: classified.message
+            errorMessage: classified.message,
+            metadata: options?.operationId ? { operationId: options.operationId } : {}
           });
           return { success: false, transactionId: txId, code: classified.code, error: classified.message };
         }
@@ -20833,9 +21151,13 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
           actorRole: actor.role,
           reason: cleanReason,
           relatedCounts: deps2.counts,
-          status: "success"
+          status: "success",
+          metadata: options?.operationId ? { operationId: options.operationId } : {}
         });
-        await bridge.logServerAuditAsync("WO Permanently Deleted (Centralized)", "work_order", deps2.id, `WO ${deps2.woNumber} dihapus permanen oleh Superadmin ${actor.name}. Alasan: ${cleanReason}`, actor);
+        if (!options?.skipAuditLog) {
+          await bridge.logServerAuditAsync("WO Permanently Deleted (Centralized)", "work_order", deps2.id, `WO ${deps2.woNumber} dihapus permanen oleh Superadmin ${actor.name}. Alasan: ${cleanReason}`, actor, { transactionId: txId, operationId: options?.operationId });
+        }
+        bridge.broadcastSupabaseChange("work_orders", "DELETE", { id: deps2.id, permanent: true });
         return { success: true, transactionId: txId, data: { deletedId: deps2.id, woNumber: deps2.woNumber }, relatedCounts: deps2.counts };
       }
       ensureLocalCollections(bridge.db);
@@ -21194,12 +21516,218 @@ async function executePermanentDelete(bridge, actor, target, confirmText, reason
     releaseRecordLock(lockKey, txId);
   }
 }
-async function executePermanentDeleteBatch(bridge, actor, targets, confirmText, reason) {
-  const batchTxId = makeTxId("tx_pdb");
+var DELETION_OP_PREFIX = "deletion_op:";
+var OPERATION_STEP_MUTEX = /* @__PURE__ */ new Map();
+var OPERATION_HOT_CACHE = /* @__PURE__ */ new Map();
+var OPERATION_STEP_TIMEOUT_MS = 6e4;
+var DEFAULT_PERMANENT_DELETE_CHUNK_SIZE = 5;
+function makeOperationId(clientProvided) {
+  const clean = String(clientProvided || "").trim();
+  if (/^[A-Za-z0-9_-]{8,80}$/.test(clean)) {
+    return clean;
+  }
+  return `op_pd_${Date.now()}_${crypto11.randomBytes(6).toString("hex")}`;
+}
+function buildOperationFingerprint(actorId, targets, reason, confirmText) {
+  const canonicalTargets = targets.map((t) => `${t.category}:${t.subEntity || "main"}:${t.recordId}`).sort().join("|");
+  return crypto11.createHash("sha256").update(`${actorId}::${canonicalTargets}::${reason}::${confirmText.trim().toUpperCase()}`).digest("hex").slice(0, 32);
+}
+function acquireOperationStepMutex(operationId, actorId) {
+  const cur = OPERATION_STEP_MUTEX.get(operationId);
+  if (cur && Date.now() - cur.startedAt < OPERATION_STEP_TIMEOUT_MS) {
+    return false;
+  }
+  OPERATION_STEP_MUTEX.set(operationId, { startedAt: Date.now(), actorId });
+  return true;
+}
+function releaseOperationStepMutex(operationId) {
+  OPERATION_STEP_MUTEX.delete(operationId);
+}
+function recomputeOperationCounters(op) {
+  let processed = 0;
+  let succeeded = 0;
+  let alreadyDeleted = 0;
+  let blocked = 0;
+  let failed = 0;
+  let firstPending = -1;
+  op.results.forEach((r, idx) => {
+    if (r.status === "pending") {
+      if (firstPending === -1) firstPending = idx;
+      return;
+    }
+    processed++;
+    if (r.status === "deleted") succeeded++;
+    else if (r.status === "already_deleted") alreadyDeleted++;
+    else if (r.status === "blocked_fk" || r.status === "protected") blocked++;
+    else failed++;
+  });
+  op.processedCount = processed;
+  op.succeededCount = succeeded;
+  op.alreadyDeletedCount = alreadyDeleted;
+  op.blockedCount = blocked;
+  op.failedCount = failed;
+  op.nextIndex = firstPending === -1 ? op.totalCount : firstPending;
+  if (firstPending === -1) {
+    const anyProblem = blocked > 0 || failed > 0;
+    const anySuccess = succeeded > 0 || alreadyDeleted > 0;
+    if (!anyProblem) {
+      op.status = "completed";
+      op.stageLabel = "Berhasil";
+    } else if (anySuccess) {
+      op.status = "partial";
+      op.stageLabel = "Sebagian berhasil";
+    } else {
+      op.status = "failed";
+      op.stageLabel = "Gagal";
+    }
+    op.completedAt = op.completedAt || (/* @__PURE__ */ new Date()).toISOString();
+  }
+  op.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  return op;
+}
+async function savePermanentDeleteOperation(bridge, op) {
+  OPERATION_HOT_CACHE.set(op.operationId, JSON.parse(JSON.stringify(op)));
+  if (bridge.isLocalJsonModeAllowed()) {
+    ensureLocalCollections(bridge.db);
+    const list = bridge.db.deletionOperations;
+    const idx = list.findIndex((x) => x.operationId === op.operationId);
+    const copy = JSON.parse(JSON.stringify(op));
+    if (idx >= 0) list[idx] = copy;
+    else {
+      list.unshift(copy);
+      if (list.length > 100) list.length = 100;
+    }
+    bridge.saveDatabaseToDisk();
+  }
+  if (bridge.isSupabaseMode()) {
+    const client = getSupabaseBackendClient();
+    if (client) {
+      try {
+        await client.from("app_settings").upsert(
+          {
+            setting_key: `${DELETION_OP_PREFIX}${op.operationId}`,
+            setting_value: sanitizeDeletionPayload(op),
+            description: `Permanent Delete Operation (${op.totalCount} records) by ${op.actorName}`,
+            updated_by: op.actorName,
+            updated_at: op.updatedAt
+          },
+          { onConflict: "setting_key" }
+        );
+      } catch {
+      }
+    }
+  }
+}
+async function loadPermanentDeleteOperation(bridge, operationId) {
+  const cleanId = String(operationId || "").trim();
+  if (!cleanId) return null;
+  if (bridge.isSupabaseMode()) {
+    const client = getSupabaseBackendClient();
+    if (client) {
+      try {
+        const { data } = await client.from("app_settings").select("setting_value").eq("setting_key", `${DELETION_OP_PREFIX}${cleanId}`).maybeSingle();
+        if (data?.setting_value && typeof data.setting_value === "object") {
+          const loaded = data.setting_value;
+          OPERATION_HOT_CACHE.set(cleanId, loaded);
+          return JSON.parse(JSON.stringify(loaded));
+        }
+      } catch {
+      }
+    }
+  }
+  if (bridge.isLocalJsonModeAllowed()) {
+    ensureLocalCollections(bridge.db);
+    const found = (bridge.db.deletionOperations || []).find(
+      (x) => x.operationId === cleanId
+    );
+    if (found) return JSON.parse(JSON.stringify(found));
+  }
+  const cached = OPERATION_HOT_CACHE.get(cleanId);
+  return cached ? JSON.parse(JSON.stringify(cached)) : null;
+}
+async function findInFlightOperationByFingerprint(bridge, fingerprint) {
+  const now = Date.now();
+  const MAX_ACTIVE_AGE_MS = 10 * 6e4;
+  for (const op of OPERATION_HOT_CACHE.values()) {
+    if (op.fingerprint === fingerprint && (op.status === "preparing" || op.status === "verifying" || op.status === "processing") && now - (Date.parse(op.updatedAt) || 0) < MAX_ACTIVE_AGE_MS) {
+      return JSON.parse(JSON.stringify(op));
+    }
+  }
+  if (bridge.isSupabaseMode()) {
+    const client = getSupabaseBackendClient();
+    if (client) {
+      try {
+        const { data } = await client.from("app_settings").select("setting_value").like("setting_key", `${DELETION_OP_PREFIX}%`).order("updated_at", { ascending: false }).limit(20);
+        for (const row of data || []) {
+          const op = row?.setting_value;
+          if (op && op.fingerprint === fingerprint && (op.status === "preparing" || op.status === "verifying" || op.status === "processing") && now - (Date.parse(op.updatedAt) || 0) < MAX_ACTIVE_AGE_MS) {
+            return op;
+          }
+        }
+      } catch {
+      }
+    }
+  }
+  if (bridge.isLocalJsonModeAllowed()) {
+    ensureLocalCollections(bridge.db);
+    const found = (bridge.db.deletionOperations || []).find(
+      (op) => op.fingerprint === fingerprint && (op.status === "preparing" || op.status === "verifying" || op.status === "processing") && now - (Date.parse(op.updatedAt) || 0) < MAX_ACTIVE_AGE_MS
+    );
+    if (found) return JSON.parse(JSON.stringify(found));
+  }
+  return null;
+}
+async function getActiveOrRecentPermanentDeleteOperations(bridge, actor) {
+  if (actor.role !== "super_admin") return [];
+  const map = /* @__PURE__ */ new Map();
+  for (const op of OPERATION_HOT_CACHE.values()) {
+    map.set(op.operationId, JSON.parse(JSON.stringify(op)));
+  }
+  if (bridge.isSupabaseMode()) {
+    const client = getSupabaseBackendClient();
+    if (client) {
+      try {
+        const { data } = await client.from("app_settings").select("setting_value").like("setting_key", `${DELETION_OP_PREFIX}%`).order("updated_at", { ascending: false }).limit(15);
+        for (const row of data || []) {
+          const op = row?.setting_value;
+          if (op?.operationId) map.set(op.operationId, op);
+        }
+      } catch {
+      }
+    }
+  } else if (bridge.isLocalJsonModeAllowed()) {
+    ensureLocalCollections(bridge.db);
+    for (const op of (bridge.db.deletionOperations || []).slice(0, 15)) {
+      if (op?.operationId) map.set(op.operationId, JSON.parse(JSON.stringify(op)));
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)).slice(0, 10);
+}
+function dedupeTargetsInput(targets) {
+  const dedupedTargets = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const t of targets) {
+    const cleanId = String(t.recordId || "").trim();
+    const key = `${t.category}:${t.subEntity || "main"}:${cleanId}`;
+    if (!seen.has(key) && cleanId) {
+      seen.add(key);
+      dedupedTargets.push({
+        category: t.category,
+        recordId: cleanId,
+        subEntity: t.subEntity,
+        woNumber: t.woNumber ? String(t.woNumber).trim() : void 0,
+        label: t.label ? String(t.label).trim() : void 0
+      });
+    }
+  }
+  return dedupedTargets;
+}
+async function startPermanentDeleteOperation(bridge, actor, targets, confirmText, reason, options) {
   if (actor.role !== "super_admin") {
+    const rejTxId = makeTxId("tx_pdb");
     for (const t of targets.slice(0, 20)) {
       await recordDeletionLog(bridge, {
-        transactionId: batchTxId,
+        transactionId: rejTxId,
         deletionType: "permanent_delete",
         category: t.category,
         sourceTable: resolveSourceTable(t.category, t.subEntity),
@@ -21215,122 +21743,414 @@ async function executePermanentDeleteBatch(bridge, actor, targets, confirmText, 
     }
     return {
       success: false,
-      transactionId: batchTxId,
       code: "FORBIDDEN_ROLE",
-      error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi HANYA untuk Superadmin.",
-      succeeded: [],
-      failed: targets.map((t) => ({
-        recordId: t.recordId,
-        category: t.category,
-        code: "FORBIDDEN_ROLE",
-        error: "Hanya Superadmin yang dapat melakukan Permanent Delete."
-      }))
+      error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi HANYA untuk role Superadmin."
     };
   }
-  const dedupedTargets = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const t of targets) {
-    const key = `${t.category}:${t.subEntity || "main"}:${t.recordId}`;
-    if (!seen.has(key) && String(t.recordId || "").trim()) {
-      seen.add(key);
-      dedupedTargets.push(t);
-    }
-  }
+  const dedupedTargets = dedupeTargetsInput(targets);
   if (dedupedTargets.length === 0) {
     return {
       success: false,
-      transactionId: batchTxId,
       code: "INVALID_TARGETS",
-      error: "Pilih minimal satu record valid untuk dihapus permanen.",
-      succeeded: [],
-      failed: []
+      error: "Pilih minimal satu record valid untuk dihapus permanen."
     };
   }
   const cleanReason = String(reason || "").trim();
   if (cleanReason.length < 5) {
     return {
       success: false,
-      transactionId: batchTxId,
       code: "INVALID_REASON",
-      error: "Alasan penghapusan permanen wajib diisi minimal 5 karakter.",
-      succeeded: [],
-      failed: []
+      error: "Alasan penghapusan permanen wajib diisi minimal 5 karakter."
     };
   }
-  if (dedupedTargets.length === 1) {
-    const single = dedupedTargets[0];
-    const res = await executePermanentDelete(bridge, actor, single, confirmText, cleanReason);
-    if (!res.success) {
+  const cleanConfirm = String(confirmText || "").trim();
+  if (dedupedTargets.length > 1) {
+    const expectedBatchPhrase = `HAPUS PERMANEN ${dedupedTargets.length} DATA`;
+    if (cleanConfirm.toUpperCase() !== expectedBatchPhrase) {
       return {
         success: false,
-        transactionId: res.transactionId || batchTxId,
-        code: res.code,
-        error: res.error,
-        succeeded: [],
-        failed: [
-          {
-            recordId: single.recordId,
-            category: single.category,
-            code: res.code || "PERMANENT_DELETE_REJECTED",
-            error: res.error || "Hapus permanen ditolak."
-          }
-        ]
+        code: "CONFIRMATION_MISMATCH",
+        error: `Konfirmasi batch tidak cocok. Harap ketik persis "${expectedBatchPhrase}".`
+      };
+    }
+  } else {
+    const single = dedupedTargets[0];
+    if (!cleanConfirm) {
+      return {
+        success: false,
+        code: "CONFIRMATION_REQUIRED",
+        error: "Konfirmasi teks wajib diisi untuk hapus permanen."
+      };
+    }
+    if (single.category === "work_orders" && single.woNumber) {
+      if (canonicalWoKey(cleanConfirm) !== canonicalWoKey(single.woNumber)) {
+        return {
+          success: false,
+          code: "CONFIRMATION_MISMATCH",
+          error: `Konfirmasi WO Number tidak cocok. Harap ketik persis "${single.woNumber}".`
+        };
+      }
+    }
+  }
+  const operationId = makeOperationId(options?.operationId);
+  const existingById = await loadPermanentDeleteOperation(bridge, operationId);
+  if (existingById) {
+    if (existingById.actorUserId && existingById.actorUserId !== actor.id && actor.role !== "super_admin") {
+      return { success: false, code: "FORBIDDEN_OPERATION", error: "Anda tidak berwenang mengakses operasi ini." };
+    }
+    const isTerminal = existingById.status === "completed" || existingById.status === "partial" || existingById.status === "failed";
+    return {
+      success: true,
+      alreadyInProgress: !isTerminal,
+      alreadyCompleted: isTerminal,
+      operation: existingById
+    };
+  }
+  const fingerprint = buildOperationFingerprint(actor.id, dedupedTargets, cleanReason, cleanConfirm);
+  const duplicateInFlight = await findInFlightOperationByFingerprint(bridge, fingerprint);
+  if (duplicateInFlight) {
+    return {
+      success: true,
+      alreadyInProgress: true,
+      operation: duplicateInFlight
+    };
+  }
+  const chunkSize = Math.min(10, Math.max(1, Number(options?.chunkSize || DEFAULT_PERMANENT_DELETE_CHUNK_SIZE)));
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const existingWoMap = /* @__PURE__ */ new Map();
+  const woIds = dedupedTargets.filter((t) => t.category === "work_orders").map((t) => t.recordId);
+  if (woIds.length > 0) {
+    if (bridge.isSupabaseMode()) {
+      const client = getSupabaseBackendClient();
+      if (!client) {
+        return { success: false, code: "DATABASE_UNAVAILABLE", error: "Koneksi database Supabase tidak tersedia." };
+      }
+      const { data: woRows, error: woSelErr } = await client.from("work_orders").select("id, wo_number").in("id", woIds);
+      if (woSelErr) {
+        const classified = classifySupabaseError(woSelErr);
+        return { success: false, code: classified.code, error: classified.message };
+      }
+      for (const r of woRows || []) {
+        existingWoMap.set(String(r.id), String(r.wo_number || ""));
+      }
+    } else {
+      ensureLocalCollections(bridge.db);
+      for (const id of woIds) {
+        const found = bridge.db.tickets.find((t) => String(t.id) === id) || bridge.db.tickets.find((t) => canonicalWoKey(t.woNumber) === canonicalWoKey(id));
+        if (found) {
+          existingWoMap.set(id, String(found.woNumber || ""));
+        }
+      }
+    }
+  }
+  if (dedupedTargets.length === 1 && dedupedTargets[0].category === "work_orders") {
+    const actualWoNum = existingWoMap.get(dedupedTargets[0].recordId);
+    if (actualWoNum && canonicalWoKey(cleanConfirm) !== canonicalWoKey(actualWoNum)) {
+      return {
+        success: false,
+        code: "CONFIRMATION_MISMATCH",
+        error: `Konfirmasi WO Number tidak cocok. Harap ketik persis "${actualWoNum}".`
+      };
+    }
+  }
+  const initialResults = dedupedTargets.map((t) => {
+    if (t.category === "work_orders" && !existingWoMap.has(t.recordId)) {
+      return {
+        recordId: t.recordId,
+        category: t.category,
+        subEntity: t.subEntity,
+        woNumber: t.woNumber,
+        label: t.label,
+        status: "already_deleted",
+        code: "ALREADY_DELETED",
+        message: "Data sudah tidak ada di database (telah terhapus sebelumnya).",
+        processedAt: nowIso
       };
     }
     return {
-      success: true,
-      transactionId: res.transactionId || batchTxId,
-      succeeded: [res.data],
-      failed: []
+      recordId: t.recordId,
+      category: t.category,
+      subEntity: t.subEntity,
+      woNumber: existingWoMap.get(t.recordId) || t.woNumber,
+      label: t.label,
+      status: "pending"
     };
+  });
+  const op = recomputeOperationCounters({
+    operationId,
+    fingerprint,
+    status: "processing",
+    stageLabel: "Sedang menghapus",
+    actorUserId: actor.id,
+    actorName: actor.name,
+    actorRole: actor.role,
+    reason: cleanReason,
+    confirmText: cleanConfirm,
+    totalCount: dedupedTargets.length,
+    processedCount: 0,
+    succeededCount: 0,
+    alreadyDeletedCount: 0,
+    blockedCount: 0,
+    failedCount: 0,
+    chunkSize,
+    nextIndex: 0,
+    targets: dedupedTargets.map((t) => ({
+      ...t,
+      woNumber: existingWoMap.get(t.recordId) || t.woNumber
+    })),
+    results: initialResults,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    completedAt: null,
+    lastError: null,
+    auditLogged: false
+  });
+  await finalizeOperationAuditIfCompleted(bridge, actor, op);
+  await savePermanentDeleteOperation(bridge, op);
+  return {
+    success: true,
+    operation: op
+  };
+}
+async function finalizeOperationAuditIfCompleted(bridge, actor, op) {
+  const isDone = op.status === "completed" || op.status === "partial" || op.status === "failed";
+  if (!isDone || op.auditLogged) return;
+  op.auditLogged = true;
+  if (op.succeededCount > 0 || op.blockedCount > 0 || op.failedCount > 0) {
+    await bridge.logServerAuditAsync(
+      "Permanent Delete Batch Summary",
+      "work_order_batch",
+      op.operationId,
+      `Operasi hapus permanen ${op.operationId} selesai (${op.stageLabel}) oleh ${actor.name}: ${op.succeededCount} dihapus, ${op.alreadyDeletedCount} sudah terhapus sebelumnya, ${op.blockedCount} diblokir FK/proteksi, ${op.failedCount} gagal dari total ${op.totalCount}. Alasan: ${op.reason}`,
+      actor,
+      {
+        operationId: op.operationId,
+        totalCount: op.totalCount,
+        succeededCount: op.succeededCount,
+        alreadyDeletedCount: op.alreadyDeletedCount,
+        blockedCount: op.blockedCount,
+        failedCount: op.failedCount
+      }
+    );
   }
-  const expectedBatchPhrase = `HAPUS PERMANEN ${dedupedTargets.length} DATA`;
-  if (String(confirmText || "").trim().toUpperCase() !== expectedBatchPhrase) {
+}
+async function stepPermanentDeleteOperation(bridge, actor, operationId, requestedChunkSize) {
+  if (actor.role !== "super_admin") {
     return {
       success: false,
-      transactionId: batchTxId,
-      code: "CONFIRMATION_MISMATCH",
-      error: `Konfirmasi batch tidak cocok. Harap ketik persis "${expectedBatchPhrase}".`,
-      succeeded: [],
-      failed: []
+      code: "FORBIDDEN_ROLE",
+      error: "Akses Ditolak: Hanya Superadmin yang dapat mengeksekusi operasi hapus permanen."
     };
   }
-  const succeeded = [];
-  const failed = [];
-  for (const target of dedupedTargets) {
-    let singleConfirm = target.recordId;
-    if (target.category === "work_orders") {
-      const deps = await inspectWoDependencies(bridge, target.recordId);
-      if (!deps.found) {
-        failed.push({
-          recordId: target.recordId,
-          category: target.category,
-          code: "NOT_FOUND",
-          error: `Work Order "${target.recordId}" tidak ditemukan.`
-        });
+  const cleanId = String(operationId || "").trim();
+  if (!cleanId) {
+    return { success: false, code: "INVALID_OPERATION_ID", error: "Operation ID wajib disertakan." };
+  }
+  if (!acquireOperationStepMutex(cleanId, actor.id)) {
+    const snapshot = await loadPermanentDeleteOperation(bridge, cleanId);
+    return {
+      success: true,
+      inProgress: true,
+      code: "OPERATION_IN_PROGRESS",
+      operation: snapshot || void 0
+    };
+  }
+  try {
+    const op = await loadPermanentDeleteOperation(bridge, cleanId);
+    if (!op) {
+      return {
+        success: false,
+        code: "OPERATION_NOT_FOUND",
+        error: `Operasi hapus permanen "${cleanId}" tidak ditemukan atau telah kedaluwarsa.`
+      };
+    }
+    if (op.status === "completed" || op.status === "partial" || op.status === "failed") {
+      return { success: true, operation: op };
+    }
+    op.status = "processing";
+    op.stageLabel = "Sedang menghapus";
+    const chunkLimit = Math.min(10, Math.max(1, Number(requestedChunkSize || op.chunkSize || DEFAULT_PERMANENT_DELETE_CHUNK_SIZE)));
+    const pendingIndices = [];
+    for (let i = 0; i < op.results.length && pendingIndices.length < chunkLimit; i++) {
+      if (op.results[i].status === "pending") {
+        pendingIndices.push(i);
+      }
+    }
+    if (pendingIndices.length === 0) {
+      recomputeOperationCounters(op);
+      await finalizeOperationAuditIfCompleted(bridge, actor, op);
+      await savePermanentDeleteOperation(bridge, op);
+      return { success: true, operation: op };
+    }
+    const chunkWoIds = pendingIndices.map((idx) => op.targets[idx]).filter((t) => t.category === "work_orders").map((t) => t.recordId);
+    const chunkWoNumberMap = /* @__PURE__ */ new Map();
+    const missingWoSet = /* @__PURE__ */ new Set();
+    if (chunkWoIds.length > 0 && bridge.isSupabaseMode()) {
+      const client = getSupabaseBackendClient();
+      if (client) {
+        const { data: woRows, error: woErr } = await client.from("work_orders").select("id, wo_number").in("id", chunkWoIds);
+        if (!woErr && Array.isArray(woRows)) {
+          const foundIds = /* @__PURE__ */ new Set();
+          for (const r of woRows) {
+            const rid = String(r.id);
+            foundIds.add(rid);
+            chunkWoNumberMap.set(rid, String(r.wo_number || ""));
+          }
+          for (const id of chunkWoIds) {
+            if (!foundIds.has(id)) missingWoSet.add(id);
+          }
+        }
+      }
+    }
+    for (const idx of pendingIndices) {
+      const target = op.targets[idx];
+      const itemRes = op.results[idx];
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      if (target.category === "work_orders" && missingWoSet.has(target.recordId)) {
+        itemRes.status = "already_deleted";
+        itemRes.code = "ALREADY_DELETED";
+        itemRes.message = "WO sudah tidak ada di database (telah terhapus sebelumnya).";
+        itemRes.processedAt = nowIso;
         continue;
       }
-      singleConfirm = deps.woNumber || deps.id;
-    }
-    const res = await executePermanentDelete(bridge, actor, target, singleConfirm, cleanReason);
-    if (res.success) {
-      succeeded.push(res.data || { deletedId: target.recordId });
-    } else {
-      failed.push({
-        recordId: target.recordId,
-        category: target.category,
-        code: res.code || "PERMANENT_DELETE_REJECTED",
-        error: res.error || "Gagal melakukan hapus permanen."
+      let singleConfirm = target.recordId;
+      if (target.category === "work_orders") {
+        singleConfirm = chunkWoNumberMap.get(target.recordId) || target.woNumber || itemRes.woNumber || target.recordId;
+      }
+      const res = await executePermanentDelete(bridge, actor, target, singleConfirm, op.reason, {
+        knownWoNumber: singleConfirm,
+        operationId: op.operationId,
+        skipAuditLog: false
       });
+      itemRes.transactionId = res.transactionId;
+      itemRes.processedAt = nowIso;
+      if (res.success) {
+        itemRes.status = "deleted";
+        itemRes.code = "DELETED";
+        itemRes.woNumber = res.data?.woNumber || itemRes.woNumber || singleConfirm;
+        itemRes.message = "Berhasil dihapus permanen.";
+      } else if (res.code === "NOT_FOUND") {
+        itemRes.status = "already_deleted";
+        itemRes.code = "ALREADY_DELETED";
+        itemRes.message = "Data sudah tidak ditemukan di database (telah terhapus sebelumnya).";
+      } else if (res.code === "HAS_BLOCKING_RELATIONS") {
+        itemRes.status = "blocked_fk";
+        itemRes.code = res.code;
+        itemRes.message = res.error || "Diblokir oleh relasi FK historis.";
+      } else if (res.code === "PROTECTED_RECORD" || res.code === "ACTIVE_IMPORT_IN_PROGRESS") {
+        itemRes.status = "protected";
+        itemRes.code = res.code;
+        itemRes.message = res.error || "Record dilindungi / terkunci.";
+      } else {
+        itemRes.status = "failed";
+        itemRes.code = res.code || "PERMANENT_DELETE_FAILED";
+        itemRes.message = res.error || "Gagal melakukan hapus permanen.";
+        op.lastError = itemRes.message;
+      }
+    }
+    recomputeOperationCounters(op);
+    await finalizeOperationAuditIfCompleted(bridge, actor, op);
+    await savePermanentDeleteOperation(bridge, op);
+    return { success: true, operation: op };
+  } finally {
+    releaseOperationStepMutex(cleanId);
+  }
+}
+async function auditRecentPermanentDeletes(bridge, limit = 60) {
+  const hist = await listDeletionHistory(bridge, {
+    deletionType: "permanent_delete",
+    page: 1,
+    pageSize: Math.min(100, Math.max(10, limit))
+  });
+  const logs = hist.logs || [];
+  const woIds = Array.from(
+    new Set(logs.filter((l) => l.category === "work_orders" && l.recordId).map((l) => String(l.recordId)))
+  ).slice(0, 100);
+  const woExistenceMap = {};
+  if (woIds.length > 0) {
+    if (bridge.isSupabaseMode()) {
+      const client = getSupabaseBackendClient();
+      if (client) {
+        const { data } = await client.from("work_orders").select("id, wo_number, is_deleted").in("id", woIds);
+        const foundMap = /* @__PURE__ */ new Map();
+        for (const r of data || []) foundMap.set(String(r.id), r);
+        for (const id of woIds) {
+          const row = foundMap.get(id);
+          woExistenceMap[id] = row ? { exists: true, isDeleted: Boolean(row.is_deleted), woNumber: String(row.wo_number || "") } : { exists: false };
+        }
+      }
+    } else if (bridge.isLocalJsonModeAllowed()) {
+      ensureLocalCollections(bridge.db);
+      for (const id of woIds) {
+        const row = (bridge.db.tickets || []).find((t) => String(t.id) === id);
+        woExistenceMap[id] = row ? { exists: true, isDeleted: Boolean(row.isDeleted), woNumber: String(row.woNumber || "") } : { exists: false };
+      }
     }
   }
   return {
+    totalLogsChecked: logs.length,
+    recentLogs: logs,
+    woExistenceMap
+  };
+}
+async function executePermanentDeleteBatch(bridge, actor, targets, confirmText, reason, options) {
+  const startRes = await startPermanentDeleteOperation(bridge, actor, targets, confirmText, reason, options);
+  if (!startRes.success || !startRes.operation) {
+    return {
+      success: false,
+      transactionId: makeTxId("tx_pdb"),
+      code: startRes.code,
+      error: startRes.error,
+      succeeded: [],
+      failed: startRes.code === "FORBIDDEN_ROLE" ? targets.map((t) => ({
+        recordId: t.recordId,
+        category: t.category,
+        code: "FORBIDDEN_ROLE",
+        error: "Hanya Superadmin yang dapat melakukan Permanent Delete."
+      })) : []
+    };
+  }
+  let op = startRes.operation;
+  if (op.status === "preparing" || op.status === "verifying" || op.status === "processing") {
+    while (op.nextIndex < op.totalCount && (op.status === "preparing" || op.status === "verifying" || op.status === "processing")) {
+      const stepRes = await stepPermanentDeleteOperation(bridge, actor, op.operationId, op.chunkSize);
+      if (!stepRes.success && !stepRes.operation) {
+        return {
+          success: false,
+          transactionId: op.operationId,
+          operationId: op.operationId,
+          code: stepRes.code || "PERMANENT_DELETE_BATCH_ERROR",
+          error: stepRes.error || "Gagal menjalankan batch hapus permanen.",
+          succeeded: [],
+          failed: []
+        };
+      }
+      if (stepRes.inProgress) {
+        break;
+      }
+      if (stepRes.operation) {
+        op = stepRes.operation;
+      } else {
+        break;
+      }
+    }
+  }
+  const succeeded = op.results.filter((r) => r.status === "deleted" || r.status === "already_deleted").map((r) => ({ deletedId: r.recordId, woNumber: r.woNumber, status: r.status }));
+  const failed = op.results.filter((r) => r.status === "blocked_fk" || r.status === "protected" || r.status === "failed").map((r) => ({
+    recordId: r.recordId,
+    category: r.category,
+    code: r.code || "PERMANENT_DELETE_REJECTED",
+    error: r.message || "Gagal melakukan hapus permanen."
+  }));
+  return {
     success: failed.length === 0 && succeeded.length > 0,
-    transactionId: batchTxId,
+    transactionId: op.results.find((r) => r.transactionId)?.transactionId || op.operationId,
+    operationId: op.operationId,
     code: failed.length > 0 && succeeded.length === 0 ? failed[0].code : void 0,
     error: failed.length > 0 && succeeded.length === 0 ? failed[0].error : void 0,
     succeeded,
-    failed
+    failed,
+    operation: op
   };
 }
 async function executeRestoreBatch(bridge, actor, targets, reason) {
@@ -21431,7 +22251,16 @@ async function executeSingleRestore(bridge, actor, target, cleanReason, txId) {
       patch.updated_by = actor.name;
     }
     if (tbl === "users") patch.active = true;
-    const { data, error } = await client.from(tbl).update(patch).eq("id", recordId).select("*");
+    let { data, error } = await client.from(tbl).update(patch).eq("id", recordId).select("*");
+    if (error && isSchemaObjectMissing(error)) {
+      const missingCol = extractMissingColumn(error);
+      if (missingCol && missingCol in patch) {
+        delete patch[missingCol];
+        const retry = await client.from(tbl).update(patch).eq("id", recordId).select("*");
+        data = retry.data;
+        error = retry.error;
+      }
+    }
     if (error || !data?.length) {
       const msg = error ? classifySupabaseError(error).message : `Record "${recordId}" tidak ditemukan di ${tbl}.`;
       return { success: false, code: "RESTORE_FAILED", error: msg };
@@ -29110,6 +29939,7 @@ async function createExpressApp(options) {
     const failedIds = [];
     let count = 0;
     if (isSupabaseMode()) {
+      let hasDbUnavailable = false;
       for (const tId of safeTicketIds) {
         const resDel = await deleteWorkOrderFromSupabase(tId, cleanReason, actor);
         if (resDel.success) {
@@ -29117,16 +29947,18 @@ async function createExpressApp(options) {
           if (resDel.data?.id) succeededIds.add(String(resDel.data.id));
           count++;
         } else {
+          if (resDel.error?.isUnavailable) hasDbUnavailable = true;
           failedIds.push(String(tId));
         }
       }
       if (count === 0 && failedIds.length > 0) {
-        return res.status(503).json({
+        return res.status(hasDbUnavailable ? 503 : 400).json({
           success: false,
+          code: hasDbUnavailable ? "DATABASE_UNAVAILABLE" : "SOFT_DELETE_FAILED",
           count: 0,
           failedCount: failedIds.length,
           failedIds,
-          error: "Gagal menandai soft delete Work Order di Supabase."
+          error: hasDbUnavailable ? "Database authoritative Supabase tidak tersedia saat soft delete Work Order." : "Gagal menandai soft delete Work Order di Supabase."
         });
       }
     }
@@ -29201,6 +30033,7 @@ async function createExpressApp(options) {
     if (isSupabaseMode()) {
       const allWosRes = await getWorkOrdersFromSupabase();
       if (allWosRes.success && allWosRes.data) {
+        let hasDbUnavailable = false;
         for (const t of allWosRes.data) {
           if (!matchesImportDate(t)) continue;
           const delRes = await deleteWorkOrderFromSupabase(t.id, cleanReason, actor);
@@ -29208,21 +30041,24 @@ async function createExpressApp(options) {
             purged++;
             purgedIds.add(String(t.id));
           } else {
+            if (delRes.error?.isUnavailable) hasDbUnavailable = true;
             failedCount++;
           }
         }
         if (purged === 0 && failedCount > 0) {
-          return res.status(503).json({
+          return res.status(hasDbUnavailable ? 503 : 400).json({
             success: false,
+            code: hasDbUnavailable ? "DATABASE_UNAVAILABLE" : "SOFT_DELETE_FAILED",
             count: 0,
             failedCount,
-            error: "Gagal menandai soft delete batch Work Order di Supabase."
+            error: hasDbUnavailable ? "Database authoritative Supabase tidak tersedia saat soft delete batch." : "Gagal menandai soft delete batch Work Order di Supabase."
           });
         }
       } else if (!isLocalJsonModeAllowed()) {
-        return res.status(503).json({
+        const isUnavail = allWosRes.error?.isUnavailable !== false;
+        return res.status(isUnavail ? 503 : 500).json({
           error: "Database authoritative Supabase tidak dapat diakses untuk soft delete batch.",
-          code: "DATABASE_UNAVAILABLE"
+          code: isUnavail ? "DATABASE_UNAVAILABLE" : "QUERY_FAILED"
         });
       }
     }
@@ -35447,9 +36283,10 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     if (!isLocalJsonModeAllowed() && !isSupabaseMode()) {
       return res.status(503).json({ success: false, error: "Supabase belum dikonfigurasi pada mode produksi.", code: "SUPABASE_NOT_CONFIGURED" });
     }
+    const includeDeleted = String(req.query.includeDeleted || "").toLowerCase() === "true" && req.user?.role === "super_admin";
     let ticket = null;
     if (isSupabaseMode()) {
-      const supaRes = await getWorkOrderByIdOrWoNumberFromSupabase(id);
+      const supaRes = await getWorkOrderByIdOrWoNumberFromSupabase(id, { includeDeleted });
       if (supaRes.success && supaRes.data) {
         ticket = supaRes.data;
       } else if (!isLocalJsonModeAllowed() && !supaRes.success && supaRes.error?.isUnavailable) {
@@ -35457,7 +36294,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       }
     }
     if (!ticket && isLocalJsonModeAllowed()) {
-      ticket = db.tickets.find((t) => t.id === id || t.woNumber === id);
+      ticket = db.tickets.find((t) => (t.id === id || t.woNumber === id) && (includeDeleted || !t.isDeleted));
     }
     if (!ticket) return res.status(404).json({ error: "Work Order tidak ditemukan." });
     const scoped = scopeTicketsForUser([ticket], req.user, todayWIB);
@@ -38073,9 +38910,37 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       return res.status(400).json({ received: false });
     }
   });
+  const getDeletionRequestId = (req) => String(req.deletionRequestId || crypto12.randomUUID());
+  app.use("/api/deletion", (req, res, next) => {
+    const incoming = String(req.headers["x-request-id"] || "").trim();
+    const requestId = incoming || crypto12.randomUUID();
+    req.deletionRequestId = requestId;
+    res.setHeader("X-Request-Id", requestId);
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
+  const sendDeletionError = (req, res, err, defaultCode, defaultMessage, forcedStatus) => {
+    const requestId = getDeletionRequestId(req);
+    const errCode = String(err?.code || defaultCode);
+    const isDbOutage = errCode === "DATABASE_UNAVAILABLE" || err?.isUnavailable === true;
+    let status = Number(forcedStatus ?? err?.statusCode ?? 500);
+    if (!Number.isFinite(status) || status < 400 || status > 599) status = 500;
+    if (status === 503 && !isDbOutage) {
+      status = 500;
+    }
+    const message = String(err?.message || defaultMessage);
+    console.error(`[API Deletion][${requestId}] ${req.method} ${req.originalUrl} -> ${status} (${errCode}): ${message}`);
+    return res.status(status).json({
+      success: false,
+      code: errCode,
+      error: message,
+      requestId
+    });
+  };
   const requireDeletionPortalAccess = async (req, res, next) => {
+    const requestId = getDeletionRequestId(req);
     if (!req.user) {
-      return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi." });
+      return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
     }
     if (req.user.role === "super_admin") {
       return next();
@@ -38096,35 +38961,39 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
     return res.status(403).json({
       success: false,
       code: "FORBIDDEN_ROLE",
-      error: "Akses Ditolak: Halaman dan aksi Data Deletion Management hanya untuk Superadmin atau Dispatch yang diberi izin eksplisit."
+      error: "Akses Ditolak: Halaman dan aksi Data Deletion Management hanya untuk Superadmin atau Dispatch yang diberi izin eksplisit.",
+      requestId
     });
   };
   const isValidCategory = (cat) => ALL_DELETION_CATEGORIES.includes(cat);
   app.get("/api/deletion/categories-summary", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const summary = await getCategoryCountsSummary(deletionStoreBridge, req.user.role);
-      return res.json({ success: true, summary });
+      return res.json({ success: true, summary, requestId });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err?.message || "Gagal memuat ringkasan kategori." });
+      return sendDeletionError(req, res, err, "SUMMARY_LOAD_FAILED", "Gagal memuat ringkasan kategori.");
     }
   });
   app.get("/api/deletion/facets", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const category = String(req.query.category || "work_orders");
       if (!isValidCategory(category)) {
-        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: `Kategori "${category}" tidak dikenal.` });
+        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: `Kategori "${category}" tidak dikenal.`, requestId });
       }
       const facets = await getDeletionFacets(deletionStoreBridge, req.user.role, category);
-      return res.json({ success: true, facets });
+      return res.json({ success: true, facets, requestId });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err?.message || "Gagal memuat opsi dropdown filter." });
+      return sendDeletionError(req, res, err, "FACETS_LOAD_FAILED", "Gagal memuat opsi dropdown filter.");
     }
   });
   app.get("/api/deletion/items", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const category = String(req.query.category || "work_orders");
       if (!isValidCategory(category)) {
-        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: `Kategori "${category}" tidak dikenal.` });
+        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: `Kategori "${category}" tidak dikenal.`, requestId });
       }
       const subEntity = String(req.query.subEntity || "all");
       const mode = String(req.query.mode || "soft_delete");
@@ -38156,36 +39025,33 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         page: Number(req.query.page || 1),
         pageSize: Number(req.query.pageSize || 25)
       });
-      return res.json({ success: true, ...result });
+      return res.json({ success: true, ...result, requestId });
     } catch (err) {
-      const code = Number(err?.statusCode || 500);
-      return res.status(code).json({
-        success: false,
-        code: err?.code || "LIST_DELETION_ITEMS_FAILED",
-        error: err?.message || "Gagal mengambil daftar data."
-      });
+      return sendDeletionError(req, res, err, "LIST_DELETION_ITEMS_FAILED", "Gagal mengambil daftar data.");
     }
   });
   app.post("/api/deletion/dependencies/batch", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const { category, recordIds } = req.body || {};
       const cat = String(category || "work_orders");
       if (!isValidCategory(cat)) {
-        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: "Kategori tidak valid." });
+        return res.status(400).json({ success: false, code: "INVALID_CATEGORY", error: "Kategori tidak valid.", requestId });
       }
       if (!isCategoryAllowedForRole(req.user.role, cat)) {
-        return res.status(403).json({ success: false, code: "FORBIDDEN_CATEGORY", error: "Role Anda tidak berwenang memeriksa dependensi kategori ini." });
+        return res.status(403).json({ success: false, code: "FORBIDDEN_CATEGORY", error: "Role Anda tidak berwenang memeriksa dependensi kategori ini.", requestId });
       }
       const ids = Array.isArray(recordIds) ? recordIds.map((x) => String(x || "").trim()).filter(Boolean) : [];
       if (ids.length === 0) {
-        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Daftar recordIds kosong." });
+        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Daftar recordIds kosong.", requestId });
       }
       if (cat === "work_orders") {
         const batch = await inspectWoDependenciesBatch(deletionStoreBridge, ids);
-        return res.json({ success: true, ...batch });
+        return res.json({ success: true, ...batch, requestId });
       }
       return res.json({
         success: true,
+        requestId,
         items: ids.map((id) => ({
           found: true,
           id,
@@ -38213,28 +39079,30 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         eligibleCount: ids.length
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err?.message || "Gagal memeriksa dependensi batch." });
+      return sendDeletionError(req, res, err, "BATCH_DEPENDENCIES_FAILED", "Gagal memeriksa dependensi batch.");
     }
   });
   app.get("/api/deletion/dependencies/:category/:id", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const category = String(req.params.category || "");
       const recordId = String(req.params.id || "").trim();
       if (!isValidCategory(category) || !recordId) {
-        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Kategori atau ID record tidak valid." });
+        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Kategori atau ID record tidak valid.", requestId });
       }
       if (!isCategoryAllowedForRole(req.user.role, category)) {
-        return res.status(403).json({ success: false, code: "FORBIDDEN_CATEGORY", error: "Role Anda tidak berwenang memeriksa dependensi kategori ini." });
+        return res.status(403).json({ success: false, code: "FORBIDDEN_CATEGORY", error: "Role Anda tidak berwenang memeriksa dependensi kategori ini.", requestId });
       }
       if (category === "work_orders") {
         const deps = await inspectWoDependencies(deletionStoreBridge, recordId);
         if (!deps.found) {
-          return res.status(404).json({ success: false, code: "NOT_FOUND", error: `Work Order "${recordId}" tidak ditemukan.` });
+          return res.status(404).json({ success: false, code: "NOT_FOUND", error: `Work Order "${recordId}" tidak ditemukan.`, requestId });
         }
-        return res.json({ success: true, dependencies: deps });
+        return res.json({ success: true, dependencies: deps, requestId });
       }
       return res.json({
         success: true,
+        requestId,
         dependencies: {
           found: true,
           id: recordId,
@@ -38255,15 +39123,16 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         }
       });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err?.message || "Gagal memeriksa dependensi record." });
+      return sendDeletionError(req, res, err, "INSPECT_DEPENDENCIES_FAILED", "Gagal memeriksa dependensi record.");
     }
   });
   app.post("/api/deletion/soft-delete", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const { category, subEntity, recordIds, targets, reason } = req.body || {};
       const cleanReason = String(reason || "").trim();
       if (cleanReason.length < 5) {
-        return res.status(400).json({ success: false, code: "INVALID_REASON", error: "Alasan soft delete wajib diisi minimal 5 karakter." });
+        return res.status(400).json({ success: false, code: "INVALID_REASON", error: "Alasan soft delete wajib diisi minimal 5 karakter.", requestId });
       }
       let resolvedTargets = [];
       if (Array.isArray(targets) && targets.length > 0) {
@@ -38280,14 +39149,15 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         }));
       }
       if (resolvedTargets.length === 0) {
-        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record valid untuk di-soft-delete." });
+        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record valid untuk di-soft-delete.", requestId });
       }
       for (const t of resolvedTargets) {
         if (!isCategoryAllowedForRole(req.user.role, t.category, t.subEntity)) {
           return res.status(403).json({
             success: false,
             code: "FORBIDDEN_CATEGORY",
-            error: `Role ${req.user.role} tidak diizinkan menghapus kategori "${t.category}".`
+            error: `Role ${req.user.role} tidak diizinkan menghapus kategori "${t.category}".`,
+            requestId
           });
         }
       }
@@ -38304,25 +39174,24 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
           success: false,
           code: firstCode,
           error: result.failed[0]?.error || "Gagal memproses soft delete.",
+          requestId,
           ...result
         });
       }
       return res.json({
         ...result,
+        requestId,
         message: result.failed.length > 0 ? `Soft delete selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} gagal.` : `Berhasil melakukan soft delete pada ${result.succeeded.length} data.`
       });
     } catch (err) {
-      return res.status(Number(err?.statusCode || 500)).json({
-        success: false,
-        code: err?.code || "SOFT_DELETE_ERROR",
-        error: err?.message || "Gagal melakukan soft delete."
-      });
+      return sendDeletionError(req, res, err, "SOFT_DELETE_ERROR", "Gagal melakukan soft delete.");
     }
   });
   app.post("/api/deletion/permanent-delete", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi." });
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
       }
       if (req.user.role !== "super_admin") {
         logServerAudit(
@@ -38335,12 +39204,13 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         return res.status(403).json({
           success: false,
           code: "FORBIDDEN_ROLE",
-          error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin."
+          error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.",
+          requestId
         });
       }
       const { category, subEntity, recordId, confirmText, reason } = req.body || {};
       if (!isValidCategory(String(category || "")) || !String(recordId || "").trim()) {
-        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Kategori dan recordId wajib disertakan." });
+        return res.status(400).json({ success: false, code: "INVALID_PARAMS", error: "Kategori dan recordId wajib disertakan.", requestId });
       }
       const result = await executePermanentDelete(
         deletionStoreBridge,
@@ -38351,24 +39221,178 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
       );
       if (!result.success) {
         const status = result.code === "FORBIDDEN_ROLE" || result.code === "PROTECTED_RECORD" ? 403 : result.code === "NOT_FOUND" ? 404 : result.code === "HAS_BLOCKING_RELATIONS" || result.code === "CONCURRENT_DELETION_LOCKED" || result.code === "ACTIVE_IMPORT_IN_PROGRESS" ? 409 : result.code === "TRANSACTION_ROLLED_BACK" ? 500 : 400;
-        return res.status(status).json(result);
+        return res.status(status).json({ ...result, requestId });
       }
       return res.json({
         ...result,
+        requestId,
         message: "Data berhasil dihapus permanen secara atomik dan tercatat di Deletion History."
       });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        code: "PERMANENT_DELETE_ERROR",
-        error: err?.message || "Gagal melakukan hapus permanen."
+      return sendDeletionError(req, res, err, "PERMANENT_DELETE_ERROR", "Gagal melakukan hapus permanen.");
+    }
+  });
+  const resolveDeletionTargetsFromBody = (body) => {
+    const { category, subEntity, recordIds, targets } = body || {};
+    if (Array.isArray(targets) && targets.length > 0) {
+      return targets.filter((t) => t && isValidCategory(String(t.category || "")) && String(t.recordId || "").trim()).map((t) => ({
+        category: t.category,
+        recordId: String(t.recordId).trim(),
+        subEntity: t.subEntity,
+        woNumber: typeof t.woNumber === "string" ? t.woNumber.trim() : void 0,
+        label: typeof t.label === "string" ? t.label.trim() : void 0
+      }));
+    }
+    if (isValidCategory(String(category || "")) && Array.isArray(recordIds) && recordIds.length > 0) {
+      return recordIds.map((id) => String(id || "").trim()).filter(Boolean).map((id) => ({
+        category,
+        recordId: id,
+        subEntity
+      }));
+    }
+    return [];
+  };
+  app.post("/api/deletion/permanent-delete-batch/start", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
+      }
+      if (req.user.role !== "super_admin") {
+        logServerAudit(
+          "Access Denied (Permanent Delete Batch Start Superadmin Only)",
+          "rbac",
+          req.originalUrl,
+          `User ${req.user.name} (${req.user.role}) ditolak memulai Permanent Delete Batch.`,
+          req.user
+        );
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN_ROLE",
+          error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.",
+          requestId
+        });
+      }
+      const resolvedTargets = resolveDeletionTargetsFromBody(req.body);
+      if (resolvedTargets.length === 0) {
+        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record valid untuk dihapus permanen.", requestId });
+      }
+      const { confirmText, reason, operationId, chunkSize } = req.body || {};
+      const startRes = await startPermanentDeleteOperation(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        resolvedTargets,
+        String(confirmText || ""),
+        String(reason || ""),
+        {
+          operationId: typeof operationId === "string" ? operationId : void 0,
+          chunkSize: Number(chunkSize || 5)
+        }
+      );
+      if (!startRes.success) {
+        const status = startRes.code === "FORBIDDEN_ROLE" || startRes.code === "FORBIDDEN_OPERATION" ? 403 : startRes.code === "DATABASE_UNAVAILABLE" ? 503 : 400;
+        return res.status(status).json({ ...startRes, requestId });
+      }
+      return res.json({ ...startRes, requestId });
+    } catch (err) {
+      return sendDeletionError(req, res, err, "PERMANENT_DELETE_START_ERROR", "Gagal menyiapkan operasi hapus permanen.");
+    }
+  });
+  app.post("/api/deletion/permanent-delete-batch/step", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
+      }
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN_ROLE",
+          error: "Akses Ditolak: Hapus Permanen dibatasi secara MUTLAK hanya untuk role Superadmin.",
+          requestId
+        });
+      }
+      const operationId = String(req.body?.operationId || "").trim();
+      if (!/^[A-Za-z0-9_-]{6,100}$/.test(operationId)) {
+        return res.status(400).json({ success: false, code: "INVALID_OPERATION_ID", error: "Format Operation ID tidak valid.", requestId });
+      }
+      const stepRes = await stepPermanentDeleteOperation(
+        deletionStoreBridge,
+        { id: req.user.id, name: req.user.name, role: req.user.role },
+        operationId,
+        req.body?.chunkSize ? Number(req.body.chunkSize) : void 0
+      );
+      if (!stepRes.success) {
+        const status = stepRes.code === "OPERATION_NOT_FOUND" ? 404 : stepRes.code === "FORBIDDEN_ROLE" ? 403 : 400;
+        return res.status(status).json({ ...stepRes, requestId });
+      }
+      return res.json({ ...stepRes, requestId });
+    } catch (err) {
+      return sendDeletionError(req, res, err, "PERMANENT_DELETE_STEP_ERROR", "Gagal memproses batch hapus permanen.");
+    }
+  });
+  app.get("/api/deletion/operations/active", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
+      }
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({ success: false, code: "FORBIDDEN_ROLE", error: "Khusus Superadmin.", requestId });
+      }
+      const operations = await getActiveOrRecentPermanentDeleteOperations(deletionStoreBridge, {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role
       });
+      return res.json({ success: true, operations, requestId });
+    } catch (err) {
+      return sendDeletionError(req, res, err, "ACTIVE_OPERATIONS_FAILED", "Gagal memuat daftar operasi penghapusan.");
+    }
+  });
+  app.get("/api/deletion/operations/:operationId", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
+      }
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({ success: false, code: "FORBIDDEN_ROLE", error: "Khusus Superadmin.", requestId });
+      }
+      const operationId = String(req.params.operationId || "").trim();
+      if (!/^[A-Za-z0-9_-]{6,100}$/.test(operationId)) {
+        return res.status(400).json({ success: false, code: "INVALID_OPERATION_ID", error: "Operation ID tidak valid.", requestId });
+      }
+      const operation = await loadPermanentDeleteOperation(deletionStoreBridge, operationId);
+      if (!operation) {
+        return res.status(404).json({ success: false, code: "OPERATION_NOT_FOUND", error: "Status operasi tidak ditemukan.", requestId });
+      }
+      return res.json({ success: true, operation, requestId });
+    } catch (err) {
+      return sendDeletionError(req, res, err, "OPERATION_STATUS_FAILED", "Gagal membaca status operasi.");
+    }
+  });
+  app.get("/api/deletion/audit-permanent-recent", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
+      }
+      if (req.user.role !== "super_admin") {
+        return res.status(403).json({ success: false, code: "FORBIDDEN_ROLE", error: "Khusus Superadmin.", requestId });
+      }
+      const limit = Number(req.query.limit || 60);
+      const audit = await auditRecentPermanentDeletes(deletionStoreBridge, limit);
+      return res.json({ success: true, ...audit, requestId });
+    } catch (err) {
+      return sendDeletionError(req, res, err, "AUDIT_PERMANENT_RECENT_FAILED", "Gagal mengaudit log hapus permanen terbaru.");
     }
   });
   app.post("/api/deletion/permanent-delete-batch", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi." });
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
       }
       if (req.user.role !== "super_admin") {
         logServerAudit(
@@ -38381,61 +39405,52 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         return res.status(403).json({
           success: false,
           code: "FORBIDDEN_ROLE",
-          error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin."
+          error: "Akses Ditolak: Hapus Permanen (Permanent Delete) dibatasi secara MUTLAK hanya untuk role Superadmin.",
+          requestId
         });
       }
-      const { category, subEntity, recordIds, targets, confirmText, reason } = req.body || {};
-      let resolvedTargets = [];
-      if (Array.isArray(targets) && targets.length > 0) {
-        resolvedTargets = targets.filter((t) => t && isValidCategory(String(t.category || "")) && String(t.recordId || "").trim()).map((t) => ({
-          category: t.category,
-          recordId: String(t.recordId).trim(),
-          subEntity: t.subEntity
-        }));
-      } else if (isValidCategory(String(category || "")) && Array.isArray(recordIds) && recordIds.length > 0) {
-        resolvedTargets = recordIds.map((id) => String(id || "").trim()).filter(Boolean).map((id) => ({
-          category,
-          recordId: id,
-          subEntity
-        }));
-      }
+      const { confirmText, reason, operationId, chunkSize } = req.body || {};
+      const resolvedTargets = resolveDeletionTargetsFromBody(req.body);
       if (resolvedTargets.length === 0) {
-        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record valid untuk dihapus permanen." });
+        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record valid untuk dihapus permanen.", requestId });
       }
       const result = await executePermanentDeleteBatch(
         deletionStoreBridge,
         { id: req.user.id, name: req.user.name, role: req.user.role },
         resolvedTargets,
         String(confirmText || ""),
-        String(reason || "")
+        String(reason || ""),
+        {
+          operationId: typeof operationId === "string" ? operationId : void 0,
+          chunkSize: chunkSize ? Number(chunkSize) : void 0
+        }
       );
       if (!result.success && result.succeeded.length === 0) {
         const firstCode = result.code || result.failed[0]?.code || "PERMANENT_DELETE_REJECTED";
         const status = firstCode === "FORBIDDEN_ROLE" || firstCode === "PROTECTED_RECORD" ? 403 : firstCode === "NOT_FOUND" ? 404 : firstCode === "HAS_BLOCKING_RELATIONS" || firstCode === "CONCURRENT_DELETION_LOCKED" || firstCode === "ACTIVE_IMPORT_IN_PROGRESS" ? 409 : firstCode === "TRANSACTION_ROLLED_BACK" ? 500 : 400;
-        return res.status(status).json(result);
+        return res.status(status).json({ ...result, requestId });
       }
       return res.json({
         ...result,
+        requestId,
         message: result.failed.length > 0 ? `Hapus permanen selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} ditolak/gagal.` : `Berhasil menghapus permanen ${result.succeeded.length} data secara atomik.`
       });
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        code: "PERMANENT_DELETE_BATCH_ERROR",
-        error: err?.message || "Gagal melakukan hapus permanen batch."
-      });
+      return sendDeletionError(req, res, err, "PERMANENT_DELETE_BATCH_ERROR", "Gagal melakukan hapus permanen batch.");
     }
   });
   app.post("/api/deletion/restore", requireAuth, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       if (!req.user) {
-        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi." });
+        return res.status(401).json({ success: false, code: "UNAUTHENTICATED", error: "Tidak terautentikasi.", requestId });
       }
       if (req.user.role !== "super_admin") {
         return res.status(403).json({
           success: false,
           code: "FORBIDDEN_ROLE",
-          error: "Akses Ditolak: Fitur Restore Data hanya diperbolehkan untuk Superadmin."
+          error: "Akses Ditolak: Fitur Restore Data hanya diperbolehkan untuk Superadmin.",
+          requestId
         });
       }
       const { category, subEntity, recordIds, targets, reason } = req.body || {};
@@ -38454,7 +39469,7 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         }));
       }
       if (resolvedTargets.length === 0) {
-        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record untuk dipulihkan." });
+        return res.status(400).json({ success: false, code: "INVALID_TARGETS", error: "Pilih minimal satu record untuk dipulihkan.", requestId });
       }
       const result = await executeRestoreBatch(
         deletionStoreBridge,
@@ -38469,22 +39484,21 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
           success: false,
           code: firstCode,
           error: result.failed[0]?.error || "Gagal memulihkan data.",
+          requestId,
           ...result
         });
       }
       return res.json({
         ...result,
+        requestId,
         message: result.failed.length > 0 ? `Pemulihan selesai parsial: ${result.succeeded.length} berhasil, ${result.failed.length} gagal.` : `Berhasil memulihkan ${result.succeeded.length} data.`
       });
     } catch (err) {
-      return res.status(Number(err?.statusCode || 500)).json({
-        success: false,
-        code: err?.code || "RESTORE_ERROR",
-        error: err?.message || "Gagal memulihkan data."
-      });
+      return sendDeletionError(req, res, err, "RESTORE_ERROR", "Gagal memulihkan data.");
     }
   });
   app.get("/api/deletion/history", requireAuth, requireDeletionPortalAccess, async (req, res) => {
+    const requestId = getDeletionRequestId(req);
     try {
       const sortDir = String(req.query.sortDir || "desc") === "asc" ? "asc" : "desc";
       const result = await listDeletionHistory(deletionStoreBridge, {
@@ -38502,9 +39516,9 @@ data: ${JSON.stringify(evalRes.sanitizedPayload)}
         page: Number(req.query.page || 1),
         pageSize: Number(req.query.pageSize || 25)
       });
-      return res.json({ success: true, ...result });
+      return res.json({ success: true, ...result, requestId });
     } catch (err) {
-      return res.status(500).json({ success: false, error: err?.message || "Gagal memuat riwayat penghapusan." });
+      return sendDeletionError(req, res, err, "HISTORY_LOAD_FAILED", "Gagal memuat riwayat penghapusan.");
     }
   });
   app.all("/morajaws_production_firestore_backup.json", (_req, res) => {
