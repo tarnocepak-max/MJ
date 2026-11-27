@@ -720,24 +720,36 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center pt-1">
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+              <button
+                type="button"
+                onClick={() => onDrillDown('total_today', primaryVendor ? { contractor: primaryVendor.contractorName } : undefined)}
+                className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#6657C8]/60 transition-colors cursor-pointer"
+              >
                 <div className="font-display text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums">
                   {primaryVendor ? primaryVendor.total : c.totalToday}
                 </div>
                 <div className="text-[10px] font-semibold text-[#8492A5]">Active WO</div>
-              </div>
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+              </button>
+              <button
+                type="button"
+                onClick={() => onDrillDown('assigned', primaryVendor ? { contractor: primaryVendor.contractorName } : undefined)}
+                className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#6657C8]/60 transition-colors cursor-pointer"
+              >
                 <div className="font-display text-lg font-extrabold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
                   {effectiveSummary.byLeader.length}
                 </div>
                 <div className="text-[10px] font-semibold text-[#8492A5]">Leaders Duty</div>
-              </div>
-              <div className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e]">
+              </button>
+              <button
+                type="button"
+                onClick={() => onDrillDown('checked_in_progress', primaryVendor ? { contractor: primaryVendor.contractorName } : undefined)}
+                className="p-2 rounded-lg bg-white dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#6657C8]/60 transition-colors cursor-pointer"
+              >
                 <div className="font-display text-lg font-extrabold text-[#26364A] dark:text-white tabular-nums">
                   {activeTechCount}
                 </div>
                 <div className="text-[10px] font-semibold text-[#8492A5]">Techs Active</div>
-              </div>
+              </button>
             </div>
           </div>
 

@@ -172,7 +172,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [techFilter, setTechFilter] = useState('ALL');
   const [statusFeedFilter, setStatusFeedFilter] = useState('ALL');
-  const [feedSort, setFeedSort] = useState<SortState>({ key: null, direction: null });
+  const [feedSort, setFeedSort] = useState<SortState>({ column: null, direction: null });
   const [leaderFilter, setLeaderFilter] = useState('ALL');
   const [priorityOnly, setPriorityOnly] = useState(false);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
@@ -479,8 +479,8 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       return true;
     });
 
-    if (feedSort.key && feedSort.direction) {
-      return sortDataArray(list, feedSort.key, feedSort.direction, (row, key) => {
+    if (feedSort.column && feedSort.direction) {
+      return sortDataArray(list, feedSort.column, feedSort.direction, (row, key) => {
         if (key === 'woNumber') return row.woNumber;
         if (key === 'customerName') return row.customerName;
         if (key === 'installerName') return row.installerName || null;
@@ -539,7 +539,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     setCustomerSearchQuery('');
     setTechFilter('ALL');
     setStatusFeedFilter('ALL');
-    setFeedSort({ key: null, direction: null });
+    setFeedSort({ column: null, direction: null });
     setKpiContractorFilter('ALL');
     setKpiAreaFilter('ALL');
     setLeaderFilter('ALL');
@@ -707,7 +707,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
               label: 'Revisi / Unassigned',
               count: c.revisionRejected + c.unassigned,
               dot: 'bg-[#C88735] dark:bg-amber-500',
-              filter: 'unassigned' as WOKpiFilterKey
+              filter: 'revision_unassigned' as WOKpiFilterKey
             }
           ].map(item => (
             <button
@@ -867,7 +867,18 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </span>
         </button>
 
-        <div className="rounded-xl p-4 bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#F3C5CA] dark:shadow-[0_3px_0_#4c0519] flex items-center justify-between gap-4">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onNavigate('overdue_wo')}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onNavigate('overdue_wo');
+            }
+          }}
+          className="rounded-xl p-4 bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#F3C5CA] dark:shadow-[0_3px_0_#4c0519] flex items-center justify-between gap-4 hover:-translate-y-0.5 transition-all cursor-pointer text-left"
+        >
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
               {overdueSummary.totalOverdue > 0 && (
@@ -887,7 +898,10 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => onNavigate('overdue_wo')}
+            onClick={e => {
+              e.stopPropagation();
+              onNavigate('overdue_wo');
+            }}
             className="btn-3d-crimson px-3 py-2 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
           >
             Filter Overdue
@@ -1166,24 +1180,36 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 text-center">
-            <div className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e]">
+            <button
+              type="button"
+              onClick={() => onDrillDown('total_today')}
+              className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#6657C8]/60 transition-colors cursor-pointer"
+            >
               <div className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">ACTIVE FATS</div>
               <div className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-0.5 tabular-nums">
                 {telemetry.fatCount}
               </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e]">
+            </button>
+            <button
+              type="button"
+              onClick={() => onDrillDown('checked_in_progress')}
+              className="p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#35105e] hover:border-[#6657C8]/60 transition-colors cursor-pointer"
+            >
               <div className="text-[10px] font-bold uppercase text-[#8492A5] dark:text-[#cabde8]">OLT ACTIVE</div>
               <div className="font-display text-xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] mt-0.5 tabular-nums">
                 {telemetry.oltCount}
               </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/50">
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('overdue_wo')}
+              className="p-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/50 hover:border-rose-400 transition-colors cursor-pointer"
+            >
               <div className="text-[10px] font-bold uppercase text-[#9B2C37] dark:text-rose-300">OVERDUE SLA</div>
               <div className="font-display text-xl font-extrabold text-[#9B2C37] dark:text-rose-300 mt-0.5 tabular-nums">
                 {overdueSummary.totalOverdue}
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px]">
@@ -1337,12 +1363,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       setFeedPage(1);
                     }}
                     placeholder="Cari WO, OLT, FAT, Cluster..."
-                    sortActive={feedSort.key === 'woNumber' && Boolean(feedSort.direction)}
-                    sortDir={feedSort.key === 'woNumber' ? feedSort.direction : null}
+                    sortActive={feedSort.column === 'woNumber' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.column === 'woNumber' ? feedSort.direction : null}
                     onCycleSort={() =>
                       setFeedSort(prev => ({
-                        key: 'woNumber',
-                        direction: prev.key === 'woNumber' ? getNextSortDirection(prev.direction) : 'asc'
+                        column: 'woNumber',
+                        direction: prev.column === 'woNumber' ? getNextSortDirection(prev.direction) : 'asc'
                       }))
                     }
                   />
@@ -1356,12 +1382,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       setFeedPage(1);
                     }}
                     placeholder="Cari nama, ID 7 digit, alamat..."
-                    sortActive={feedSort.key === 'customerName' && Boolean(feedSort.direction)}
-                    sortDir={feedSort.key === 'customerName' ? feedSort.direction : null}
+                    sortActive={feedSort.column === 'customerName' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.column === 'customerName' ? feedSort.direction : null}
                     onCycleSort={() =>
                       setFeedSort(prev => ({
-                        key: 'customerName',
-                        direction: prev.key === 'customerName' ? getNextSortDirection(prev.direction) : 'asc'
+                        column: 'customerName',
+                        direction: prev.column === 'customerName' ? getNextSortDirection(prev.direction) : 'asc'
                       }))
                     }
                   />
@@ -1377,12 +1403,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       setTechFilter(val);
                       setFeedPage(1);
                     }}
-                    sortActive={feedSort.key === 'installerName' && Boolean(feedSort.direction)}
-                    sortDir={feedSort.key === 'installerName' ? feedSort.direction : null}
+                    sortActive={feedSort.column === 'installerName' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.column === 'installerName' ? feedSort.direction : null}
                     onCycleSort={() =>
                       setFeedSort(prev => ({
-                        key: 'installerName',
-                        direction: prev.key === 'installerName' ? getNextSortDirection(prev.direction) : 'asc'
+                        column: 'installerName',
+                        direction: prev.column === 'installerName' ? getNextSortDirection(prev.direction) : 'asc'
                       }))
                     }
                   />
@@ -1404,12 +1430,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                       setStatusFeedFilter(val);
                       setFeedPage(1);
                     }}
-                    sortActive={feedSort.key === 'status' && Boolean(feedSort.direction)}
-                    sortDir={feedSort.key === 'status' ? feedSort.direction : null}
+                    sortActive={feedSort.column === 'status' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.column === 'status' ? feedSort.direction : null}
                     onCycleSort={() =>
                       setFeedSort(prev => ({
-                        key: 'status',
-                        direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                        column: 'status',
+                        direction: prev.column === 'status' ? getNextSortDirection(prev.direction) : 'asc'
                       }))
                     }
                   />
@@ -1417,12 +1443,12 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                 <th className="py-3 px-3">
                   <HeaderSortButton
                     label="Foto Rumah & Optical"
-                    sortActive={feedSort.key === 'geotag' && Boolean(feedSort.direction)}
-                    sortDir={feedSort.key === 'geotag' ? feedSort.direction : null}
+                    sortActive={feedSort.column === 'geotag' && Boolean(feedSort.direction)}
+                    sortDir={feedSort.column === 'geotag' ? feedSort.direction : null}
                     onCycleSort={() =>
                       setFeedSort(prev => ({
-                        key: 'geotag',
-                        direction: prev.key === 'geotag' ? getNextSortDirection(prev.direction) : 'asc'
+                        column: 'geotag',
+                        direction: prev.column === 'geotag' ? getNextSortDirection(prev.direction) : 'asc'
                       }))
                     }
                   />

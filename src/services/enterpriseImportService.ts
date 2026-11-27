@@ -1,14 +1,27 @@
 import { getAuthHeaders } from './authService';
 import {
+  Contractor,
+  CoverageArea,
   ImportBatchSummary,
   ImportHistoryRecord,
   ImportJobSummary,
   ImportRowErrorRecord,
-  ImportTemplateType
+  ImportTemplateType,
+  ParsedRowData,
+  TextToTableResult,
+  Ticket
 } from '../types/index.ts';
-import { safeSessionStorageRemove, safeSessionStorageSet } from '../utils/safeStorage';
+import { processRawImportWithEngine } from './woFieldMappingEngine.ts';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+  safeLocalStorageSet,
+  safeSessionStorageRemove,
+  safeSessionStorageSet
+} from '../utils/safeStorage';
 
 const ACTIVE_IMPORT_JOB_KEY = 'morajaws_active_import_job_id';
+const LAST_IMPORT_JOB_PREFIX = 'morajaws_last_import_job_';
 const STAGE_CHUNK_SIZE = 400; // Well below Vercel 4.5MB payload limit even for 46-column rows
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
 const STAGE_REQUEST_TIMEOUT_MS = 45_000;
@@ -49,6 +62,51 @@ export function saveActiveImportJobId(jobId: string | null): void {
     return;
   }
   safeSessionStorageSet(ACTIVE_IMPORT_JOB_KEY, jobId);
+}
+
+export function getLastImportJobStorageKey(userId?: string | null): string {
+  const safeId = String(userId || 'anon').trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'anon';
+  return `${LAST_IMPORT_JOB_PREFIX}${safeId}`;
+}
+
+export function saveLastImportJobId(userId: string | undefined | null, jobId: string | null): void {
+  const key = getLastImportJobStorageKey(userId);
+  if (!jobId || !jobId.trim()) {
+    safeLocalStorageRemove(key);
+    return;
+  }
+  safeLocalStorageSet(key, jobId.trim(), { maxBytes: 1024 });
+}
+
+export function getLastImportJobId(userId?: string | null): string | null {
+  const id = safeLocalStorageGet(getLastImportJobStorageKey(userId));
+  return id && id.trim() ? id.trim() : null;
+}
+
+export function getImportJobIdFromUrl(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('importJobId');
+    return id && id.trim() ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function syncImportJobIdToUrl(jobId: string | null): void {
+  try {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return;
+    const url = new URL(window.location.href);
+    if (jobId && jobId.trim()) {
+      url.searchParams.set('importJobId', jobId.trim());
+    } else {
+      url.searchParams.delete('importJobId');
+    }
+    window.history.replaceState(window.history.state, '', url.toString());
+  } catch {
+    // ignore URL update error in restricted frames
+  }
 }
 
 class ImportApiError extends Error {
@@ -278,6 +336,16 @@ export async function getImportJobErrors(jobId: string, limit = 500, offset = 0)
   );
 }
 
+export async function fetchWorkOrdersByImportJob(
+  jobId: string,
+  limit = 3000
+): Promise<{ job: ImportJobSummary; tickets: Ticket[]; total: number }> {
+  return apiRequest<{ job: ImportJobSummary; tickets: Ticket[]; total: number }>(
+    `/api/imports/jobs/${encodeURIComponent(jobId)}/work-orders?limit=${limit}`,
+    { maxRetries: 2 }
+  );
+}
+
 export async function cancelImportJob(jobId: string): Promise<ImportJobSummary> {
   const job = await apiRequest<ImportJobSummary>(`/api/imports/jobs/${encodeURIComponent(jobId)}/cancel`, {
     method: 'POST',
@@ -491,3 +559,211 @@ export async function executeEnterpriseAsyncImport(params: RunEnterpriseImportPa
   // 3. Process batches sequentially
   return runPendingBatchesLoop(job.id, { signal, onJobUpdate });
 }
+
+const CANONICAL_TO_HEADER_FALLBACK: Record<string, string> = {
+  woNumber: 'WO Number',
+  idCustomer: 'ID Customer',
+  customerId: 'ID Customer',
+  customerName: 'Customer Name',
+  customerPhone: 'Customer Phone',
+  streetName: 'Street Name',
+  clusterName: 'Cluster Name',
+  area: 'Area',
+  fatCode: 'FAT Code',
+  fdtCode: 'FDT Code',
+  contactorName: 'Contactor Name',
+  contractorName: 'Contactor Name',
+  appointmentDate: 'Appointment Date',
+  slotTime: 'Slot Time',
+  ticketCategory: 'Ticket Category',
+  leaderName: 'Leader Name',
+  installerName: 'Installer Name'
+};
+
+function extractRawRecordFromError(err: ImportRowErrorRecord): Record<string, string> | null {
+  const payload = err.rawPayload;
+  if (!payload || typeof payload !== 'object') {
+    if (!err.woNumber) return null;
+    return { 'WO Number': String(err.woNumber) };
+  }
+
+  const rawSource =
+    payload.raw && typeof payload.raw === 'object' && !Array.isArray(payload.raw)
+      ? (payload.raw as Record<string, any>)
+      : null;
+
+  if (rawSource && Object.keys(rawSource).length > 0) {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rawSource)) {
+      out[k] = v === undefined || v === null ? '' : String(v);
+    }
+    if (err.woNumber && !out['WO Number'] && !out['woNumber']) {
+      out['WO Number'] = String(err.woNumber);
+    }
+    return out;
+  }
+
+  const mappedSource =
+    payload.mapped && typeof payload.mapped === 'object' && !Array.isArray(payload.mapped)
+      ? (payload.mapped as Record<string, any>)
+      : (payload as Record<string, any>);
+
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(mappedSource)) {
+    if (v === undefined || v === null || typeof v === 'object') continue;
+    const header = CANONICAL_TO_HEADER_FALLBACK[k] || k;
+    out[header] = String(v);
+  }
+  if (err.woNumber && !out['WO Number']) {
+    out['WO Number'] = String(err.woNumber);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * Rehydrates ONLY failed (non-duplicate) rows from backend error logs and/or local invalid preview rows
+ * into a fresh editable TextToTableResult so users can repair & re-import them without re-importing succeeded WOs.
+ */
+export function buildRepairParseResultFromErrors(params: {
+  serverErrors: ImportRowErrorRecord[];
+  localFailedRows?: ParsedRowData[];
+  existingWoNumbers: string[];
+  contractors?: Contractor[];
+  coverageAreas?: CoverageArea[];
+}): {
+  parseResult: TextToTableResult;
+  rehydratedCount: number;
+  skippedDuplicateCount: number;
+} {
+  const {
+    serverErrors,
+    localFailedRows = [],
+    existingWoNumbers,
+    contractors = [],
+    coverageAreas = []
+  } = params;
+
+  const existingWoSet = new Set(
+    (existingWoNumbers || []).map(w => String(w || '').trim().toUpperCase()).filter(Boolean)
+  );
+
+  let skippedDuplicateCount = 0;
+  const candidateRows: Array<{ raw: Record<string, string>; backendMessage?: string; woKey?: string }> = [];
+  const seenKeys = new Set<string>();
+
+  for (const err of serverErrors || []) {
+    if (err.errorCode === 'WO_DUPLICATE') {
+      skippedDuplicateCount++;
+      continue;
+    }
+    const raw = extractRawRecordFromError(err);
+    if (!raw) continue;
+    const woKey = String(err.woNumber || raw['WO Number'] || raw['woNumber'] || '').trim().toUpperCase();
+    const dedupeKey = woKey ? `wo:${woKey}` : `srv:${err.rowNumber}:${JSON.stringify(raw)}`;
+    if (seenKeys.has(dedupeKey)) continue;
+    seenKeys.add(dedupeKey);
+    candidateRows.push({ raw, backendMessage: err.errorMessage, woKey });
+  }
+
+  for (const localRow of localFailedRows || []) {
+    if (localRow.isDuplicate || localRow.statusType === 'WO DUPLIKAT') {
+      skippedDuplicateCount++;
+      continue;
+    }
+    if (localRow.isValid) continue;
+    const rawCopy: Record<string, string> = {};
+    for (const [k, v] of Object.entries(localRow.raw || {})) {
+      rawCopy[k] = v === undefined || v === null ? '' : String(v);
+    }
+    const woKey = String(localRow.mapped?.woNumber || rawCopy['WO Number'] || rawCopy['No WO'] || '')
+      .trim()
+      .toUpperCase();
+    const dedupeKey = woKey ? `wo:${woKey}` : `loc:${localRow.rowIndex}:${JSON.stringify(rawCopy)}`;
+    if (seenKeys.has(dedupeKey)) continue;
+    seenKeys.add(dedupeKey);
+    candidateRows.push({
+      raw: rawCopy,
+      backendMessage: localRow.validationErrors?.[0],
+      woKey
+    });
+  }
+
+  if (candidateRows.length === 0) {
+    return {
+      parseResult: {
+        totalDetected: 0,
+        validCount: 0,
+        problematicCount: 0,
+        duplicateCount: 0,
+        readyToImportCount: 0,
+        unrecognizedHeaders: [],
+        detectedHeaders: [],
+        missingMandatoryHeaders: [],
+        headerCheckPassed: true,
+        parsedRows: [],
+        detectedContractors: [],
+        newCoverageAreas: []
+      },
+      rehydratedCount: 0,
+      skippedDuplicateCount
+    };
+  }
+
+  // Normalize unified header order across all failed rows without shifting columns
+  const headerOrder: string[] = [];
+  const seenHeaders = new Set<string>();
+  for (const item of candidateRows) {
+    for (const key of Object.keys(item.raw)) {
+      if (!seenHeaders.has(key)) {
+        seenHeaders.add(key);
+        headerOrder.push(key);
+      }
+    }
+  }
+
+  const normalizedRawRows = candidateRows.map(item => {
+    const rec: Record<string, string> = {};
+    for (const h of headerOrder) {
+      rec[h] = item.raw[h] ?? '';
+    }
+    return rec;
+  });
+
+  const engineResult = processRawImportWithEngine(
+    normalizedRawRows,
+    existingWoSet,
+    contractors,
+    coverageAreas
+  );
+
+  const enrichedRows: ParsedRowData[] = engineResult.parsedRows.map((row, idx) => {
+    const backendMsg = candidateRows[idx]?.backendMessage;
+    if (backendMsg && row.validationErrors.length === 0 && !row.isValid) {
+      return {
+        ...row,
+        validationErrors: [backendMsg]
+      };
+    }
+    return row;
+  });
+
+  return {
+    parseResult: {
+      totalDetected: enrichedRows.length,
+      validCount: enrichedRows.filter(r => r.isValid && !r.isDuplicate).length,
+      problematicCount: enrichedRows.filter(r => !r.isValid && !r.isDuplicate).length,
+      duplicateCount: enrichedRows.filter(r => r.isDuplicate).length,
+      readyToImportCount: enrichedRows.filter(r => r.isValid && !r.isDuplicate).length,
+      unrecognizedHeaders: engineResult.unrecognizedHeaders,
+      detectedHeaders: engineResult.detectedHeaders,
+      missingMandatoryHeaders: engineResult.missingMandatoryHeaders,
+      headerCheckPassed: engineResult.headerCheckPassed,
+      parsedRows: enrichedRows,
+      detectedContractors: engineResult.detectedContractors,
+      newCoverageAreas: engineResult.newCoverageAreas
+    },
+    rehydratedCount: enrichedRows.length,
+    skippedDuplicateCount
+  };
+}
+

@@ -199,14 +199,14 @@ export const NavigationConfigView: React.FC = () => {
   const [standaloneSearch, setStandaloneSearch] = useState('');
   const [standaloneRoleFilter, setStandaloneRoleFilter] = useState<string>('all');
   const [standaloneStatusFilter, setStandaloneStatusFilter] = useState<string>('all');
-  const [standaloneSort, setStandaloneSort] = useState<SortState>({ key: null, direction: null });
+  const [standaloneSort, setStandaloneSort] = useState<SortState>({ column: null, direction: null });
 
   // Tab 3 (Submenu Items) Filter, Collapse & Batch Move State
   const [submenuSearch, setSubmenuSearch] = useState('');
   const [submenuCategoryFilter, setSubmenuCategoryFilter] = useState<string>('all');
   const [submenuRoleFilter, setSubmenuRoleFilter] = useState<string>('all');
   const [submenuStatusFilter, setSubmenuStatusFilter] = useState<string>('all');
-  const [submenuSort, setSubmenuSort] = useState<SortState>({ key: null, direction: null });
+  const [submenuSort, setSubmenuSort] = useState<SortState>({ column: null, direction: null });
   const [collapsedSubmenuGroups, setCollapsedSubmenuGroups] = useState<Record<string, boolean>>({
     menu_tambahan: false
   });
@@ -238,7 +238,7 @@ export const NavigationConfigView: React.FC = () => {
         (standaloneStatusFilter === 'active' ? menu.visible !== false : menu.visible === false);
       return matchesSearch && matchesRole && matchesStatus;
     });
-    return sortDataArray(list, standaloneSort.key, standaloneSort.direction, (row, key) => {
+    return sortDataArray(list, standaloneSort.column, standaloneSort.direction, (row, key) => {
       if (key === 'order') return row.order ?? 0;
       if (key === 'label') return row.label;
       if (key === 'status') return row.visible !== false ? 'Aktif' : 'Nonaktif';
@@ -1054,7 +1054,7 @@ export const NavigationConfigView: React.FC = () => {
                 setStandaloneSearch('');
                 setStandaloneRoleFilter('all');
                 setStandaloneStatusFilter('all');
-                setStandaloneSort({ key: null, direction: null });
+                setStandaloneSort({ column: null, direction: null });
               }}
               label="Reset Search/Filter"
             />
@@ -1069,12 +1069,12 @@ export const NavigationConfigView: React.FC = () => {
                   value={standaloneSearch}
                   onChange={setStandaloneSearch}
                   placeholder="Cari menu atau /route..."
-                  sortActive={standaloneSort.key === 'label' && Boolean(standaloneSort.direction)}
-                  sortDir={standaloneSort.key === 'label' ? standaloneSort.direction : null}
+                  sortActive={standaloneSort.column === 'label' && Boolean(standaloneSort.direction)}
+                  sortDir={standaloneSort.column === 'label' ? standaloneSort.direction : null}
                   onCycleSort={() =>
                     setStandaloneSort(prev => ({
-                      key: 'label',
-                      direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                      column: 'label',
+                      direction: prev.column === 'label' ? getNextSortDirection(prev.direction) : 'asc'
                     }))
                   }
                 />
@@ -1263,12 +1263,12 @@ export const NavigationConfigView: React.FC = () => {
                       <th className="py-3 px-4 w-24 text-center">
                         <HeaderSortButton
                           label="Urutan"
-                          sortActive={standaloneSort.key === 'order' && Boolean(standaloneSort.direction)}
-                          sortDir={standaloneSort.key === 'order' ? standaloneSort.direction : null}
+                          sortActive={standaloneSort.column === 'order' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.column === 'order' ? standaloneSort.direction : null}
                           onCycleSort={() =>
                             setStandaloneSort(prev => ({
-                              key: 'order',
-                              direction: prev.key === 'order' ? getNextSortDirection(prev.direction) : 'asc'
+                              column: 'order',
+                              direction: prev.column === 'order' ? getNextSortDirection(prev.direction) : 'asc'
                             }))
                           }
                         />
@@ -1279,12 +1279,12 @@ export const NavigationConfigView: React.FC = () => {
                           value={standaloneSearch}
                           onChange={setStandaloneSearch}
                           placeholder="Cari nama menu atau /route..."
-                          sortActive={standaloneSort.key === 'label' && Boolean(standaloneSort.direction)}
-                          sortDir={standaloneSort.key === 'label' ? standaloneSort.direction : null}
+                          sortActive={standaloneSort.column === 'label' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.column === 'label' ? standaloneSort.direction : null}
                           onCycleSort={() =>
                             setStandaloneSort(prev => ({
-                              key: 'label',
-                              direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                              column: 'label',
+                              direction: prev.column === 'label' ? getNextSortDirection(prev.direction) : 'asc'
                             }))
                           }
                         />
@@ -1308,12 +1308,12 @@ export const NavigationConfigView: React.FC = () => {
                           allLabel="Semua Status"
                           options={navStatusFilterOptions}
                           onChange={setStandaloneStatusFilter}
-                          sortActive={standaloneSort.key === 'status' && Boolean(standaloneSort.direction)}
-                          sortDir={standaloneSort.key === 'status' ? standaloneSort.direction : null}
+                          sortActive={standaloneSort.column === 'status' && Boolean(standaloneSort.direction)}
+                          sortDir={standaloneSort.column === 'status' ? standaloneSort.direction : null}
                           onCycleSort={() =>
                             setStandaloneSort(prev => ({
-                              key: 'status',
-                              direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                              column: 'status',
+                              direction: prev.column === 'status' ? getNextSortDirection(prev.direction) : 'asc'
                             }))
                           }
                         />
@@ -1533,8 +1533,7 @@ export const NavigationConfigView: React.FC = () => {
                 allLabel={`Semua Kategori (${(submenuItems || []).length})`}
                 options={sortedCategories.map(c => ({
                   value: c.id,
-                  label: c.name,
-                  count: (submenusByCategory.get(c.id) || []).length
+                  label: `${c.name} (${(submenusByCategory.get(c.id) || []).length})`
                 }))}
                 onChange={setSubmenuCategoryFilter}
               />
@@ -1563,7 +1562,7 @@ export const NavigationConfigView: React.FC = () => {
                   setSubmenuCategoryFilter('all');
                   setSubmenuRoleFilter('all');
                   setSubmenuStatusFilter('all');
-                  setSubmenuSort({ key: null, direction: null });
+                  setSubmenuSort({ column: null, direction: null });
                 }}
                 label="Reset Search/Filter"
               />
@@ -1584,34 +1583,32 @@ export const NavigationConfigView: React.FC = () => {
           {isSuperadmin && selectedSubmenuIds.length > 0 && (
             <TableSelectionToolbar
               selectedCount={selectedSubmenuIds.length}
-              itemLabel="submenu dipilih untuk dipindahkan"
-              onClear={() => setSelectedSubmenuIds([])}
-              clearLabel="Batal"
-              actions={
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={batchTargetCategoryId}
-                    onChange={e => setBatchTargetCategoryId(e.target.value)}
-                    aria-label="Target kategori batch move"
-                    className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
-                  >
-                    {sortedCategories.map(c => (
-                      <option key={c.id} value={c.id}>
-                        Pindah ke: {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleExecuteBatchMove}
-                    className="mj-btn-superadmin-primary px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
-                  >
-                    <ArrowRightLeft className="w-3.5 h-3.5" />
-                    <span>Terapkan Pindah ({selectedSubmenuIds.length})</span>
-                  </button>
-                </div>
-              }
-            />
+              label="submenu dipilih untuk dipindahkan"
+              onClearSelection={() => setSelectedSubmenuIds([])}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={batchTargetCategoryId}
+                  onChange={e => setBatchTargetCategoryId(e.target.value)}
+                  aria-label="Target kategori batch move"
+                  className="px-3 py-1.5 text-xs font-semibold tactile-debossed-input bg-white dark:bg-[#100921] text-[#26364A] dark:text-purple-100 rounded-xl focus:outline-hidden cursor-pointer"
+                >
+                  {sortedCategories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      Pindah ke: {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchMove}
+                  className="mj-btn-superadmin-primary px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span>Terapkan Pindah ({selectedSubmenuIds.length})</span>
+                </button>
+              </div>
+            </TableSelectionToolbar>
           )}
 
           {/* Grouped Submenus per Category */}
@@ -1637,7 +1634,7 @@ export const NavigationConfigView: React.FC = () => {
               });
               const filteredInCat = sortDataArray(
                 filteredRawInCat,
-                submenuSort.key,
+                submenuSort.column,
                 submenuSort.direction,
                 (row, key) => {
                   if (key === 'order') return row.order ?? 0;
@@ -1941,12 +1938,12 @@ export const NavigationConfigView: React.FC = () => {
                             <th className="py-2.5 px-3 w-24 text-center">
                               <HeaderSortButton
                                 label="Urutan"
-                                sortActive={submenuSort.key === 'order' && Boolean(submenuSort.direction)}
-                                sortDir={submenuSort.key === 'order' ? submenuSort.direction : null}
+                                sortActive={submenuSort.column === 'order' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.column === 'order' ? submenuSort.direction : null}
                                 onCycleSort={() =>
                                   setSubmenuSort(prev => ({
-                                    key: 'order',
-                                    direction: prev.key === 'order' ? getNextSortDirection(prev.direction) : 'asc'
+                                    column: 'order',
+                                    direction: prev.column === 'order' ? getNextSortDirection(prev.direction) : 'asc'
                                   }))
                                 }
                               />
@@ -1957,12 +1954,12 @@ export const NavigationConfigView: React.FC = () => {
                                 value={submenuSearch}
                                 onChange={setSubmenuSearch}
                                 placeholder="Cari submenu atau /route..."
-                                sortActive={submenuSort.key === 'label' && Boolean(submenuSort.direction)}
-                                sortDir={submenuSort.key === 'label' ? submenuSort.direction : null}
+                                sortActive={submenuSort.column === 'label' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.column === 'label' ? submenuSort.direction : null}
                                 onCycleSort={() =>
                                   setSubmenuSort(prev => ({
-                                    key: 'label',
-                                    direction: prev.key === 'label' ? getNextSortDirection(prev.direction) : 'asc'
+                                    column: 'label',
+                                    direction: prev.column === 'label' ? getNextSortDirection(prev.direction) : 'asc'
                                   }))
                                 }
                               />
@@ -1986,12 +1983,12 @@ export const NavigationConfigView: React.FC = () => {
                                 allLabel="Semua Status"
                                 options={navStatusFilterOptions}
                                 onChange={setSubmenuStatusFilter}
-                                sortActive={submenuSort.key === 'status' && Boolean(submenuSort.direction)}
-                                sortDir={submenuSort.key === 'status' ? submenuSort.direction : null}
+                                sortActive={submenuSort.column === 'status' && Boolean(submenuSort.direction)}
+                                sortDir={submenuSort.column === 'status' ? submenuSort.direction : null}
                                 onCycleSort={() =>
                                   setSubmenuSort(prev => ({
-                                    key: 'status',
-                                    direction: prev.key === 'status' ? getNextSortDirection(prev.direction) : 'asc'
+                                    column: 'status',
+                                    direction: prev.column === 'status' ? getNextSortDirection(prev.direction) : 'asc'
                                   }))
                                 }
                               />

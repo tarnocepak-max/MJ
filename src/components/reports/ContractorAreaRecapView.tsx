@@ -623,6 +623,9 @@ export const ContractorAreaRecapView: React.FC = () => {
 
             <HeaderDateSortFilterPopover
               label={periodPreset === 'custom' ? `${startDate || '?'}..${endDate || '?'}` : 'Rentang Tanggal'}
+              sortActive={false}
+              sortDir={null}
+              onCycleSort={() => {}}
               exactDate={startDate === endDate ? startDate : ''}
               dateFrom={startDate !== endDate ? startDate : ''}
               dateTo={startDate !== endDate ? endDate : ''}
@@ -1447,9 +1450,9 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Total WO"
-                        active={sortState.column === 'totalWO'}
-                        direction={sortState.column === 'totalWO' ? sortState.direction : null}
-                        onClick={() => handleSort('totalWO')}
+                        sortActive={sortState.column === 'totalWO'}
+                        sortDir={sortState.column === 'totalWO' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('totalWO')}
                       />
                     </div>
                   </th>
@@ -1457,9 +1460,9 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Assign"
-                        active={sortState.column === 'assign'}
-                        direction={sortState.column === 'assign' ? sortState.direction : null}
-                        onClick={() => handleSort('assign')}
+                        sortActive={sortState.column === 'assign'}
+                        sortDir={sortState.column === 'assign' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('assign')}
                       />
                     </div>
                   </th>
@@ -1467,9 +1470,9 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Unassign"
-                        active={sortState.column === 'unassign'}
-                        direction={sortState.column === 'unassign' ? sortState.direction : null}
-                        onClick={() => handleSort('unassign')}
+                        sortActive={sortState.column === 'unassign'}
+                        sortDir={sortState.column === 'unassign' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('unassign')}
                       />
                     </div>
                   </th>
@@ -1477,9 +1480,9 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Complete"
-                        active={sortState.column === 'complete'}
-                        direction={sortState.column === 'complete' ? sortState.direction : null}
-                        onClick={() => handleSort('complete')}
+                        sortActive={sortState.column === 'complete'}
+                        sortDir={sortState.column === 'complete' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('complete')}
                       />
                     </div>
                   </th>
@@ -1487,9 +1490,9 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Pending"
-                        active={sortState.column === 'uncomplete'}
-                        direction={sortState.column === 'uncomplete' ? sortState.direction : null}
-                        onClick={() => handleSort('uncomplete')}
+                        sortActive={sortState.column === 'uncomplete'}
+                        sortDir={sortState.column === 'uncomplete' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('uncomplete')}
                       />
                     </div>
                   </th>
@@ -1497,18 +1500,18 @@ export const ContractorAreaRecapView: React.FC = () => {
                     <div className="flex justify-end">
                       <HeaderSortButton
                         label="Cancel"
-                        active={sortState.column === 'cancel'}
-                        direction={sortState.column === 'cancel' ? sortState.direction : null}
-                        onClick={() => handleSort('cancel')}
+                        sortActive={sortState.column === 'cancel'}
+                        sortDir={sortState.column === 'cancel' ? sortState.direction : null}
+                        onCycleSort={() => handleSort('cancel')}
                       />
                     </div>
                   </th>
                   <th className="py-3 px-4 min-w-[165px]">
                     <HeaderSortButton
                       label="Tingkat Penyelesaian"
-                      active={sortState.column === 'completionRate'}
-                      direction={sortState.column === 'completionRate' ? sortState.direction : null}
-                      onClick={() => handleSort('completionRate')}
+                      sortActive={sortState.column === 'completionRate'}
+                      sortDir={sortState.column === 'completionRate' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('completionRate')}
                     />
                   </th>
                   <th className="py-3 px-4 text-right">Aksi</th>

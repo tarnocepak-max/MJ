@@ -109,7 +109,7 @@ export const LoginLogView: React.FC = () => {
         numeric: true,
         tdClassName: 'text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap font-mono tabular-nums',
         headerControl: {
-          type: 'date',
+          kind: 'date',
           exactDate,
           dateFrom,
           dateTo,
@@ -129,7 +129,7 @@ export const LoginLogView: React.FC = () => {
         priority: 'hidden_mobile',
         tdClassName: 'whitespace-nowrap',
         headerControl: {
-          type: 'select',
+          kind: 'select',
           value: statusFilter,
           defaultValue: 'ALL',
           allLabel: 'Semua Hasil Login',
@@ -165,7 +165,7 @@ export const LoginLogView: React.FC = () => {
         priority: 'hidden_mobile',
         tdClassName: 'font-bold text-[#26364A] dark:text-white whitespace-nowrap',
         headerControl: {
-          type: 'search',
+          kind: 'search',
           value: userSearch,
           onChange: v => {
             setUserSearch(v);
@@ -182,7 +182,7 @@ export const LoginLogView: React.FC = () => {
         priority: 'secondary',
         tdClassName: 'capitalize font-mono text-[#52647A] dark:text-[#CEC0E8] whitespace-nowrap',
         headerControl: {
-          type: 'select',
+          kind: 'select',
           value: roleFilter,
           defaultValue: 'ALL',
           allLabel: 'Semua Role',
@@ -204,7 +204,7 @@ export const LoginLogView: React.FC = () => {
         priority: 'primary',
         tdClassName: 'text-[#52647A] dark:text-[#D9CCF2] max-w-md break-words',
         headerControl: {
-          type: 'search',
+          kind: 'search',
           value: detailsSearch,
           onChange: v => {
             setDetailsSearch(v);

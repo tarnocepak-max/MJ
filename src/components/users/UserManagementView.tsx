@@ -397,11 +397,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  const createModalContainerRef = useRef<HTMLDivElement>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const createModalVv = useVisualViewportModal(isCreateModalOpen);
-  const createModalLayer = useModalLayer(isCreateModalOpen, () => {
-    if (!isCreatingUser) setIsCreateModalOpen(false);
-  });
+  const createModalVv = useVisualViewportModal(isCreateModalOpen, createModalContainerRef);
+  const createModalLayerZ = useModalLayer(isCreateModalOpen, { tier: 'modal' });
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [areaVendorFilter, setAreaVendorFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'inactive' | 'locked'>('ALL');
@@ -2037,7 +2036,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
         createPortal(
           <div
             style={{
-              zIndex: createModalLayer.zIndex,
+              zIndex: createModalLayerZ,
               ...(createModalVv.keyboardInset > 0 ? { paddingBottom: `${createModalVv.keyboardInset}px` } : {})
             }}
             className="fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/45 dark:bg-[#0D0518]/75 backdrop-blur-[6px]"
@@ -2051,7 +2050,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ onOpenRo
             }}
           >
             <div
-              ref={createModalVv.containerRef}
+              ref={createModalContainerRef}
               style={createModalVv.isKeyboardOpen ? { maxHeight: `${Math.max(280, createModalVv.viewportHeight - 16)}px` } : undefined}
               className="mj-sheet-enter relative w-full max-w-[700px] sm:my-auto bg-white dark:bg-[#1E1238] rounded-t-2xl sm:rounded-2xl shadow-[0_25px_60px_-12px_rgba(38,54,74,0.22),0_0_0_1px_rgba(197,190,239,0.55)] dark:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.72),0_0_0_1px_rgba(167,139,250,0.3)] overflow-hidden flex flex-col max-h-[94dvh]"
             >

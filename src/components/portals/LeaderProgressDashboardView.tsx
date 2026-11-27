@@ -1345,17 +1345,17 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
                   <th className="py-3 px-3 min-w-[125px]">
                     <HeaderSortButton
                       label="Check-in & Out"
-                      active={sortState.column === 'checkInAt'}
-                      direction={sortState.column === 'checkInAt' ? sortState.direction : null}
-                      onClick={() => handleSort('checkInAt')}
+                      sortActive={sortState.column === 'checkInAt'}
+                      sortDir={sortState.column === 'checkInAt' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('checkInAt')}
                     />
                   </th>
                   <th className="py-3 px-3 min-w-[105px]">
                     <HeaderSortButton
                       label="Durasi Kerja"
-                      active={sortState.column === 'workDuration'}
-                      direction={sortState.column === 'workDuration' ? sortState.direction : null}
-                      onClick={() => handleSort('workDuration')}
+                      sortActive={sortState.column === 'workDuration'}
+                      sortDir={sortState.column === 'workDuration' ? sortState.direction : null}
+                      onCycleSort={() => handleSort('workDuration')}
                     />
                   </th>
                   <th className="py-3 px-3 text-center font-bold min-w-[85px]">Bukti Foto</th>

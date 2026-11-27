@@ -41,6 +41,107 @@ interface ManagementDataPortalProps {
   onOpenWhatsApp?: (ticket: Ticket) => void;
 }
 
+export type ManagementQualityFilterKey =
+  | 'ALL'
+  | 'VALID'
+  | 'PROBLEMATIC'
+  | 'DUPLICATE'
+  | 'MISSING_DATE'
+  | 'AWAITING_VALIDATION';
+
+export const MANAGEMENT_QUALITY_LABELS: Record<ManagementQualityFilterKey, string> = {
+  ALL: 'Total WO (Semua Record Aktif)',
+  VALID: 'Data Valid',
+  PROBLEMATIC: 'Data Bermasalah',
+  DUPLICATE: 'Duplikat WO',
+  MISSING_DATE: 'Tanpa Jadwal (Appointment Kosong)',
+  AWAITING_VALIDATION: 'Menunggu Validasi / Penugasan'
+};
+
+export interface TicketQualityEvaluation {
+  isValid: boolean;
+  isProblematic: boolean;
+  isDuplicate: boolean;
+  isMissingDate: boolean;
+  isAwaitingValidation: boolean;
+}
+
+export function evaluateManagementWoQuality(tickets: Ticket[]) {
+  const activeTickets = (tickets || []).filter(t => !t.isDeleted && !t.isArchived);
+  let validCount = 0;
+  let problematicCount = 0;
+  let duplicateCount = 0;
+  let missingAppointmentDateCount = 0;
+  let awaitingValidationCount = 0;
+
+  const seenWo = new Set<string>();
+  const flagsById = new Map<string, TicketQualityEvaluation>();
+
+  activeTickets.forEach(t => {
+    let isProblematic = false;
+    let isDuplicate = false;
+    let isMissingDate = false;
+
+    const wo = (t.woNumber || '').trim().toUpperCase();
+    if (wo && seenWo.has(wo)) {
+      duplicateCount++;
+      isDuplicate = true;
+      isProblematic = true;
+    } else if (wo) {
+      seenWo.add(wo);
+    }
+
+    const cid = (t.idCustomer || t.customerId || '').trim();
+    const isValidCid = /^[0-9]{7}$/.test(cid);
+    if (!isValidCid) {
+      isProblematic = true;
+    }
+
+    const appDateRes = parseAppointmentDate(t.appointmentDate);
+    if (appDateRes.isEmpty || !appDateRes.date) {
+      missingAppointmentDateCount++;
+      isMissingDate = true;
+    } else if (!appDateRes.isValid) {
+      isProblematic = true;
+    }
+
+    if (!t.contactorName && !t.contractorName) {
+      isProblematic = true;
+    }
+
+    if (isProblematic) {
+      problematicCount++;
+    } else {
+      validCount++;
+    }
+
+    const isAwaitingValidation = t.statusWOAgent === 'Pending' || t.statusWOInstaller === 'Unassigned';
+    if (isAwaitingValidation) {
+      awaitingValidationCount++;
+    }
+
+    flagsById.set(t.id, {
+      isValid: !isProblematic,
+      isProblematic,
+      isDuplicate,
+      isMissingDate,
+      isAwaitingValidation
+    });
+  });
+
+  return {
+    metrics: {
+      total: activeTickets.length,
+      validCount,
+      problematicCount,
+      duplicateCount,
+      missingAppointmentDateCount,
+      awaitingValidationCount
+    },
+    flagsById
+  };
+}
+
 export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   onSelectTicket,
   onOpenWhatsApp
@@ -58,6 +159,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'wo_data' | 'import_validation' | 'quality_monitoring'>('dashboard');
+  const [qualityFilter, setQualityFilter] = useState<ManagementQualityFilterKey>('ALL');
+  const [isQualityKpiBannerActive, setIsQualityKpiBannerActive] = useState(false);
 
   // Search & Filter state for WO Data tab
   const [searchWo, setSearchWo] = useState('');
@@ -101,75 +204,23 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   // Operational Date from reactive Asia/Jakarta todayWIB (auto-resets at 00:00 WIB)
   const operationalDate = todayWIB || getOperationalTodayDate();
 
-  // Metrics computation for Dashboard Data
-  const metrics = useMemo(() => {
-    const activeTickets = tickets.filter(t => !t.isDeleted);
-    let total = activeTickets.length;
-    let validCount = 0;
-    let problematicCount = 0;
-    let duplicateCount = 0;
-    let missingAppointmentDateCount = 0;
-    let awaitingValidationCount = 0;
-
-    const seenWo = new Set<string>();
-
-    activeTickets.forEach(t => {
-      let isProblematic = false;
-
-      // 1. Check WO uniqueness
-      const wo = (t.woNumber || '').trim().toUpperCase();
-      if (seenWo.has(wo)) {
-        duplicateCount++;
-        isProblematic = true;
-      } else {
-        seenWo.add(wo);
-      }
-
-      // 2. Check Customer ID 7 digit
-      const cid = (t.idCustomer || t.customerId || '').trim();
-      const isValidCid = /^[0-9]{7}$/.test(cid);
-      if (!isValidCid) {
-        isProblematic = true;
-      }
-
-      // 3. Check Appointment Date
-      const appDateRes = parseAppointmentDate(t.appointmentDate);
-      if (appDateRes.isEmpty || !appDateRes.date) {
-        missingAppointmentDateCount++;
-      } else if (!appDateRes.isValid) {
-        isProblematic = true;
-      }
-
-      // 4. Contractor mapping
-      if (!t.contactorName && !t.contractorName) {
-        isProblematic = true;
-      }
-
-      if (isProblematic) {
-        problematicCount++;
-      } else {
-        validCount++;
-      }
-
-      if (t.statusWOAgent === 'Pending' || t.statusWOInstaller === 'Unassigned') {
-        awaitingValidationCount++;
-      }
-    });
-
-    return {
-      total,
-      validCount,
-      problematicCount,
-      duplicateCount,
-      missingAppointmentDateCount,
-      awaitingValidationCount
-    };
-  }, [tickets]);
+  // Metrics & row-level quality flags computation for Dashboard Data + Data WO filter parity
+  const { metrics, flagsById } = useMemo(() => evaluateManagementWoQuality(tickets), [tickets]);
 
   // Filtered tickets in Data WO tab
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
       if (t.isArchived || t.isDeleted) return false;
+
+      if (qualityFilter !== 'ALL') {
+        const qFlags = flagsById.get(t.id);
+        if (!qFlags) return false;
+        if (qualityFilter === 'VALID' && !qFlags.isValid) return false;
+        if (qualityFilter === 'PROBLEMATIC' && !qFlags.isProblematic) return false;
+        if (qualityFilter === 'DUPLICATE' && !qFlags.isDuplicate) return false;
+        if (qualityFilter === 'MISSING_DATE' && !qFlags.isMissingDate) return false;
+        if (qualityFilter === 'AWAITING_VALIDATION' && !qFlags.isAwaitingValidation) return false;
+      }
 
       if (searchWo && !String(t.woNumber ?? '').toLowerCase().includes(searchWo.toLowerCase().trim())) {
         return false;
@@ -204,7 +255,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
 
       return true;
     });
-  }, [tickets, searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, exactAppointmentDate, customStartDate, customEndDate]);
+  }, [tickets, qualityFilter, flagsById, searchWo, searchCustomerId, searchCustomerName, selectedContractor, selectedArea, exactAppointmentDate, customStartDate, customEndDate]);
 
   const sortedTickets = useMemo(() => {
     return sortDataArray(filteredTickets, sortState, (t: Ticket, col: string) => {
@@ -233,6 +284,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
   };
 
   const woActiveFilterCount =
+    (qualityFilter !== 'ALL' ? 1 : 0) +
     (searchWo.trim() ? 1 : 0) +
     (searchCustomerId.trim() ? 1 : 0) +
     (searchCustomerName.trim() ? 1 : 0) +
@@ -241,6 +293,8 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     (exactAppointmentDate || customStartDate || customEndDate ? 1 : 0);
 
   const resetWoFilters = () => {
+    setQualityFilter('ALL');
+    setIsQualityKpiBannerActive(false);
     setSearchWo('');
     setSearchCustomerId('');
     setSearchCustomerName('');
@@ -250,6 +304,21 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
     setCustomStartDate('');
     setCustomEndDate('');
     setWoPage(1);
+  };
+
+  const handleQualityKpiDrillDown = (key: ManagementQualityFilterKey) => {
+    setSearchWo('');
+    setSearchCustomerId('');
+    setSearchCustomerName('');
+    setSelectedContractor('ALL');
+    setSelectedArea('ALL');
+    setExactAppointmentDate('');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setQualityFilter(key);
+    setIsQualityKpiBannerActive(true);
+    setWoPage(1);
+    setActiveTab('wo_data');
   };
 
   // Unique areas & contractors from live data
@@ -389,43 +458,91 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {/* 1. TAB: DASHBOARD DATA */}
       {activeTab === 'dashboard' && (
         <div className="space-y-4 sm:space-y-6">
-          {/* Metrics Grid */}
+          {/* Metrics Grid (Interactive KPI → Direct to Data WO Table) */}
           <div className={`grid gap-3 sm:gap-3.5 ${isCompactUI ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
-            <div className="p-3.5 sm:p-4 bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Total WO</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('ALL')}
+              className="p-3.5 sm:p-4 bg-white dark:bg-[#0F172A] hover:border-[#2563EB]/60 dark:hover:border-[#38BDF8]/60 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Lihat seluruh WO pada Data WO"
+            >
+              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center justify-between gap-1">
+                <span>Total WO</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-[#0F172A] dark:text-white mt-1">{metrics.total}</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Seluruh master record</div>
-            </div>
+            </button>
 
-            <div className="p-3.5 sm:p-4 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800/70 shadow-xs">
-              <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Data Valid</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('VALID')}
+              className="p-3.5 sm:p-4 bg-emerald-50/70 dark:bg-emerald-950/30 hover:border-emerald-400 dark:hover:border-emerald-600 rounded-2xl border border-emerald-200 dark:border-emerald-800/70 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Filter Data WO dengan status Valid"
+            >
+              <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase flex items-center justify-between gap-1">
+                <span>Data Valid</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-emerald-700 dark:text-emerald-300 mt-1">{metrics.validCount}</div>
               <div className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Sesuai aturan data</div>
-            </div>
+            </button>
 
-            <div className="p-3.5 sm:p-4 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800/70 shadow-xs">
-              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase">Bermasalah</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('PROBLEMATIC')}
+              className="p-3.5 sm:p-4 bg-amber-50/70 dark:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 rounded-2xl border border-amber-200 dark:border-amber-800/70 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Filter Data WO yang Bermasalah"
+            >
+              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase flex items-center justify-between gap-1">
+                <span>Bermasalah</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-amber-700 dark:text-amber-300 mt-1">{metrics.problematicCount}</div>
               <div className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">Perlu koreksi staf</div>
-            </div>
+            </button>
 
-            <div className="p-3.5 sm:p-4 bg-rose-50/70 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-800/70 shadow-xs">
-              <div className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase">Duplikat WO</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('DUPLICATE')}
+              className="p-3.5 sm:p-4 bg-rose-50/70 dark:bg-rose-950/30 hover:border-rose-400 dark:hover:border-rose-600 rounded-2xl border border-rose-200 dark:border-rose-800/70 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Filter Data WO Duplikat"
+            >
+              <div className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase flex items-center justify-between gap-1">
+                <span>Duplikat WO</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-rose-700 dark:text-rose-300 mt-1">{metrics.duplicateCount}</div>
               <div className="text-[10px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">Nomor WO ganda</div>
-            </div>
+            </button>
 
-            <div className="p-3.5 sm:p-4 bg-sky-50/70 dark:bg-sky-950/30 rounded-2xl border border-sky-200 dark:border-sky-800/70 shadow-xs">
-              <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 uppercase">Tanpa Jadwal</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('MISSING_DATE')}
+              className="p-3.5 sm:p-4 bg-sky-50/70 dark:bg-sky-950/30 hover:border-sky-400 dark:hover:border-sky-600 rounded-2xl border border-sky-200 dark:border-sky-800/70 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Filter Data WO Tanpa Jadwal"
+            >
+              <div className="text-[11px] font-bold text-sky-700 dark:text-sky-300 uppercase flex items-center justify-between gap-1">
+                <span>Tanpa Jadwal</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-sky-700 dark:text-sky-300 mt-1">{metrics.missingAppointmentDateCount}</div>
               <div className="text-[10px] text-sky-600/80 dark:text-sky-400/80 mt-0.5">Appointment kosong</div>
-            </div>
+            </button>
 
-            <div className="p-3.5 sm:p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800/70 shadow-xs">
-              <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase">Menunggu Validasi</div>
+            <button
+              type="button"
+              onClick={() => handleQualityKpiDrillDown('AWAITING_VALIDATION')}
+              className="p-3.5 sm:p-4 bg-blue-50/70 dark:bg-blue-950/30 hover:border-blue-400 dark:hover:border-sky-600 rounded-2xl border border-blue-200 dark:border-blue-800/70 shadow-xs text-left transition-all cursor-pointer active:scale-[0.985]"
+              title="Filter Data WO Menunggu Validasi"
+            >
+              <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#38BDF8] uppercase flex items-center justify-between gap-1">
+                <span className="truncate">Menunggu Validasi</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              </div>
               <div className="text-2xl font-extrabold font-mono tabular-nums text-[#2563EB] dark:text-[#38BDF8] mt-1">{metrics.awaitingValidationCount}</div>
               <div className="text-[10px] text-blue-600/80 dark:text-sky-400/80 mt-0.5">Pending penugasan</div>
-            </div>
+            </button>
           </div>
 
           {/* Quick Quality Summary & Instructions */}
@@ -464,6 +581,29 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
       {/* 2. TAB: DATA WO */}
       {activeTab === 'wo_data' && (
         <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs space-y-4">
+          {(qualityFilter !== 'ALL' || isQualityKpiBannerActive) && (
+            <div className="rounded-xl bg-blue-50/90 dark:bg-sky-950/40 border border-blue-200 dark:border-sky-800/70 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full bg-[#2563EB] dark:bg-sky-600 text-white font-bold text-[10.5px]">
+                  Filter KPI Dashboard
+                </span>
+                <span className="font-bold text-[#0F172A] dark:text-white">
+                  {MANAGEMENT_QUALITY_LABELS[qualityFilter]}
+                </span>
+                <span className="font-mono font-bold text-[#2563EB] dark:text-[#38BDF8] tabular-nums">
+                  ({filteredTickets.length} WO ditemukan)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={resetWoFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-[#1E293B] border border-blue-200 dark:border-sky-700 text-[#0F172A] dark:text-white font-bold hover:bg-blue-100/60 dark:hover:bg-sky-900/50 cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Tampilkan Semua Data</span>
+              </button>
+            </div>
+          )}
           <ResponsiveDataTable<Ticket>
             data={paginatedWoTickets}
             getRowKey={t => t.id}
@@ -475,7 +615,7 @@ export const ManagementDataPortal: React.FC<ManagementDataPortalProps> = ({
             selectionToolbar={
               <TableSelectionToolbar
                 selectedCount={selectedIds.size}
-                itemLabel="Work Order"
+                label="Work Order dipilih"
                 onClearSelection={() => setSelectedIds(new Set())}
                 className="mb-1"
               >

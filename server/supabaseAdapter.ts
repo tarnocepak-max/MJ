@@ -1803,6 +1803,81 @@ export async function getWorkOrdersFromSupabasePaginated(
   }
 }
 
+export async function getWorkOrdersByImportJobFromSupabase(
+  jobId: string,
+  options: { limit?: number } = {}
+): Promise<SupabaseOpResult<any[]>> {
+  const client = getSupabaseBackendClient();
+  if (!client) {
+    return { success: false, error: { code: 'NOT_CONFIGURED', message: 'Supabase client belum dikonfigurasi.' } };
+  }
+  const cleanJobId = String(jobId || '').trim();
+  if (!cleanJobId) {
+    return { success: false, error: { code: 'INVALID_JOB_ID', message: 'Job ID import tidak valid.' } };
+  }
+
+  const maxRows = Math.min(5000, Math.max(1, Number(options.limit || 3000) || 3000));
+  const safePrefix = sanitizePostgrestIlikeTerm(`${cleanJobId}_b`);
+  const chunkSize = 1000;
+  const collected: any[] = [];
+  let forceWildcardSelect = false;
+
+  try {
+    let offset = 0;
+    while (collected.length < maxRows) {
+      const fetchSize = Math.min(chunkSize, maxRows - collected.length);
+      let pageData: any[] | null = null;
+      let pageError: any = null;
+
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const selectCols = forceWildcardSelect ? '*' : getCompatWorkOrderListColumns();
+        let query = client
+          .from('work_orders')
+          .select(selectCols)
+          .eq('is_deleted', false)
+          .eq('is_archived', false);
+
+        if (!missingWorkOrderColumnsCache.has('import_batch_id')) {
+          query = query.ilike('import_batch_id', `${safePrefix}%`);
+        } else {
+          query = query.ilike('payload->>importBatchId', `${safePrefix}%`);
+        }
+
+        const res = await query
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(offset, offset + fetchSize - 1);
+
+        pageData = res.data as any;
+        pageError = res.error;
+        if (!pageError || !isMissingSchemaObjectError(pageError)) {
+          break;
+        }
+        const recorded = recordMissingWorkOrderColumn(pageError);
+        if (!recorded) {
+          if (forceWildcardSelect) break;
+          forceWildcardSelect = true;
+        }
+      }
+
+      if (pageError) {
+        return { success: false, error: classifySupabaseError(pageError) };
+      }
+
+      const rows = Array.isArray(pageData) ? pageData : [];
+      collected.push(...rows.map(postgresRowToTicket));
+      if (rows.length < fetchSize) {
+        break;
+      }
+      offset += rows.length;
+    }
+
+    return { success: true, data: collected };
+  } catch (err: any) {
+    return { success: false, error: classifySupabaseError(err) };
+  }
+}
+
 /**
  * Phase 1 Critical Serializer: strips heavy photo/history/nested JSON blobs
  * while keeping all Priority 1 identity, schedule, contractor, status, and filter fields intact.

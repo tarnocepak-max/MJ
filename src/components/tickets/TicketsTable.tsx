@@ -62,7 +62,9 @@ import {
   Plus,
   Activity,
   CloudDownload,
-  ArrowRight
+  ArrowRight,
+  FileSpreadsheet,
+  Loader2
 } from 'lucide-react';
 import { useAnimation } from '../../context/AnimationContext';
 import { useToast } from '../../context/ToastContext';
@@ -226,6 +228,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     refreshActiveTickets,
     activeKpiDrilldown,
     setActiveKpiDrilldown,
+    activeImportBatchFilter,
+    setActiveImportBatchFilter,
+    importBatchTickets,
+    isLoadingImportBatchTickets,
+    clearAllWoDrilldowns,
     databaseStatus,
     syncStatus,
     isDataLoading,
@@ -269,6 +276,33 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const [selectedWhatsAppStatus, setSelectedWhatsAppStatus] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('ALL');
+
+  // Clear conflicting local filters whenever Dashboard KPI drilldown or Import Batch filter activates
+  useEffect(() => {
+    if (!activeKpiDrilldown && !activeImportBatchFilter) return;
+    setSearchTerm('');
+    setWoSearch('');
+    setIdCustSearch('');
+    setCustomerSearch('');
+    setInstallerSearch('');
+    setExactAppointmentDate('');
+    setDateFrom('');
+    setDateTo('');
+    setSelectedAgentStatus('ALL');
+    setSelectedInstallerStatus('ALL');
+    setSelectedWhatsAppStatus('ALL');
+    setSelectedCategory('ALL');
+    setSelectedApprovalStatus('ALL');
+    setSelectedArea(
+      activeKpiDrilldown?.area && activeKpiDrilldown.area !== 'ALL' ? activeKpiDrilldown.area : 'ALL'
+    );
+    setSelectedContractor(
+      activeKpiDrilldown?.contractor && activeKpiDrilldown.contractor !== 'ALL'
+        ? activeKpiDrilldown.contractor
+        : 'ALL'
+    );
+    setCurrentPage(1);
+  }, [activeKpiDrilldown, activeImportBatchFilter]);
 
   // Inline Verification Drawer & Clipboard & Row Action Menu state
   const [expandedDrawerTicketId, setExpandedDrawerTicketId] = useState<string | null>(null);
@@ -590,6 +624,35 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
       return true;
     };
 
+    const matchesQuickSearch = (t: Ticket) => {
+      if (!(searchTerm && typeof searchTerm === 'string' && searchTerm.trim())) return true;
+      const q = searchTerm.trim().toLowerCase();
+      const matchWo = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
+      const matchCust = (t.customerName ? String(t.customerName).toLowerCase() : '').includes(q);
+      const matchId = (t.idCustomer ? String(t.idCustomer).toLowerCase() : '').includes(q);
+      const matchPhone = String(t.customerPhone || '').includes(q);
+      const matchInstaller = (t.installerName ? String(t.installerName).toLowerCase() : '').includes(q);
+      const matchCluster = (t.clusterName ? String(t.clusterName).toLowerCase() : '').includes(q);
+      const matchCategory = (t.ticketCategory ? String(t.ticketCategory).toLowerCase() : '').includes(q);
+      return (
+        matchWo ||
+        matchCust ||
+        matchId ||
+        matchPhone ||
+        matchInstaller ||
+        matchCluster ||
+        matchCategory
+      );
+    };
+
+    if (activeImportBatchFilter) {
+      return (importBatchTickets || []).filter(t => {
+        if (!t || t.isDeleted || t.isArchived) return false;
+        if (!matchesFilterDropdowns(t)) return false;
+        return matchesQuickSearch(t);
+      });
+    }
+
     if (isCrossDateActive) {
       return crossDateSearchResults.resultTickets.filter(t => {
         if (!t || t.isDeleted || t.isArchived) return false;
@@ -666,35 +729,20 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           const tArea = String(t.area || '').trim().toLowerCase();
           if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
         }
+        if (activeKpiDrilldown.installerName && activeKpiDrilldown.installerName !== 'ALL') {
+          const tInst = String(t.installerName || '').trim().toLowerCase();
+          const targetInst = activeKpiDrilldown.installerName.trim().toLowerCase();
+          if (!tInst || (!tInst.includes(targetInst) && !targetInst.includes(tInst))) return false;
+        }
         if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
       }
 
-      if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
-        const q = searchTerm.trim().toLowerCase();
-        const matchWo = (t.woNumber ? String(t.woNumber).toLowerCase() : '').includes(q);
-        const matchCust = (t.customerName ? String(t.customerName).toLowerCase() : '').includes(q);
-        const matchId = (t.idCustomer ? String(t.idCustomer).toLowerCase() : '').includes(q);
-        const matchPhone = String(t.customerPhone || '').includes(q);
-        const matchInstaller = (t.installerName ? String(t.installerName).toLowerCase() : '').includes(q);
-        const matchCluster = (t.clusterName ? String(t.clusterName).toLowerCase() : '').includes(q);
-        const matchCategory = (t.ticketCategory ? String(t.ticketCategory).toLowerCase() : '').includes(q);
-        if (
-          !matchWo &&
-          !matchCust &&
-          !matchId &&
-          !matchPhone &&
-          !matchInstaller &&
-          !matchCluster &&
-          !matchCategory
-        ) {
-          return false;
-        }
-      }
-
-      return true;
+      return matchesQuickSearch(t);
     });
   }, [
     tickets,
+    importBatchTickets,
+    activeImportBatchFilter,
     isCrossDateActive,
     crossDateSearchResults,
     todayWIB,
@@ -1607,8 +1655,52 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
   return (
     <div className="space-y-4">
+      {activeImportBatchFilter && (
+        <div
+          data-testid="import-batch-context-banner"
+          className="rounded-xl bg-gradient-to-r from-emerald-50/95 via-white/95 to-[#DDF4F4]/95 dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white px-4 py-3 border border-emerald-300 dark:border-emerald-700/60 shadow-sm flex flex-wrap items-center justify-between gap-3"
+        >
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 dark:bg-emerald-700 text-white font-bold text-[10.5px]">
+              <FileSpreadsheet className="w-3 h-3" />
+              <span>Hasil Batch Import Excel</span>
+            </span>
+            <span className="font-bold truncate max-w-[260px]" title={activeImportBatchFilter.sourceFile}>
+              {activeImportBatchFilter.sourceFile}
+            </span>
+            <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/10 text-[#5145A6] dark:text-purple-200 font-mono text-[10.5px] font-bold">
+              {activeImportBatchFilter.jobId}
+            </span>
+            {isLoadingImportBatchTickets ? (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[#5145A6] dark:text-[#DAB9FF] font-semibold">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Memuat WO batch dari database...</span>
+              </span>
+            ) : (
+              <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
+                ({filteredTickets.length} dari {importBatchTickets.length} WO tampil · lintas tanggal)
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearAllWoDrilldowns();
+              setCurrentPage(1);
+            }}
+            className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Kembali ke Database WO</span>
+          </button>
+        </div>
+      )}
+
       {activeKpiDrilldown && (
-        <div className="rounded-xl bg-gradient-to-r from-[#DDF4F4]/95 via-white/95 to-[#EAE8FF]/95 dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white px-4 py-3 border border-[#BDE4E8] dark:border-[#3E246F] shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div
+          data-testid="kpi-drilldown-banner"
+          className="rounded-xl bg-gradient-to-r from-[#DDF4F4]/95 via-white/95 to-[#EAE8FF]/95 dark:bg-none dark:bg-[#160D29] text-[#26364A] dark:text-white px-4 py-3 border border-[#BDE4E8] dark:border-[#3E246F] shadow-sm flex flex-wrap items-center justify-between gap-3"
+        >
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="px-2 py-0.5 rounded-full bg-[#6657C8] dark:bg-[#7135B5] text-white font-bold text-[10.5px]">
               Filter KPI Dashboard
@@ -1624,6 +1716,11 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
             {activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL' && (
               <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/10 text-[#5145A6] dark:text-purple-200 font-medium">
                 Area: {activeKpiDrilldown.area}
+              </span>
+            )}
+            {activeKpiDrilldown.installerName && activeKpiDrilldown.installerName !== 'ALL' && (
+              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/10 text-[#5145A6] dark:text-purple-200 font-medium">
+                Teknisi: {activeKpiDrilldown.installerName}
               </span>
             )}
             <span className="font-mono font-bold text-[#5145A6] dark:text-[#E9D5FF] tabular-nums">
@@ -1697,6 +1794,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <button
           type="button"
           onClick={() => {
+            clearAllWoDrilldowns();
             setSelectedApprovalStatus('ALL');
             setSelectedInstallerStatus('ALL');
             setCurrentPage(1);
@@ -1730,6 +1828,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <button
           type="button"
           onClick={() => {
+            clearAllWoDrilldowns();
+            setSelectedInstallerStatus('ALL');
             setSelectedApprovalStatus(prev => (prev === 'BUTUH APPROVAL' ? 'ALL' : 'BUTUH APPROVAL'));
             setCurrentPage(1);
           }}
@@ -1770,6 +1870,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <button
           type="button"
           onClick={() => {
+            clearAllWoDrilldowns();
+            setSelectedInstallerStatus('ALL');
             setSelectedApprovalStatus(prev => (prev === 'APPROVED' ? 'ALL' : 'APPROVED'));
             setCurrentPage(1);
           }}
@@ -1800,6 +1902,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <button
           type="button"
           onClick={() => {
+            clearAllWoDrilldowns();
+            setSelectedInstallerStatus('ALL');
             setSelectedApprovalStatus(prev => (prev === 'REJECTED' ? 'ALL' : 'REJECTED'));
             setCurrentPage(1);
           }}
@@ -1830,6 +1934,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         <button
           type="button"
           onClick={() => {
+            clearAllWoDrilldowns();
+            setSelectedApprovalStatus('ALL');
             setSelectedInstallerStatus(prev => (prev === 'On Site' ? 'ALL' : 'On Site'));
             setCurrentPage(1);
           }}

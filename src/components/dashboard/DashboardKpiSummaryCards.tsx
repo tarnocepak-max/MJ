@@ -32,7 +32,7 @@ import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tabl
 interface DashboardKpiSummaryCardsProps {
   onDrillDown: (
     filterKey: WOKpiFilterKey,
-    filters?: { contractor?: string; area?: string }
+    filters?: { contractor?: string; area?: string; installerName?: string }
   ) => void;
   onOpenHistoryReport?: () => void;
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
@@ -106,16 +106,16 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
 
   // Interactive table header search/filter/sort state for breakdown tables
   const [vendorSearch, setVendorSearch] = useState('');
-  const [vendorSort, setVendorSort] = useState<SortState>({ key: null, direction: null });
+  const [vendorSort, setVendorSort] = useState<SortState>({ column: null, direction: null });
   const [areaSearch, setAreaSearch] = useState('');
-  const [areaSort, setAreaSort] = useState<SortState>({ key: null, direction: null });
+  const [areaSort, setAreaSort] = useState<SortState>({ column: null, direction: null });
   const [leaderSearch, setLeaderSearch] = useState('');
   const [leaderVendorFilter, setLeaderVendorFilter] = useState('ALL');
-  const [leaderSort, setLeaderSort] = useState<SortState>({ key: null, direction: null });
+  const [leaderSort, setLeaderSort] = useState<SortState>({ column: null, direction: null });
   const [installerSearch, setInstallerSearch] = useState('');
   const [installerVendorFilter, setInstallerVendorFilter] = useState('ALL');
   const [installerAreaFilter, setInstallerAreaFilter] = useState('ALL');
-  const [installerSort, setInstallerSort] = useState<SortState>({ key: null, direction: null });
+  const [installerSort, setInstallerSort] = useState<SortState>({ column: null, direction: null });
 
   const isGlobalRole =
     currentUser.role === 'super_admin' ||
@@ -150,7 +150,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     const list = (effectiveSummary.byVendor || []).filter(v =>
       !q || v.contractorName.toLowerCase().includes(q)
     );
-    return sortDataArray(list, vendorSort.key, vendorSort.direction, (row, key) => (row as any)[key]);
+    return sortDataArray(list, vendorSort.column, vendorSort.direction, (row, key) => (row as any)[key]);
   }, [effectiveSummary.byVendor, vendorSearch, vendorSort]);
 
   const filteredAreas = useMemo(() => {
@@ -158,7 +158,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     const list = (effectiveSummary.byArea || []).filter(a =>
       !q || a.area.toLowerCase().includes(q)
     );
-    return sortDataArray(list, areaSort.key, areaSort.direction, (row, key) => {
+    return sortDataArray(list, areaSort.column, areaSort.direction, (row, key) => {
       if (key === 'progress') return row.checkedInProgress;
       return (row as any)[key];
     });
@@ -179,7 +179,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
       if (leaderVendorFilter !== 'ALL' && l.contractorName !== leaderVendorFilter) return false;
       return true;
     });
-    return sortDataArray(list, leaderSort.key, leaderSort.direction, (row, key) => (row as any)[key]);
+    return sortDataArray(list, leaderSort.column, leaderSort.direction, (row, key) => (row as any)[key]);
   }, [effectiveSummary.byLeader, leaderSearch, leaderVendorFilter, leaderSort]);
 
   const installerVendorOptions = useMemo(
@@ -206,7 +206,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
       if (installerAreaFilter !== 'ALL' && i.area !== installerAreaFilter) return false;
       return true;
     });
-    return sortDataArray(list, installerSort.key, installerSort.direction, (row, key) => {
+    return sortDataArray(list, installerSort.column, installerSort.direction, (row, key) => {
       if (key === 'progress') return row.checkedInProgress;
       return (row as any)[key];
     });
@@ -873,18 +873,18 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           <ResponsiveDataTable
             data={filteredVendors}
             getRowKey={row => row.contractorName}
-            sortKey={vendorSort.key}
+            sortKey={vendorSort.column}
             sortDirection={vendorSort.direction}
             onSort={key =>
               setVendorSort(prev => ({
-                key,
-                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                column: key,
+                direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
               }))
             }
             activeFilterCount={(vendorSearch.trim() ? 1 : 0) + (vendorSort.direction ? 1 : 0)}
             onResetFilters={() => {
               setVendorSearch('');
-              setVendorSort({ key: null, direction: null });
+              setVendorSort({ column: null, direction: null });
             }}
             mobileTitle={row => row.contractorName}
             mobileSubtitle={row => `${row.total} Total WO • ${row.closed} Closed`}
@@ -1157,18 +1157,18 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           <ResponsiveDataTable
             data={filteredAreas}
             getRowKey={a => a.area}
-            sortKey={areaSort.key}
+            sortKey={areaSort.column}
             sortDirection={areaSort.direction}
             onSort={key =>
               setAreaSort(prev => ({
-                key,
-                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                column: key,
+                direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
               }))
             }
             activeFilterCount={(areaSearch.trim() ? 1 : 0) + (areaSort.direction ? 1 : 0)}
             onResetFilters={() => {
               setAreaSearch('');
-              setAreaSort({ key: null, direction: null });
+              setAreaSort({ column: null, direction: null });
             }}
             mobileTitle={a => a.area}
             mobileSubtitle={a => `${a.total} Total WO • ${a.closed} Closed`}
@@ -1200,8 +1200,46 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     </button>
                   )
                 },
-                { key: 'total', label: 'Total', align: 'right', numeric: true, sortable: true, priority: 'primary', render: a => <strong>{a.total}</strong> },
-                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: a => a.unassigned },
+                {
+                  key: 'total',
+                  label: 'Total',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('total_today', { area: a.area });
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {a.total}
+                    </button>
+                  )
+                },
+                {
+                  key: 'unassigned',
+                  label: 'Belum Assign',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'secondary',
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('unassigned', { area: a.area });
+                      }}
+                      className="hover:underline cursor-pointer"
+                    >
+                      {a.unassigned}
+                    </button>
+                  )
+                },
                 {
                   key: 'progress',
                   label: 'Progress',
@@ -1209,7 +1247,18 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   numeric: true,
                   sortable: true,
                   priority: 'primary',
-                  render: a => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{a.checkedInProgress}</span>
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('checked_in_progress', { area: a.area });
+                      }}
+                      className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold hover:underline cursor-pointer"
+                    >
+                      {a.checkedInProgress}
+                    </button>
+                  )
                 },
                 {
                   key: 'butuhApproval',
@@ -1218,7 +1267,18 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   numeric: true,
                   sortable: true,
                   priority: 'primary',
-                  render: a => <span className="text-[#C88735] dark:text-orange-300 font-bold">{a.butuhApproval}</span>
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('butuh_approval', { area: a.area });
+                      }}
+                      className="text-[#C88735] dark:text-orange-300 font-bold hover:underline cursor-pointer"
+                    >
+                      {a.butuhApproval}
+                    </button>
+                  )
                 },
                 {
                   key: 'approved',
@@ -1227,9 +1287,39 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   numeric: true,
                   sortable: true,
                   priority: 'secondary',
-                  render: a => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{a.approved}</span>
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('approved', { area: a.area });
+                      }}
+                      className="text-[#218A63] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {a.approved}
+                    </button>
+                  )
                 },
-                { key: 'closed', label: 'Closed', align: 'right', numeric: true, sortable: true, priority: 'primary', render: a => <strong>{a.closed}</strong> }
+                {
+                  key: 'closed',
+                  label: 'Closed',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: a => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('closed', { area: a.area });
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {a.closed}
+                    </button>
+                  )
+                }
               ] as ResponsiveColumn<(typeof effectiveSummary.byArea)[number]>[]
             }
           />
@@ -1247,22 +1337,28 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           <ResponsiveDataTable
             data={filteredLeaders}
             getRowKey={(l, idx) => `${l.leaderName}_${idx}`}
-            sortKey={leaderSort.key}
+            sortKey={leaderSort.column}
             sortDirection={leaderSort.direction}
             onSort={key =>
               setLeaderSort(prev => ({
-                key,
-                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                column: key,
+                direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
               }))
             }
             activeFilterCount={(leaderSearch.trim() ? 1 : 0) + (leaderVendorFilter !== 'ALL' ? 1 : 0) + (leaderSort.direction ? 1 : 0)}
             onResetFilters={() => {
               setLeaderSearch('');
               setLeaderVendorFilter('ALL');
-              setLeaderSort({ key: null, direction: null });
+              setLeaderSort({ column: null, direction: null });
             }}
             mobileTitle={l => l.leaderName}
             mobileSubtitle={l => l.contractorName}
+            onRowClick={l =>
+              onDrillDown(
+                'total_today',
+                l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+              )
+            }
             emptyState={{
               title: 'Belum ada data Leader',
               description: `Belum ada data Leader untuk ${todayWIB}.`
@@ -1281,7 +1377,21 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     placeholder: 'Cari nama leader...'
                   },
                   tdClassName: 'font-semibold text-[#26364A] dark:text-white',
-                  render: l => l.leaderName
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'total_today',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="font-semibold text-[#26364A] dark:text-white hover:text-[#5145A6] dark:hover:text-[#D8B4FE] hover:underline cursor-pointer"
+                    >
+                      {l.leaderName}
+                    </button>
+                  )
                 },
                 {
                   key: 'contractorName',
@@ -1299,12 +1409,144 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]',
                   render: l => l.contractorName
                 },
-                { key: 'total', label: 'Total', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <strong>{l.total}</strong> },
-                { key: 'unassigned', label: 'Belum Assign', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: l => l.unassigned },
-                { key: 'assigned', label: 'Assigned', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE]">{l.assigned}</span> },
-                { key: 'checkedInProgress', label: 'Progress', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{l.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <span className="text-[#C88735] dark:text-orange-300 font-bold">{l.butuhApproval}</span> },
-                { key: 'closed', label: 'Closed', align: 'right', numeric: true, sortable: true, priority: 'primary', render: l => <strong>{l.closed}</strong> }
+                {
+                  key: 'total',
+                  label: 'Total',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'total_today',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {l.total}
+                    </button>
+                  )
+                },
+                {
+                  key: 'unassigned',
+                  label: 'Belum Assign',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'secondary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'unassigned',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="hover:underline cursor-pointer"
+                    >
+                      {l.unassigned}
+                    </button>
+                  )
+                },
+                {
+                  key: 'assigned',
+                  label: 'Assigned',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'secondary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'assigned',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="text-[#5145A6] dark:text-[#D8B4FE] hover:underline cursor-pointer"
+                    >
+                      {l.assigned}
+                    </button>
+                  )
+                },
+                {
+                  key: 'checkedInProgress',
+                  label: 'Progress',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'checked_in_progress',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold hover:underline cursor-pointer"
+                    >
+                      {l.checkedInProgress}
+                    </button>
+                  )
+                },
+                {
+                  key: 'butuhApproval',
+                  label: 'Butuh Approval',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'butuh_approval',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="text-[#C88735] dark:text-orange-300 font-bold hover:underline cursor-pointer"
+                    >
+                      {l.butuhApproval}
+                    </button>
+                  )
+                },
+                {
+                  key: 'closed',
+                  label: 'Closed',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: l => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown(
+                          'closed',
+                          l.contractorName && l.contractorName !== 'Tanpa Vendor' ? { contractor: l.contractorName } : undefined
+                        );
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {l.closed}
+                    </button>
+                  )
+                }
               ] as ResponsiveColumn<(typeof effectiveSummary.byLeader)[number]>[]
             }
           />
@@ -1322,12 +1564,12 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
           <ResponsiveDataTable
             data={filteredInstallers}
             getRowKey={(inst, idx) => `${inst.installerName}_${idx}`}
-            sortKey={installerSort.key}
+            sortKey={installerSort.column}
             sortDirection={installerSort.direction}
             onSort={key =>
               setInstallerSort(prev => ({
-                key,
-                direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                column: key,
+                direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
               }))
             }
             activeFilterCount={
@@ -1340,11 +1582,18 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               setInstallerSearch('');
               setInstallerVendorFilter('ALL');
               setInstallerAreaFilter('ALL');
-              setInstallerSort({ key: null, direction: null });
+              setInstallerSort({ column: null, direction: null });
             }}
             mobileTitle={inst => inst.installerName}
             mobileSubtitle={inst => `${inst.contractorName} • ${inst.area}`}
             mobileStatus={inst => <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />}
+            onRowClick={inst =>
+              onDrillDown('assigned', {
+                contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                installerName: inst.installerName
+              })
+            }
             emptyState={{
               title: 'Belum ada teknisi yang di-assign',
               description: `Belum ada teknisi yang di-assign untuk ${todayWIB}.`
@@ -1363,7 +1612,22 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                     placeholder: 'Cari nama teknisi...'
                   },
                   tdClassName: 'font-semibold text-[#26364A] dark:text-white',
-                  render: inst => inst.installerName
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('assigned', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="font-semibold text-[#26364A] dark:text-white hover:text-[#5145A6] dark:hover:text-[#D8B4FE] hover:underline cursor-pointer"
+                    >
+                      {inst.installerName}
+                    </button>
+                  )
                 },
                 {
                   key: 'contractorName',
@@ -1397,11 +1661,126 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   tdClassName: 'text-[#52647A] dark:text-[#CEC0E8]',
                   render: inst => inst.area
                 },
-                { key: 'total', label: 'Total WO', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <strong>{inst.total}</strong> },
-                { key: 'progress', label: 'Progress', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{inst.checkedInProgress}</span> },
-                { key: 'butuhApproval', label: 'Butuh Approval', align: 'right', numeric: true, sortable: true, priority: 'primary', render: inst => <span className="text-[#C88735] dark:text-orange-300 font-bold">{inst.butuhApproval}</span> },
-                { key: 'approved', label: 'Approved', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: inst => <span className="text-[#218A63] dark:text-emerald-300 font-semibold">{inst.approved}</span> },
-                { key: 'revisionRejected', label: 'Revisi', align: 'right', numeric: true, sortable: true, priority: 'secondary', render: inst => <span className="text-[#9B2C37] dark:text-rose-300 font-semibold">{inst.revisionRejected}</span> },
+                {
+                  key: 'total',
+                  label: 'Total WO',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('assigned', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="font-bold hover:underline cursor-pointer"
+                    >
+                      {inst.total}
+                    </button>
+                  )
+                },
+                {
+                  key: 'progress',
+                  label: 'Progress',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('checked_in_progress', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold hover:underline cursor-pointer"
+                    >
+                      {inst.checkedInProgress}
+                    </button>
+                  )
+                },
+                {
+                  key: 'butuhApproval',
+                  label: 'Butuh Approval',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'primary',
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('butuh_approval', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="text-[#C88735] dark:text-orange-300 font-bold hover:underline cursor-pointer"
+                    >
+                      {inst.butuhApproval}
+                    </button>
+                  )
+                },
+                {
+                  key: 'approved',
+                  label: 'Approved',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'secondary',
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('approved', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="text-[#218A63] dark:text-emerald-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {inst.approved}
+                    </button>
+                  )
+                },
+                {
+                  key: 'revisionRejected',
+                  label: 'Revisi',
+                  align: 'right',
+                  numeric: true,
+                  sortable: true,
+                  priority: 'secondary',
+                  render: inst => (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('revision_rejected', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="text-[#9B2C37] dark:text-rose-300 font-semibold hover:underline cursor-pointer"
+                    >
+                      {inst.revisionRejected}
+                    </button>
+                  )
+                },
                 {
                   key: 'closed',
                   label: 'Closed',
@@ -1410,10 +1789,21 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
                   sortable: true,
                   priority: 'primary',
                   render: inst => (
-                    <div className="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDrillDown('closed', {
+                          contractor: inst.contractorName && inst.contractorName !== 'Tanpa Vendor' ? inst.contractorName : undefined,
+                          area: inst.area && inst.area !== 'Tanpa Area' ? inst.area : undefined,
+                          installerName: inst.installerName
+                        });
+                      }}
+                      className="inline-flex items-center gap-1.5 hover:underline cursor-pointer"
+                    >
                       <StatusBadge status={inst.closed > 0 ? 'CLOSED' : 'PROGRESS'} size="xs" />
                       <strong>{inst.closed}</strong>
-                    </div>
+                    </button>
                   )
                 }
               ] as ResponsiveColumn<(typeof effectiveSummary.byInstaller)[number]>[]

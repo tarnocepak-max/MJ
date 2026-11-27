@@ -357,6 +357,19 @@ export function matchesKpiFilter(ticket: Ticket, filterKey: WOKpiFilterKey): boo
       return approvedOutcome === 'Cancel';
     case 'revision_rejected':
       return approvalStatus === 'REVISION';
+    case 'revision_unassigned':
+      return !assigned || approvalStatus === 'REVISION';
+    case 'kendala_revisi':
+      return (
+        !closed &&
+        approvalStatus !== 'APPROVED' &&
+        approvalStatus !== 'BUTUH APPROVAL' &&
+        (approvalStatus === 'REVISION' ||
+          ticket.statusWOInstaller === 'Pending Technical' ||
+          ticket.statusWOInstaller === 'Failed / Cancelled' ||
+          reportStatus === 'PENDING' ||
+          reportStatus === 'CANCEL')
+      );
     case 'closed':
       return closed;
     case 'unmapped_distribution':
@@ -718,6 +731,8 @@ export const KPI_FILTER_LABELS: Record<WOKpiFilterKey, string> = {
   approved_reschedule: 'Approved - Reschedule',
   approved_cancel: 'Approved - Cancel',
   revision_rejected: 'Perlu Revisi',
+  revision_unassigned: 'Revisi / Unassigned',
+  kendala_revisi: 'Kendala / Revisi',
   closed: 'Ticket Closed (Verified)',
   unmapped_distribution: 'Belum Terdistribusi',
   field_checkin: 'Check-in (Foto Rumah Valid)',

@@ -430,6 +430,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   const [appliedDateEnd, setAppliedDateEnd] = useState<string>(todayWIB);
 
   useEffect(() => {
+    if (!activeKpiDrilldown) return;
+    setSearchQuery('');
+    setColFilters({
+      woNumber: '',
+      idCustomer: '',
+      customerName: '',
+      customerPhone: '',
+      streetName: ''
+    });
+    setStatusFilter(activeKpiDrilldown.filterKey === 'unassigned' ? 'unassigned' : 'all');
+    setCategoryFilter('ALL');
+    setAreaFilter('ALL');
+    setContractorFilter('ALL');
+    setWorkStatusFilter('ALL');
+    setExactAppointmentDate('');
+    setDateFrom('');
+    setDateTo('');
+    setSelectedInstallerFilter(activeKpiDrilldown.installerName || 'ALL');
+    setSlotFilter('ALL');
+    setClusterFilter('ALL');
+    setCurrentPage(1);
+  }, [activeKpiDrilldown]);
+
+  useEffect(() => {
     if (todayWIB) {
       setDateFilterTypeState('today');
       setCustomDateStart(todayWIB);
@@ -956,8 +980,23 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     return contractorTickets.filter(t => {
       const { category } = classifyTicketOperational(t);
 
-      // Feature 6: Assign WO strictly displays only unassigned WOs (!t.installerName)
-      if (activeTab === 'wo_assignment') {
+      // When a KPI drilldown from Dashboard Leader is active, show exact KPI-matched WOs even if assigned
+      if (activeKpiDrilldown) {
+        if (activeKpiDrilldown.contractor && activeKpiDrilldown.contractor !== 'ALL') {
+          const tCont = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (tCont !== activeKpiDrilldown.contractor.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.area && activeKpiDrilldown.area !== 'ALL') {
+          const tArea = String(t.area || '').trim().toLowerCase();
+          if (tArea !== activeKpiDrilldown.area.trim().toLowerCase()) return false;
+        }
+        if (activeKpiDrilldown.installerName) {
+          const tInst = String(t.installerName || '').trim().toLowerCase();
+          if (tInst !== activeKpiDrilldown.installerName.trim().toLowerCase()) return false;
+        }
+        if (!matchesKpiFilter(t, activeKpiDrilldown.filterKey)) return false;
+      } else if (activeTab === 'wo_assignment') {
+        // Default Assign WO view strictly displays unassigned WOs (!t.installerName)
         if (t.installerName) return false;
       } else {
         if (statusFilter === 'unassigned' && t.installerName) return false;
@@ -1944,9 +1983,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
             <HeaderSortButton
               label="Check-in"
-              active={sortState.column === 'checkInAt'}
-              direction={sortDirFor('checkInAt')}
-              onClick={() => handleSort('checkInAt')}
+              sortActive={sortState.column === 'checkInAt'}
+              sortDir={sortDirFor('checkInAt')}
+              onCycleSort={() => handleSort('checkInAt')}
             />
           </th>
         );
@@ -1955,9 +1994,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
             <HeaderSortButton
               label="Check-out"
-              active={sortState.column === 'checkOutAt'}
-              direction={sortDirFor('checkOutAt')}
-              onClick={() => handleSort('checkOutAt')}
+              sortActive={sortState.column === 'checkOutAt'}
+              sortDir={sortDirFor('checkOutAt')}
+              onCycleSort={() => handleSort('checkOutAt')}
             />
           </th>
         );
@@ -1966,9 +2005,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <th key={col.id} className="py-2.5 px-3 min-w-[110px]">
             <HeaderSortButton
               label="Durasi Kerja"
-              active={sortState.column === 'workDuration'}
-              direction={sortDirFor('workDuration')}
-              onClick={() => handleSort('workDuration')}
+              sortActive={sortState.column === 'workDuration'}
+              sortDir={sortDirFor('workDuration')}
+              onCycleSort={() => handleSort('workDuration')}
             />
           </th>
         );
@@ -1977,9 +2016,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <th key={col.id} className="py-2.5 px-3 min-w-[130px]">
             <HeaderSortButton
               label="Progress"
-              active={sortState.column === 'progress'}
-              direction={sortDirFor('progress')}
-              onClick={() => handleSort('progress')}
+              sortActive={sortState.column === 'progress'}
+              sortDir={sortDirFor('progress')}
+              onCycleSort={() => handleSort('progress')}
             />
           </th>
         );
@@ -1988,9 +2027,9 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           <th key={col.id} className="py-2.5 px-3 min-w-[120px]">
             <HeaderSortButton
               label="Update"
-              active={sortState.column === 'lastUpdate'}
-              direction={sortDirFor('lastUpdate')}
-              onClick={() => handleSort('lastUpdate')}
+              sortActive={sortState.column === 'lastUpdate'}
+              sortDir={sortDirFor('lastUpdate')}
+              onCycleSort={() => handleSort('lastUpdate')}
             />
           </th>
         );
@@ -2766,6 +2805,11 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     Area: {activeKpiDrilldown.area}
                   </span>
                 )}
+                {activeKpiDrilldown.installerName && (
+                  <span className="px-2 py-0.5 rounded bg-white/80 dark:bg-white/10 text-[#5145A6] dark:text-purple-200 border border-[#DDE6F0] dark:border-transparent font-medium">
+                    Teknisi: {activeKpiDrilldown.installerName}
+                  </span>
+                )}
                 <span className="font-mono font-bold text-[#5145A6] dark:text-[#E9D5FF] tabular-nums">
                   ({filteredTickets.length} WO ditemukan)
                 </span>
@@ -2774,6 +2818,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 type="button"
                 onClick={() => {
                   setActiveKpiDrilldown(null);
+                  setStatusFilter('all');
+                  setSelectedInstallerFilter('ALL');
                   setCurrentPage(1);
                 }}
                 className="mj-btn-leader-neutral mj-btn-xs inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"

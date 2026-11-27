@@ -379,6 +379,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
   useEffect(() => {
     if (!activeKpiDrilldown) return;
+    setSearchQuery('');
     const fk = activeKpiDrilldown.filterKey;
     if (fk === 'field_requested') {
       setActiveBucket('tugas_baru');
@@ -686,7 +687,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
 
             {(() => {
               const isLiveConnected = isOnline && syncStatus !== 'ERROR' && realtimeConnectionState === 'connected';
-              const isPollingFallback = isOnline && syncStatus !== 'ERROR' && realtimeConnectionState === 'polling_fallback';
+              const isPollingFallback = isOnline && syncStatus === 'SAVED' && realtimeConnectionState === 'disconnected';
               const isReconnecting = isOnline && (realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting' || syncStatus === 'SYNCING');
               const label = !isOnline
                 ? 'Offline (Data Tersimpan)'
@@ -882,7 +883,7 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
       {activeKpiDrilldown && (
         <div className="bg-[#EAE8FF] dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
           <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
-            Filter Aktif:{' '}
+            Filter KPI:{' '}
             <strong className="text-[#5145A6] dark:text-[#DAB9FF]">
               {KPI_FILTER_LABELS[activeKpiDrilldown.filterKey] || activeKpiDrilldown.filterKey}
             </strong>{' '}
@@ -890,10 +891,13 @@ export const InstallerPortal: React.FC<InstallerPortalProps> = ({
           </span>
           <button
             type="button"
-            onClick={() => setActiveKpiDrilldown(null)}
+            onClick={() => {
+              setActiveKpiDrilldown(null);
+              setSearchQuery('');
+            }}
             className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-[11px] font-bold cursor-pointer"
           >
-            Reset
+            Reset Filter KPI
           </button>
         </div>
       )}

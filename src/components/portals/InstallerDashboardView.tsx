@@ -534,7 +534,12 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
 
         {/* 3-Tile Compact Field Performance Strip */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 sm:p-3 space-y-1.5">
+          <button
+            type="button"
+            onClick={() => handleFieldKpiDrillDown('total_today')}
+            className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] hover:bg-[#EDF3F8] dark:hover:bg-[#2A194B] border border-[#DDE6F0] dark:border-[#35105E] hover:border-[#65B8C4]/70 dark:hover:border-[#A380FE]/60 p-2.5 sm:p-3 space-y-1.5 text-left transition-all cursor-pointer active:scale-[0.985]"
+            title="Lihat seluruh WO hari ini di Daftar Tugas"
+          >
             <div className="flex items-center justify-between gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] truncate">
                 Target Hari Ini
@@ -552,7 +557,7 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
                 style={{ width: `${summary.progressPct}%` }}
               />
             </div>
-          </div>
+          </button>
 
           <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-2.5 sm:p-3 flex flex-col justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] flex items-center gap-1 truncate">

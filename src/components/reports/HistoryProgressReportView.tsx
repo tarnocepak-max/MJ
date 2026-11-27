@@ -305,7 +305,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap',
         headerControl: !ticketId
           ? {
-              type: 'search',
+              kind: 'search',
               value: woSearch,
               onChange: setWoSearch,
               placeholder: 'Cari WO Number...'
@@ -340,7 +340,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap tabular-nums',
         headerControl: !ticketId
           ? {
-              type: 'date',
+              kind: 'date',
               exactDate,
               dateFrom,
               dateTo,
@@ -375,7 +375,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         widthClass: 'min-w-[175px]',
         headerControl: !ticketId
           ? {
-              type: 'custom',
+              kind: 'custom',
               render: () => (
                 <div className="inline-flex flex-wrap items-center gap-1">
                   <HeaderSearchPopover
@@ -440,7 +440,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap',
         headerControl: !ticketId
           ? {
-              type: 'select',
+              kind: 'select',
               value: reportStatusFilter,
               defaultValue: 'ALL',
               allLabel: 'Semua Report Status',
@@ -463,7 +463,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         widthClass: 'min-w-[210px] max-w-[280px]',
         headerControl: !ticketId
           ? {
-              type: 'search',
+              kind: 'search',
               value: remarksSearch,
               onChange: setRemarksSearch,
               placeholder: 'Cari reason atau remarks...'
@@ -501,7 +501,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         tdClassName: 'whitespace-nowrap',
         headerControl: !ticketId
           ? {
-              type: 'select',
+              kind: 'select',
               value: approvalFilter,
               defaultValue: 'ALL',
               allLabel: 'Semua Approval Status',
@@ -523,7 +523,7 @@ export const HistoryProgressReportView: React.FC<HistoryProgressReportViewProps>
         widthClass: 'min-w-[170px] max-w-[240px]',
         headerControl: !ticketId
           ? {
-              type: 'search',
+              kind: 'search',
               value: approverSearch,
               onChange: setApproverSearch,
               placeholder: 'Cari approver / catatan...'

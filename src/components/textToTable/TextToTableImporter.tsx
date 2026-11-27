@@ -10,7 +10,8 @@ import {
   TextToTableResult,
   ParsedRowData,
   ImportJobSummary,
-  ImportHistoryRecord
+  ImportHistoryRecord,
+  ImportRowErrorRecord
 } from '../../types/index.ts';
 import { MASTER_CANONICAL_FIELDS, isValidWoNumber } from '../../services/woFieldMappingEngine';
 import { parseAppointmentDate } from '../../services/appointmentDateParser';
@@ -21,7 +22,13 @@ import {
   cancelImportJob,
   downloadImportErrorsCsv,
   getImportJobDetail,
+  getImportJobErrors,
   getSavedActiveImportJobId,
+  getLastImportJobId,
+  saveLastImportJobId,
+  getImportJobIdFromUrl,
+  syncImportJobIdToUrl,
+  buildRepairParseResultFromErrors,
   listImportJobs,
   listImportHistory
 } from '../../services/enterpriseImportService';
@@ -57,7 +64,10 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  Inbox
+  Inbox,
+  Eye,
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '../../context/ToastContext';
@@ -95,7 +105,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     syncGoogleSheetsNow,
     deleteImportedTicketsByDate,
     refreshActiveTickets,
-    refreshKpiSummary
+    refreshKpiSummary,
+    loadTicketsForImportJob,
+    clearAllWoDrilldowns
   } = useApp();
 
   const { showToast } = useToast();
@@ -131,9 +143,17 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [recentImportJobs, setRecentImportJobs] = useState<ImportJobSummary[]>([]);
   const [importHistoryRecords, setImportHistoryRecords] = useState<ImportHistoryRecord[]>([]);
   const [isJobRunnerActive, setIsJobRunnerActive] = useState<boolean>(false);
+  const [showJobResultModal, setShowJobResultModal] = useState<boolean>(false);
+  const [showJobErrorsModal, setShowJobErrorsModal] = useState<boolean>(false);
+  const [jobErrorRows, setJobErrorRows] = useState<ImportRowErrorRecord[]>([]);
+  const [isLoadingJobErrors, setIsLoadingJobErrors] = useState<boolean>(false);
+  const [isOpeningBatchWo, setIsOpeningBatchWo] = useState<boolean>(false);
+  const [isPreparingRepair, setIsPreparingRepair] = useState<boolean>(false);
+  const [unimportedLocalErrorRows, setUnimportedLocalErrorRows] = useState<ParsedRowData[]>([]);
   const jobAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchConfirmSectionRef = useRef<HTMLDivElement>(null);
+  const postImportPanelRef = useRef<HTMLDivElement>(null);
 
   // Top Tab Switcher: Import vs Export vs Riwayat & Hapus
   const [mainTab, setMainTab] = useState<'import' | 'export' | 'history_delete'>('import');
@@ -175,13 +195,13 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
   const [previewExactDate, setPreviewExactDate] = useState<string>('');
   const [previewDateFrom, setPreviewDateFrom] = useState<string>('');
   const [previewDateTo, setPreviewDateTo] = useState<string>('');
-  const [previewSort, setPreviewSort] = useState<SortState>({ key: null, direction: null });
+  const [previewSort, setPreviewSort] = useState<SortState>({ column: null, direction: null });
 
   const [catalogFieldSearch, setCatalogFieldSearch] = useState<string>('');
   const [catalogLabelSearch, setCatalogLabelSearch] = useState<string>('');
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('ALL');
   const [catalogRequiredFilter, setCatalogRequiredFilter] = useState<string>('ALL');
-  const [catalogSort, setCatalogSort] = useState<SortState>({ key: null, direction: null });
+  const [catalogSort, setCatalogSort] = useState<SortState>({ column: null, direction: null });
 
   // Validation counts derived strictly from parseResult
   const validationSummary = useMemo(() => {
@@ -319,7 +339,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       if (catalogRequiredFilter === 'OPTIONAL' && f.required) return false;
       return true;
     });
-    return sortDataArray(list, catalogSort.key, catalogSort.direction, (row, key) => {
+    return sortDataArray(list, catalogSort.column, catalogSort.direction, (row, key) => {
       if (key === 'required') return row.required ? 'Wajib' : 'Opsional';
       return (row as any)[key];
     });
@@ -366,7 +386,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       return true;
     });
 
-    return sortDataArray(filtered, previewSort.key, previewSort.direction, (row, key) => {
+    return sortDataArray(filtered, previewSort.column, previewSort.direction, (row, key) => {
       if (key === 'rowIndex') return row.rowIndex;
       if (key === 'woNumber') return row.mapped.woNumber || null;
       if (key === 'customer') return row.mapped.customerName || null;
@@ -422,19 +442,67 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
       const [jobs, history] = await Promise.all([listImportJobs(10), listImportHistory(15)]);
       setRecentImportJobs(jobs);
       setImportHistoryRecords(history);
-      const savedId = getSavedActiveImportJobId();
-      if (savedId && !activeImportJob) {
-        const detail = await getImportJobDetail(savedId).catch(() => null);
-        if (detail) setActiveImportJob(detail);
+      const urlJobId = getImportJobIdFromUrl();
+      const savedActiveId = getSavedActiveImportJobId();
+      const lastUserJobId = getLastImportJobId(currentUser.id);
+      const candidateJobId = urlJobId || savedActiveId || lastUserJobId;
+      if (candidateJobId && !activeImportJob) {
+        const detail = await getImportJobDetail(candidateJobId).catch(() => null);
+        if (detail) {
+          setActiveImportJob(detail);
+          syncImportJobIdToUrl(detail.id);
+        }
       }
     } catch {
       // silent background check
     }
-  }, [currentUser.role, activeImportJob]);
+  }, [currentUser.role, currentUser.id, activeImportJob]);
 
   useEffect(() => {
     void refreshImportMonitorState();
   }, [refreshImportMonitorState]);
+
+  // Resilient background polling when a job is still staging/queued/processing (e.g., after reload or timeout)
+  useEffect(() => {
+    if (!activeImportJob || isJobRunnerActive) return;
+    if (
+      activeImportJob.status !== 'staging' &&
+      activeImportJob.status !== 'queued' &&
+      activeImportJob.status !== 'processing'
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const pollTimer = window.setInterval(async () => {
+      try {
+        const detail = await getImportJobDetail(activeImportJob.id);
+        if (cancelled) return;
+        setActiveImportJob(detail);
+        if (
+          detail.status === 'completed' ||
+          detail.status === 'completed_with_errors' ||
+          detail.status === 'failed' ||
+          detail.status === 'cancelled'
+        ) {
+          saveLastImportJobId(currentUser.id, detail.id);
+          syncImportJobIdToUrl(detail.id);
+          void refreshImportMonitorState();
+          if (detail.successfulRows > 0 || detail.updatedRows > 0) {
+            void refreshActiveTickets().catch(() => {});
+            void refreshKpiSummary({ silent: true }).catch(() => {});
+          }
+        }
+      } catch {
+        // transient poll error ignored; next tick retries
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollTimer);
+    };
+  }, [activeImportJob, isJobRunnerActive, currentUser.id, refreshImportMonitorState, refreshActiveTickets, refreshKpiSummary]);
 
   const handleEnrollContractorsNow = () => {
     if (!parseResult || !parseResult.detectedContractors) return;
@@ -732,6 +800,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     });
     setParseResult(result);
     setImportReport(null);
+    setUnimportedLocalErrorRows([]);
     setStatusFilter('ALL');
     setPreviewPage(1);
     if (shouldScrollToConfirm) {
@@ -772,6 +841,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
           });
           setParseResult(result);
           setImportReport(null);
+          setUnimportedLocalErrorRows([]);
           showToast(`Berkas "${file.name}" terbaca (${result.parsedRows.length} baris).`, 'success', 'Berkas Diparsing');
         }
       };
@@ -812,6 +882,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setParseResult(null);
     setRawText('');
     setImportReport(null);
+    setUnimportedLocalErrorRows([]);
     setStatusFilter('ALL');
     setPreviewCategoryFilter('ALL');
     setPreviewWoSearch('');
@@ -820,7 +891,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     setPreviewExactDate('');
     setPreviewDateFrom('');
     setPreviewDateTo('');
-    setPreviewSort({ key: null, direction: null });
+    setPreviewSort({ column: null, direction: null });
     setEditingRowIndex(null);
     setSourceFileName('Belum ada berkas');
     setShowConfirmModal(false);
@@ -969,6 +1040,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
   const finalizeImportJobOutcome = async (job: ImportJobSummary, enrolledNewCount = 0) => {
     setActiveImportJob(job);
+    saveLastImportJobId(currentUser.id, job.id);
+    syncImportJobIdToUrl(job.id);
     setImportReport({
       imported: job.successfulRows,
       duplicates: job.duplicateRows,
@@ -980,7 +1053,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
     await refreshImportMonitorState();
 
-    if (job.successfulRows > 0) {
+    if (job.successfulRows > 0 || (job.updatedRows || 0) > 0) {
       await Promise.all([
         refreshActiveTickets().catch(() => {}),
         refreshKpiSummary({ silent: true }).catch(() => {})
@@ -998,7 +1071,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
     if (job.status === 'failed' && job.successfulRows === 0) {
       showToast(
-        job.errorSummary || 'Gagal memproses batch impor ke database. Gunakan Retry Batch Gagal pada monitor.',
+        job.errorSummary || 'Gagal memproses batch impor ke database. Periksa Data Gagal atau coba ulang.',
         'error',
         'Import Gagal'
       );
@@ -1007,10 +1080,15 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
 
     if (job.status === 'completed_with_errors' || job.failedRows > 0) {
       showToast(
-        `${job.successfulRows} WO berhasil tersimpan, ${job.duplicateRows} duplikat dilewati, ${job.failedRows} gagal/tidak valid. Unduh Error CSV atau Retry Batch Gagal.`,
+        `${job.successfulRows} WO berhasil tersimpan, ${job.duplicateRows} duplikat dilewati, ${job.failedRows} gagal. Gunakan menu aksi di panel Hasil Import.`,
         'warning',
         'Import Selesai dengan Catatan'
       );
+      setParseResult(null);
+      setRawText('');
+      window.setTimeout(() => {
+        postImportPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 120);
       return;
     }
 
@@ -1021,9 +1099,9 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     );
     setParseResult(null);
     setRawText('');
-    setTimeout(() => {
-      onImportSuccess();
-    }, 1000);
+    window.setTimeout(() => {
+      postImportPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 120);
   };
 
   const handleExecuteImport = async () => {
@@ -1039,6 +1117,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     }
 
     const rowsToImport = parseResult.parsedRows.filter(r => r.isValid && !r.isDuplicate);
+    const localInvalidRows = parseResult.parsedRows.filter(r => !r.isValid && !r.isDuplicate);
+    setUnimportedLocalErrorRows(localInvalidRows);
 
     if (rowsToImport.length === 0) {
       showToast(
@@ -1205,8 +1285,157 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
     }
   };
 
+  const handleOpenJobResultModal = async () => {
+    if (!activeImportJob) return;
+    setShowJobResultModal(true);
+    try {
+      const fresh = await getImportJobDetail(activeImportJob.id);
+      setActiveImportJob(fresh);
+    } catch {
+      // keep existing activeImportJob snapshot
+    }
+  };
+
+  const handleViewImportedBatchWo = async () => {
+    if (!activeImportJob) return;
+    const totalSaved = (activeImportJob.successfulRows || 0) + (activeImportJob.updatedRows || 0);
+    if (totalSaved === 0) {
+      showToast('Belum ada WO yang berhasil disimpan pada batch ini.', 'info', 'Tidak Ada WO Tersimpan');
+      return;
+    }
+    setIsOpeningBatchWo(true);
+    try {
+      const res = await loadTicketsForImportJob(activeImportJob.id, {
+        sourceFile: activeImportJob.sourceFile,
+        templateType: activeImportJob.templateType,
+        importedAt: activeImportJob.completedAt || activeImportJob.updatedAt,
+        totalRows: activeImportJob.totalRows,
+        successfulRows: activeImportJob.successfulRows,
+        updatedRows: activeImportJob.updatedRows,
+        duplicateRows: activeImportJob.duplicateRows,
+        failedRows: activeImportJob.failedRows
+      });
+      if (!res.success) {
+        showToast(res.error || 'Gagal memuat WO hasil batch import.', 'error', 'Gagal Memuat WO');
+        return;
+      }
+      setShowJobResultModal(false);
+      setShowJobErrorsModal(false);
+      onImportSuccess();
+    } finally {
+      setIsOpeningBatchWo(false);
+    }
+  };
+
+  const handleOpenJobErrorsModal = async () => {
+    if (!activeImportJob) return;
+    setShowJobErrorsModal(true);
+    setIsLoadingJobErrors(true);
+    try {
+      const rows = await getImportJobErrors(activeImportJob.id, 500, 0);
+      setJobErrorRows(rows);
+    } catch (err: any) {
+      setJobErrorRows([]);
+      showToast(err?.message || 'Gagal memuat daftar error batch dari database.', 'error');
+    } finally {
+      setIsLoadingJobErrors(false);
+    }
+  };
+
+  const handleDownloadJobErrorsXlsx = () => {
+    if (!activeImportJob) return;
+    const exportRows = [
+      ...jobErrorRows.map(e => ({
+        'Sumber': 'Server Batch',
+        'Baris': e.rowNumber,
+        'Batch': e.batchNumber ?? '-',
+        'WO Number': e.woNumber || '-',
+        'Kode Error': e.errorCode,
+        'Keterangan': e.errorMessage
+      })),
+      ...unimportedLocalErrorRows.map(r => ({
+        'Sumber': 'Validasi Lokal (Belum Terkirim)',
+        'Baris': r.rowIndex + 1,
+        'Batch': '-',
+        'WO Number': r.mapped?.woNumber || '-',
+        'Kode Error': r.statusType || 'FORMAT TIDAK VALID',
+        'Keterangan': (r.validationErrors || []).join(' | ')
+      }))
+    ];
+    if (exportRows.length === 0) {
+      showToast('Tidak ada data gagal atau duplikat untuk diekspor.', 'info');
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data_Gagal_Import');
+    XLSX.writeFile(wb, `MoraJaws_Data_Gagal_${activeImportJob.id}.xlsx`);
+    showToast(`${exportRows.length} baris catatan error diekspor ke XLSX.`, 'success', 'Export Berhasil');
+  };
+
+  const handleRepairAndReimportFailed = async () => {
+    if (!activeImportJob) return;
+    setIsPreparingRepair(true);
+    try {
+      const serverErrors =
+        activeImportJob.failedRows > 0 || activeImportJob.duplicateRows > 0
+          ? await getImportJobErrors(activeImportJob.id, 500, 0)
+          : [];
+      setJobErrorRows(serverErrors);
+
+      const repaired = buildRepairParseResultFromErrors({
+        serverErrors,
+        localFailedRows: unimportedLocalErrorRows,
+        existingWoNumbers: tickets.map(t => t.woNumber),
+        contractors,
+        coverageAreas
+      });
+
+      if (repaired.rehydratedCount === 0) {
+        if (activeImportJob.canRetry || activeImportJob.hasFailedBatches) {
+          setShowJobErrorsModal(false);
+          setShowJobResultModal(false);
+          await handleRetryFailedImportJob(activeImportJob.id);
+          return;
+        }
+        showToast(
+          'Tidak ditemukan baris gagal yang dapat dimuat ulang untuk diperbaiki.',
+          'info',
+          'Tidak Ada Data Gagal'
+        );
+        return;
+      }
+
+      setParseResult(repaired.parseResult);
+      setSourceFileName(`Perbaikan_${activeImportJob.sourceFile || 'Import.xlsx'}`);
+      setDuplicatePolicy('skip');
+      setStatusFilter(repaired.parseResult.problematicCount > 0 ? 'ERROR' : 'ALL');
+      setPreviewPage(1);
+      setShowJobErrorsModal(false);
+      setShowJobResultModal(false);
+      showToast(
+        `${repaired.rehydratedCount} baris gagal dimuat ke tabel preview perbaikan. Baris yang sudah berhasil tidak akan diimpor ulang.`,
+        'info',
+        'Siap Diperbaiki & Import Ulang'
+      );
+      window.setTimeout(() => {
+        batchConfirmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal memuat baris gagal untuk diperbaiki.', 'error');
+    } finally {
+      setIsPreparingRepair(false);
+    }
+  };
+
+  const handleBackToWoDatabase = () => {
+    clearAllWoDrilldowns();
+    syncImportJobIdToUrl(null);
+    onImportSuccess();
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-24 sm:pb-6">
       {/* Top 3D Tactile Tab Ribbon: Import vs Export vs Riwayat & Hapus */}
       <div className="mj-tactile-tab-bar p-1.5 inline-flex flex-wrap items-center gap-1.5 text-xs max-w-full">
         <button
@@ -1461,6 +1690,165 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             )}
           </div>
 
+          {/* Post-Import Result Summary & 5-Action Workflow Card */}
+          {activeImportJob && (
+            <div
+              ref={postImportPanelRef}
+              data-testid="post-import-action-panel"
+              className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4 border-2 border-[#C5BEEF] dark:border-[#5b35b1]"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-[#3b1d78]">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                        activeImportJob.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700'
+                          : activeImportJob.status === 'completed_with_errors'
+                          ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700'
+                          : activeImportJob.status === 'failed' || activeImportJob.status === 'cancelled'
+                          ? 'bg-rose-100 text-[#BA1A1A] border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-700'
+                          : 'bg-[#EAE8FF] text-[#5145A6] border-[#C5BEEF] dark:bg-purple-950/70 dark:text-[#DAB9FF] dark:border-purple-700'
+                      }`}
+                    >
+                      {activeImportJob.status === 'completed'
+                        ? 'IMPORT SELESAI'
+                        : activeImportJob.status === 'completed_with_errors'
+                        ? 'SELESAI DENGAN DATA GAGAL'
+                        : activeImportJob.status === 'failed'
+                        ? 'IMPORT GAGAL'
+                        : activeImportJob.status === 'cancelled'
+                        ? 'DIBATALKAN'
+                        : 'SEDANG MEMPROSES'}
+                    </span>
+                    <span className="font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF]">
+                      {activeImportJob.id}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-sm sm:text-base font-extrabold text-[#26364A] dark:text-white truncate">
+                    Ringkasan Hasil Import: {activeImportJob.sourceFile}
+                  </h3>
+                  <p className="text-[11px] text-[#52647A] dark:text-[#CABDE8]">
+                    Status terverifikasi langsung dari backend database · Template {activeImportJob.templateType}
+                  </p>
+                </div>
+              </div>
+
+              {/* Real Backend Counts Only */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78]">
+                  <div className="text-[10px] font-bold uppercase text-[#8492A5]">Total Diproses</div>
+                  <div className="font-mono text-lg font-extrabold tabular-nums text-[#26364A] dark:text-white">
+                    {activeImportJob.totalRows.toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">WO Baru Tersimpan</div>
+                  <div className="font-mono text-lg font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    {activeImportJob.successfulRows.toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-sky-50/80 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
+                  <div className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-300">WO Diperbarui</div>
+                  <div className="font-mono text-lg font-extrabold tabular-nums text-sky-700 dark:text-sky-300">
+                    {(activeImportJob.updatedRows || 0).toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#EAE8FF]/80 dark:bg-purple-950/40 border border-[#C5BEEF] dark:border-purple-800">
+                  <div className="text-[10px] font-bold uppercase text-[#5145A6] dark:text-[#DAB9FF]">Duplikat Dilewati</div>
+                  <div className="font-mono text-lg font-extrabold tabular-nums text-[#5145A6] dark:text-[#DAB9FF]">
+                    {activeImportJob.duplicateRows.toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-rose-50/90 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 col-span-2 sm:col-span-1">
+                  <div className="text-[10px] font-bold uppercase text-[#BA1A1A] dark:text-rose-300">Data Gagal</div>
+                  <div className="font-mono text-lg font-extrabold tabular-nums text-[#BA1A1A] dark:text-rose-300">
+                    {(activeImportJob.failedRows + unimportedLocalErrorRows.length).toLocaleString('id-ID')}
+                  </div>
+                </div>
+              </div>
+
+              {activeImportJob.errorSummary && (
+                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-[#BA1A1A] dark:text-rose-200">
+                  <strong>Catatan Backend:</strong> {activeImportJob.errorSummary}
+                </div>
+              )}
+
+              {/* 5 Action Buttons — Safely cleared above Mobile Bottom Nav */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => void handleOpenJobResultModal()}
+                  className="btn-3d-lilac min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 shrink-0" />
+                  <span>Lihat Hasil Import</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    isOpeningBatchWo ||
+                    activeImportJob.successfulRows + (activeImportJob.updatedRows || 0) === 0
+                  }
+                  onClick={() => void handleViewImportedBatchWo()}
+                  className="btn-3d-emerald min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  {isOpeningBatchWo ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  ) : (
+                    <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>Lihat WO Berhasil Diimport</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    activeImportJob.failedRows === 0 &&
+                    activeImportJob.duplicateRows === 0 &&
+                    unimportedLocalErrorRows.length === 0
+                  }
+                  onClick={() => void handleOpenJobErrorsModal()}
+                  className="btn-3d-lilac min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  <FileWarning className="w-3.5 h-3.5 text-amber-600 dark:text-amber-300 shrink-0" />
+                  <span>Lihat Data Gagal</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    isPreparingRepair ||
+                    isJobRunnerActive ||
+                    (activeImportJob.failedRows === 0 &&
+                      !activeImportJob.canRetry &&
+                      !activeImportJob.hasFailedBatches &&
+                      unimportedLocalErrorRows.length === 0)
+                  }
+                  onClick={() => void handleRepairAndReimportFailed()}
+                  className="btn-3d-crimson min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  {isPreparingRepair ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  ) : (
+                    <Wrench className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>Perbaiki dan Import Ulang</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBackToWoDatabase}
+                  className="btn-3d-primary min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                  <span>Kembali ke Database WO</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Enterprise Live Batch Monitor Panel */}
           <ImportJobMonitorPanel
             activeJob={activeImportJob}
@@ -1474,6 +1862,8 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             onRefreshJob={handleRefreshJobDetail}
             onSelectJob={job => {
               setActiveImportJob(job);
+              saveLastImportJobId(currentUser.id, job.id);
+              syncImportJobIdToUrl(job.id);
               void handleRefreshJobDetail(job.id);
             }}
           />
@@ -1603,12 +1993,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                 data={filteredCatalogFields}
                 getRowKey={f => f.canonicalField}
                 maxTableHeightClass="max-h-72"
-                sortKey={catalogSort.key}
+                sortKey={catalogSort.column}
                 sortDirection={catalogSort.direction}
                 onSort={key =>
                   setCatalogSort(prev => ({
-                    key,
-                    direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                    column: key,
+                    direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
                   }))
                 }
                 activeFilterCount={
@@ -1623,7 +2013,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   setCatalogLabelSearch('');
                   setCatalogCategoryFilter('ALL');
                   setCatalogRequiredFilter('ALL');
-                  setCatalogSort({ key: null, direction: null });
+                  setCatalogSort({ column: null, direction: null });
                 }}
                 mobileTitle={f => <span className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{f.canonicalField}</span>}
                 mobileSubtitle={f => f.displayLabel}
@@ -2000,12 +2390,12 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                   data={paginatedPreviewRows}
                   getRowKey={row => String(row.rowIndex)}
                   maxTableHeightClass="max-h-96"
-                  sortKey={previewSort.key}
+                  sortKey={previewSort.column}
                   sortDirection={previewSort.direction}
                   onSort={key =>
                     setPreviewSort(prev => ({
-                      key,
-                      direction: prev.key === key ? getNextSortDirection(prev.direction) : 'asc'
+                      column: key,
+                      direction: prev.column === key ? getNextSortDirection(prev.direction) : 'asc'
                     }))
                   }
                   activeFilterCount={
@@ -2026,7 +2416,7 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
                     setPreviewExactDate('');
                     setPreviewDateFrom('');
                     setPreviewDateTo('');
-                    setPreviewSort({ key: null, direction: null });
+                    setPreviewSort({ column: null, direction: null });
                   }}
                   headerActions={
                     <div className="flex flex-wrap items-center gap-2">
@@ -3354,6 +3744,234 @@ export const TextToTableImporter: React.FC<TextToTableImporterProps> = ({ onImpo
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal 1: Lihat Hasil Import (Detail Ringkasan & Per-Batch) */}
+      {showJobResultModal && activeImportJob && (
+        <ResponsiveModal
+          isOpen={showJobResultModal}
+          onClose={() => setShowJobResultModal(false)}
+          title="Detail Hasil Import Excel"
+          subtitle={`${activeImportJob.sourceFile} • ${activeImportJob.id}`}
+          size="xl"
+          footer={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {activeImportJob.successfulRows + (activeImportJob.updatedRows || 0) > 0 && (
+                <button
+                  type="button"
+                  disabled={isOpeningBatchWo}
+                  onClick={() => void handleViewImportedBatchWo()}
+                  className="btn-3d-emerald min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Lihat WO Berhasil Diimport</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowJobResultModal(false)}
+                className="btn-3d-lilac min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78]">
+                <div className="text-[10px] font-bold uppercase text-[#8492A5]">Status Akhir</div>
+                <div className="font-mono font-extrabold text-[#26364A] dark:text-white mt-0.5 uppercase">
+                  {activeImportJob.status}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78]">
+                <div className="text-[10px] font-bold uppercase text-[#8492A5]">Template / Format</div>
+                <div className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] mt-0.5">
+                  {activeImportJob.templateType} ({activeImportJob.sourceFormat})
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] col-span-2 sm:col-span-1">
+                <div className="text-[10px] font-bold uppercase text-[#8492A5]">Total / Sukses / Gagal</div>
+                <div className="font-mono font-extrabold text-[#26364A] dark:text-white mt-0.5 tabular-nums">
+                  {activeImportJob.totalRows} / {activeImportJob.successfulRows} / {activeImportJob.failedRows}
+                </div>
+              </div>
+            </div>
+
+            {activeImportJob.batches && activeImportJob.batches.length > 0 && (
+              <div className="border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl overflow-hidden">
+                <div className="px-3.5 py-2 bg-[#F4F7FB] dark:bg-[#160d29] border-b border-[#DDE6F0] dark:border-[#3b1d78] font-bold text-[#26364A] dark:text-white">
+                  Rincian Pemrosesan Per Batch ({activeImportJob.batches.length} Batch)
+                </div>
+                <div className="overflow-x-auto max-h-64">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-white dark:bg-[#1e1238] border-b border-[#E2E8F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8]">
+                      <tr>
+                        <th className="px-3 py-2 font-bold">Batch</th>
+                        <th className="px-3 py-2 font-bold">Baris</th>
+                        <th className="px-3 py-2 font-bold">Status</th>
+                        <th className="px-3 py-2 font-bold text-right">Sukses</th>
+                        <th className="px-3 py-2 font-bold text-right">Duplikat</th>
+                        <th className="px-3 py-2 font-bold text-right">Gagal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#3b1d78]">
+                      {activeImportJob.batches.map(b => (
+                        <tr key={b.id} className="bg-white/70 dark:bg-[#160d29]/60">
+                          <td className="px-3 py-2 font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">
+                            #{b.batchNumber}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-[#52647A] dark:text-[#CABDE8]">
+                            {b.startRow}–{b.endRow}
+                          </td>
+                          <td className="px-3 py-2 font-mono uppercase">{b.status}</td>
+                          <td className="px-3 py-2 font-mono text-right text-emerald-700 dark:text-emerald-300 font-bold">
+                            {b.successfulRows}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-right text-[#5145A6] dark:text-[#DAB9FF]">
+                            {b.duplicateRows}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-right text-[#BA1A1A] dark:text-rose-300 font-bold">
+                            {b.failedRows}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </ResponsiveModal>
+      )}
+
+      {/* Modal 2: Lihat Data Gagal / Error */}
+      {showJobErrorsModal && activeImportJob && (
+        <ResponsiveModal
+          isOpen={showJobErrorsModal}
+          onClose={() => setShowJobErrorsModal(false)}
+          title="Daftar Data Gagal & Duplikat"
+          subtitle={`${activeImportJob.sourceFile} • ${activeImportJob.failedRows} gagal, ${activeImportJob.duplicateRows} duplikat`}
+          size="xl"
+          footer={
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+              <div className="flex flex-wrap items-center gap-2">
+                {activeImportJob.failedRows + activeImportJob.duplicateRows > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadJobErrorsCsv(activeImportJob.id)}
+                    className="btn-3d-lilac min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Error CSV</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDownloadJobErrorsXlsx}
+                  className="btn-3d-lilac min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Error XLSX</span>
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(activeImportJob.failedRows > 0 ||
+                  activeImportJob.canRetry ||
+                  activeImportJob.hasFailedBatches ||
+                  unimportedLocalErrorRows.length > 0) && (
+                  <button
+                    type="button"
+                    disabled={isPreparingRepair}
+                    onClick={() => void handleRepairAndReimportFailed()}
+                    className="btn-3d-crimson min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>Perbaiki dan Import Ulang</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowJobErrorsModal(false)}
+                  className="btn-3d-primary min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-xs">
+            {isLoadingJobErrors ? (
+              <div className="py-10 flex items-center justify-center gap-2 text-[#5145A6] dark:text-[#DAB9FF] font-semibold">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Memuat catatan error dari backend...</span>
+              </div>
+            ) : jobErrorRows.length === 0 && unimportedLocalErrorRows.length === 0 ? (
+              <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8]">
+                Tidak ada rincian baris gagal atau duplikat yang tersimpan pada batch ini.
+              </div>
+            ) : (
+              <div className="border border-[#DDE6F0] dark:border-[#3b1d78] rounded-xl overflow-hidden">
+                <div className="overflow-x-auto max-h-80">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-[#F4F7FB] dark:bg-[#160d29] border-b border-[#DDE6F0] dark:border-[#3b1d78] text-[#52647A] dark:text-[#CABDE8] sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 font-bold">Baris</th>
+                        <th className="px-3 py-2 font-bold">WO Number</th>
+                        <th className="px-3 py-2 font-bold">Kode</th>
+                        <th className="px-3 py-2 font-bold">Alasan Gagal / Catatan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#3b1d78]">
+                      {jobErrorRows.map(err => (
+                        <tr key={err.id} className="bg-white/80 dark:bg-[#1e1238]/60">
+                          <td className="px-3 py-2 font-mono text-[#52647A] dark:text-[#CABDE8] whitespace-nowrap">
+                            #{err.rowNumber}{err.batchNumber ? ` (B${err.batchNumber})` : ''}
+                          </td>
+                          <td className="px-3 py-2 font-mono font-bold text-[#26364A] dark:text-white whitespace-nowrap">
+                            {err.woNumber || '-'}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                err.errorCode === 'WO_DUPLICATE'
+                                  ? 'bg-[#EAE8FF] text-[#5145A6] dark:bg-purple-950 dark:text-[#DAB9FF]'
+                                  : 'bg-rose-100 text-[#BA1A1A] dark:bg-rose-950 dark:text-rose-300'
+                              }`}
+                            >
+                              {err.errorCode}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-[#26364A] dark:text-[#E9D5FF]">{err.errorMessage}</td>
+                        </tr>
+                      ))}
+                      {unimportedLocalErrorRows.map(r => (
+                        <tr key={`local-err-${r.rowIndex}`} className="bg-amber-50/40 dark:bg-amber-950/20">
+                          <td className="px-3 py-2 font-mono text-[#52647A] dark:text-[#CABDE8] whitespace-nowrap">
+                            #{r.rowIndex + 1} (Lokal)
+                          </td>
+                          <td className="px-3 py-2 font-mono font-bold text-[#26364A] dark:text-white whitespace-nowrap">
+                            {r.mapped?.woNumber || '-'}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              {r.statusType || 'INVALID'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-[#26364A] dark:text-[#E9D5FF]">
+                            {(r.validationErrors || []).join(' | ') || 'Format kolom wajib tidak valid'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </ResponsiveModal>
       )}
     </div>
   );

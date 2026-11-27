@@ -14,7 +14,6 @@ import {
   getTicketCanonicalApprovalStatus,
   getTicketCanonicalReportStatus
 } from '../../services/woLifecycleService';
-import { buildWhatsAppClickToChatUrl } from '../../services/whatsappService';
 import {
   buildGoogleMapsCoordinateUrl,
   formatCoordinates,
@@ -59,11 +58,10 @@ import {
   History,
   AlertCircle,
   X,
-  ChevronRight,
+  XCircle,
   ChevronDown,
   Lock,
   LockOpen,
-  GitBranch,
   QrCode,
   Cable,
   PenTool,
@@ -74,13 +72,10 @@ import {
   Wrench,
   Trash2,
   Package,
-  ShieldAlert,
   SlidersHorizontal,
-  MoreVertical,
   Building2,
   Calendar,
   Router,
-  ClipboardCheck,
   WifiOff,
   BadgeCheck,
   ExternalLink,
@@ -102,7 +97,14 @@ import {
 } from './fullview/types';
 import { PhotoEvidenceMatrixSection } from './fullview/PhotoEvidenceMatrixSection';
 import { PhotoLightboxModal } from './fullview/PhotoLightboxModal';
-import { FullviewLiveChatSection } from './fullview/FullviewLiveChatSection';
+import { CompletedStatusModal } from './fullview/CompletedStatusModal';
+import { UnsuccessStatusModal } from './fullview/UnsuccessStatusModal';
+import { FloatingLiveChatModal } from './fullview/FloatingLiveChatModal';
+import {
+  extractCustomerContacts,
+  extractLocationExtraMeta,
+  formatFullviewTimeValue
+} from '../../utils/fullviewWorkflow';
 import {
   evaluatePhotoEvidenceCompleteness,
   isVerifiedPersistedPhotoSlot,
@@ -237,14 +239,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     customerTested: true
   });
   const [showKendalaModal, setShowKendalaModal] = useState(false);
-  const [showEscalationMenu, setShowEscalationMenu] = useState(false);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
+  const [showUnsuccessModal, setShowUnsuccessModal] = useState(false);
+  const [showLiveChatModal, setShowLiveChatModal] = useState(false);
 
-  const checkInSectionRef = useRef<HTMLDetailsElement>(null);
+  const checkInSectionRef = useRef<HTMLDivElement>(null);
   const photoAccordionRef = useRef<HTMLDetailsElement>(null);
   const photoSectionRef = useRef<HTMLElement>(null);
   const technicalAccordionRef = useRef<HTMLDetailsElement>(null);
   const reportAccordionRef = useRef<HTMLDetailsElement>(null);
-  const checkoutFormRef = useRef<HTMLFormElement>(null);
   const signatureSectionRef = useRef<HTMLDetailsElement>(null);
   const uploadingSlotKeysRef = useRef<Set<PhotoSlotKey>>(new Set());
 
@@ -473,7 +476,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (!initialFocusSection) return;
     const timer = setTimeout(() => {
       if (initialFocusSection === 'checkin') {
-        if (checkInSectionRef.current) checkInSectionRef.current.open = true;
         checkInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (initialFocusSection === 'installation') {
         if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
@@ -610,7 +612,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           fatPort ||
           customerSignatureUrl ||
           showQcConfirmSheet ||
-          showKendalaModal
+          showKendalaModal ||
+          showCompletedModal ||
+          showUnsuccessModal ||
+          showLiveChatModal
       ) || Object.values(photoSlots).some(Boolean);
 
     markTicketEditing(activeTicket.id, hasUnsavedInputs);
@@ -630,7 +635,11 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     customerSignatureUrl,
     showQcConfirmSheet,
     showKendalaModal,
-    photoSlots
+    showCompletedModal,
+    showUnsuccessModal,
+    showLiveChatModal,
+    photoSlots,
+    markTicketEditing
   ]);
 
   // Draw persisted signature onto canvas when mounted or restored
@@ -684,74 +693,23 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   }, [sessionStartIso, activeTicket.checkOutAt, nowTick]);
 
   // -------------------------------------------------------------
-  // 2-TIER HIERARCHICAL OPTIONS & DEPENDENT HANDLERS (Status WO -> Reason WO)
+  // 2-TIER HIERARCHICAL SELECTION CALLBACK (Status WO -> Reason WO)
   // -------------------------------------------------------------
-  const availableStatusOptions = useMemo(() => {
-    if (hierarchicalStatuses && hierarchicalStatuses.length > 0) {
-      return hierarchicalStatuses
-        .filter(s => s.active !== false && (s as any).isActive !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-    }
-    return [];
-  }, [hierarchicalStatuses]);
-
-  const selectedStatusObj = useMemo(() => {
-    if (!reportStatus) return null;
-    const norm = reportStatus.trim().toLowerCase();
-    return (
-      availableStatusOptions.find(
-        s =>
-          s.id === reportStatusId ||
-          s.name.trim().toLowerCase() === norm ||
-          (s.code && s.code.trim().toLowerCase() === norm)
-      ) || null
-    );
-  }, [availableStatusOptions, reportStatus, reportStatusId]);
-
-  const availableReasonOptions = useMemo(() => {
-    if (!selectedStatusObj) return [];
-    return (selectedStatusObj.reasons || [])
-      .filter(r => r.active !== false && (r as any).isActive !== false)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [selectedStatusObj]);
-
-  const selectedReasonObj = useMemo(() => {
-    if (!reasonReport || !selectedStatusObj) return null;
-    const norm = reasonReport.trim().toLowerCase();
-    return (
-      availableReasonOptions.find(
-        r => r.id === reasonReportId || r.name.trim().toLowerCase() === norm
-      ) || null
-    );
-  }, [availableReasonOptions, reasonReport, reasonReportId, selectedStatusObj]);
-
-  const availableRemarksTemplates = useMemo(() => {
-    if (!selectedReasonObj) return [];
-    return (selectedReasonObj.remarks || [])
-      .filter(rm => rm.active !== false && (rm as any).isActive !== false)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .map(rm => rm.text || rm.name);
-  }, [selectedReasonObj]);
-
-  const handleReportStatusChange = (newStatusName: string) => {
-    setReportStatus(newStatusName);
-    const matched = availableStatusOptions.find(
-      s => s.name === newStatusName || s.id === newStatusName || (s.code && s.code === newStatusName)
-    );
-    setReportStatusId(matched?.id || '');
-    setReasonReport('');
-    setReasonReportId('');
-    setReportError(null);
-  };
-
-  const handleReasonReportChange = (newReasonName: string) => {
-    setReasonReport(newReasonName);
-    const matched = availableReasonOptions.find(
-      r => r.name === newReasonName || r.id === newReasonName
-    );
-    setReasonReportId(matched?.id || '');
-    setReportError(null);
-  };
+  const handleSelectCompletedStatusAndReason = useCallback(
+    (payload: {
+      reportStatus: string;
+      reportStatusId: string;
+      reasonReport: string;
+      reasonReportId: string;
+    }) => {
+      setReportStatus(payload.reportStatus);
+      setReportStatusId(payload.reportStatusId);
+      setReasonReport(payload.reasonReport);
+      setReasonReportId(payload.reasonReportId);
+      setReportError(null);
+    },
+    []
+  );
 
   // -------------------------------------------------------------
   // OPM CALIBRATION STATUS
@@ -1324,10 +1282,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       'PROGRESS';
     setChatCategory(progressCat);
     await setTicketChatCategory(activeTicket.id, progressCat);
+    setShowLiveChatModal(true);
     setIsChatActive(true);
-    if (reportAccordionRef.current) reportAccordionRef.current.open = true;
     setTimeout(() => {
-      chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       chatInputRef.current?.focus();
     }, 180);
     toast.info('Kategori PROGRESS dipilih. Kirim pesan untuk mencatat Check-In otomatis.', 'Siap Check-In');
@@ -1494,7 +1451,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   // -------------------------------------------------------------
   // PRE-SUBMIT VALIDATION -> QC SHEET -> EXECUTE CHECK-OUT & SAVE
   // -------------------------------------------------------------
-  const validateBeforeSubmit = (): boolean => {
+  const validateBeforeSubmit = (overrides?: {
+    status?: string;
+    reason?: string;
+    remarks?: string;
+  }): boolean => {
+    const targetStatus = overrides?.status ?? reportStatus;
+    const targetReason = overrides?.reason ?? reasonReport;
+    const targetRemarks = overrides?.remarks ?? remarksReport;
+
     if (ticketClosed) {
       playErrorSound();
       const msg = 'Work Order ini sudah berstatus CLOSED (disetujui Dispatch) dan terkunci read-only.';
@@ -1531,28 +1496,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return false;
     }
 
-    if (!reportStatus) {
+    if (!targetStatus) {
       const msg = 'LEVEL 1: Status WO wajib dipilih.';
       setReportError(msg);
       toast.warning(msg, 'Lengkapi Report');
-      if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-      checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return false;
     }
-    if (!reasonReport) {
+    if (!targetReason) {
       const msg = 'LEVEL 2: Reason WO wajib dipilih.';
       setReportError(msg);
       toast.warning(msg, 'Lengkapi Report');
-      if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-      checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return false;
     }
-    if (!remarksReport.trim()) {
-      const msg = 'Work Description / Catatan Teknisi wajib diisi.';
+    if (!targetRemarks.trim()) {
+      const msg = 'Remarks / Catatan Teknisi wajib diisi.';
       setReportError(msg);
       toast.warning(msg, 'Lengkapi Report');
-      if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-      checkoutFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return false;
     }
     setReportError(null);
@@ -1566,9 +1525,24 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     setShowQcConfirmSheet(true);
   };
 
-  const handleSaveReport = async () => {
-    if (submitReportInFlightRef.current || isSubmittingReport || isAnySlotUploading) return;
-    if (!validateBeforeSubmit()) return;
+  const executeProgressReportSubmission = async (payload: {
+    targetReportStatus: string;
+    targetReportStatusId: string;
+    targetReasonReport: string;
+    targetReasonReportId: string;
+    targetRemarksReport: string;
+    closeUnsuccessOnSuccess?: boolean;
+  }): Promise<boolean> => {
+    if (submitReportInFlightRef.current || isSubmittingReport || isAnySlotUploading) return false;
+    if (
+      !validateBeforeSubmit({
+        status: payload.targetReportStatus,
+        reason: payload.targetReasonReport,
+        remarks: payload.targetRemarksReport
+      })
+    ) {
+      return false;
+    }
 
     submitReportInFlightRef.current = true;
     const submitIdempotencyKey =
@@ -1606,18 +1580,19 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           const sigErr = sigUpload.error || 'Gagal mengunggah tanda tangan pelanggan ke Supabase Storage.';
           setReportError(sigErr);
           toast.error(sigErr, 'Upload Tanda Tangan Gagal');
-          return;
+          return false;
         }
         resolvedSignatureUrl = sigUpload.downloadUrl;
         setCustomerSignatureUrl(sigUpload.downloadUrl);
       }
 
+      const cleanRemarks = payload.targetRemarksReport.trim();
       const res = await saveProgressReport(activeTicket.id, {
-        reportStatus,
-        reportStatusId,
-        reasonReport,
-        reasonReportId,
-        remarksReport: remarksReport.trim(),
+        reportStatus: payload.targetReportStatus,
+        reportStatusId: payload.targetReportStatusId,
+        reasonReport: payload.targetReasonReport,
+        reasonReportId: payload.targetReasonReportId,
+        remarksReport: cleanRemarks,
         idempotencyKey: submitIdempotencyKey,
         technicalTelemetry: {
           opticalPowerDbm: normalizedOpm || undefined,
@@ -1635,21 +1610,30 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
       if (res.success) {
         activeIdempotencyKeyRef.current = null;
+        if (payload.closeUnsuccessOnSuccess) {
+          setShowUnsuccessModal(false);
+        }
+        setReportStatus(payload.targetReportStatus);
+        setReportStatusId(payload.targetReportStatusId);
+        setReasonReport(payload.targetReasonReport);
+        setReasonReportId(payload.targetReasonReportId);
+        setRemarksReport(cleanRemarks);
         safeLocalStorageRemove(draftStorageKey);
         void deleteMasterCacheValue(`draft_sig_${activeTicket.id}`).catch(() => {});
         setDraftSavedAt(null);
         playReportSavedSound();
         setSavedReportSnapshot({
-          status: reportStatus,
-          reason: reasonReport,
-          remarks: remarksReport.trim()
+          status: payload.targetReportStatus,
+          reason: payload.targetReasonReport,
+          remarks: cleanRemarks
         });
         setShowSuccessAlert(true);
         toast.success(
-          `Report "${reportStatus}" & Check-Out berhasil dikirim ke Dispatch (BUTUH APPROVAL).`,
+          `Report "${payload.targetReportStatus}" & Check-Out berhasil dikirim ke Dispatch (BUTUH APPROVAL).`,
           'CHECK-OUT BERHASIL',
           { withSound: true }
         );
+        return true;
       } else {
         playErrorSound();
         const errMsg = res.error || 'Gagal menyimpan laporan ke database.';
@@ -1668,9 +1652,10 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             message: errMsg,
             technicalDetails: errMsg,
             severity: 'HIGH',
-            onRetry: () => handleSaveReport()
+            onRetry: () => void executeProgressReportSubmission(payload)
           });
         }
+        return false;
       }
     } catch (err: any) {
       playErrorSound();
@@ -1684,13 +1669,46 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         message: errMsg,
         technicalDetails: errMsg,
         severity: 'HIGH',
-        onRetry: () => handleSaveReport()
+        onRetry: () => void executeProgressReportSubmission(payload)
       });
+      return false;
     } finally {
       submitReportInFlightRef.current = false;
       setIsSubmittingReport(false);
       stopLoading();
     }
+  };
+
+  const handleSaveReport = async () => {
+    await executeProgressReportSubmission({
+      targetReportStatus: reportStatus,
+      targetReportStatusId: reportStatusId,
+      targetReasonReport: reasonReport,
+      targetReasonReportId: reasonReportId,
+      targetRemarksReport: remarksReport.trim()
+    });
+  };
+
+  const handleSaveUnsuccessReport = async (payload: {
+    reportStatus: string;
+    reportStatusId: string;
+    reasonReport: string;
+    reasonReportId: string;
+    remarksReport: string;
+  }) => {
+    setReportStatus(payload.reportStatus);
+    setReportStatusId(payload.reportStatusId);
+    setReasonReport(payload.reasonReport);
+    setReasonReportId(payload.reasonReportId);
+    setRemarksReport(payload.remarksReport);
+    await executeProgressReportSubmission({
+      targetReportStatus: payload.reportStatus,
+      targetReportStatusId: payload.reportStatusId,
+      targetReasonReport: payload.reasonReport,
+      targetReasonReportId: payload.reasonReportId,
+      targetRemarksReport: payload.remarksReport,
+      closeUnsuccessOnSuccess: true
+    });
   };
 
   const handleConfirmRedirect = () => {
@@ -1729,9 +1747,15 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [activeTicket]);
 
-  const waUrlObj = buildWhatsAppClickToChatUrl(
-    activeTicket.customerPhone,
-    `Halo ${activeTicket.customerName}, saya teknisi ${currentUser.name || 'MoraJaws'} terkait penanganan tiket WO ${activeTicket.woNumber} hari ini.`
+  const customerContacts = useMemo(() => extractCustomerContacts(activeTicket), [activeTicket]);
+  const locationExtraMeta = useMemo(() => extractLocationExtraMeta(activeTicket), [activeTicket]);
+  const startTimeDisplay = useMemo(
+    () => formatFullviewTimeValue(activeTicket.checkInAt || activeTicket.workStartedAt),
+    [activeTicket.checkInAt, activeTicket.workStartedAt]
+  );
+  const endTimeDisplay = useMemo(
+    () => formatFullviewTimeValue(activeTicket.checkOutAt),
+    [activeTicket.checkOutAt]
   );
 
   const handleCopyAddress = () => {
@@ -1833,9 +1857,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       .filter(a => a.ticketId === activeTicket.id || a.woNumber === activeTicket.woNumber)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [ticketActivities, activeTicket.id, activeTicket.woNumber]);
-
-  const rawCustomerPhone = String(activeTicket.customerPhone || '').trim();
-  const telCustomerHref = rawCustomerPhone ? `tel:${rawCustomerPhone.replace(/[^\d+]/g, '')}` : '';
 
   const lightboxMatchedSlot = useMemo(() => {
     if (!lightboxState) return undefined;
@@ -2005,12 +2026,12 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       </header>
 
       {/* ============================================================== */}
-      {/* SCROLLABLE MAIN WORKSPACE — 9 STRUCTURED SECTIONS              */}
+      {/* SCROLLABLE MAIN WORKSPACE                                      */}
       {/* ============================================================== */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 pb-10 space-y-3.5">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 pb-28 sm:pb-24 space-y-3.5">
 
-          {/* STITCH TOP SLA & TICKET IDENTITY STRIP */}
+          {/* TOP NAVIGATION & CHECK-IN STATUS STRIP */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <button
               type="button"
@@ -2037,353 +2058,96 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             </span>
           </div>
 
-          <section className="card-3d-lavender rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="min-w-0">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] block">
-                NO. PERINTAH KERJA
-              </span>
-              <div className="font-mono text-base sm:text-lg font-extrabold text-[#26364A] dark:text-[#f5eeff] truncate mt-0.5">
-                {activeTicket.woNumber}
-              </div>
-              <div className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate mt-0.5">
-                {activeTicket.contractorName || currentUser.contractor || 'Mitra Lapangan'} · {activeTicket.area || currentUser.area || '-'}
-              </div>
-            </div>
-
-            {/* Crystal Aqua-Violet / Dark Inset Digital SLA Timer */}
-            <div className="rounded-xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] px-4 py-2.5 text-[#26364A] dark:text-white shrink-0 shadow-inner min-w-[165px]">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
-                <Timer className="w-3 h-3" />
-                <span>DURASI KERJA</span>
-              </div>
-              <div className="font-mono text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums leading-tight mt-0.5">
-                {elapsedClockLabel}
-              </div>
-              <div className="font-mono text-[10px] text-[#5145A6] dark:text-[#A380FE]">
-                Target SLA 90m
-              </div>
-            </div>
-          </section>
-
-          {/* TOP GRID: 1. WO Information | 2. Customer Information | 3. Appointment */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {/* ---------------------------------------------------------- */}
-            {/* SECTION 1: WO INFORMATION                                  */}
-            {/* ---------------------------------------------------------- */}
-            <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                    1
+          {/* ============================================================ */}
+          {/* SECTION 1: WORK ORDER SUMMARY (MORAJAWS DETAIL WORK ORDER)   */}
+          {/* ============================================================ */}
+          <section className="card-3d-lavender rounded-2xl p-4 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0]">
+                    Work Order
                   </span>
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    WO Information
-                  </h2>
-                </div>
-                <StatusInstallerBadge status={activeTicket.statusWOInstaller} displayRole="installer" />
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">No. WO</span>
-                  <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Kategori / Work Type</span>
-                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">{woBadgeLabel}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Layanan</span>
-                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">{serviceLabel}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2 flex-wrap pt-0.5">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Status Approval</span>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {canonicalReport !== 'NONE' && (
-                      <StatusBadge status={canonicalReport} variant="report" />
-                    )}
-                    {activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE' ? (
-                      <StatusApprovalBadge status={activeTicket.approvalStatus} />
-                    ) : (
-                      <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">Belum Submit</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {(activeTicket.remarksAgent || activeTicket.remarks) && (
-                <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] text-[#52647A] dark:text-[#C4B5D6] leading-snug">
-                  <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] block mb-0.5">Catatan Dispatch:</span>
-                  <p className="line-clamp-3">{activeTicket.remarksAgent || activeTicket.remarks}</p>
-                </div>
-              )}
-            </section>
-
-            {/* ---------------------------------------------------------- */}
-            {/* SECTION 2: CUSTOMER INFORMATION                            */}
-            {/* ---------------------------------------------------------- */}
-            <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                    2
-                  </span>
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Customer Information
-                  </h2>
-                </div>
-                <span className="font-mono text-[10.5px] font-semibold text-[#8492A5] dark:text-[#A79BC0] shrink-0">
-                  {activeTicket.idCustomer || activeTicket.customerId || '-'}
-                </span>
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <div>
-                  <div className="font-display font-bold text-[15px] text-[#26364A] dark:text-[#f5eeff] truncate">
-                    {activeTicket.customerName || activeTicket.endUserName || 'Pelanggan'}
-                  </div>
-                  <div className="font-mono text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] mt-0.5">
-                    {rawCustomerPhone || 'No. HP belum tersedia'}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCopyAddress}
-                  className="w-full text-left flex items-start gap-2 p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] hover:text-[#26364A] dark:hover:text-[#f5eeff] cursor-pointer"
-                  title="Ketuk untuk menyalin alamat"
-                >
-                  {copiedAddress ? (
-                    <Check className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+                  <StatusInstallerBadge status={activeTicket.statusWOInstaller} displayRole="installer" />
+                  {canonicalReport !== 'NONE' && (
+                    <StatusBadge status={canonicalReport} variant="report" />
                   )}
-                  <div className="min-w-0 flex-1">
-                    <WorkOrderAddressBlock
-                      ticket={activeTicket}
-                      variant="detail"
-                      showIcon={false}
-                      fallbackText="Alamat belum tercatat"
-                    />
-                  </div>
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <button
-                  type="button"
-                  onClick={handleOpenMaps}
-                  className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] gap-1 cursor-pointer"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
-                  <span>Maps</span>
-                </button>
-
-                {telCustomerHref && (
-                  <a
-                    href={telCustomerHref}
-                    className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] gap-1"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
-                    <span>Telepon</span>
-                  </a>
-                )}
-
-                {activeTicket.customerPhone &&
-                  (waUrlObj.url ? (
-                    <a
-                      href={waUrlObj.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mj-btn-installer-success mj-btn-compact px-3 py-1.5 text-[11px] font-bold gap-1"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onOpenWhatsApp(activeTicket)}
-                      className="mj-btn-installer-success mj-btn-compact px-3 py-1.5 text-[11px] font-bold gap-1 cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </button>
-                  ))}
-              </div>
-            </section>
-
-            {/* ---------------------------------------------------------- */}
-            {/* SECTION 3: APPOINTMENT                                     */}
-            {/* ---------------------------------------------------------- */}
-            <section className="mj-enterprise-card rounded-2xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                    3
-                  </span>
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Appointment
-                  </h2>
+                  {activeTicket.approvalStatus && activeTicket.approvalStatus !== 'NONE' && (
+                    <StatusApprovalBadge status={activeTicket.approvalStatus} />
+                  )}
                 </div>
-                <span className="inline-flex items-center gap-1 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] bg-[#EAE8FF] dark:bg-[#160D29] px-2 py-0.5 rounded-full border border-[#DCE3F2] dark:border-[#35105E]">
-                  <Calendar className="w-3 h-3" />
-                  <span>{activeTicket.slotTime || 'Fleksibel'}</span>
-                </span>
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Tanggal Jadwal</span>
-                  <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">{appointmentDateDisplay}</span>
+                <div className="font-mono text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-[#f5eeff] truncate">
+                  {activeTicket.woNumber}
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Slot Waktu</span>
-                  <span className="font-mono font-semibold text-[#26364A] dark:text-[#f5eeff]">
-                    {activeTicket.slotTime || '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#8492A5] dark:text-[#A79BC0]">Area</span>
-                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
-                    {activeTicket.area || '-'}
-                  </span>
+                <div className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate">
+                  {activeTicket.contactorName || activeTicket.contractorName || currentUser.contractor || 'Mitra Lapangan'} · {activeTicket.area || currentUser.area || '-'}
                 </div>
               </div>
 
-              <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5145A6] to-[#2E7D8B] dark:bg-none dark:bg-[#7135b5] text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
-                  {(activeTicket.installerName || 'T').slice(0, 2).toUpperCase()}
+              {/* Crystal Aqua-Violet / Dark Inset Digital SLA Timer */}
+              <div className="rounded-xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] px-4 py-2.5 text-[#26364A] dark:text-white shrink-0 shadow-inner min-w-[165px]">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
+                  <Timer className="w-3 h-3" />
+                  <span>DURASI KERJA</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff] truncate">
-                    {activeTicket.installerName || 'Belum Ditugaskan'}
-                  </div>
-                  <div className="text-[10.5px] text-[#52647A] dark:text-[#C4B5D6] truncate">
-                    Mitra: {activeTicket.contactorName || activeTicket.contractorName || '-'} · Korlap:{' '}
-                    {activeTicket.leaderName || '-'}
-                  </div>
+                <div className="font-mono text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums leading-tight mt-0.5">
+                  {elapsedClockLabel}
                 </div>
-                <Building2 className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] shrink-0" />
-              </div>
-            </section>
-          </div>
-
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 4: WORK PROGRESS                                     */}
-          {/* ------------------------------------------------------------ */}
-          <section className="mj-enterprise-card rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  4
-                </span>
-                <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
-                  Work Progress
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
-                  <Timer className="w-3.5 h-3.5" />
-                  <span>{elapsedClockLabel}</span>
-                </span>
-                {!ticketClosed && (
-                  <button
-                    type="button"
-                    onClick={() => setShowKendalaModal(true)}
-                    className="mj-btn-installer-danger mj-btn-xs px-2.5 py-1 text-[11px] font-bold gap-1 cursor-pointer"
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    <span>Kendala</span>
-                  </button>
-                )}
+                <div className="font-mono text-[10px] text-[#5145A6] dark:text-[#A380FE]">
+                  Target SLA 90m
+                </div>
               </div>
             </div>
 
-            {/* 5-Stage Progress Stepper */}
-            <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-5 gap-1.5 text-center">
-              {[
-                {
-                  label: 'Check-In',
-                  done: isCheckInStepDone,
-                  active: !isCheckInStepDone,
-                  sub: isCheckInStepDone ? 'OK' : 'Wajib',
-                  onClick: () => {
-                    if (requiresProgressCheckIn) handleTriggerCheckIn();
-                    else {
-                      if (checkInSectionRef.current) checkInSectionRef.current.open = true;
-                      checkInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                  }
-                },
-                {
-                  label: 'Instalasi',
-                  done: isInstallationStepDone,
-                  active: isCheckInStepDone && !isInstallationStepDone,
-                  sub: opmDbm ? `${opmDbm} dBm` : 'Teknis',
-                  onClick: () => {
-                    if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
-                    technicalAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                },
-                {
-                  label: 'Foto',
-                  done: isPhotosStepDone,
-                  active: isInstallationStepDone && !isPhotosStepDone,
-                  sub: `Wajib ${mandatoryPhotoCount}/3`,
-                  onClick: () => {
-                    if (photoAccordionRef.current) photoAccordionRef.current.open = true;
-                    photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                },
-                {
-                  label: 'Report',
-                  done: isReportStepDone,
-                  active: isCheckInStepDone && !isReportStepDone,
-                  sub: isReportStepDone ? 'Siap' : 'L1 → L2',
-                  onClick: () => {
-                    if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-                    reportAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                },
-                {
-                  label: 'Check-Out',
-                  done: isCheckOutDone,
-                  active: isReportStepDone && !isCheckOutDone,
-                  sub: isCheckOutDone ? 'Selesai' : isSignatureReady ? 'TTD OK' : 'Final',
-                  onClick: () => {
-                    if (signatureSectionRef.current) signatureSectionRef.current.open = true;
-                    signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }
-              ].map((step, i) => (
-                <button
-                  key={step.label}
-                  type="button"
-                  onClick={step.onClick}
-                  className="flex flex-col items-center p-1.5 rounded-lg hover:bg-white dark:hover:bg-[#2A194B] transition-colors cursor-pointer"
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-bold mb-1 ${
-                      step.done
-                        ? 'bg-[#218A63] dark:bg-emerald-600 text-white'
-                        : step.active
-                        ? 'bg-[#6657C8] dark:bg-[#7135b5] text-white ring-2 ring-[#BDE4E8] dark:ring-[#58149C]'
-                        : 'bg-[#EDF3F8] dark:bg-[#2A194B] text-[#52647A] dark:text-[#C4B5D6]'
-                    }`}
-                  >
-                    {step.done ? <Check className="w-3.5 h-3.5" /> : i + 1}
-                  </div>
-                  <span className="text-[10.5px] font-bold text-[#26364A] dark:text-[#f5eeff] leading-tight truncate max-w-full">
-                    {step.label}
+            {/* Structured WO Fields Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Tanggal Janji Temu</span>
+                <span className="font-bold text-[#26364A] dark:text-[#f5eeff] block truncate mt-0.5">
+                  {appointmentDateDisplay}
+                </span>
+              </div>
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Slot Time</span>
+                <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] block truncate mt-0.5">
+                  {activeTicket.slotTime || '-'}
+                </span>
+              </div>
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2 col-span-2 sm:col-span-1">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Kategori WO</span>
+                <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate mt-0.5">
+                  {woBadgeLabel}{serviceLabel ? ` · ${serviceLabel}` : ''}
+                </span>
+              </div>
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Waktu Mulai</span>
+                <span className="font-mono font-bold text-[#26364A] dark:text-[#f5eeff] block mt-0.5 tabular-nums">
+                  {startTimeDisplay}
+                </span>
+              </div>
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2">
+                <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Waktu Berakhir</span>
+                <span className="font-mono font-bold text-[#26364A] dark:text-[#f5eeff] block mt-0.5 tabular-nums">
+                  {endTimeDisplay}
+                </span>
+              </div>
+              <div className="rounded-xl bg-[#FFFFFF]/80 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] px-3 py-2 col-span-2 sm:col-span-1 flex items-center gap-2 min-w-0">
+                <Building2 className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Teknisi / Korlap</span>
+                  <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] block truncate">
+                    {activeTicket.installerName || '-'} · {activeTicket.leaderName || '-'}
                   </span>
-                  <span className="font-mono text-[9px] text-[#8492A5] dark:text-[#A79BC0] truncate max-w-full">
-                    {step.sub}
-                  </span>
-                </button>
-              ))}
+                </div>
+              </div>
             </div>
+
+            {(activeTicket.remarksAgent || activeTicket.remarks) && (
+              <div className="bg-[#FFFFFF]/85 dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] text-[11px] text-[#52647A] dark:text-[#C4B5D6] leading-snug">
+                <span className="font-bold text-[#5145A6] dark:text-[#DAB9FF] block mb-0.5">Catatan Dispatch:</span>
+                <p className="line-clamp-3">{activeTicket.remarksAgent || activeTicket.remarks}</p>
+              </div>
+            )}
 
             {ticketClosed && (
               <div className="p-3 rounded-xl bg-[#E4F5EC] dark:bg-emerald-950/40 border border-[#B7E4CC] dark:border-emerald-800/60 text-xs flex items-start gap-2.5">
@@ -2420,680 +2184,853 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
             )}
           </section>
 
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 5: CHECK-IN INFORMATION                              */}
-          {/* ------------------------------------------------------------ */}
-          <details
-            ref={checkInSectionRef}
-            open={requiresProgressCheckIn || initialFocusSection === 'checkin'}
-            className="group mj-enterprise-card rounded-2xl overflow-hidden"
-          >
-            <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  5
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Check-In Information
-                  </h2>
-                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    {isCheckInStepDone
-                      ? `Tercatat pukul ${validatedCheckInTime} WIB • Valid #PROGRESS`
-                      : 'Belum Check-In — Foto Rumah GPS wajib diambil di lokasi'}
+          {/* ============================================================ */}
+          {/* TOP 2-COLUMN CARDS: DATA PELANGGAN & LOKASI PEKERJAAN        */}
+          {/* ============================================================ */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* SECTION 2: DATA PELANGGAN */}
+            <section className="mj-enterprise-card rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                    <User className="w-3.5 h-3.5" />
                   </span>
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                    Data Pelanggan
+                  </h2>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                    isCheckInStepDone
-                      ? 'bg-[#E4F5EC] dark:bg-emerald-950/50 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700/60'
-                      : 'bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700/60'
-                  }`}
-                >
-                  {isCheckInStepDone ? 'Sudah Check-In' : 'Belum Check-In'}
+                <span className="font-mono text-[10.5px] font-bold px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] shrink-0">
+                  ID: {activeTicket.idCustomer || activeTicket.customerId || '-'}
                 </span>
-                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
               </div>
-            </summary>
 
-            <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
-              {requiresProgressCheckIn ? (
-                <div className="p-3.5 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 flex flex-col gap-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <Camera className="w-5 h-5 text-[#9D661F] dark:text-amber-400 shrink-0 mt-0.5" />
-                      <div className="text-xs text-[#7D4F15] dark:text-amber-200">
-                        <div className="font-bold">Siap Memulai Pekerjaan? Lakukan Check-In GPS</div>
-                        <p className="text-[11px] text-[#9D661F] dark:text-amber-300/90 mt-0.5">
-                          Menekan tombol CHECK-IN akan mengaktifkan kamera, validasi koordinat GPS, mengambil Foto Rumah (#01), dan mencatat timestamp Check-In serta #PROGRESS.
-                        </p>
+              <div className="space-y-2.5 text-xs">
+                <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] p-3 space-y-2">
+                  <div>
+                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Nama Pelanggan</span>
+                    <div className="font-display font-bold text-[15px] text-[#26364A] dark:text-[#f5eeff] mt-0.5 break-words">
+                      {activeTicket.customerName || activeTicket.endUserName || 'Pelanggan'}
+                    </div>
+                  </div>
+
+                  {/* Contact placed directly below Customer Name */}
+                  <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Contact</span>
+                    {customerContacts.length === 0 ? (
+                      <div className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
+                        Nomor kontak pelanggan belum tersedia
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    {!ticketClosed && (
-                      <button
-                        type="button"
-                        onClick={handleTriggerCheckIn}
-                        className="mj-btn-installer-primary px-4 py-2.5 text-xs gap-1.5 cursor-pointer"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>CHECK-IN</span>
-                      </button>
-                    )}
-                      <button
-                        type="button"
-                        onClick={handleOpenProgressChatForCheckIn}
-                        className="mj-btn-installer-neutral mj-btn-compact px-3 py-2 text-xs cursor-pointer"
-                      >
-                        LiveChat #PROGRESS
-                      </button>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-[#F2CF95]/80 dark:border-amber-800/50">
-                    <WorkOrderAddressBlock
-                      ticket={activeTicket}
-                      variant="card"
-                      prefixLabel="Lokasi Target:"
-                      fallbackText="Alamat pelanggan belum tercatat"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#35105E] text-xs">
-                  <div>
-                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Waktu Check-In</span>
-                    <span className="font-mono font-bold text-[#26364A] dark:text-[#f5eeff] inline-flex items-center gap-1 mt-0.5">
-                      <LockOpen className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-600" />
-                      <span>{validatedCheckInTime} WIB</span>
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Validasi SOP</span>
-                    <span className="font-bold text-[#218A63] dark:text-emerald-400 block mt-0.5">
-                      #PROGRESS Tervalidasi
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Koordinat GPS Rumah</span>
-                    {houseCoordsValid ? (
-                      <a
-                        href={buildGoogleMapsCoordinateUrl(
-                          activeTicket.houseLocation!.latitude,
-                          activeTicket.houseLocation!.longitude
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline inline-flex items-center gap-1 mt-0.5 truncate"
-                      >
-                        <span>
-                          {formatCoordinates(
-                            activeTicket.houseLocation!.latitude,
-                            activeTicket.houseLocation!.longitude
-                          )}
-                        </span>
-                        <ExternalLink className="w-3 h-3 shrink-0" />
-                      </a>
                     ) : (
-                      <span className="font-mono text-[#8492A5] dark:text-[#A79BC0] block mt-0.5">
-                        Menunggu Foto #01 Rumah
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </details>
-
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 6: BUKTI FOTO FISIK (ORDERED 1-7)                    */}
-          {/* ------------------------------------------------------------ */}
-          <details
-            ref={photoAccordionRef}
-            open
-            className="group mj-enterprise-card rounded-2xl overflow-hidden"
-          >
-            <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  6
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Bukti Foto Fisik
-                  </h2>
-                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    7 Foto SOP wajib berurutan (Rumah, FAT, Redaman FAT, Port FAT, Instalasi, SN ONT, OPM)
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold tabular-nums border border-[#DCE3F2] dark:border-[#d8ccf3]">
-                  Wajib {mandatoryPhotoCount}/3 · {verifiedUploadedPhotoCount}/{totalPhotoSlots}
-                </span>
-                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-              </div>
-            </summary>
-
-            <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
-              <PhotoEvidenceMatrixSection
-                sectionRef={photoSectionRef}
-                activeTicket={activeTicket}
-                photoSlots={photoSlots}
-                uploadedCount={uploadedPhotoCount}
-                verifiedUploadedCount={verifiedUploadedPhotoCount}
-                slotUploadState={slotUploadState}
-                deletingSlotKey={deletingSlotKey}
-                expandedMapSlot={expandedMapSlot}
-                onToggleMapSlot={setExpandedMapSlot}
-                ticketClosed={ticketClosed}
-                opmDbm={opmDbm}
-                fatPort={fatPort}
-                ontSerialNumber={ontSerialNumber}
-                onOpenCamera={openCameraForSlot}
-                onRetryUpload={handleRetrySlotUpload}
-                onViewPhoto={(url, slotDef) => setLightboxState({ url, slotDef })}
-                onDeletePhoto={handleDeletePhotoSlot}
-              />
-            </div>
-          </details>
-
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 7: TECHNICAL INFORMATION                             */}
-          {/* ------------------------------------------------------------ */}
-          <details
-            ref={technicalAccordionRef}
-            open
-            className="group mj-enterprise-card rounded-2xl overflow-hidden"
-          >
-            <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  7
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Technical Information
-                  </h2>
-                  <span className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    {activeTicket.fatCode || activeTicket.fdtCode || '-'} •{' '}
-                    {fatPort.trim() ? `Port ${fatPort}` : 'Port belum diisi'}
-                    {opmDbm.trim() ? ` • ${opmDbm} dBm` : ''}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
-                  {opmStatus.label}
-                </span>
-                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-              </div>
-            </summary>
-
-            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3.5">
-              {/* Crystal Aqua-Violet / Dark Inset OPM READING (1490 nm RX) LCD Card */}
-              <div className="rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] p-4 text-[#26364A] dark:text-white space-y-3 shadow-inner">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
-                    <Gauge className="w-3.5 h-3.5" />
-                    <span>OPM READING (1490 nm RX)</span>
-                  </span>
-                  <span className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
-                    {opmStatus.label}
-                  </span>
-                </div>
-
-                <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <div className="flex items-baseline gap-1.5 font-mono tabular-nums">
-                    <span
-                      className={`text-3xl sm:text-4xl font-extrabold leading-none ${
-                        opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-white'
-                      }`}
-                    >
-                      {opmDbm.trim() || '—'}
-                    </span>
-                    <span className="text-sm font-bold text-[#5145A6] dark:text-[#DAB9FF]">dBm</span>
-                  </div>
-
-                  {!ticketClosed && (
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('opm-input')?.focus()}
-                      className="mj-btn-installer-secondary mj-btn-xs px-3 py-1.5 text-[11px] font-bold cursor-pointer"
-                    >
-                      Ukur / Input OPM
-                    </button>
-                  )}
-                </div>
-
-                {/* Live Range Progress Bar */}
-                <div className="space-y-1">
-                  <div className="w-full h-2 rounded-full bg-[#DDE6F0] dark:bg-white/10 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        opmNumericForLcd === null
-                          ? 'w-0'
-                          : opmStatus.isOutOfSpec
-                          ? 'bg-[#D45B66] dark:bg-[#BA1A1A]'
-                          : 'bg-gradient-to-r from-[#218A63] to-[#65B8C4] dark:from-emerald-400 dark:to-[#A380FE]'
-                      }`}
-                      style={{ width: `${opmNumericForLcd !== null ? Math.max(8, opmRangePct) : 0}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-[#52647A] dark:text-white/70">
-                    <span>Standar Redaman SOP: -15.0 s/d -24.0 dBm</span>
-                    <span>{opmNumericForLcd !== null ? 'Tercatat' : 'Belum diukur'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Allocation Summary */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#F8FAFD] dark:bg-[#160D29] p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
-                <div>
-                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">FAT / OLT</span>
-                  <span className="font-mono text-xs text-[#26364A] dark:text-[#f5eeff] font-bold truncate block">
-                    {activeTicket.fatCode || activeTicket.oltCode || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Port Assignment</span>
-                  <span className="font-mono text-xs text-[#5145A6] dark:text-[#DAB9FF] font-bold truncate block">
-                    {fatPort.trim() ? `Port ${fatPort.replace(/^#/, '')}` : 'Menunggu Input'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Redaman Roset / FAT</span>
-                  <span className={`font-mono text-xs font-bold truncate block ${opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#218A63] dark:text-emerald-400'}`}>
-                    {opmDbm.trim()
-                      ? `${opmDbm.trim()} dBm`
-                      : activeTicket.fatRedamanDbm
-                      ? `${activeTicket.fatRedamanDbm} dBm`
-                      : 'Belum Diukur'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Standar SOP</span>
-                  <span className="font-mono text-xs text-[#52647A] dark:text-[#C4B5D6] font-semibold">
-                    -15 s/d -24 dBm
-                  </span>
-                </div>
-              </div>
-
-              {/* ONT Info Pill */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Router className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0" />
-                  <div className="min-w-0">
-                    <span className="text-xs text-[#26364A] dark:text-[#f5eeff] block font-bold truncate">
-                      {activeTicket.ontBrand || 'GPON ONT'} {activeTicket.ontModel || ''}
-                    </span>
-                    <span className={`font-mono text-[10.5px] block truncate ${ontSerialNumber.trim() ? 'text-[#218A63] dark:text-emerald-400 font-semibold' : 'text-[#8492A5] dark:text-[#A79BC0]'}`}>
-                      {ontSerialNumber.trim()
-                        ? `SN Terinput: ${ontSerialNumber.trim()}`
-                        : 'SN belum diinput — ketuk Scan SN atau Foto #06'}
-                    </span>
-                  </div>
-                </div>
-                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-bold shrink-0">
-                  ONT
-                </span>
-              </div>
-
-              {/* Calibration Form Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <label htmlFor="opm-input" className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
-                      Redaman OPM Roset (dBm)
-                    </label>
-                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
-                      {opmStatus.label}
-                    </span>
-                  </div>
-                  <div className="relative flex items-center">
-                    <input
-                      id="opm-input"
-                      type="text"
-                      inputMode="decimal"
-                      value={opmDbm}
-                      disabled={ticketClosed || isSubmittingReport}
-                      onChange={e => setOpmDbm(e.target.value)}
-                      placeholder="-18.50"
-                      className={`tactile-debossed-input w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] font-mono font-bold text-base rounded-xl py-2 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60 ${
-                        opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-[#f5eeff]'
-                      }`}
-                    />
-                    <span className="absolute right-3 font-mono text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">
-                      dBm
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
-                      Nomor Seri (SN) ONT / Perangkat Wi-Fi
-                    </label>
-                    {!ticketClosed && (
-                      <button
-                        type="button"
-                        onClick={() => openCameraForSlotKey('barcode_sn')}
-                        className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline shrink-0 cursor-pointer"
-                      >
-                        Foto #06 SN
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <div className="relative flex-1">
-                      <input
-                        id="ont-sn-input"
-                        ref={snInputRef}
-                        type="text"
-                        value={ontSerialNumber}
-                        disabled={ticketClosed || isSubmittingReport}
-                        onChange={e => setOntSerialNumber(e.target.value.toUpperCase())}
-                        placeholder="Scan barcode atau ketik SN ONT / Wi-Fi"
-                        className="w-full min-h-[44px] bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
-                      />
-                      {ontSerialNumber.trim().length >= 6 && (
-                        <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#218A63] dark:text-emerald-600" />
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      disabled={ticketClosed || isSubmittingReport}
-                      onClick={() => setShowBarcodeScannerModal(true)}
-                      className="mj-btn-installer-secondary mj-btn-compact min-h-[44px] px-3 text-xs font-bold gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
-                      title="Buka Kamera Scanner Barcode / QR SN ONT & Perangkat Wi-Fi"
-                    >
-                      <QrCode className="w-4 h-4 shrink-0" />
-                      <span>Scan SN</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="dropcore-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                    Panjang Dropcore
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="dropcore-input"
-                      type="number"
-                      min={0}
-                      value={dropcoreLength}
-                      disabled={ticketClosed || isSubmittingReport}
-                      onChange={e => setDropcoreLength(e.target.value)}
-                      placeholder="0"
-                      className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60"
-                    />
-                    <span className="absolute right-3 top-2.5 font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
-                      Meter
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="fat-port-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                    Port FAT Aktif
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="fat-port-input"
-                      type="text"
-                      value={fatPort}
-                      disabled={ticketClosed || isSubmittingReport}
-                      onChange={e => setFatPort(e.target.value)}
-                      placeholder="Port 06"
-                      className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
-                    />
-                    <Cable className="w-4 h-4 absolute right-2.5 top-2.5 text-[#2E7D8B] dark:text-[#DAB9FF] pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Used Materials */}
-              <div>
-                <label htmlFor="materials-input" className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                  <Package className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
-                  <span>Material Terpakai di Lapangan</span>
-                </label>
-                <input
-                  id="materials-input"
-                  ref={materialInputRef}
-                  type="text"
-                  value={usedMaterials}
-                  disabled={ticketClosed || isSubmittingReport}
-                  onChange={e => setUsedMaterials(e.target.value)}
-                  placeholder="Contoh: Dropcore 85m, 1x ONT, 2x Fast Connector, 1x Roset"
-                  className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
-                />
-                {!ticketClosed && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    {['Fast Connector (2x)', 'Roset 1 Port', 'Patchcord SC-UPC', 'Clamp S (2x)'].map(
-                      chip => (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => {
-                            setUsedMaterials(prev => {
-                              const clean = prev.trim();
-                              if (!clean) return chip;
-                              if (clean.toLowerCase().includes(chip.toLowerCase())) return clean;
-                              return `${clean}, ${chip}`;
-                            });
-                          }}
-                          className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-[11px] font-semibold cursor-pointer"
-                        >
-                          + {chip}
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </details>
-
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 8: REPORT (3-TIER REPORT, HISTORY & LIVECHAT)        */}
-          {/* ------------------------------------------------------------ */}
-          <details
-            ref={reportAccordionRef}
-            open
-            className="group mj-enterprise-card rounded-2xl overflow-hidden"
-          >
-            <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  8
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Report &amp; Koordinasi Lapangan
-                  </h2>
-                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    Laporan Status WO &amp; Reason WO, Catatan Commissioning, Riwayat &amp; LiveChat
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {unreadChatCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FCE9EB] dark:bg-rose-950/50 text-[#9B2C37] dark:text-rose-300 border border-[#F3C5CA] dark:border-rose-800/60">
-                    {unreadChatCount} Chat Baru
-                  </span>
-                )}
-                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-              </div>
-            </summary>
-
-            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-4">
-              {reportError && (
-                <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-xs flex items-center gap-2 font-semibold">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{reportError}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                {/* Left: 2-Tier Cascade Report (Status WO -> Reason WO) + Work Description */}
-                <form
-                  ref={checkoutFormRef}
-                  onSubmit={handleOpenQcSheet}
-                  className="lg:col-span-6 space-y-3"
-                >
-                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <GitBranch className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
-                        <h3 className="font-display font-bold text-[13.5px] text-[#26364A] dark:text-[#f5eeff]">
-                          Laporan Teknis Lapangan
-                        </h3>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-white dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B] font-mono text-[10px] font-bold">
-                        Wajib SOP
-                      </span>
-                    </div>
-
-                    {/* Flow Tracker */}
-                    <div className="flex items-center justify-center gap-3 px-3 py-1.5 bg-white dark:bg-[#1E1238] rounded-lg text-[10.5px] font-mono border border-[#DDE6F0] dark:border-[#35105E]">
-                      <span className={reportStatus ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
-                        L1: Status WO
-                      </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#8492A5] dark:text-[#A79BC0]" />
-                      <span className={reasonReport ? 'text-[#218A63] dark:text-emerald-400 font-bold' : 'text-[#8492A5] dark:text-[#A79BC0]'}>
-                        L2: Reason WO
-                      </span>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      <div>
-                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                          Level 1: Status WO <span className="text-[#D45B66] dark:text-rose-400">*</span>
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={reportStatus}
-                            disabled={ticketClosed || isSubmittingReport}
-                            onChange={e => handleReportStatusChange(e.target.value)}
-                            className="w-full min-h-[44px] bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-55"
+                      <div className="space-y-2">
+                        {customerContacts.map((contact, idx) => (
+                          <div
+                            key={`${contact.raw}-${idx}`}
+                            className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] rounded-lg px-2.5 py-2"
                           >
-                            <option value="">-- Pilih Status WO (Level 1) --</option>
-                            {availableStatusOptions.map(st => (
-                              <option key={st.id} value={st.name}>
-                                {st.name}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
-                          Level 2: Reason WO <span className="text-[#D45B66] dark:text-rose-400">*</span>
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={reasonReport}
-                            disabled={
-                              ticketClosed ||
-                              isSubmittingReport ||
-                              !reportStatus ||
-                              availableReasonOptions.length === 0
-                            }
-                            onChange={e => handleReasonReportChange(e.target.value)}
-                            className="w-full min-h-[44px] bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-semibold text-xs rounded-xl py-2.5 pl-3 pr-9 appearance-none focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] cursor-pointer disabled:opacity-50"
-                          >
-                            {!reportStatus ? (
-                              <option value="">-- Pilih Status WO Terlebih Dahulu --</option>
-                            ) : availableReasonOptions.length === 0 ? (
-                              <option value="">-- Tidak ada pilihan tersedia --</option>
-                            ) : (
-                              <>
-                                <option value="">-- Pilih Reason WO (Level 2) --</option>
-                                {availableReasonOptions.map(rs => (
-                                  <option key={rs.id} value={rs.name}>
-                                    {rs.name}
-                                  </option>
-                                ))}
-                              </>
-                            )}
-                          </select>
-                          <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-[#5145A6] dark:text-[#DAB9FF] pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Work Description / Catatan Teknisi */}
-                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <label htmlFor="remarks-commissioning" className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
-                        Work Description &amp; Catatan Commissioning <span className="text-[#D45B66] dark:text-rose-400">*</span>
-                      </label>
-                      <span className="text-[10.5px] font-mono text-[#5145A6] dark:text-[#DAB9FF]">
-                        {remarksReport.length} Karakter
-                      </span>
-                    </div>
-
-                    {!ticketClosed && availableRemarksTemplates.length > 0 && (
-                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                        <span className="text-[#8492A5] dark:text-[#A79BC0] text-[10px] font-mono shrink-0">Template:</span>
-                        {availableRemarksTemplates.map((tpl, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setRemarksReport(tpl)}
-                            className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-0.5 whitespace-nowrap text-[10.5px] font-medium cursor-pointer"
-                          >
-                            {tpl.length > 34 ? tpl.slice(0, 34) + '...' : tpl}
-                          </button>
+                            <div className="min-w-0">
+                              {customerContacts.length > 1 && (
+                                <span className="font-mono text-[9.5px] uppercase text-[#8492A5] dark:text-[#A79BC0] block">
+                                  {contact.label}
+                                </span>
+                              )}
+                              <span className="font-mono text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
+                                {contact.raw}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {contact.telHref && (
+                                <a
+                                  href={contact.telHref}
+                                  className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-[11px] font-bold gap-1"
+                                >
+                                  <Phone className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
+                                  <span>Telepon</span>
+                                </a>
+                              )}
+                              {contact.waUrl ? (
+                                <a
+                                  href={contact.waUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mj-btn-installer-success mj-btn-xs px-2.5 py-1 text-[11px] font-bold gap-1"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenWhatsApp(activeTicket)}
+                                  className="mj-btn-installer-success mj-btn-xs px-2.5 py-1 text-[11px] font-bold gap-1 cursor-pointer"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
-
-                    <textarea
-                      id="remarks-commissioning"
-                      rows={3}
-                      value={remarksReport}
-                      disabled={ticketClosed || isSubmittingReport}
-                      onChange={e => setRemarksReport(e.target.value)}
-                      placeholder="Tuliskan hasil pekerjaan, panjang dropcore, redaman OPM akhir, dan catatan teknis..."
-                      className="w-full bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] leading-relaxed resize-none disabled:opacity-60"
-                    />
                   </div>
-                </form>
+                </div>
+              </div>
+            </section>
 
-                {/* Right: LiveChat & Report History */}
-                <div className="lg:col-span-6 space-y-3">
-                  <FullviewLiveChatSection
-                    chatSectionRef={chatSectionRef}
-                    chatMessagesEndRef={chatMessagesEndRef}
-                    chatInputRef={chatInputRef}
-                    chatFileInputRef={chatFileInputRef}
-                    activeTicket={activeTicket}
-                    currentUser={currentUser}
-                    messages={messages}
-                    unreadChatCount={unreadChatCount}
-                    chatCategory={chatCategory}
-                    activeChatCategories={activeChatCategories}
-                    currentChatCategoryObj={currentChatCategoryObj}
-                    chatInputText={chatInputText}
-                    onChatInputChange={handleChatInputChange}
-                    chatAttachments={chatAttachments}
-                    isSendingChat={isSendingChat}
-                    chatError={chatError}
-                    isChatActive={isChatActive}
-                    onActivateChat={() => setIsChatActive(true)}
-                    onSelectCategory={handleChatCategorySelect}
-                    onFileSelect={handleChatFileSelect}
-                    onRemoveAttachment={handleRemoveAttachment}
-                    onSendMessage={handleSendChatMessage}
-                    onZoomImage={url => setLightboxState({ url })}
+            {/* SECTION 3: LOKASI PEKERJAAN */}
+            <section className="mj-enterprise-card rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </span>
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                    Lokasi
+                  </h2>
+                </div>
+                <span className="inline-flex items-center gap-1 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] bg-[#EAE8FF] dark:bg-[#160D29] px-2 py-0.5 rounded-full border border-[#DCE3F2] dark:border-[#35105E] truncate max-w-[160px]">
+                  <Calendar className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{activeTicket.area || '-'}</span>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCopyAddress}
+                className="w-full text-left flex items-start gap-2 p-3 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11.5px] text-[#52647A] dark:text-[#C4B5D6] hover:text-[#26364A] dark:hover:text-[#f5eeff] cursor-pointer"
+                title="Ketuk untuk menyalin alamat"
+              >
+                {copiedAddress ? (
+                  <Check className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <WorkOrderAddressBlock
+                    ticket={activeTicket}
+                    variant="detail"
+                    showIcon={false}
+                    fallbackText="Alamat belum tercatat"
                   />
+                </div>
+              </button>
+
+              {(locationExtraMeta.cluster ||
+                locationExtraMeta.homepass ||
+                locationExtraMeta.fatCode ||
+                locationExtraMeta.fdtCode ||
+                locationExtraMeta.blokNomor ||
+                locationExtraMeta.rtRw) && (
+                <div className="flex flex-wrap gap-1.5 text-[10.5px]">
+                  {locationExtraMeta.cluster && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6]">
+                      Cluster: <strong className="text-[#26364A] dark:text-[#f5eeff]">{locationExtraMeta.cluster}</strong>
+                    </span>
+                  )}
+                  {locationExtraMeta.blokNomor && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6]">
+                      <strong className="text-[#26364A] dark:text-[#f5eeff]">{locationExtraMeta.blokNomor}</strong>
+                    </span>
+                  )}
+                  {locationExtraMeta.rtRw && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6]">
+                      <strong className="text-[#26364A] dark:text-[#f5eeff]">{locationExtraMeta.rtRw}</strong>
+                    </span>
+                  )}
+                  {locationExtraMeta.homepass && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6] font-mono">
+                      HP: <strong className="text-[#26364A] dark:text-[#f5eeff]">{locationExtraMeta.homepass}</strong>
+                    </span>
+                  )}
+                  {locationExtraMeta.fatCode && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6] font-mono">
+                      FAT: <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{locationExtraMeta.fatCode}</strong>
+                    </span>
+                  )}
+                  {locationExtraMeta.fdtCode && (
+                    <span className="px-2 py-1 rounded-lg bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#52647A] dark:text-[#C4B5D6] font-mono">
+                      FDT: <strong className="text-[#5145A6] dark:text-[#DAB9FF]">{locationExtraMeta.fdtCode}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {houseCoordsValid && (
+                <a
+                  href={buildGoogleMapsCoordinateUrl(
+                    activeTicket.houseLocation!.latitude,
+                    activeTicket.houseLocation!.longitude
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline"
+                >
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    GPS Rumah: {formatCoordinates(activeTicket.houseLocation!.latitude, activeTicket.houseLocation!.longitude)}
+                  </span>
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                </a>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={handleOpenMaps}
+                  className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] font-bold gap-1.5 cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
+                  <span>Buka Google Maps</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyAddress}
+                  className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-[11px] font-bold gap-1.5 cursor-pointer"
+                >
+                  {copiedAddress ? (
+                    <Check className="w-3.5 h-3.5 text-[#218A63] dark:text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
+                  )}
+                  <span>{copiedAddress ? 'Alamat Disalin' : 'Salin Alamat'}</span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          {/* ============================================================ */}
+          {/* PRE-CHECK-IN VS POST-CHECK-IN WORKFLOW                       */}
+          {/* ============================================================ */}
+          {!ticketClosed && requiresProgressCheckIn ? (
+            <>
+              <section
+                ref={checkInSectionRef}
+                className="mj-enterprise-card rounded-2xl p-4 sm:p-5 space-y-3.5"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/60 border border-[#F2CF95] dark:border-amber-800/60 text-[#9D661F] dark:text-amber-300 flex items-center justify-center shrink-0">
+                      <Camera className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
+                        Check-In Lokasi Pelanggan
+                      </h2>
+                      <p className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
+                        Tahap wajib sebelum membuka form teknis &amp; pelaporan
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-700/60">
+                    Menunggu Check-In
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#FFF2D9]/75 dark:bg-amber-950/35 border border-[#F2CF95] dark:border-amber-800/60 space-y-3">
+                  <div className="text-xs text-[#7D4F15] dark:text-amber-200 leading-relaxed">
+                    <strong>Siap Memulai Pekerjaan?</strong> Tekan tombol <strong>CHECK IN</strong> di bawah untuk membuka kamera GPS, mengambil <strong>Foto Rumah (#01)</strong>, dan mencatat timestamp Check-In beserta status <strong>#PROGRESS</strong>.
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTriggerCheckIn}
+                      data-testid="fullview-inline-checkin-btn"
+                      className="mj-btn-installer-primary min-h-[44px] px-4 py-2 text-xs font-bold gap-1.5 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>CHECK IN Sekarang</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenProgressChatForCheckIn}
+                      className="mj-btn-installer-neutral mj-btn-compact min-h-[44px] px-3 py-2 text-xs font-bold gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
+                      <span>LiveChat #PROGRESS</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {progressHistory.length > 0 && (
+                <details className="group mj-enterprise-card rounded-2xl overflow-hidden">
+                  <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-2">
+                      <History className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
+                      <h3 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
+                        Riwayat Report ({progressHistory.length} Versi)
+                      </h3>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                  </summary>
+                  <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2 max-h-[240px] overflow-y-auto">
+                    {progressHistory.map((item, idx) => (
+                      <div
+                        key={item.id || idx}
+                        className="p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] space-y-1 text-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
+                            {item.reportStatus} · {item.reasonReport}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
+                            {formatJakartaTimeOnly(item.timestamp)} WIB
+                          </span>
+                        </div>
+                        {item.remarksReport && (
+                          <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic">&ldquo;{item.remarksReport}&rdquo;</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </>
+          ) : (
+            <>
+              {/* SECTION 4: WORK PROGRESS & CHECK-IN STATUS (NO STANDALONE KENDALA BUTTON) */}
+              <section
+                ref={checkInSectionRef}
+                className="mj-enterprise-card rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
+                        Work Progress &amp; Check-In
+                      </h2>
+                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                        {isCheckInStepDone
+                          ? `Check-In tercatat pukul ${validatedCheckInTime} WIB • Valid #PROGRESS`
+                          : 'Detail progres pengerjaan Work Order'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 font-mono text-[10.5px] font-bold text-[#218A63] dark:text-emerald-300 tabular-nums">
+                    <LockOpen className="w-3 h-3" />
+                    <span>{validatedCheckInTime !== '-' ? `${validatedCheckInTime} WIB` : 'Aktif'}</span>
+                  </span>
+                </div>
+
+                {/* 5-Stage Progress Stepper */}
+                <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-5 gap-1.5 text-center">
+                  {[
+                    {
+                      label: 'Check-In',
+                      done: isCheckInStepDone,
+                      active: !isCheckInStepDone,
+                      sub: isCheckInStepDone ? 'OK' : 'Wajib',
+                      onClick: () => {
+                        checkInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    },
+                    {
+                      label: 'Foto',
+                      done: isPhotosStepDone,
+                      active: isCheckInStepDone && !isPhotosStepDone,
+                      sub: `Wajib ${mandatoryPhotoCount}/3`,
+                      onClick: () => {
+                        if (photoAccordionRef.current) photoAccordionRef.current.open = true;
+                        photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    },
+                    {
+                      label: 'Instalasi',
+                      done: isInstallationStepDone,
+                      active: isCheckInStepDone && !isInstallationStepDone,
+                      sub: opmDbm ? `${opmDbm} dBm` : 'Teknis',
+                      onClick: () => {
+                        if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
+                        technicalAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    },
+                    {
+                      label: 'Report',
+                      done: isReportStepDone,
+                      active: isCheckInStepDone && !isReportStepDone,
+                      sub: isReportStepDone ? 'Siap' : 'Status WO',
+                      onClick: () => {
+                        if (reportAccordionRef.current) reportAccordionRef.current.open = true;
+                        reportAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    },
+                    {
+                      label: 'Check-Out',
+                      done: isCheckOutDone,
+                      active: isReportStepDone && !isCheckOutDone,
+                      sub: isCheckOutDone ? 'Selesai' : isSignatureReady ? 'TTD OK' : 'Final',
+                      onClick: () => {
+                        if (signatureSectionRef.current) signatureSectionRef.current.open = true;
+                        signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }
+                  ].map((step, i) => (
+                    <button
+                      key={step.label}
+                      type="button"
+                      onClick={step.onClick}
+                      className="flex flex-col items-center p-1.5 rounded-lg hover:bg-white dark:hover:bg-[#2A194B] transition-colors cursor-pointer"
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-bold mb-1 ${
+                          step.done
+                            ? 'bg-[#218A63] dark:bg-emerald-600 text-white'
+                            : step.active
+                            ? 'bg-[#6657C8] dark:bg-[#7135b5] text-white ring-2 ring-[#BDE4E8] dark:ring-[#58149C]'
+                            : 'bg-[#EDF3F8] dark:bg-[#2A194B] text-[#52647A] dark:text-[#C4B5D6]'
+                        }`}
+                      >
+                        {step.done ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                      </div>
+                      <span className="text-[10.5px] font-bold text-[#26364A] dark:text-[#f5eeff] leading-tight truncate max-w-full">
+                        {step.label}
+                      </span>
+                      <span className="font-mono text-[9px] text-[#8492A5] dark:text-[#A79BC0] truncate max-w-full">
+                        {step.sub}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* SECTION 5: BUKTI FOTO FISIK (ORDERED 1-7) */}
+              <details
+                ref={photoAccordionRef}
+                open
+                className="group mj-enterprise-card rounded-2xl overflow-hidden"
+              >
+                <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <Camera className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                        Bukti Foto Fisik
+                      </h2>
+                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                        7 Foto SOP berurutan (Wajib min. 3: Rumah, FAT, Redaman FAT)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold tabular-nums border border-[#DCE3F2] dark:border-[#d8ccf3]">
+                      Wajib {mandatoryPhotoCount}/3 · {verifiedUploadedPhotoCount}/{totalPhotoSlots}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                  </div>
+                </summary>
+
+                <div className="px-4 pb-4 pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                  <PhotoEvidenceMatrixSection
+                    sectionRef={photoSectionRef}
+                    activeTicket={activeTicket}
+                    photoSlots={photoSlots}
+                    uploadedCount={uploadedPhotoCount}
+                    verifiedUploadedCount={verifiedUploadedPhotoCount}
+                    slotUploadState={slotUploadState}
+                    deletingSlotKey={deletingSlotKey}
+                    expandedMapSlot={expandedMapSlot}
+                    onToggleMapSlot={setExpandedMapSlot}
+                    ticketClosed={ticketClosed}
+                    opmDbm={opmDbm}
+                    fatPort={fatPort}
+                    ontSerialNumber={ontSerialNumber}
+                    onOpenCamera={openCameraForSlot}
+                    onRetryUpload={handleRetrySlotUpload}
+                    onViewPhoto={(url, slotDef) => setLightboxState({ url, slotDef })}
+                    onDeletePhoto={handleDeletePhotoSlot}
+                  />
+                </div>
+              </details>
+
+              {/* SECTION 6: TECHNICAL INFORMATION */}
+              <details
+                ref={technicalAccordionRef}
+                open
+                className="group mj-enterprise-card rounded-2xl overflow-hidden"
+              >
+                <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                        Technical Information
+                      </h2>
+                      <span className="font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                        {activeTicket.fatCode || activeTicket.fdtCode || '-'} •{' '}
+                        {fatPort.trim() ? `Port ${fatPort}` : 'Port belum diisi'}
+                        {opmDbm.trim() ? ` • ${opmDbm} dBm` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
+                      {opmStatus.label}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                  </div>
+                </summary>
+
+                <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3.5">
+                  {/* Crystal Aqua-Violet / Dark Inset OPM READING (1490 nm RX) LCD Card */}
+                  <div className="rounded-2xl bg-gradient-to-br from-[#F0EDFF] via-[#F8FAFD] to-[#DDF4F4] dark:bg-none dark:bg-[#160D29] border border-[#BDE4E8] dark:border-[#35105E] p-4 text-[#26364A] dark:text-white space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-[#DAB9FF]">
+                        <Gauge className="w-3.5 h-3.5" />
+                        <span>OPM READING (1490 nm RX)</span>
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
+                        {opmStatus.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                      <div className="flex items-baseline gap-1.5 font-mono tabular-nums">
+                        <span
+                          className={`text-3xl sm:text-4xl font-extrabold leading-none ${
+                            opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-white'
+                          }`}
+                        >
+                          {opmDbm.trim() || '—'}
+                        </span>
+                        <span className="text-sm font-bold text-[#5145A6] dark:text-[#DAB9FF]">dBm</span>
+                      </div>
+
+                      {!ticketClosed && (
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('opm-input')?.focus()}
+                          className="mj-btn-installer-secondary mj-btn-xs px-3 py-1.5 text-[11px] font-bold cursor-pointer"
+                        >
+                          Ukur / Input OPM
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="w-full h-2 rounded-full bg-[#DDE6F0] dark:bg-white/10 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            opmNumericForLcd === null
+                              ? 'w-0'
+                              : opmStatus.isOutOfSpec
+                              ? 'bg-[#D45B66] dark:bg-[#BA1A1A]'
+                              : 'bg-gradient-to-r from-[#218A63] to-[#65B8C4] dark:from-emerald-400 dark:to-[#A380FE]'
+                          }`}
+                          style={{ width: `${opmNumericForLcd !== null ? Math.max(8, opmRangePct) : 0}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-[#52647A] dark:text-white/70">
+                        <span>Standar Redaman SOP: -15.0 s/d -24.0 dBm</span>
+                        <span>{opmNumericForLcd !== null ? 'Tercatat' : 'Belum diukur'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Allocation Summary */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-[#F8FAFD] dark:bg-[#160D29] p-3 rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                    <div>
+                      <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">FAT / OLT</span>
+                      <span className="font-mono text-xs text-[#26364A] dark:text-[#f5eeff] font-bold truncate block">
+                        {activeTicket.fatCode || activeTicket.oltCode || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Port Assignment</span>
+                      <span className="font-mono text-xs text-[#5145A6] dark:text-[#DAB9FF] font-bold truncate block">
+                        {fatPort.trim() ? `Port ${fatPort.replace(/^#/, '')}` : 'Menunggu Input'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Redaman Roset / FAT</span>
+                      <span className={`font-mono text-xs font-bold truncate block ${opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#218A63] dark:text-emerald-400'}`}>
+                        {opmDbm.trim()
+                          ? `${opmDbm.trim()} dBm`
+                          : activeTicket.fatRedamanDbm
+                          ? `${activeTicket.fatRedamanDbm} dBm`
+                          : 'Belum Diukur'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Standar SOP</span>
+                      <span className="font-mono text-xs text-[#52647A] dark:text-[#C4B5D6] font-semibold">
+                        -15 s/d -24 dBm
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ONT Info Pill */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Router className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF] shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-xs text-[#26364A] dark:text-[#f5eeff] block font-bold truncate">
+                          {activeTicket.ontBrand || 'GPON ONT'} {activeTicket.ontModel || ''}
+                        </span>
+                        <span className={`font-mono text-[10.5px] block truncate ${ontSerialNumber.trim() ? 'text-[#218A63] dark:text-emerald-400 font-semibold' : 'text-[#8492A5] dark:text-[#A79BC0]'}`}>
+                          {ontSerialNumber.trim()
+                            ? `SN Terinput: ${ontSerialNumber.trim()}`
+                            : 'SN belum diinput — ketuk Scan SN atau Foto #06'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white dark:bg-[#2A194B] border border-[#DCE3F2] dark:border-[#4B386B] text-[#5145A6] dark:text-[#DAB9FF] font-bold shrink-0">
+                      ONT
+                    </span>
+                  </div>
+
+                  {/* Calibration Form Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label htmlFor="opm-input" className="text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
+                          Redaman OPM Roset (dBm)
+                        </label>
+                        <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${opmStatus.badgeCls}`}>
+                          {opmStatus.label}
+                        </span>
+                      </div>
+                      <div className="relative flex items-center">
+                        <input
+                          id="opm-input"
+                          type="text"
+                          inputMode="decimal"
+                          value={opmDbm}
+                          disabled={ticketClosed || isSubmittingReport}
+                          onChange={e => setOpmDbm(e.target.value)}
+                          placeholder="-18.50"
+                          className={`tactile-debossed-input w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] font-mono font-bold text-base rounded-xl py-2 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60 ${
+                            opmStatus.isOutOfSpec ? 'text-[#9B2C37] dark:text-rose-300' : 'text-[#26364A] dark:text-[#f5eeff]'
+                          }`}
+                        />
+                        <span className="absolute right-3 font-mono text-xs font-semibold text-[#8492A5] dark:text-[#A79BC0]">
+                          dBm
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label htmlFor="ont-sn-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff]">
+                          Nomor Seri (SN) ONT / Perangkat Wi-Fi
+                        </label>
+                        {!ticketClosed && (
+                          <button
+                            type="button"
+                            onClick={() => openCameraForSlotKey('barcode_sn')}
+                            className="font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] hover:underline shrink-0 cursor-pointer"
+                          >
+                            Foto #06 SN
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                          <input
+                            id="ont-sn-input"
+                            ref={snInputRef}
+                            type="text"
+                            value={ontSerialNumber}
+                            disabled={ticketClosed || isSubmittingReport}
+                            onChange={e => setOntSerialNumber(e.target.value.toUpperCase())}
+                            placeholder="Scan barcode atau ketik SN ONT / Wi-Fi"
+                            className="w-full min-h-[44px] bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-9 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] uppercase tracking-wider disabled:opacity-60"
+                          />
+                          {ontSerialNumber.trim().length >= 6 && (
+                            <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#218A63] dark:text-emerald-600" />
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={ticketClosed || isSubmittingReport}
+                          onClick={() => setShowBarcodeScannerModal(true)}
+                          className="mj-btn-installer-secondary mj-btn-compact min-h-[44px] px-3 text-xs font-bold gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                          title="Buka Kamera Scanner Barcode / QR SN ONT & Perangkat Wi-Fi"
+                        >
+                          <QrCode className="w-4 h-4 shrink-0" />
+                          <span>Scan SN</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="dropcore-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                        Panjang Dropcore
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="dropcore-input"
+                          type="number"
+                          min={0}
+                          value={dropcoreLength}
+                          disabled={ticketClosed || isSubmittingReport}
+                          onChange={e => setDropcoreLength(e.target.value)}
+                          placeholder="0"
+                          className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] tabular-nums disabled:opacity-60"
+                        />
+                        <span className="absolute right-3 top-2.5 font-mono text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
+                          Meter
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="fat-port-input" className="block text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                        Port FAT Aktif
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="fat-port-input"
+                          type="text"
+                          value={fatPort}
+                          disabled={ticketClosed || isSubmittingReport}
+                          onChange={e => setFatPort(e.target.value)}
+                          placeholder="Port 06"
+                          className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] font-mono font-bold text-xs rounded-xl py-2.5 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
+                        />
+                        <Cable className="w-4 h-4 absolute right-2.5 top-2.5 text-[#2E7D8B] dark:text-[#DAB9FF] pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Used Materials */}
+                  <div>
+                    <label htmlFor="materials-input" className="flex items-center gap-1.5 text-xs font-bold text-[#26364A] dark:text-[#f5eeff] mb-1">
+                      <Package className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#DAB9FF]" />
+                      <span>Material Terpakai di Lapangan</span>
+                    </label>
+                    <input
+                      id="materials-input"
+                      ref={materialInputRef}
+                      type="text"
+                      value={usedMaterials}
+                      disabled={ticketClosed || isSubmittingReport}
+                      onChange={e => setUsedMaterials(e.target.value)}
+                      placeholder="Contoh: Dropcore 85m, 1x ONT, 2x Fast Connector, 1x Roset"
+                      className="w-full bg-[#EDF3F8] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#f5eeff] text-xs rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#7135b5] disabled:opacity-60"
+                    />
+                    {!ticketClosed && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        {['Fast Connector (2x)', 'Roset 1 Port', 'Patchcord SC-UPC', 'Clamp S (2x)'].map(
+                          chip => (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => {
+                                setUsedMaterials(prev => {
+                                  const clean = prev.trim();
+                                  if (!clean) return chip;
+                                  if (clean.toLowerCase().includes(chip.toLowerCase())) return clean;
+                                  return `${clean}, ${chip}`;
+                                });
+                              }}
+                              className="mj-btn-installer-neutral mj-btn-xs px-2.5 py-1 text-[11px] font-semibold cursor-pointer"
+                            >
+                              + {chip}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </details>
+
+              {/* SECTION 7: STATUS LAPORAN & RIWAYAT REPORT */}
+              <details
+                ref={reportAccordionRef}
+                open
+                className="group mj-enterprise-card rounded-2xl overflow-hidden"
+              >
+                <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <FileText className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                        Ringkasan Laporan &amp; Riwayat Report
+                      </h2>
+                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                        {reportStatus && reasonReport
+                          ? `${reportStatus} · ${reasonReport}`
+                          : 'Gunakan tombol COMPLETED (hijau) atau UNSUCCESS (merah) di bawah'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B]">
+                      {progressHistory.length} Versi
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                  </div>
+                </summary>
+
+                <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
+                  {reportError && (
+                    <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-xs flex items-center gap-2 font-semibold">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{reportError}</span>
+                    </div>
+                  )}
+
+                  {/* Compact Current Report Draft / Snapshot */}
+                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
+                        Status Laporan Terkini
+                      </span>
+                      {!ticketClosed && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowCompletedModal(true)}
+                            className="mj-btn-installer-success mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold cursor-pointer"
+                          >
+                            Form Completed
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowUnsuccessModal(true)}
+                            className="mj-btn-installer-danger mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold cursor-pointer"
+                          >
+                            Form Unsuccess
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Status WO</span>
+                        <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">
+                          {reportStatus || 'Belum dipilih'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Reason WO</span>
+                        <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">
+                          {reasonReport || 'Belum dipilih'}
+                        </span>
+                      </div>
+                    </div>
+                    {remarksReport.trim() && (
+                      <div className="pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Remarks</span>
+                        <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic mt-0.5">
+                          &ldquo;{remarksReport.trim()}&rdquo;
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Report History & Timeline */}
                   <div className="bg-[#FFFFFF] dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
@@ -3209,123 +3146,144 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          </details>
+              </details>
 
-          {/* ------------------------------------------------------------ */}
-          {/* SECTION 9: CHECK-OUT (TANDA TANGAN & FINALISASI CHECK-OUT)   */}
-          {/* ------------------------------------------------------------ */}
-          <details
-            ref={signatureSectionRef}
-            open
-            className="group mj-enterprise-card rounded-2xl overflow-hidden"
-          >
-            <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
-                  9
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                    Check-Out &amp; Tanda Tangan Pelanggan
-                  </h2>
-                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                    {activeTicket.checkOutAt
-                      ? `Check-Out tercatat ${formatJakartaTimeOnly(activeTicket.checkOutAt)} WIB`
-                      : 'Konfirmasi Berita Acara Pelanggan & Simpan Check-Out Akhir'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className={`font-mono text-[10px] font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full border ${
-                    isSignatureReady
-                      ? 'text-[#218A63] dark:text-emerald-300 bg-[#E4F5EC] dark:bg-emerald-950/50 border-[#B7E4CC] dark:border-emerald-700/60'
-                      : 'text-[#52647A] dark:text-[#C4B5D6] bg-[#EDF3F8] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
-                  }`}
-                >
-                  <PenTool className="w-3 h-3" />
-                  <span>{isSignatureReady ? 'TTD Siap' : 'Belum TTD'}</span>
-                </span>
-                <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-              </div>
-            </summary>
+              {/* SECTION 8: TANDA TANGAN PELANGGAN & DRAFT LOKAL */}
+              <details
+                ref={signatureSectionRef}
+                open
+                className="group mj-enterprise-card rounded-2xl overflow-hidden"
+              >
+                <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                      <PenTool className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                        Check-Out &amp; Tanda Tangan Pelanggan
+                      </h2>
+                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                        {activeTicket.checkOutAt
+                          ? `Check-Out tercatat ${formatJakartaTimeOnly(activeTicket.checkOutAt)} WIB`
+                          : 'Konfirmasi Berita Acara Pelanggan & Simpan Draft Lokal'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`font-mono text-[10px] font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full border ${
+                        isSignatureReady
+                          ? 'text-[#218A63] dark:text-emerald-300 bg-[#E4F5EC] dark:bg-emerald-950/50 border-[#B7E4CC] dark:border-emerald-700/60'
+                          : 'text-[#52647A] dark:text-[#C4B5D6] bg-[#EDF3F8] dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
+                      }`}
+                    >
+                      <PenTool className="w-3 h-3" />
+                      <span>{isSignatureReady ? 'TTD Siap' : 'Belum TTD'}</span>
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
+                  </div>
+                </summary>
 
-            <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
-              {/* Signature Pad (surface remains light so dark pen ink stays crisp) */}
-              <div className="relative bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#35105E]">
-                <div className="relative w-full h-28 bg-white rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
-                  <canvas
-                    ref={signatureCanvasRef}
-                    onPointerDown={handleSignaturePointerDown}
-                    onPointerMove={handleSignaturePointerMove}
-                    onPointerUp={handleSignaturePointerUp}
-                    onPointerLeave={handleSignaturePointerUp}
-                    className={`w-full h-full touch-none ${
-                      ticketClosed ? 'cursor-not-allowed' : 'cursor-crosshair'
-                    }`}
-                  />
-                  {!customerSignatureUrl && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-mono text-[#8492A5]">
-                      Tanda tangan pelanggan di area ini...
+                <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
+                  <div className="relative bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#35105E]">
+                    <div className="relative w-full h-28 bg-white rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
+                      <canvas
+                        ref={signatureCanvasRef}
+                        onPointerDown={handleSignaturePointerDown}
+                        onPointerMove={handleSignaturePointerMove}
+                        onPointerUp={handleSignaturePointerUp}
+                        onPointerLeave={handleSignaturePointerUp}
+                        className={`w-full h-full touch-none ${
+                          ticketClosed ? 'cursor-not-allowed' : 'cursor-crosshair'
+                        }`}
+                      />
+                      {!customerSignatureUrl && (
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-mono text-[#8492A5]">
+                          Tanda tangan pelanggan di area ini...
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-full flex items-center justify-between pt-2 mt-1">
+                      <span className="text-xs font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
+                        {activeTicket.customerName || 'Pelanggan'} (Pelanggan)
+                      </span>
+                      {!ticketClosed && (
+                        <button
+                          type="button"
+                          onClick={handleClearSignature}
+                          className="mj-btn-installer-neutral mj-btn-xs gap-1 px-2.5 py-1 text-[11px] cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3 text-[#9B2C37] dark:text-[#ba1a1a]" />
+                          <span>Ulangi TTD</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={customerConsentConfirmed}
+                      disabled={ticketClosed || isSubmittingReport}
+                      onChange={e => setCustomerConsentConfirmed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded accent-[#6657C8] dark:accent-[#7135b5] cursor-pointer"
+                    />
+                    <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] leading-snug">
+                      Pelanggan telah menguji koneksi, menerima perangkat dalam kondisi baik, dan menyetujui Berita Acara Digital.
+                    </span>
+                  </label>
+
+                  {!ticketClosed && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <HardDriveDownload className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
+                        <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate">
+                          Draft lokal (<strong className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</strong>)
+                          {draftSavedAt ? ` · ${formatJakartaTimeOnly(draftSavedAt)} WIB` : ''}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isSubmittingReport}
+                        onClick={() => persistDraftToDevice(true)}
+                        className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs cursor-pointer shrink-0"
+                      >
+                        Simpan Draft Lokal
+                      </button>
                     </div>
                   )}
                 </div>
-
-                <div className="w-full flex items-center justify-between pt-2 mt-1">
-                  <span className="text-xs font-semibold text-[#26364A] dark:text-[#f5eeff] truncate">
-                    {activeTicket.customerName || 'Pelanggan'} (Pelanggan)
-                  </span>
-                  {!ticketClosed && (
-                    <button
-                      type="button"
-                      onClick={handleClearSignature}
-                      className="mj-btn-installer-neutral mj-btn-xs gap-1 px-2.5 py-1 text-[11px] cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3 text-[#9B2C37] dark:text-[#ba1a1a]" />
-                      <span>Ulangi TTD</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={customerConsentConfirmed}
-                  disabled={ticketClosed || isSubmittingReport}
-                  onChange={e => setCustomerConsentConfirmed(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded accent-[#6657C8] dark:accent-[#7135b5] cursor-pointer"
-                />
-                <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] leading-snug">
-                  Pelanggan telah menguji koneksi, menerima perangkat dalam kondisi baik, dan menyetujui Berita Acara Digital.
-                </span>
-              </label>
-
-              {!ticketClosed && (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <HardDriveDownload className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
-                    <span className="text-xs text-[#52647A] dark:text-[#C4B5D6] truncate">
-                      Draft lokal (<strong className="font-mono text-[#5145A6] dark:text-[#DAB9FF]">{activeTicket.woNumber}</strong>)
-                      {draftSavedAt ? ` · ${formatJakartaTimeOnly(draftSavedAt)} WIB` : ''}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isSubmittingReport}
-                    onClick={() => persistDraftToDevice(true)}
-                    className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs cursor-pointer shrink-0"
-                  >
-                    Simpan Draft Lokal
-                  </button>
-                </div>
-              )}
-            </div>
-          </details>
+              </details>
+            </>
+          )}
         </div>
       </main>
+
+      {/* ============================================================== */}
+      {/* FLOATING LIVECHAT BUTTON (ABOVE STICKY FOOTER)                 */}
+      {/* ============================================================== */}
+      <div className="absolute right-4 sm:right-6 bottom-[112px] sm:bottom-[116px] z-30 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => {
+            setShowLiveChatModal(true);
+            setIsChatActive(true);
+          }}
+          data-testid="floating-livechat-btn"
+          aria-label="Buka LiveChat WO"
+          className="mj-btn-installer-secondary min-h-[46px] px-4 py-2 rounded-full shadow-xl gap-2 text-xs font-bold cursor-pointer relative"
+        >
+          <MessageSquare className="w-4 h-4 shrink-0" />
+          <span>LiveChat</span>
+          {unreadChatCount > 0 && (
+            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#D45B66] dark:bg-rose-600 text-white font-mono text-[10px] font-extrabold flex items-center justify-center tabular-nums">
+              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* ============================================================== */}
       {/* MORAJAWS STICKY FOOTER ACTION BAR                              */}
@@ -3357,7 +3315,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               ) : requiresProgressCheckIn ? (
                 <span className="text-[#9D661F] dark:text-amber-300 font-bold inline-flex items-center gap-1">
                   <Camera className="w-3.5 h-3.5" />
-                  <span>Lakukan CHECK-IN Dahulu</span>
+                  <span>Lakukan CHECK IN Dahulu</span>
                 </span>
               ) : !isMandatoryEvidenceReady ? (
                 <span className="text-[#9B2C37] dark:text-rose-300 font-bold inline-flex items-center gap-1">
@@ -3366,98 +3324,79 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </span>
               ) : !isCheckoutFormReady ? (
                 <span className="text-[#5145A6] dark:text-[#DAB9FF] font-bold inline-flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Lengkapi Form Report</span>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Pilih COMPLETED atau UNSUCCESS</span>
                 </span>
               ) : (
                 <span className="text-[#218A63] dark:text-emerald-400 font-bold inline-flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5" />
-                  <span>Siap Check-Out &amp; Kirim Dispatch</span>
+                  <span>Siap Kirim Report</span>
                 </span>
               )}
             </div>
 
             {/* Action Buttons Row */}
             <div className="flex items-center gap-2 relative">
-              <button
-                type="button"
-                disabled={ticketClosed || isSubmittingReport}
-                onClick={() => setShowBarcodeScannerModal(true)}
-                aria-label="Scan Barcode SN ONT / Perangkat Wi-Fi"
-                title="Scan Barcode / QR SN ONT & Perangkat Wi-Fi"
-                className="mj-btn-icon-3d-installer h-12 w-12 shrink-0 cursor-pointer disabled:opacity-50"
-              >
-                <QrCode className="w-4 h-4" />
-              </button>
-
-              {!ticketClosed && (
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowEscalationMenu(prev => !prev)}
-                    aria-label="Menu Update Status & Kendala"
-                    title="Update Status & Kendala"
-                    className="mj-btn-icon-3d-installer h-12 w-12 cursor-pointer"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {showEscalationMenu && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setShowEscalationMenu(false)}
-                      />
-                      <div className="absolute bottom-13 left-0 z-30 w-64 rounded-xl bg-[#FFFFFF] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] shadow-xl p-1.5 space-y-1 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEscalationMenu(false);
-                            setShowKendalaModal(true);
-                          }}
-                          className="w-full min-h-[44px] text-left px-3 py-2.5 rounded-lg hover:bg-[#FCE9EB] dark:hover:bg-rose-950/40 font-bold text-[#9B2C37] dark:text-rose-300 flex items-center gap-2 cursor-pointer"
-                        >
-                          <ShieldAlert className="w-4 h-4" />
-                          <span>Laporkan Kendala / Reschedule (#ISSUE)</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Primary CTA: CHECK-IN if not yet checked-in, otherwise CHECK-OUT / KIRIM VERIFIKASI */}
-              {!ticketClosed && requiresProgressCheckIn ? (
+              {ticketClosed ? (
+                <button
+                  type="button"
+                  disabled
+                  className="mj-btn-installer-neutral min-h-[48px] flex-1 px-4 text-sm font-bold gap-2 opacity-60 cursor-not-allowed"
+                >
+                  <Lock className="w-4 h-4 shrink-0" />
+                  <span>WO Selesai (Terkunci)</span>
+                </button>
+              ) : requiresProgressCheckIn ? (
                 <button
                   type="button"
                   onClick={handleTriggerCheckIn}
-                  className="mj-btn-installer-primary flex-1 px-4 text-sm font-bold gap-2 cursor-pointer"
+                  data-testid="footer-checkin-btn"
+                  className="mj-btn-installer-primary min-h-[48px] flex-1 px-4 text-sm font-bold gap-2 cursor-pointer"
                 >
                   <Camera className="w-4 h-4 shrink-0" />
-                  <span>CHECK-IN</span>
+                  <span>CHECK IN</span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  disabled={ticketClosed || isSubmittingReport || isAnySlotUploading}
-                  onClick={handleOpenQcSheet}
-                  className={`mj-btn-installer-primary flex-1 px-4 text-sm font-bold gap-2 cursor-pointer ${
-                    isSubmittingReport ? 'mj-btn-loading' : ''
-                  }`}
-                >
-                  <BadgeCheck className="w-4 h-4 shrink-0" />
-                  <span className="truncate">
-                    {ticketClosed
-                      ? 'WO Selesai (Terkunci)'
-                      : isAnySlotUploading
-                      ? 'Mengunggah Foto...'
-                      : isSubmittingReport
-                      ? 'Menyimpan...'
-                      : canonicalApproval === 'REVISION'
-                      ? `Kirim Revisi v${(activeTicket.progressReports?.length || 0) + 1}`
-                      : 'Check-Out & Kirim Report'}
-                  </span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmittingReport}
+                    onClick={() => setShowBarcodeScannerModal(true)}
+                    aria-label="Scan Barcode SN ONT / Perangkat Wi-Fi"
+                    title="Scan Barcode / QR SN ONT & Perangkat Wi-Fi"
+                    className="mj-btn-icon-3d-installer h-12 w-12 shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    <QrCode className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingReport || isAnySlotUploading}
+                    onClick={() => setShowCompletedModal(true)}
+                    data-testid="footer-completed-btn"
+                    className={`mj-btn-installer-success min-h-[48px] flex-1 px-3 sm:px-4 text-xs sm:text-sm font-bold gap-1.5 cursor-pointer disabled:opacity-50 ${
+                      isSubmittingReport ? 'mj-btn-loading' : ''
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {canonicalApproval === 'REVISION' ? 'COMPLETED (REVISI)' : 'COMPLETED'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingReport || isAnySlotUploading}
+                    onClick={() => setShowUnsuccessModal(true)}
+                    data-testid="footer-unsuccess-btn"
+                    className={`mj-btn-installer-danger min-h-[48px] flex-1 px-3 sm:px-4 text-xs sm:text-sm font-bold gap-1.5 cursor-pointer disabled:opacity-50 ${
+                      isSubmittingReport ? 'mj-btn-loading' : ''
+                    }`}
+                  >
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    <span className="truncate">UNSUCCESS</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -3682,6 +3621,100 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           );
           return typeof document !== 'undefined' ? createPortal(qcSheet, document.body) : qcSheet;
         })()}
+
+      {/* ============================================================== */}
+      {/* STATUS WO COMPLETED MODAL                                      */}
+      {/* ============================================================== */}
+      <CompletedStatusModal
+        isOpen={showCompletedModal}
+        ticket={activeTicket}
+        hierarchicalStatuses={hierarchicalStatuses}
+        reportStatus={reportStatus}
+        reportStatusId={reportStatusId}
+        reasonReport={reasonReport}
+        reasonReportId={reasonReportId}
+        remarksReport={remarksReport}
+        isMandatoryEvidenceReady={isMandatoryEvidenceReady}
+        mandatoryPhotoCount={mandatoryPhotoCount}
+        isAnySlotUploading={isAnySlotUploading}
+        isSubmittingReport={isSubmittingReport}
+        onSelectStatusAndReason={handleSelectCompletedStatusAndReason}
+        onChangeRemarks={val => {
+          setRemarksReport(val);
+          if (reportError) setReportError(null);
+        }}
+        onGoToPhotos={() => {
+          if (photoAccordionRef.current) photoAccordionRef.current.open = true;
+          photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+        onConfirmSave={() => {
+          setShowCompletedModal(false);
+          handleOpenQcSheet();
+        }}
+        onClose={() => setShowCompletedModal(false)}
+      />
+
+      {/* ============================================================== */}
+      {/* STATUS WO UNSUCCESS MODAL                                      */}
+      {/* ============================================================== */}
+      <UnsuccessStatusModal
+        isOpen={showUnsuccessModal}
+        ticket={activeTicket}
+        hierarchicalStatuses={hierarchicalStatuses}
+        remarksReport={remarksReport}
+        isMandatoryEvidenceReady={isMandatoryEvidenceReady}
+        mandatoryPhotoCount={mandatoryPhotoCount}
+        isAnySlotUploading={isAnySlotUploading}
+        isSubmittingReport={isSubmittingReport}
+        onChangeRemarks={val => {
+          setRemarksReport(val);
+          if (reportError) setReportError(null);
+        }}
+        onGoToPhotos={() => {
+          if (photoAccordionRef.current) photoAccordionRef.current.open = true;
+          photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+        onSelectKendalaLapangan={() => {
+          setShowUnsuccessModal(false);
+          setShowKendalaModal(true);
+        }}
+        onSubmitUnsuccessReport={handleSaveUnsuccessReport}
+        onClose={() => setShowUnsuccessModal(false)}
+      />
+
+      {/* ============================================================== */}
+      {/* FLOATING LIVECHAT MODAL                                        */}
+      {/* ============================================================== */}
+      <FloatingLiveChatModal
+        isOpen={showLiveChatModal}
+        onClose={() => {
+          setShowLiveChatModal(false);
+          setIsChatActive(false);
+        }}
+        chatSectionRef={chatSectionRef}
+        chatMessagesEndRef={chatMessagesEndRef}
+        chatInputRef={chatInputRef}
+        chatFileInputRef={chatFileInputRef}
+        activeTicket={activeTicket}
+        currentUser={currentUser}
+        messages={messages}
+        unreadChatCount={unreadChatCount}
+        chatCategory={chatCategory}
+        activeChatCategories={activeChatCategories}
+        currentChatCategoryObj={currentChatCategoryObj}
+        chatInputText={chatInputText}
+        onChatInputChange={handleChatInputChange}
+        chatAttachments={chatAttachments}
+        isSendingChat={isSendingChat}
+        chatError={chatError}
+        isChatActive={isChatActive}
+        onActivateChat={() => setIsChatActive(true)}
+        onSelectCategory={handleChatCategorySelect}
+        onFileSelect={handleChatFileSelect}
+        onRemoveAttachment={handleRemoveAttachment}
+        onSendMessage={handleSendChatMessage}
+        onZoomImage={url => setLightboxState({ url })}
+      />
 
       {/* ============================================================== */}
       {/* KENDALA / RESCHEDULE ESCALATION MODAL (MANDATORY PHOTO+DESC)   */}

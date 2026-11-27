@@ -295,7 +295,18 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
           {/* 3-Card Telemetry Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Telemetry Card 1: Total Operational Today + SVG Sparkline */}
-            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onDrillDown?.('total_today')}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDrillDown?.('total_today');
+                }
+              }}
+              className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3 hover:border-[#6657C8]/60 dark:hover:border-[#A78BFA]/60 hover:-translate-y-0.5 transition-all cursor-pointer text-left"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
@@ -325,13 +336,42 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               </svg>
 
               <div className="flex items-center justify-between text-[11px] font-mono text-[#52647A] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#DDE6F0] dark:border-[#35105e]">
-                <span>Assigned: {counts.assigned}</span>
-                <span>Belum Assign: {counts.unassigned}</span>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDrillDown?.('assigned');
+                  }}
+                  className="hover:underline hover:text-[#5145A6] dark:hover:text-[#DAB9FF] cursor-pointer"
+                >
+                  Assigned: {counts.assigned}
+                </button>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDrillDown?.('unassigned');
+                  }}
+                  className="hover:underline hover:text-[#5145A6] dark:hover:text-[#DAB9FF] cursor-pointer"
+                >
+                  Belum Assign: {counts.unassigned}
+                </button>
               </div>
             </div>
 
             {/* Telemetry Card 2: Dispatch Review & Approval Funnel */}
-            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onDrillDown?.('butuh_approval')}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDrillDown?.('butuh_approval');
+                }
+              }}
+              className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3 hover:border-[#6657C8]/60 dark:hover:border-[#A78BFA]/60 hover:-translate-y-0.5 transition-all cursor-pointer text-left"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#6657C8] dark:text-[#dab9ff]">
@@ -362,15 +402,42 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-[11px] font-mono text-[#52647A] dark:text-[#cabde8] tabular-nums pt-1 border-t border-[#DDE6F0] dark:border-[#35105e]">
-                <span className="text-[#218A63] dark:text-emerald-300">
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDrillDown?.('approved');
+                  }}
+                  className="text-[#218A63] dark:text-emerald-300 hover:underline cursor-pointer"
+                >
                   Approved: {counts.approved} ({approvalPct}%)
-                </span>
-                <span className="text-[#9B2C37] dark:text-rose-300">Revisi: {counts.revisionRejected}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDrillDown?.('revision_rejected');
+                  }}
+                  className="text-[#9B2C37] dark:text-rose-300 hover:underline cursor-pointer"
+                >
+                  Revisi: {counts.revisionRejected}
+                </button>
               </div>
             </div>
 
             {/* Telemetry Card 3: Field Check-in & Sync Status */}
-            <div className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3 flex flex-col justify-between">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onDrillDown?.('checked_in_progress')}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDrillDown?.('checked_in_progress');
+                }
+              }}
+              className="mj-tactile-card p-5 border border-[#DDE6F0] dark:border-[#3b1d78] space-y-3 flex flex-col justify-between hover:border-[#2E7D8B]/60 dark:hover:border-[#A78BFA]/60 hover:-translate-y-0.5 transition-all cursor-pointer text-left"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#2E7D8B] dark:text-teal-300">
@@ -386,10 +453,17 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
                 </span>
               </div>
 
-              <div className="mj-tactile-well p-2.5 flex items-center justify-between text-[11px] font-mono tabular-nums">
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onDrillDown?.('not_checked_in');
+                }}
+                className="mj-tactile-well w-full p-2.5 flex items-center justify-between text-[11px] font-mono tabular-nums hover:ring-1 hover:ring-[#C88735]/40 cursor-pointer text-left"
+              >
                 <span className="text-[#52647A] dark:text-[#cabde8]">Belum Check-in:</span>
                 <span className="font-bold text-[#9D661F] dark:text-amber-300">{counts.notCheckedIn} WO</span>
-              </div>
+              </button>
 
               <div className="flex items-center gap-2 pt-1">
                 <button

@@ -29,6 +29,8 @@ import {
   DispatchApprovalWoAgentStatus,
   WOKpiSummary,
   WOKpiFilterKey,
+  WOKpiDrilldownFilter,
+  ActiveImportBatchFilter,
   OverdueSummaryMetrics,
   WoClassificationSummary,
   RealtimeConnectionState,
@@ -215,8 +217,17 @@ interface AppContextType {
   setKpiAreaFilter: (v: string) => void;
   lastKpiUpdatedAt: string | null;
   refreshKpiSummary: (opts?: { date?: string; contractor?: string; area?: string; silent?: boolean }) => Promise<void>;
-  activeKpiDrilldown: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null;
-  setActiveKpiDrilldown: (val: { filterKey: WOKpiFilterKey; dateWIB?: string; contractor?: string; area?: string } | null) => void;
+  activeKpiDrilldown: WOKpiDrilldownFilter | null;
+  setActiveKpiDrilldown: (val: WOKpiDrilldownFilter | null) => void;
+  activeImportBatchFilter: ActiveImportBatchFilter | null;
+  setActiveImportBatchFilter: (val: ActiveImportBatchFilter | null) => void;
+  importBatchTickets: Ticket[];
+  isLoadingImportBatchTickets: boolean;
+  loadTicketsForImportJob: (
+    jobId: string,
+    meta?: Partial<ActiveImportBatchFilter>
+  ) => Promise<{ success: boolean; tickets: Ticket[]; error?: string }>;
+  clearAllWoDrilldowns: () => void;
 
   // Supabase PostgreSQL Real-time Sync & Connectivity
   databaseStatus: 'connected' | 'connecting' | 'offline' | 'error';
@@ -2945,12 +2956,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [kpiError, setKpiError] = useState<string | null>(null);
   const [kpiContractorFilter, setKpiContractorFilter] = useState<string>('ALL');
   const [kpiAreaFilter, setKpiAreaFilter] = useState<string>('ALL');
-  const [activeKpiDrilldown, setActiveKpiDrilldown] = useState<{
-    filterKey: WOKpiFilterKey;
-    dateWIB?: string;
-    contractor?: string;
-    area?: string;
-  } | null>(null);
+  const [activeKpiDrilldown, setActiveKpiDrilldown] = useState<WOKpiDrilldownFilter | null>(null);
+  const [activeImportBatchFilter, setActiveImportBatchFilter] = useState<ActiveImportBatchFilter | null>(null);
+  const [importBatchTickets, setImportBatchTickets] = useState<Ticket[]>([]);
+  const [isLoadingImportBatchTickets, setIsLoadingImportBatchTickets] = useState<boolean>(false);
+
+  const clearAllWoDrilldowns = React.useCallback(() => {
+    setActiveKpiDrilldown(null);
+    setActiveImportBatchFilter(null);
+    setImportBatchTickets([]);
+  }, []);
+
+  const loadTicketsForImportJob = React.useCallback(
+    async (
+      jobId: string,
+      meta?: Partial<ActiveImportBatchFilter>
+    ): Promise<{ success: boolean; tickets: Ticket[]; error?: string }> => {
+      const cleanJobId = String(jobId || '').trim();
+      if (!cleanJobId) {
+        return { success: false, tickets: [], error: 'Job ID import tidak valid.' };
+      }
+      setActiveKpiDrilldown(null);
+      setIsLoadingImportBatchTickets(true);
+      setActiveImportBatchFilter({
+        jobId: cleanJobId,
+        ...meta
+      });
+      try {
+        const res = await fetch(
+          `/api/imports/jobs/${encodeURIComponent(cleanJobId)}/work-orders?limit=3000`,
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: getAuthHeaders()
+          }
+        );
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json || json.success !== true || !Array.isArray(json.data?.tickets)) {
+          const msg = json?.error?.message || json?.error || `Gagal memuat WO hasil import (HTTP ${res.status}).`;
+          setImportBatchTickets([]);
+          return { success: false, tickets: [], error: msg };
+        }
+        const loaded: Ticket[] = json.data.tickets;
+        setImportBatchTickets(loaded);
+        if (json.data.job) {
+          setActiveImportBatchFilter(prev => ({
+            ...(prev || { jobId: cleanJobId }),
+            jobId: cleanJobId,
+            sourceFile: json.data.job.sourceFile || prev?.sourceFile,
+            templateType: json.data.job.templateType || prev?.templateType,
+            importedAt: json.data.job.completedAt || json.data.job.updatedAt || prev?.importedAt,
+            totalRows: json.data.job.totalRows ?? prev?.totalRows,
+            successfulRows: json.data.job.successfulRows ?? prev?.successfulRows,
+            updatedRows: json.data.job.updatedRows ?? prev?.updatedRows,
+            duplicateRows: json.data.job.duplicateRows ?? prev?.duplicateRows,
+            failedRows: json.data.job.failedRows ?? prev?.failedRows
+          }));
+        }
+        return { success: true, tickets: loaded };
+      } catch (err: any) {
+        setImportBatchTickets([]);
+        return {
+          success: false,
+          tickets: [],
+          error: err?.message || 'Gagal memuat WO hasil import dari server.'
+        };
+      } finally {
+        setIsLoadingImportBatchTickets(false);
+      }
+    },
+    []
+  );
 
   const kpiRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -8874,7 +8950,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setKpiAreaFilter,
         refreshKpiSummary,
         activeKpiDrilldown,
-        setActiveKpiDrilldown
+        setActiveKpiDrilldown,
+        activeImportBatchFilter,
+        setActiveImportBatchFilter,
+        importBatchTickets,
+        isLoadingImportBatchTickets,
+        loadTicketsForImportJob,
+        clearAllWoDrilldowns
       }}
     >
       {children}

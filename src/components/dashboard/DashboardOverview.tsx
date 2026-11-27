@@ -21,6 +21,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     currentUser,
     todayWIB,
     setActiveKpiDrilldown,
+    setActiveImportBatchFilter,
     setKpiContractorFilter,
     setKpiAreaFilter
   } = useApp();
@@ -34,8 +35,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const handleKpiDrillDown = (
     filterKey: WOKpiFilterKey,
-    filters?: { contractor?: string; area?: string }
+    filters?: { contractor?: string; area?: string; installerName?: string }
   ) => {
+    setActiveImportBatchFilter(null);
     if (filters?.contractor) {
       setKpiContractorFilter(filters.contractor);
     }
@@ -46,7 +48,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       filterKey,
       dateWIB: todayWIB,
       contractor: filters?.contractor,
-      area: filters?.area
+      area: filters?.area,
+      installerName: filters?.installerName
     });
 
     if (currentUser?.role === 'leader') {

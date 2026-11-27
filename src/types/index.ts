@@ -1241,6 +1241,8 @@ export type WOKpiFilterKey =
   | 'approved_reschedule'
   | 'approved_cancel'
   | 'revision_rejected'
+  | 'revision_unassigned'
+  | 'kendala_revisi'
   | 'closed'
   | 'unmapped_distribution'
   | 'field_checkin'
@@ -1249,6 +1251,26 @@ export type WOKpiFilterKey =
   | 'field_reschedule'
   | 'field_pending'
   | 'field_cancel';
+
+export interface WOKpiDrilldownFilter {
+  filterKey: WOKpiFilterKey;
+  dateWIB?: string;
+  contractor?: string;
+  area?: string;
+  installerName?: string;
+}
+
+export interface ActiveImportBatchFilter {
+  jobId: string;
+  sourceFile?: string;
+  templateType?: string;
+  importedAt?: string;
+  totalRows?: number;
+  successfulRows?: number;
+  updatedRows?: number;
+  duplicateRows?: number;
+  failedRows?: number;
+}
 
 export interface WOKpiVendorBreakdown {
   contractorId?: string;

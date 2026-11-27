@@ -61,6 +61,7 @@ import {
   deleteUserInSupabase,
   getWorkOrdersFromSupabase,
   getWorkOrdersFromSupabasePaginated,
+  getWorkOrdersByImportJobFromSupabase,
   getClassifiedWorkOrdersFromSupabase,
   getWorkOrdersUpdatedSinceFromSupabase,
   getDeletedWorkOrderIdsSinceFromSupabase,
@@ -14029,6 +14030,44 @@ export async function createExpressApp(options?: {
       return res.json({ success: true, data: errors });
     } catch (err: any) {
       return handleImportRouteError(res, err, 'GET_JOB_ERRORS_FAILED', 'Gagal mengambil laporan error impor.');
+    }
+  });
+
+  app.get('/api/imports/jobs/:jobId/work-orders', requireImportPermission, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!ensureImportDbAvailable(res)) return;
+      const user = req.user!;
+      const jobId = String(req.params.jobId || '').trim();
+      if (!isValidImportJobId(jobId)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_JOB_ID', message: 'Format Job ID tidak valid.' } });
+      }
+      const job = await enterpriseImportEngine.getImportJobDetail(jobId);
+      if (!job) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Import job tidak ditemukan.' } });
+      }
+      const limit = Math.min(5000, Math.max(1, Number(req.query.limit) || 3000));
+      const woRes = await getWorkOrdersByImportJobFromSupabase(jobId, { limit });
+      if (!woRes.success) {
+        return res.status(503).json({
+          success: false,
+          error: {
+            code: woRes.error?.code || 'BATCH_WO_QUERY_FAILED',
+            message: woRes.error?.message || 'Gagal mengambil daftar WO hasil import dari database.'
+          }
+        });
+      }
+      const todayWIB = getJakartaDateStringServer();
+      const scoped = scopeTicketsForUser(woRes.data || [], user, todayWIB);
+      return res.json({
+        success: true,
+        data: {
+          job,
+          tickets: scoped,
+          total: scoped.length
+        }
+      });
+    } catch (err: any) {
+      return handleImportRouteError(res, err, 'GET_JOB_WORK_ORDERS_FAILED', 'Gagal mengambil WO hasil impor.');
     }
   });
 

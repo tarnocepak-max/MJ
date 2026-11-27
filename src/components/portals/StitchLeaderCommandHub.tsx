@@ -1239,7 +1239,16 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
         {/* Card 2: UNASSIGNED */}
         <div
-          className={`bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 transition-all duration-200 flex flex-col justify-between border relative overflow-hidden ${
+          role="button"
+          tabIndex={0}
+          onClick={() => navigateWithDrilldown('unassigned', 'unassigned')}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigateWithDrilldown('unassigned', 'unassigned');
+            }
+          }}
+          className={`bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 transition-all duration-200 flex flex-col justify-between border relative overflow-hidden cursor-pointer hover:-translate-y-0.5 ${
             metrics.unassignedTickets.length > 0
               ? 'border-amber-200 dark:border-amber-700/60 border-b-2 border-b-amber-400 shadow-[0_2px_10px_rgba(245,158,11,0.12)]'
               : 'border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-emerald-400 shadow-[0_2px_10px_rgba(38,54,74,0.05)]'
@@ -1282,11 +1291,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           </div>
           <button
             type="button"
-            onClick={() =>
-              metrics.unassignedTickets.length > 0
-                ? openQuickAssignModal()
-                : navigateWithDrilldown('assigned', 'assigned')
-            }
+            onClick={e => {
+              e.stopPropagation();
+              if (metrics.unassignedTickets.length > 0) {
+                openQuickAssignModal();
+              } else {
+                navigateWithDrilldown('assigned', 'assigned');
+              }
+            }}
             className={`w-full py-1.5 text-[11px] text-center cursor-pointer ${
               metrics.unassignedTickets.length > 0
                 ? 'mj-btn-leader-warning mj-btn-xs'
@@ -1396,7 +1408,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
 
         {/* Card 6: KENDALA / REVISI */}
         <div
-          onClick={() => navigateWithDrilldown('revision_rejected', 'pending')}
+          onClick={() => navigateWithDrilldown('kendala_revisi', 'all')}
           className="bg-white dark:bg-[#1A0E2E] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] hover:shadow-[0_6px_14px_rgba(239,68,68,0.14)] transition-all duration-200 flex flex-col justify-between border border-[#DDE6F0] dark:border-[#35105E] border-b-2 border-b-rose-400 cursor-pointer"
         >
           <div className="flex items-center justify-between">
@@ -1440,7 +1452,14 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       {/* ==================================================================== */}
       <section className="w-full bg-[#EDF3F8] dark:bg-[#22123F] rounded-2xl p-2.5 shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] border border-[#DDE6F0] dark:border-[#35105E]">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => {
+              if (onSwitchLeaderTab) onSwitchLeaderTab('installer_mgmt');
+              else onNavigate('installer_mgmt');
+            }}
+            className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs hover:ring-1 hover:ring-[#6657C8]/40 transition-all cursor-pointer text-left"
+          >
             <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
               <Users2 className="w-4 h-4" />
             </div>
@@ -1455,9 +1474,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => navigateWithDrilldown('assigned', 'assigned')}
+            className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs hover:ring-1 hover:ring-[#2E7D8B]/40 transition-all cursor-pointer text-left"
+          >
             <div className="w-8 h-8 rounded-full bg-[#DDF4F4] dark:bg-[#35105E] flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shrink-0">
               <Scale className="w-4 h-4" />
             </div>
@@ -1472,9 +1495,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => navigateWithDrilldown('checked_in_progress', 'in_progress')}
+            className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs hover:ring-1 hover:ring-[#6657C8]/40 transition-all cursor-pointer text-left"
+          >
             <div className="w-8 h-8 rounded-full bg-[#EAE8FF] dark:bg-[#35105E] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
               <Camera className="w-4 h-4" />
             </div>
@@ -1489,9 +1516,13 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => navigateWithDrilldown('approved', 'completed')}
+            className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#1A0E2E] rounded-xl shadow-xs hover:ring-1 hover:ring-emerald-500/40 transition-all cursor-pointer text-left"
+          >
             <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-800 dark:text-emerald-300 shrink-0">
               <Wrench className="w-4 h-4" />
             </div>
@@ -1506,7 +1537,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </button>
         </div>
       </section>
 

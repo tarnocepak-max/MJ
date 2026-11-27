@@ -224,7 +224,7 @@ export const AuditLogViewer: React.FC = () => {
         numeric: true,
         tdClassName: 'whitespace-nowrap text-[#52647A] dark:text-[#CEC0E8] font-mono tabular-nums',
         headerControl: {
-          type: 'date',
+          kind: 'date',
           exactDate,
           dateFrom,
           dateTo,
@@ -244,7 +244,7 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'hidden_mobile',
         tdClassName: 'font-bold text-[#26364A] dark:text-white whitespace-nowrap',
         headerControl: {
-          type: 'search',
+          kind: 'search',
           value: actionSearch,
           onChange: v => {
             setActionSearch(v);
@@ -261,7 +261,7 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'secondary',
         tdClassName: 'whitespace-nowrap font-mono text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] uppercase',
         headerControl: {
-          type: 'select',
+          kind: 'select',
           value: selectedEntity,
           defaultValue: 'ALL',
           allLabel: 'All Entities',
@@ -289,7 +289,7 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'primary',
         tdClassName: 'text-[#52647A] dark:text-[#D9CCF2] max-w-md break-words',
         headerControl: {
-          type: 'search',
+          kind: 'search',
           value: detailsSearch,
           onChange: v => {
             setDetailsSearch(v);
@@ -306,7 +306,7 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'secondary',
         tdClassName: 'font-semibold text-[#26364A] dark:text-white whitespace-nowrap',
         headerControl: {
-          type: 'search',
+          kind: 'search',
           value: userSearch,
           onChange: v => {
             setUserSearch(v);
@@ -323,7 +323,7 @@ export const AuditLogViewer: React.FC = () => {
         priority: 'secondary',
         tdClassName: 'font-mono text-[11px] text-[#52647A] dark:text-[#CEC0E8] capitalize whitespace-nowrap',
         headerControl: {
-          type: 'select',
+          kind: 'select',
           value: selectedRole,
           defaultValue: 'ALL',
           allLabel: 'Semua Role',
