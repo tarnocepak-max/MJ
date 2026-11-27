@@ -473,66 +473,78 @@ export const SlaTelemetryDashboardView: React.FC<SlaTelemetryDashboardViewProps>
             isCompactUI ? '' : 'xl:flex-row xl:items-center xl:justify-between'
           }`}
         >
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">
-              <button
-                type="button"
-                onClick={() => onNavigate?.('dashboard')}
-                className="hover:text-[#5145A6] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer"
-              >
-                MoraJaws
-              </button>
-              <span>/</span>
-              <span>{breadcrumbSection}</span>
-              <span>/</span>
-              <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{breadcrumbPage}</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white leading-tight">
-                SLA Telemetry &amp; Vendor Performance Engine
-              </h1>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <div
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
-                  !autoSync
-                    ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
-                    : sseConnected
-                    ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/50 dark:text-emerald-300'
-                    : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
-                }`}
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    !autoSync
-                      ? 'bg-[#C88735]'
-                      : sseConnected
-                      ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse'
-                      : 'bg-[#C88735] animate-pulse'
-                  }`}
-                />
-                <span>
-                  {!autoSync
-                    ? 'AUTO-SYNC PAUSED'
-                    : sseConnected
-                    ? 'LIVE SSE REAL-TIME'
-                    : 'FALLBACK POLLING (SSE RECONNECT)'}
-                </span>
-              </div>
-
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
-                <Database className="w-3.5 h-3.5" />
-                <span>{telemetry.databaseSource === 'supabase' ? 'SUPABASE POSTGRESQL' : 'LOCAL DEV STORE'}</span>
-              </div>
-
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
-                <Radio className="w-3.5 h-3.5" />
+          {viewContext === 'dashboard_monitoring' ? (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white leading-tight">
+                SLA Telemetry &amp; Vendor Performance
+              </h2>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[10.5px] font-bold tracking-wide uppercase">
+                <Radio className="w-3 h-3" />
                 <span>TARGET GLOBAL: {telemetry.config.globalSlaTarget.toFixed(2)}%</span>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-[#8492A5] dark:text-[#A78BFA]">
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.('dashboard')}
+                  className="hover:text-[#5145A6] dark:hover:text-[#D8B4FE] transition-colors cursor-pointer"
+                >
+                  MoraJaws
+                </button>
+                <span>/</span>
+                <span>{breadcrumbSection}</span>
+                <span>/</span>
+                <span className="text-[#5145A6] dark:text-[#D8B4FE] font-semibold">{breadcrumbPage}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white leading-tight">
+                  SLA Telemetry &amp; Vendor Performance Engine
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
+                    !autoSync
+                      ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
+                      : sseConnected
+                      ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/50 dark:text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      !autoSync
+                        ? 'bg-[#C88735]'
+                        : sseConnected
+                        ? 'bg-[#218A63] dark:bg-[#16A36A] animate-pulse'
+                        : 'bg-[#C88735] animate-pulse'
+                    }`}
+                  />
+                  <span>
+                    {!autoSync
+                      ? 'AUTO-SYNC PAUSED'
+                      : sseConnected
+                      ? 'LIVE SSE REAL-TIME'
+                      : 'FALLBACK POLLING (SSE RECONNECT)'}
+                  </span>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] text-[#2E7D8B] dark:bg-[#35105E] dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
+                  <Database className="w-3.5 h-3.5" />
+                  <span>{telemetry.databaseSource === 'supabase' ? 'SUPABASE POSTGRESQL' : 'LOCAL DEV STORE'}</span>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAE8FF] text-[#5145A6] dark:bg-[#35105E]/80 dark:text-[#D8B4FE] text-[11px] font-bold tracking-wide uppercase">
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>TARGET GLOBAL: {telemetry.config.globalSlaTarget.toFixed(2)}%</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Action Control Bar */}
           <div className="flex flex-wrap items-center xl:justify-end gap-2 shrink-0 print:hidden">

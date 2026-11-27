@@ -230,89 +230,23 @@ export const StitchDispatchWorkspace: React.FC<StitchDispatchWorkspaceProps> = (
 
   return (
     <div className="space-y-5">
-      {/* 1. Dispatch Context Hero Banner */}
-      <div className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-5 sm:p-6 relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-gradient-to-br from-[#65B8C4]/14 to-transparent blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-          <div className="space-y-2 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[10.5px] font-extrabold uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D8B] dark:bg-[#7135b5] animate-pulse" />
-                <span>ACTIVE ROLE: DISPATCH OPERATOR</span>
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                OPERATIONAL TRIAGE &amp; SLA WORKSPACE
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2a194b] text-[#5145A6] dark:text-[#dab9ff] font-mono text-[10.5px] font-bold">
-                ZONE: {scopeZoneLabel}
-              </span>
-              <span className="px-2.5 py-0.5 rounded bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] font-mono text-[10.5px] font-semibold tabular-nums">
-                WIB: {todayWIB}
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#cabde8] max-w-2xl leading-relaxed">
-              Pantau SLA kontraktor secara real-time, percepat appointment terlambat, dan verifikasi kualitas foto rumah
-              &amp; redaman optik sebelum penutupan WO.
-            </p>
+      {/* 1. Compact Dispatch Context Bar */}
+      <div className="card-3d-lavender mj-banner-glossy-3d rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4 relative overflow-hidden">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[10.5px] font-extrabold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D8B] dark:bg-[#7135b5] animate-pulse" />
+              <span>DISPATCH TRIAGE &amp; SLA WORKSPACE</span>
+            </span>
+            <span className="px-2.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2a194b] text-[#5145A6] dark:text-[#dab9ff] font-mono text-[10.5px] font-bold">
+              ZONE: {scopeZoneLabel}
+            </span>
           </div>
 
-          {/* 4 Live Dispatch Metric Tiles */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => onDrillDown('total_today')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                ACTIVE WOS
-              </div>
-              <div className="font-display text-xl font-extrabold text-[#26364A] dark:text-white mt-0.5 tabular-nums">
-                {c.totalToday} <span className="text-[11px] font-medium text-[#8492A5]">total</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onDrillDown('assigned')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                WITH LEADERS
-              </div>
-              <div className="font-display text-xl font-extrabold text-[#5145A6] dark:text-[#dab9ff] mt-0.5 tabular-nums">
-                {c.assigned} <span className="text-[11px] font-medium text-[#8492A5]">assigned</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onDrillDown('unassigned')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/30 border border-[#F3C5CA] dark:border-rose-900/50 text-left hover:border-[#D45B66] transition-colors cursor-pointer"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
-                PENDING DISPATCH
-              </div>
-              <div className="font-display text-xl font-extrabold text-[#9B2C37] dark:text-rose-300 mt-0.5 tabular-nums">
-                {c.unassigned} <span className="text-[11px] font-medium">open</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onDrillDown('checked_in_progress')}
-              className="px-3.5 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#160d29] border border-[#DDE6F0] dark:border-[#3b1d78] text-left hover:border-[#65B8C4] transition-colors cursor-pointer"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                ON-SITE
-              </div>
-              <div className="font-display text-xl font-extrabold text-[#3E81C6] dark:text-sky-300 mt-0.5 tabular-nums">
-                {c.checkedInProgress} <span className="text-[11px] font-medium text-[#8492A5]">techs</span>
-              </div>
-            </button>
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[#52647A] dark:text-[#cabde8] tabular-nums shrink-0">
+            <span>WIB: {todayWIB}</span>
+            <span aria-hidden="true">·</span>
+            <span>Overdue Alert: <strong className="text-[#9B2C37] dark:text-rose-300">{overdueSummary.totalOverdue}</strong></span>
           </div>
         </div>
       </div>

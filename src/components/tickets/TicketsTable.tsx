@@ -1644,44 +1644,18 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         </div>
       )}
 
-      {/* 0. STITCH WORK ORDER DISPATCH & TRIAGE CONTROL HERO */}
-      <section className="card-3d-lavender mj-banner-glossy-3d rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative overflow-hidden">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6657C8] to-[#5145A6] dark:from-[#3f186d] dark:to-[#240c45] text-white flex items-center justify-center shrink-0 shadow-[0_3px_0_#3E3588] dark:shadow-[0_3px_0_#120624]">
-            <Sparkles className="w-5 h-5 text-[#DDF4F4] dark:text-[#DAB9FF]" />
-          </div>
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-lg sm:text-xl font-extrabold text-[#26364A] dark:text-white tracking-tight">
-                Work Order Dispatch &amp; Triage Control
-              </h1>
-              <span className="px-2 py-0.5 rounded bg-[#5145A6] dark:bg-[#480123] text-white text-[10px] font-extrabold uppercase tracking-wider">
-                {currentUser.role === 'super_admin'
-                  ? 'SUPERADMIN ROOT'
-                  : currentUser.role === 'dispatch'
-                  ? 'DISPATCH OPS'
-                  : currentUser.role.replace('_', ' ').toUpperCase()}
-              </span>
-            </div>
-            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
-              FTTH Provisioning, Verifikasi Dispatch &amp; Penugasan Mitra · WIB {todayWIB}
-            </p>
-          </div>
+      {/* 0. COMPACT WORK ORDER DISPATCH & TRIAGE BAR */}
+      <section className="card-3d-lavender rounded-2xl px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-display text-base sm:text-lg font-extrabold text-[#26364A] dark:text-white tracking-tight">
+            Work Order Dispatch &amp; Triage Control
+          </h2>
+          <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+            FTTH Provisioning, Verifikasi Dispatch &amp; Penugasan Mitra · WIB {todayWIB}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DDF4F4]/80 dark:bg-[#2E1459] border border-[#BDE4E8] dark:border-[#4B386B] text-[11px] font-bold text-[#2E7D8B] dark:text-[#DAB9FF]">
-            <span className="w-2 h-2 rounded-full bg-[#2E7D8B] dark:bg-[#7135B5] animate-pulse shrink-0" />
-            <span>
-              SCOPE:{' '}
-              {selectedArea !== 'ALL'
-                ? `AREA ${selectedArea.toUpperCase()}`
-                : selectedContractor !== 'ALL'
-                ? selectedContractor.toUpperCase()
-                : 'SEMUA AREA & VENDOR'}
-            </span>
-          </span>
-
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {currentUser.role === 'super_admin' ? (
             <button
               type="button"
@@ -1713,10 +1687,10 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
         </div>
       </section>
 
-      {/* 1. TOP KPI & OPERATIONAL PULSE STRIP (6 Cards matching Stitch AI) */}
+      {/* 1. TOP KPI & OPERATIONAL PULSE STRIP (5 Filter KPI Cards) */}
       <section
         className={`grid gap-3 items-stretch ${
-          isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'
+          isMobileView ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
         }`}
       >
         {/* KPI 1: Total Hari Ini */}
@@ -1882,52 +1856,6 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
           <div className="text-[10px] text-[#8492A5] dark:text-[#8B8495] mt-1 truncate">On-site &amp; En-route</div>
         </button>
 
-        {/* KPI 6: Fast Lane CTA Card */}
-        <div className="bg-gradient-to-br from-[#6657C8] via-[#5145A6] to-[#2E7D8B] dark:from-[#5B35B1] dark:via-[#7135B5] dark:to-[#35105E] rounded-xl p-3 shadow-md flex flex-col justify-between text-white border border-[#5145A6]/30 dark:border-[#7135B5]/30">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-[#DDF4F4] dark:text-[#D8B4FE] font-bold">
-              Fast Lane
-            </span>
-            <Zap className="w-4 h-4 text-[#DDF4F4] dark:text-[#D8B4FE] shrink-0" />
-          </div>
-          <div className="my-1.5">
-            {currentUser.role === 'dispatch' ? (
-              <button
-                type="button"
-                onClick={() => onNavigate('form_sameday')}
-                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-              >
-                <Zap className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                <span className="text-[#5145A6] dark:text-[#35105E]">+ Form Sameday</span>
-              </button>
-            ) : currentUser.role === 'super_admin' ? (
-              <button
-                type="button"
-                onClick={() => onNavigate('import')}
-                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                <span className="text-[#5145A6] dark:text-[#35105E]">+ Import Data WO</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onNavigate('contact_centre')}
-                className="btn-3d-ceramic w-full py-1.5 px-2.5 text-xs rounded-lg font-extrabold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-              >
-                <MessageCircle className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#7135B5]" />
-                <span className="text-[#5145A6] dark:text-[#35105E]">Contact Centre</span>
-              </button>
-            )}
-          </div>
-          <div className="text-[10px] text-[#DDF4F4] dark:text-[#D8B4FE] font-medium truncate">
-            {currentUser.role === 'dispatch'
-              ? 'Prioritas Khusus MyRepublic'
-              : currentUser.role === 'super_admin'
-              ? 'Input Batch WO Baru'
-              : 'Koordinasi Lapangan'}
-          </div>
-        </div>
       </section>
 
       {/* 2. SLIM OPERATIONAL UTILITY HEADER (Header-embedded filters live inside <thead>) */}
@@ -2857,7 +2785,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   ) : (
                                     <span className="text-[11px] text-[#8492A5] dark:text-[#8B8495]">-</span>
                                   )}
-                                  {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
+                                  {String(ticket.ticketResult || '').trim().toLowerCase() === 'closed' && ticket.statusWOAgent !== 'Closed' && (
                                     <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase tracking-wide">
                                       Closed
                                     </span>
@@ -3513,7 +3441,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   <td key={col.key} style={stickyStyle} className={`${densityClass} ${stickyClasses}`}>
                                     <div className="inline-flex items-center gap-1 flex-wrap">
                                       <StatusAgentBadge status={ticket.statusWOAgent} />
-                                      {isTicketClosed(ticket) && ticket.statusWOAgent !== 'Closed' && (
+                                      {String(ticket.ticketResult || '').trim().toLowerCase() === 'closed' && ticket.statusWOAgent !== 'Closed' && (
                                         <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[9.5px] font-bold uppercase">
                                           Closed
                                         </span>

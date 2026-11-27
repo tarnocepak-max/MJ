@@ -1055,11 +1055,10 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
         </button>
       </div>
 
-      {/* 2B. Role Dispatch Canonical KPI Breakdown Strip (8 Live KPIs) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5 p-3 rounded-xl bg-white/85 dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] shadow-sm backdrop-blur-md">
+      {/* 2B. Role Dispatch Canonical KPI Breakdown Strip (7 Outcome & Rate KPIs) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2.5 p-3 rounded-xl bg-white/85 dark:bg-[#1e1238] border border-[#DDE6F0] dark:border-[#3b1d78] shadow-sm backdrop-blur-md">
         {[
           { label: 'Total Ticket', value: `${counts.totalToday}`, sub: `WIB ${todayWIB}`, tone: 'text-[#26364A] dark:text-white' },
-          { label: 'Waiting Verification', value: `${counts.butuhApproval}`, sub: 'Butuh Approval', tone: 'text-[#9D661F] dark:text-amber-300' },
           { label: 'Done', value: `${counts.approvedDone}`, sub: 'Approved - Done', tone: 'text-[#218A63] dark:text-emerald-300' },
           { label: 'Pending', value: `${counts.approvedPending}`, sub: 'Approved - Pending', tone: 'text-[#C88735] dark:text-amber-200' },
           { label: 'Reschedule', value: `${counts.approvedReschedule}`, sub: 'Approved - Resched', tone: 'text-[#6657C8] dark:text-[#dab9ff]' },
@@ -1486,11 +1485,12 @@ export const DispatchVerificationDesk: React.FC<DispatchVerificationDeskProps> =
                     <StatusApprovalBadge status={selectedTicket.approvalStatus} />
                     <StatusInstallerBadge status={selectedTicket.statusWOInstaller} />
                     <StatusAgentBadge status={selectedTicket.statusWOAgent} />
-                    {isTicketClosed(selectedTicket) && (
-                      <span className="px-2 py-0.5 rounded-full bg-[#26364A] text-white dark:bg-slate-200 dark:text-slate-900 text-[10px] font-bold">
-                        Ticket: Closed
-                      </span>
-                    )}
+                    {String(selectedTicket.ticketResult || '').trim().toLowerCase() === 'closed' &&
+                      selectedTicket.statusWOAgent !== 'Closed' && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#26364A] text-white dark:bg-slate-200 dark:text-slate-900 text-[10px] font-bold">
+                          Ticket: Closed
+                        </span>
+                      )}
                   </div>
 
                   <div>

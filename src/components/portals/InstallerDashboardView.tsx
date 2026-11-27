@@ -1016,23 +1016,6 @@ export const InstallerDashboardView: React.FC<InstallerDashboardViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <div className="font-display font-bold text-[#26364A] dark:text-[#f5eeff] flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-[#2E7D8B] dark:text-[#DAB9FF]" />
-            <span>Progress Pekerjaan Hari Ini</span>
-          </div>
-          <span className="font-mono font-extrabold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
-            {summary.selesai}/{summary.totalToday} WO ({summary.progressPct}%)
-          </span>
-        </div>
-
-        <div className="w-full h-2.5 bg-[#EDF3F8] dark:bg-[#160D29] rounded-full overflow-hidden border border-[#DDE6F0] dark:border-[#35105E]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#65B8C4] to-[#6657C8] dark:from-[#58149C] dark:to-[#A380FE] transition-all duration-300"
-            style={{ width: `${summary.progressPct}%` }}
-          />
-        </div>
-
         <div className="flex items-center justify-between gap-2 text-[11px] text-[#52647A] dark:text-[#C4B5D6] flex-wrap pt-0.5">
           <span>
             Appointment Hari Ini: <strong className="text-[#26364A] dark:text-[#f5eeff]">{summary.totalToday}</strong> · Check-In Foto:{' '}

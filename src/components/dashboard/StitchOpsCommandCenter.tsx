@@ -1,11 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  Activity,
   AlertTriangle,
   ArrowRight,
-  Building2,
-  Calendar,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -16,28 +13,18 @@ import {
   Copy,
   Database,
   Download,
-  ExternalLink,
   Eye,
   FileCheck2,
   Filter,
   GitBranch,
-  Hourglass,
-  Layers,
   ListFilter,
-  Lock,
   MapPin,
   Radio,
   RefreshCw,
-  RotateCcw,
   Server,
   ShieldCheck,
-  Sparkles,
   UserCheck,
-  Users,
-  Wrench,
-  X,
-  XCircle,
-  Zap
+  Users
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
@@ -51,10 +38,8 @@ import {
   isTicketClosed
 } from '../../services/woLifecycleService';
 import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
-import { formatIndonesianWODate } from '../../services/woDateFilterEngine';
 import { buildGoogleMapsSearchUrl, isValidCoordinatePair } from '../../services/mapsService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
-import { NeonFiberOpticTrails } from '../common/MoraRepublicBrandVisuals';
 import {
   HeaderSearchPopover,
   HeaderCategoryDropdown,
@@ -72,28 +57,12 @@ interface StitchOpsCommandCenterProps {
 
 const FEED_PAGE_SIZE = 6;
 
-const ROLE_CENTER_TITLES: Record<string, string> = {
-  super_admin: 'Superadmin KPI & Status Center',
-  dispatch: 'Central Dispatch & Verification Center',
-  leader: 'Leader Field Dispatch & Assignment Center',
-  installer: 'Technician Operations Center'
-};
-
 function getInitials(name?: string): string {
   if (!name) return '--';
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '--';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function formatDurationMinutesLabel(avgMinutes: number | null): string {
-  if (avgMinutes === null || !Number.isFinite(avgMinutes) || avgMinutes <= 0) return 'Belum ada data';
-  const rounded = Math.round(avgMinutes);
-  const hours = Math.floor(rounded / 60);
-  const mins = rounded % 60;
-  if (hours === 0) return `${mins}m`;
-  return `${hours}j ${mins}m`;
 }
 
 function getTicketHouseGeotagInfo(ticket: Ticket): {
@@ -178,8 +147,6 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
     setKpiAreaFilter,
     refreshKpiSummary,
     refreshDatabaseData,
-    contractorsList,
-    areasList,
     databaseStatus,
     syncStatus,
     realtimeConnectionState,
@@ -212,10 +179,6 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
   const [feedPage, setFeedPage] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const isGlobalRole =
-    currentUser.role === 'super_admin' ||
-    currentUser.role === 'dispatch';
-
   const canVerifyReports = currentUser.role === 'super_admin' || currentUser.role === 'dispatch';
   const canAssignTech = currentUser.role === 'super_admin' || currentUser.role === 'leader';
 
@@ -232,25 +195,6 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
       return getTicketAppointmentDate(t) === todayWIB;
     });
   }, [scopedTickets, todayWIB]);
-
-  // Available filter options from real state & tickets
-  const vendorOptions = useMemo(() => {
-    const set = new Set<string>(contractorsList || []);
-    baseTodayTickets.forEach(t => {
-      const v = String(t.contactorName || t.contractorName || '').trim();
-      if (v) set.add(v);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [contractorsList, baseTodayTickets]);
-
-  const areaOptions = useMemo(() => {
-    const set = new Set<string>(areasList || []);
-    baseTodayTickets.forEach(t => {
-      const a = String(t.area || '').trim();
-      if (a) set.add(a);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [areasList, baseTodayTickets]);
 
   const leaderOptions = useMemo(() => {
     const set = new Set<string>();
@@ -687,7 +631,6 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
   }, [c, telemetry]);
 
   const topVendorLoad = effectiveSummary.byVendor[0];
-  const roleSubtitle = ROLE_CENTER_TITLES[currentUser.role] || 'Operations Command Center';
 
   return (
     <div className="space-y-6">
@@ -783,652 +726,173 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
         </div>
       </div>
 
-      {/* 1. Superadmin Maroon Master Console OR Standard Command Header */}
-      {currentUser.role === 'super_admin' ? (
-        <div className="space-y-3">
-          <div className="banner-maroon-superadmin mj-banner-glossy-3d rounded-2xl p-5 sm:p-6 text-[#26364A] dark:text-white relative overflow-hidden">
-            <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-45" />
-            <div className="absolute -right-14 -top-14 w-72 h-72 rounded-full bg-[#65B8C4]/12 dark:bg-white/5 blur-3xl pointer-events-none" />
-            <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-              <div className="flex items-start gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-[#EAE8FF] dark:bg-white/10 border border-[#DCE3F2] dark:border-white/15 flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
-                  <Lock className="w-6 h-6 text-[#5145A6] dark:text-[#FFD8E4]" />
-                </div>
-                <div className="min-w-0 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-white/15 border border-[#DCE3F2] dark:border-white/20 text-[10px] font-extrabold uppercase tracking-wider text-[#5145A6] dark:text-white">
-                      MASTER CONSOLE
-                    </span>
-                    <span className="text-[11px] font-mono text-[#52647A] dark:text-white/75 tabular-nums">
-                      WIB: {todayWIB} · {c.totalToday} WO Aktif
-                    </span>
-                  </div>
-                  <h1 className="font-display text-xl sm:text-2xl font-extrabold text-[#26364A] dark:text-white tracking-tight leading-snug">
-                    Active Role: SUPERADMIN — Unrestricted System &amp; Operational Control
-                  </h1>
-                  <p className="text-xs text-[#52647A] dark:text-white/80 leading-relaxed">
-                    Operator: <span className="font-semibold text-[#26364A] dark:text-white">{currentUser.name}</span> · Canonical 46-Column Schema · Dispatch Override Authority Enabled
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onNavigate('import')}
-                  className="btn-3d-maroon px-4 py-2.5 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
-                >
-                  <CloudDownload className="w-4 h-4 text-white dark:text-[#FFD8E4]" />
-                  <span>+ Import Data WO</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('system_health')}
-                  className="btn-3d-maroon px-4 py-2.5 rounded-xl text-xs font-extrabold inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
-                >
-                  <Database className="w-4 h-4 text-white dark:text-[#FFD8E4]" />
-                  <span>Database Sync Health</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleForceResync}
-                  disabled={isSyncing || isKpiLoading}
-                  title={`Klik untuk sinkronisasi manual Supabase & KPI hari ini${lastKpiWib ? ` (Update: ${lastKpiWib} WIB)` : ''}`}
-                  className="px-3.5 py-2 rounded-xl bg-white/85 hover:bg-white dark:bg-white/10 dark:hover:bg-white/20 border border-[#DDE6F0] dark:border-white/20 text-[#26364A] dark:text-white text-[11px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap"
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      realtimeConnectionState === 'connected'
-                        ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse'
-                        : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
-                        ? 'bg-amber-500 dark:bg-amber-400 animate-pulse'
-                        : 'bg-rose-500 dark:bg-rose-400'
-                    }`}
-                  />
-                  <span>
-                    SSE Stream:{' '}
-                    {isSyncing
-                      ? 'SYNCING'
-                      : realtimeConnectionState === 'connected'
-                      ? 'LIVE'
-                      : realtimeConnectionState === 'reconnecting'
-                      ? 'RECONNECTING'
-                      : realtimeConnectionState === 'connecting'
-                      ? 'CONNECTING'
-                      : 'TERPUTUS'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Scope Filter Ribbon (Vendor / Area / Leader KPI Scope) */}
-          <div className="card-3d-lavender rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-center">
-
-            <div className="relative">
-              <select
-                aria-label="Filter Vendor"
-                value={kpiContractorFilter}
-                onChange={e => {
-                  setKpiContractorFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
-              >
-                <option value="ALL">Semua Vendor (Global)</option>
-                {vendorOptions.map(v => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                aria-label="Filter Area"
-                value={kpiAreaFilter}
-                onChange={e => {
-                  setKpiAreaFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
-              >
-                <option value="ALL">Semua Area Kerja</option>
-                {areaOptions.map(a => (
-                  <option key={a} value={a}>
-                    Area: {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                aria-label="Filter Leader"
-                value={leaderFilter}
-                onChange={e => {
-                  setLeaderFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
-              >
-                <option value="ALL">Semua Leader / Korlap</option>
-                {leaderOptions.map(l => (
-                  <option key={l} value={l}>
-                    Lead: {l}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="flex items-center gap-1.5 justify-end">
-              <button
-                type="button"
-                onClick={handleExportMatrix}
-                className="btn-3d-lilac px-3 py-2 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap flex-1 justify-center"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Matrix</span>
-              </button>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  title="Reset semua filter"
-                  className="btn-3d-lilac px-2.5 py-2 rounded-lg text-xs font-bold cursor-pointer shrink-0"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="card-3d-lavender mj-banner-glossy-3d relative rounded-xl p-5 sm:p-6 overflow-hidden">
-          <NeonFiberOpticTrails variant="subtle" className="hidden lg:block absolute right-0 bottom-0 w-96 h-24 opacity-40" />
-          <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#65B8C4]/12 via-[#6657C8]/5 to-transparent blur-3xl pointer-events-none" />
-
-          <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-            <div className="flex flex-col space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#DDF4F4] dark:bg-[#2e1459] text-[#2E7D8B] dark:text-[#dab9ff] border border-[#BDE4E8] dark:border-transparent text-[11px] font-bold tracking-wider uppercase">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      realtimeConnectionState === 'connected'
-                        ? 'bg-[#2E7D8B] dark:bg-emerald-400 animate-pulse'
-                        : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
-                        ? 'bg-amber-500 animate-pulse'
-                        : 'bg-rose-500'
-                    }`}
-                  />
-                  <span>
-                    {realtimeConnectionState === 'connected'
-                      ? 'FTTH Core Live'
-                      : realtimeConnectionState === 'reconnecting'
-                      ? 'Reconnecting SSE'
-                      : realtimeConnectionState === 'connecting'
-                      ? 'Connecting SSE'
-                      : 'SSE Terputus'}{' '}
-                    · {c.totalToday} WO Hari Ini
-                  </span>
-                </div>
-                <span className="text-[#8492A5] text-xs hidden sm:inline">•</span>
-                <span className="text-[#52647A] dark:text-[#cabde8] text-[11px] font-semibold font-mono tabular-nums">
-                  WIB: {todayWIB} · Sync: {syncStatus}
-                  {lastKpiWib ? ` · Update ${lastKpiWib} WIB` : ''}
-                </span>
-              </div>
-
-              <h1 className="font-display text-2xl sm:text-[28px] leading-tight text-[#26364A] dark:text-white tracking-tight font-extrabold">
-                Global Operations Command <span className="text-[#6657C8] dark:text-[#dab9ff] font-light">—</span>{' '}
-                {roleSubtitle}
-              </h1>
-              <p className="text-xs sm:text-sm text-[#52647A] dark:text-[#cabde8] max-w-3xl leading-relaxed">
-                Pemantauan operasional Work Order FTTH real-time, check-in PROGRESS &amp; validasi Foto Rumah geotag,
-                serta distribusi vendor untuk{' '}
-                <span className="font-semibold text-[#5145A6] dark:text-[#dab9ff]">{currentUser.name}</span>.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5 self-start xl:self-center shrink-0">
-              <button
-                type="button"
-                onClick={handleExportMatrix}
-                className="btn-3d-lilac px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold cursor-pointer whitespace-nowrap"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export Matrix</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleForceResync}
-                disabled={isSyncing || isKpiLoading}
-                className="btn-3d-primary px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold cursor-pointer whitespace-nowrap disabled:opacity-60"
-              >
-                <RefreshCw className={`w-4 h-4 ${isSyncing || isKpiLoading ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Menyinkronkan...' : 'Force Resync'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Scope Filter Ribbon (Vendor / Area / Leader KPI Scope) */}
-          <div className="mt-5 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#EDF3F8] dark:bg-[#160d29] p-3 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)]">
-
-            <div className="relative">
-              <select
-                aria-label="Filter Vendor"
-                disabled={!isGlobalRole && Boolean(currentUser.contractor)}
-                value={!isGlobalRole && currentUser.contractor ? currentUser.contractor : kpiContractorFilter}
-                onChange={e => {
-                  setKpiContractorFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
-              >
-                <option value="ALL">Semua Vendor (Global)</option>
-                {vendorOptions.map(v => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                aria-label="Filter Area"
-                value={kpiAreaFilter}
-                onChange={e => {
-                  setKpiAreaFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
-              >
-                <option value="ALL">Semua Area Kerja</option>
-                {areaOptions.map(a => (
-                  <option key={a} value={a}>
-                    Area: {a}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="relative">
-              <select
-                aria-label="Filter Leader"
-                value={leaderFilter}
-                onChange={e => {
-                  setLeaderFilter(e.target.value);
-                  setFeedPage(1);
-                }}
-                className="w-full pl-3 pr-8 py-2 bg-white dark:bg-[#1e1238] rounded-md text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
-              >
-                <option value="ALL">Semua Leader / Korlap</option>
-                {leaderOptions.map(l => (
-                  <option key={l} value={l}>
-                    Lead: {l}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNavigate(roleActionTarget)}
-                title="Buka daftar lengkap Work Orders hari ini"
-                className="flex-1 px-3 py-2 bg-white dark:bg-[#1e1238] rounded-md text-left text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] shadow-[inset_0_1px_2px_rgba(38,54,74,0.04)] flex items-center justify-between gap-2 hover:border-[#65B8C4] transition-colors cursor-pointer min-w-0"
-              >
-                <span className="flex items-center gap-1.5 truncate">
-                  <Calendar className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#dab9ff] shrink-0" />
-                  <span className="truncate tabular-nums">{formatIndonesianWODate(todayWIB) || todayWIB}</span>
-                </span>
-                <ExternalLink className="w-3 h-3 text-[#8492A5] shrink-0" />
-              </button>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  title="Reset semua filter"
-                  className="btn-3d-lilac px-2.5 py-2 rounded-md text-xs font-bold cursor-pointer shrink-0"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Primary 5-Card 3D KPI Bento Grid (Matching Stitch Superadmin Console) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {/* Card 1: Total WO Today */}
-        <button
-          type="button"
-          onClick={() => onDrillDown('total_today')}
-          className="card-3d-lavender relative group text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                TOTAL WO TODAY
-              </span>
-              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2e1459] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
-                <Layers className="w-4 h-4" />
-              </span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-[#26364A] dark:text-white tabular-nums">
-                {c.totalToday}
-              </span>
-              <span className="text-xs font-bold text-[#52647A] dark:text-[#cabde8]">Aktif</span>
-            </div>
-            <div className="mt-3 h-7 w-full flex items-end gap-1" aria-hidden="true">
-              {telemetry.sparkHeights.map((h, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 rounded-t transition-all ${
-                    i < 2
-                      ? 'bg-[#DDE6F0] dark:bg-[#2e1459]'
-                      : i < 4
-                      ? 'bg-[#BDE4E8] dark:bg-[#4c2488]'
-                      : i === 4
-                      ? 'bg-[#65B8C4]/75 dark:bg-[#7135b5]/60'
-                      : i === 5
-                      ? 'bg-[#6657C8]/75 dark:bg-[#7135b5]/80'
-                      : 'bg-[#6657C8] dark:bg-[#a380fe]'
-                  }`}
-                  style={{ height: `${h}%` }}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] text-[11px] text-[#52647A] dark:text-[#cabde8] flex items-center justify-between gap-1 tabular-nums">
-            <span>{c.unassigned} Unassigned</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] font-bold text-[#5145A6] dark:text-[#dab9ff]">
-              {telemetry.mappedCount} Mapped
+      {/* 1. Compact Command Utility Bar (Vendor/Area filters live in DashboardKpiSummaryCards above) */}
+      <div className="card-3d-lavender rounded-xl p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className="font-display text-sm font-extrabold text-[#26364A] dark:text-white tracking-tight">
+            Command Utility
+          </h2>
+          <button
+            type="button"
+            onClick={handleForceResync}
+            disabled={isSyncing || isKpiLoading}
+            title={`Klik untuk sinkronisasi manual Supabase & KPI hari ini${lastKpiWib ? ` (Update: ${lastKpiWib} WIB)` : ''}`}
+            className="px-3 py-1.5 rounded-lg bg-[#F8FAFD] hover:bg-white dark:bg-[#160d29] dark:hover:bg-[#2a194b] border border-[#DDE6F0] dark:border-[#3b1d78] text-[#26364A] dark:text-white text-[11px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-60 whitespace-nowrap"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                realtimeConnectionState === 'connected'
+                  ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse'
+                  : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                  ? 'bg-amber-500 dark:bg-amber-400 animate-pulse'
+                  : 'bg-rose-500 dark:bg-rose-400'
+              }`}
+            />
+            <span>
+              SSE:{' '}
+              {isSyncing
+                ? 'SYNCING'
+                : realtimeConnectionState === 'connected'
+                ? 'LIVE'
+                : realtimeConnectionState === 'reconnecting'
+                ? 'RECONNECTING'
+                : realtimeConnectionState === 'connecting'
+                ? 'CONNECTING'
+                : 'TERPUTUS'}
             </span>
-          </div>
-        </button>
+          </button>
+          {currentUser.role === 'super_admin' && (
+            <>
+              <button
+                type="button"
+                onClick={() => onNavigate('import')}
+                className="btn-3d-maroon px-3 py-1.5 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <CloudDownload className="w-3.5 h-3.5 text-white dark:text-[#FFD8E4]" />
+                <span>+ Import Data WO</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('system_health')}
+                className="btn-3d-maroon px-3 py-1.5 rounded-lg text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Database className="w-3.5 h-3.5 text-white dark:text-[#FFD8E4]" />
+                <span>Database Sync Health</span>
+              </button>
+            </>
+          )}
+        </div>
 
-        {/* Card 2: Check-in / Progress */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[180px]">
+            <select
+              aria-label="Filter Leader"
+              value={leaderFilter}
+              onChange={e => {
+                setLeaderFilter(e.target.value);
+                setFeedPage(1);
+              }}
+              className="w-full pl-3 pr-8 py-1.5 bg-[#F8FAFD] dark:bg-[#160d29] rounded-lg text-xs font-semibold text-[#26364A] dark:text-white border border-[#DDE6F0] dark:border-[#3b1d78] focus:outline-none focus:ring-2 focus:ring-[#6657C8]/25 appearance-none cursor-pointer"
+            >
+              <option value="ALL">Semua Leader / Korlap</option>
+              {leaderOptions.map(l => (
+                <option key={l} value={l}>
+                  Lead: {l}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-[#8492A5] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleExportMatrix}
+            className="btn-3d-lilac px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Matrix</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleForceResync}
+            disabled={isSyncing || isKpiLoading}
+            className="btn-3d-primary px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer whitespace-nowrap disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || isKpiLoading ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Menyinkronkan...' : 'Force Resync'}</span>
+          </button>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              title="Reset semua filter"
+              className="btn-3d-lilac px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer shrink-0"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Unique Operational Highlights (Geotag Node Telemetry & Overdue Alert — non-duplicate KPIs) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           type="button"
           onClick={() => onDrillDown('checked_in_progress')}
-          className="card-3d-lavender relative group text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between"
+          className="card-3d-lavender relative group text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between gap-4"
         >
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                CHECK-IN / PROGRESS
-              </span>
-              <span className="w-7 h-7 rounded-lg bg-[#E7F1FB] dark:bg-sky-950/60 flex items-center justify-center text-[#3E81C6] dark:text-sky-400 shrink-0">
-                <MapPin className="w-4 h-4" />
-              </span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-[#3E81C6] dark:text-sky-300 tabular-nums">
-                {c.checkedInProgress}
-              </span>
-              <span className="text-xs font-bold text-[#3E81C6]/85 dark:text-sky-300/80">On-Site</span>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-[#E7F1FB] dark:bg-sky-950/70 flex items-center justify-center text-[#3E81C6] dark:text-sky-300 shrink-0">
-                <Camera className="w-4 h-4" />
-              </div>
-              <div className="text-[11.5px] text-[#52647A] dark:text-[#cabde8] leading-tight">
-                <span className="font-bold text-[#26364A] dark:text-white tabular-nums">
-                  {telemetry.geotagVerifiedCount} Foto Rumah
-                </span>{' '}
-                valid GPS
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
-            <span>Geotag {telemetry.geotagPct}%</span>
-            <span className="font-bold text-[#5145A6] dark:text-[#dab9ff]">
-              {telemetry.oltCount} OLT · {telemetry.fatCount} FAT
-            </span>
-          </div>
-        </button>
-
-        {/* Card 3: Approved - Done */}
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved_done')}
-          className="card-3d-lavender relative group text-left rounded-xl p-4 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8492A5] dark:text-[#cabde8]">
-                APPROVED - DONE
-              </span>
-              <span className="w-7 h-7 rounded-lg bg-[#E4F5EC] dark:bg-emerald-950/60 flex items-center justify-center text-[#218A63] dark:text-emerald-400 shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
-              </span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-[#218A63] dark:text-emerald-300 tabular-nums">
-                {c.approvedDone}
-              </span>
-              <span className="text-xs font-bold text-[#218A63]/85 dark:text-emerald-300/80">Completed</span>
-            </div>
-            <div className="mt-3 w-full bg-[#EDF3F8] dark:bg-[#160d29] h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-[#218A63] dark:bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, telemetry.completionPct)}%` }}
-              />
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
-            <span>Closed: {c.closed}</span>
-            <span className="font-bold text-[#218A63] dark:text-emerald-300">{telemetry.completionPct}%</span>
-          </div>
-        </button>
-
-        {/* Card 4: Butuh Approval QA */}
-        <div className="card-3d-lavender relative group rounded-xl p-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#dab9ff]">
-                BUTUH APPROVAL QA
+                Geotag &amp; Optical Node Telemetry
               </span>
-              <span className="w-7 h-7 rounded-lg bg-[#EAE8FF] dark:bg-[#2e1459] flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
-                <ShieldCheck className="w-4 h-4" />
-              </span>
-            </div>
-            <div className="mt-2.5 flex items-baseline justify-between gap-2">
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-3xl font-extrabold text-[#5145A6] dark:text-white tabular-nums">
-                  {c.butuhApproval}
-                </span>
-                <span className="text-xs font-bold text-[#52647A] dark:text-[#cabde8]">Tiket</span>
-              </div>
-              <span
-                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                  c.butuhApproval > 0
-                    ? 'bg-[#6657C8] dark:bg-[#58149c] text-white'
-                    : 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-200'
-                }`}
-              >
-                {c.butuhApproval > 0 ? 'Hot Desk' : 'Synced'}
+              <span className="px-2 py-0.5 rounded-full bg-[#E7F1FB] dark:bg-sky-950/70 text-[#3E81C6] dark:text-sky-300 text-[10px] font-bold tabular-nums">
+                Geotag {telemetry.geotagPct}%
               </span>
             </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl font-extrabold text-[#26364A] dark:text-white tabular-nums">
+                {telemetry.geotagVerifiedCount} Foto Rumah
+              </span>
+              <span className="text-xs font-semibold text-[#52647A] dark:text-[#cabde8]">valid GPS</span>
+            </div>
+            <div className="text-[11px] font-semibold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
+              {telemetry.oltCount} OLT · {telemetry.fatCount} FAT
+            </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105e] flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[#52647A] dark:text-[#cabde8] tabular-nums">
-              Wait: {telemetry.avgApprovalWaitMin !== null ? `${telemetry.avgApprovalWaitMin}m` : '—'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                if (currentUser.role === 'super_admin' || currentUser.role === 'dispatch') {
-                  onNavigate('verification_desk');
-                } else {
-                  onDrillDown('butuh_approval');
-                }
-              }}
-              className="btn-3d-primary px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-            >
-              <span>Audit QA</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
+          <span className="w-10 h-10 rounded-xl bg-[#E7F1FB] dark:bg-sky-950/60 flex items-center justify-center text-[#3E81C6] dark:text-sky-400 shrink-0">
+            <Camera className="w-5 h-5" />
+          </span>
+        </button>
 
-        {/* Card 5: Overdue WO Alert */}
-        <div className="rounded-xl p-4 bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#F3C5CA] dark:shadow-[0_3px_0_#4c0519] flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300 flex items-center gap-1.5">
-                {overdueSummary.totalOverdue > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-[#D45B66] animate-ping shrink-0" />
-                )}
-                <span>OVERDUE WO ALERT</span>
-              </span>
-              <span className="w-7 h-7 rounded-lg bg-[#F9D7DB] dark:bg-rose-900/60 flex items-center justify-center text-[#9B2C37] dark:text-rose-300 shrink-0">
-                <AlertTriangle className="w-4 h-4" />
-              </span>
+        <div className="rounded-xl p-4 bg-[#FCE9EB] dark:bg-rose-950/35 border border-[#F3C5CA] dark:border-rose-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_3px_0_#F3C5CA] dark:shadow-[0_3px_0_#4c0519] flex items-center justify-between gap-4">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#9B2C37] dark:text-rose-300">
+              {overdueSummary.totalOverdue > 0 && (
+                <span className="w-2 h-2 rounded-full bg-[#D45B66] animate-ping shrink-0" />
+              )}
+              <span>OVERDUE WO ALERT</span>
             </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-[#9B2C37] dark:text-rose-300 tabular-nums">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-2xl font-extrabold text-[#9B2C37] dark:text-rose-300 tabular-nums">
                 {overdueSummary.totalOverdue}
               </span>
               <span className="text-xs font-bold text-[#9B2C37] dark:text-rose-200">WO Overdue</span>
             </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-[#F3C5CA] dark:border-rose-800/60 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#9B2C37] dark:text-rose-300 tabular-nums">
+            <div className="text-[11px] font-bold text-[#9B2C37] dark:text-rose-300 tabular-nums">
               Critical &gt;7h: {overdueSummary.criticalOverdueGt7Days}
-            </span>
-            <button
-              type="button"
-              onClick={() => onNavigate('overdue_wo')}
-              className="btn-3d-crimson px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap"
-            >
-              Filter Overdue
-            </button>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('overdue_wo')}
+            className="btn-3d-crimson px-3 py-2 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
+          >
+            Filter Overdue
+          </button>
         </div>
-      </div>
-
-      {/* 3. Secondary Tactical KPI Strip */}
-      <div className="card-3d-lavender grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-3 rounded-xl">
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#EAE8FF] dark:bg-[#58149c]/15 flex items-center justify-center text-[#5145A6] dark:text-[#dab9ff] shrink-0">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              APPROVAL RATE
-            </div>
-            <div className="font-display text-base font-extrabold text-[#5145A6] dark:text-[#dab9ff] tabular-nums">
-              {telemetry.approvalPct}%{' '}
-              <span className="text-[11px] font-normal text-[#8492A5]">({c.approved})</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved_reschedule')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#DDF4F4] dark:bg-[#6a46c1]/15 flex items-center justify-center text-[#2E7D8B] dark:text-[#dab9ff] shrink-0">
-            <Calendar className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              RESCHEDULE
-            </div>
-            <div className="font-display text-base font-extrabold text-[#2E7D8B] dark:text-[#dab9ff] tabular-nums">
-              {c.approvedReschedule} <span className="text-xs font-normal text-[#8492A5]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved_pending')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#FFF2D9] dark:bg-amber-500/15 flex items-center justify-center text-[#9D661F] dark:text-amber-300 shrink-0">
-            <Hourglass className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              PENDING
-            </div>
-            <div className="font-display text-base font-extrabold text-[#9D661F] dark:text-amber-200 tabular-nums">
-              {c.approvedPending} <span className="text-xs font-normal text-[#8492A5]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved_cancel')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#FCE9EB] dark:bg-rose-500/15 flex items-center justify-center text-[#9B2C37] dark:text-rose-300 shrink-0">
-            <XCircle className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              CANCEL
-            </div>
-            <div className="font-display text-base font-extrabold text-[#9B2C37] dark:text-rose-300 tabular-nums">
-              {c.approvedCancel} <span className="text-xs font-normal text-[#8492A5]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('revision_rejected')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#FFF2D9] dark:bg-amber-500/15 flex items-center justify-center text-[#9D661F] dark:text-amber-300 shrink-0">
-            <RotateCcw className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              PERLU REVISI
-            </div>
-            <div className="font-display text-base font-extrabold text-[#9D661F] dark:text-amber-300 tabular-nums">
-              {c.revisionRejected} <span className="text-xs font-normal text-[#8492A5]">WO</span>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDrillDown('approved_done')}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F8FAFD] dark:bg-[#160d29] hover:bg-[#F0EDFF] dark:hover:bg-[#2a194b] border border-[#DDE6F0]/70 dark:border-transparent transition-colors text-left cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#E4F5EC] dark:bg-emerald-500/15 flex items-center justify-center text-[#218A63] dark:text-emerald-300 shrink-0">
-            <Activity className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-bold text-[#8492A5] dark:text-[#cabde8] uppercase truncate">
-              COMPLETION RATE
-            </div>
-            <div className="font-display text-base font-extrabold text-[#218A63] dark:text-emerald-300 tabular-nums">
-              {telemetry.completionPct}%
-            </div>
-          </div>
-        </button>
       </div>
 
       {/* 4. Standard WO Lifecycle Pipeline (7-Stage Interactive Stepper) */}
@@ -2069,7 +1533,7 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
                           {isTicketClosed(ticket) && (
                             <div className="flex items-center gap-1 flex-wrap">
                               <StatusAgentBadge status={ticket.statusWOAgent} />
-                              {ticket.statusWOAgent !== 'Closed' && (
+                              {ticket.statusWOAgent !== 'Closed' && String(ticket.ticketResult || '').trim().toLowerCase() === 'closed' && (
                                 <span className="px-1.5 py-0.5 rounded bg-[#26364A] dark:bg-slate-800 text-white text-[9.5px] font-bold uppercase">
                                   Closed
                                 </span>
@@ -2206,135 +1670,6 @@ export const StitchOpsCommandCenter: React.FC<StitchOpsCommandCenterProps> = ({
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* 6. Interactive Canonical Status Token Matrix */}
-      <div className="card-3d-lavender rounded-xl p-5 sm:p-6 dark:bg-[#1e1238] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] dark:border-[#3b1d78] space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-display text-lg font-extrabold text-[#26364A] dark:text-white">
-                Standardized Operational Status Token Matrix
-              </span>
-              <span className="px-2 py-0.5 rounded bg-[#EAE8FF] dark:bg-[#2e1459] text-[#5145A6] dark:text-[#dab9ff] text-[10.5px] font-bold uppercase">
-                Canonical Tokens
-              </span>
-            </div>
-            <p className="text-xs text-[#52647A] dark:text-[#cabde8] mt-0.5">
-              Klik baris status di bawah untuk drill-down langsung ke daftar Work Order terkait.
-            </p>
-          </div>
-          <span className="text-[11px] font-bold text-[#2E7D8B] dark:text-[#dab9ff] px-2.5 py-1 bg-[#DDF4F4] dark:bg-[#2a194b] rounded border border-[#BDE4E8] dark:border-transparent self-start lg:self-auto">
-            Live Counter Synced
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse mj-zebra-table">
-            <thead>
-              <tr className="bg-[#EDF3F8] dark:bg-[#160d29] text-[#52647A] dark:text-[#cabde8] text-[10.5px] font-bold uppercase tracking-wider border-y border-[#DDE6F0] dark:border-transparent">
-                <th className="py-3 px-4 rounded-l-lg">Core Status Token</th>
-                <th className="py-3 px-4">Aturan &amp; Makna Operasional</th>
-                <th className="py-3 px-4">Kode</th>
-                <th className="py-3 px-4">Canonical Badge</th>
-                <th className="py-3 px-4 text-right rounded-r-lg">Jumlah Hari Ini</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#DDE6F0] dark:divide-[#35105e] text-xs">
-              {[
-                {
-                  token: 'CHECK-IN · PROGRESS',
-                  dot: 'bg-[#65B8C4] dark:bg-sky-500 shadow-[0_0_8px_rgba(101,184,196,0.75)] dark:shadow-[0_0_8px_rgba(14,165,233,0.8)]',
-                  textTone: 'text-[#2E7D8B] dark:text-sky-300',
-                  code: 'CHK',
-                  codeTone: 'bg-[#E7F1FB] text-[#3E81C6] dark:bg-sky-950/70 dark:text-sky-200',
-                  meaning: 'Teknisi check-in via LiveChat PROGRESS dan/atau validasi koordinat Foto Rumah geotag.',
-                  badge: <StatusInstallerBadge status="PROGRESS" />,
-                  count: c.checkedInProgress,
-                  filter: 'checked_in_progress' as WOKpiFilterKey
-                },
-                {
-                  token: 'COMPLETE / APPROVED',
-                  dot: 'bg-[#218A63] dark:bg-emerald-500 shadow-[0_0_8px_rgba(33,138,99,0.75)] dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]',
-                  textTone: 'text-[#218A63] dark:text-emerald-300',
-                  code: 'CMP',
-                  codeTone: 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-950/70 dark:text-emerald-200',
-                  meaning: 'Laporan teknis & foto bukti telah diverifikasi dan disetujui oleh Dispatch NOC.',
-                  badge: <StatusApprovalBadge status="APPROVED" />,
-                  count: telemetry.completedCount,
-                  filter: 'approved' as WOKpiFilterKey
-                },
-                {
-                  token: 'REVISION / REJECTED',
-                  dot: 'bg-[#C88735] dark:bg-amber-500 shadow-[0_0_8px_rgba(200,135,53,0.75)] dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]',
-                  textTone: 'text-[#9D661F] dark:text-amber-300',
-                  code: 'REV',
-                  codeTone: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-950/70 dark:text-amber-200',
-                  meaning: 'Perbaikan / unggah ulang bukti foto atau data redaman diminta oleh Dispatch.',
-                  badge: <StatusApprovalBadge status="REVISI" />,
-                  count: c.revisionRejected,
-                  filter: 'revision_rejected' as WOKpiFilterKey
-                },
-                {
-                  token: 'RESCHEDULE',
-                  dot: 'bg-[#6657C8] dark:bg-[#a380fe] shadow-[0_0_8px_rgba(102,87,200,0.7)] dark:shadow-[0_0_8px_rgba(163,128,254,0.8)]',
-                  textTone: 'text-[#5145A6] dark:text-[#dab9ff]',
-                  code: 'RSC',
-                  codeTone: 'bg-[#EAE8FF] text-[#5145A6] dark:bg-[#2e1459] dark:text-[#dab9ff]',
-                  meaning: 'Jadwal kunjungan disesuaikan ulang atas permintaan pelanggan atau kendala akses.',
-                  badge: <StatusInstallerBadge status="RESCHEDULE" />,
-                  count: c.reportReschedule,
-                  filter: 'report_reschedule' as WOKpiFilterKey
-                },
-                {
-                  token: 'PENDING',
-                  dot: 'bg-[#C88735] dark:bg-yellow-500 shadow-[0_0_8px_rgba(200,135,53,0.75)] dark:shadow-[0_0_8px_rgba(234,179,8,0.8)]',
-                  textTone: 'text-[#9D661F] dark:text-yellow-300',
-                  code: 'PND',
-                  codeTone: 'bg-[#FFF2D9] text-[#9D661F] dark:bg-yellow-950/70 dark:text-yellow-200',
-                  meaning: 'Pekerjaan tertunda sementara karena kendala teknis FAT/ODP atau perizinan.',
-                  badge: <StatusInstallerBadge status="PENDING" />,
-                  count: c.reportPending,
-                  filter: 'report_pending' as WOKpiFilterKey
-                },
-                {
-                  token: 'CANCEL',
-                  dot: 'bg-[#D45B66] dark:bg-rose-500 shadow-[0_0_8px_rgba(212,91,102,0.75)] dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]',
-                  textTone: 'text-[#9B2C37] dark:text-rose-300',
-                  code: 'CAN',
-                  codeTone: 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-950/70 dark:text-rose-200',
-                  meaning: 'Work Order dibatalkan dengan dokumentasi alasan dan verifikasi Dispatch.',
-                  badge: <StatusInstallerBadge status="CANCEL" />,
-                  count: c.reportCancel,
-                  filter: 'report_cancel' as WOKpiFilterKey
-                }
-              ].map(row => (
-                <tr
-                  key={row.token}
-                  onClick={() => onDrillDown(row.filter)}
-                  className="hover:bg-[#F0EDFF]/65 dark:hover:bg-[#2a194b]/50 transition-colors cursor-pointer"
-                >
-                  <td className={`py-3 px-4 font-bold whitespace-nowrap ${row.textTone}`}>
-                    <span className="inline-flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${row.dot}`} />
-                      <span>{row.token}</span>
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-[#52647A] dark:text-[#cabde8]">{row.meaning}</td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded font-mono font-bold text-[11px] ${row.codeTone}`}>
-                      {row.code}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">{row.badge}</td>
-                  <td className="py-3 px-4 text-right font-display font-extrabold text-[#26364A] dark:text-white tabular-nums">
-                    {row.count} WO
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

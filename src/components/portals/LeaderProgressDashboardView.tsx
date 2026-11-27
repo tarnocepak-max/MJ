@@ -757,30 +757,24 @@ export const LeaderProgressDashboardView: React.FC<LeaderProgressDashboardViewPr
         })}
       </div>
 
-      {/* Horizontal Filter Chips + Compact Reset / Mobile Header Popovers */}
+      {/* Compact All-Status Toggle + Reset / Mobile Header Popovers */}
       <div className="space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-1 min-w-0">
-            {filterChips.map(chip => {
-              const active = selectedCategory === chip.id;
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(chip.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs cursor-pointer ${
-                    active
-                      ? 'mj-btn-leader-secondary mj-btn-xs'
-                      : 'mj-btn-leader-neutral mj-btn-xs'
-                  }`}
-                >
-                  {chip.label} ({chip.count})
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('all');
+                setCurrentPage(1);
+              }}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs cursor-pointer ${
+                selectedCategory === 'all'
+                  ? 'mj-btn-leader-secondary mj-btn-xs'
+                  : 'mj-btn-leader-neutral mj-btn-xs'
+              }`}
+            >
+              Semua Status ({statCounts.total})
+            </button>
           </div>
 
           <TableResetFilterButton

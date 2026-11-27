@@ -283,7 +283,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
         )}
         <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
         <StatusAgentBadge status={ticket.statusWOAgent} />
-        {ticketClosed && ticket.statusWOAgent !== 'Closed' && (
+        {ticketClosed && String(ticket.ticketResult || '').trim().toLowerCase() === 'closed' && ticket.statusWOAgent !== 'Closed' && (
           <span className="px-2 py-0.5 rounded bg-[#26364A] dark:bg-[#E8DDFF] text-white dark:text-[#1F1638] text-[10px] font-bold">
             Ticket: Closed
           </span>

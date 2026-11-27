@@ -487,3 +487,47 @@ test('UI Audit #5: Dashboard Monitoring orders Monitoring Status Operasional (#1
   assert.match(kpiSrc, /Monitoring Status Operasional/);
   assert.match(kpiSrc, /Approval Work Order/);
 });
+
+test('UI Audit #6: UI Duplication Cleanup removes redundant KPIs, duplicate status badges, Fast Lane CTA, and duplicate headers', () => {
+  const cmdSrc = readWorkspaceFile('src/components/dashboard/StitchOpsCommandCenter.tsx');
+  const dispatchWsSrc = readWorkspaceFile('src/components/dashboard/StitchDispatchWorkspace.tsx');
+  const slaSrc = readWorkspaceFile('src/components/sla/SlaTelemetryDashboardView.tsx');
+  const verDeskSrc = readWorkspaceFile('src/components/dashboard/DispatchVerificationDesk.tsx');
+  const ticketsSrc = readWorkspaceFile('src/components/tickets/TicketsTable.tsx');
+  const mobileCardSrc = readWorkspaceFile('src/components/tickets/TicketMobileCard.tsx');
+  const leaderProgSrc = readWorkspaceFile('src/components/portals/LeaderProgressDashboardView.tsx');
+  const installerDashSrc = readWorkspaceFile('src/components/portals/InstallerDashboardView.tsx');
+
+  // StitchOpsCommandCenter: no duplicate token matrix, secondary KPI strip, or duplicate hero H1
+  assert.doesNotMatch(cmdSrc, /Standardized Operational Status Token Matrix/);
+  assert.doesNotMatch(cmdSrc, /Secondary Tactical KPI Strip/);
+  assert.doesNotMatch(cmdSrc, /APPROVAL RATE/);
+  assert.doesNotMatch(cmdSrc, /Active Role: SUPERADMIN/);
+  assert.match(cmdSrc, /Geotag &amp; Optical Node Telemetry/);
+  assert.match(cmdSrc, /ticket\.statusWOAgent !== 'Closed' && String\(ticket\.ticketResult \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'closed'/);
+
+  // StitchDispatchWorkspace: compact context bar instead of duplicate 4-tile KPI strip
+  assert.doesNotMatch(dispatchWsSrc, /ACTIVE WOS/);
+  assert.doesNotMatch(dispatchWsSrc, /PENDING DISPATCH/);
+  assert.match(dispatchWsSrc, /Compact Dispatch Context Bar/);
+
+  // SlaTelemetryDashboardView: compact header when embedded in dashboard_monitoring
+  assert.match(slaSrc, /viewContext === 'dashboard_monitoring'/);
+
+  // DispatchVerificationDesk: no duplicate Waiting Verification tile in Section 2B
+  assert.doesNotMatch(verDeskSrc, /Waiting Verification/);
+
+  // TicketsTable & TicketMobileCard: no duplicate Fast Lane CTA card; Closed badge guarded cleanly
+  assert.doesNotMatch(ticketsSrc, /KPI 6: Fast Lane CTA Card/);
+  assert.doesNotMatch(ticketsSrc, /Fast Lane/);
+  assert.match(ticketsSrc, /String\(ticket\.ticketResult \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'closed' && ticket\.statusWOAgent !== 'Closed'/);
+  assert.match(mobileCardSrc, /String\(ticket\.ticketResult \|\| ''\)\.trim\(\)\.toLowerCase\(\) === 'closed' && ticket\.statusWOAgent !== 'Closed'/);
+
+  // LeaderProgressDashboardView: no duplicate 6-chip strip below 6-card Status KPI grid
+  assert.doesNotMatch(leaderProgSrc, /filterChips\.map/);
+  assert.match(leaderProgSrc, /Semua Status \(\{statCounts\.total\}\)/);
+
+  // InstallerDashboardView: no duplicate Progress Pekerjaan Hari Ini bar in Section 5
+  assert.doesNotMatch(installerDashSrc, /Progress Pekerjaan Hari Ini/);
+});
+
