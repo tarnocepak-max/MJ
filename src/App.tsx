@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { UIConfigProvider, useUIConfig } from './context/UIConfigContext';
 import { ToastProvider, useToast } from './context/ToastContext';
@@ -46,59 +46,77 @@ import { WhatsAppSendModal } from './components/whatsapp/WhatsAppSendModal';
 import { Ticket } from './types';
 import { Menu, Database } from 'lucide-react';
 import { MoraJawsErrorBoundary } from './components/common/MoraJawsErrorBoundary';
+import { LazyModuleErrorBoundary } from './components/common/LazyModuleErrorBoundary';
+import { lazyWithChunkRetry } from './utils/lazyChunkRecovery';
 import { getTicketAppointmentDate } from './services/appointmentDateParser';
 import { isTicketVisibleToInstallerToday } from './services/woLifecycleService';
 import { ThemeBrandBackground } from './components/common/MoraRepublicBrandVisuals';
 import { safeLocalStorageGet, safeLocalStorageSet } from './utils/safeStorage';
 import type { DeletionNavContext } from './services/deletionManagementService';
 
-const SetupHubView = lazy(() =>
-  import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView }))
+const SetupHubView = lazyWithChunkRetry(
+  () => import('./components/setup/SetupHubView').then(m => ({ default: m.SetupHubView })),
+  'SetupHubView'
 );
-const ReportDataWOView = lazy(() =>
-  import('./components/reports/ReportDataWOView').then(m => ({ default: m.ReportDataWOView }))
+const ReportDataWOView = lazyWithChunkRetry(
+  () => import('./components/reports/ReportDataWOView').then(m => ({ default: m.ReportDataWOView })),
+  'ReportDataWOView'
 );
-const HistoryProgressReportView = lazy(() =>
-  import('./components/reports/HistoryProgressReportView').then(m => ({ default: m.HistoryProgressReportView }))
+const HistoryProgressReportView = lazyWithChunkRetry(
+  () => import('./components/reports/HistoryProgressReportView').then(m => ({ default: m.HistoryProgressReportView })),
+  'HistoryProgressReportView'
 );
-const ScheduleCalendarView = lazy(() =>
-  import('./components/schedule/ScheduleCalendarView').then(m => ({ default: m.ScheduleCalendarView }))
+const ScheduleCalendarView = lazyWithChunkRetry(
+  () => import('./components/schedule/ScheduleCalendarView').then(m => ({ default: m.ScheduleCalendarView })),
+  'ScheduleCalendarView'
 );
-const LoginLogView = lazy(() =>
-  import('./components/audit/LoginLogView').then(m => ({ default: m.LoginLogView }))
+const LoginLogView = lazyWithChunkRetry(
+  () => import('./components/audit/LoginLogView').then(m => ({ default: m.LoginLogView })),
+  'LoginLogView'
 );
-const AuditLogViewer = lazy(() =>
-  import('./components/audit/AuditLogViewer').then(m => ({ default: m.AuditLogViewer }))
+const AuditLogViewer = lazyWithChunkRetry(
+  () => import('./components/audit/AuditLogViewer').then(m => ({ default: m.AuditLogViewer })),
+  'AuditLogViewer'
 );
-const TemplateBuilder = lazy(() =>
-  import('./components/whatsapp/TemplateBuilder').then(m => ({ default: m.TemplateBuilder }))
+const TemplateBuilder = lazyWithChunkRetry(
+  () => import('./components/whatsapp/TemplateBuilder').then(m => ({ default: m.TemplateBuilder })),
+  'TemplateBuilder'
 );
-const ContractorAreaRecapView = lazy(() =>
-  import('./components/reports/ContractorAreaRecapView').then(m => ({ default: m.ContractorAreaRecapView }))
+const ContractorAreaRecapView = lazyWithChunkRetry(
+  () => import('./components/reports/ContractorAreaRecapView').then(m => ({ default: m.ContractorAreaRecapView })),
+  'ContractorAreaRecapView'
 );
-const LocationBasecampView = lazy(() =>
-  import('./components/contractors/LocationBasecampView').then(m => ({ default: m.LocationBasecampView }))
+const LocationBasecampView = lazyWithChunkRetry(
+  () => import('./components/contractors/LocationBasecampView').then(m => ({ default: m.LocationBasecampView })),
+  'LocationBasecampView'
 );
-const SlaTelemetryDashboardView = lazy(() =>
-  import('./components/sla/SlaTelemetryDashboardView').then(m => ({ default: m.SlaTelemetryDashboardView }))
+const SlaTelemetryDashboardView = lazyWithChunkRetry(
+  () => import('./components/sla/SlaTelemetryDashboardView').then(m => ({ default: m.SlaTelemetryDashboardView })),
+  'SlaTelemetryDashboardView'
 );
-const ContactCentreView = lazy(() =>
-  import('./components/contact/ContactCentreView').then(m => ({ default: m.ContactCentreView }))
+const ContactCentreView = lazyWithChunkRetry(
+  () => import('./components/contact/ContactCentreView').then(m => ({ default: m.ContactCentreView })),
+  'ContactCentreView'
 );
-const DatabaseSyncMonitoringView = lazy(() =>
-  import('./components/database/DatabaseSyncMonitoringView').then(m => ({ default: m.DatabaseSyncMonitoringView }))
+const DatabaseSyncMonitoringView = lazyWithChunkRetry(
+  () => import('./components/database/DatabaseSyncMonitoringView').then(m => ({ default: m.DatabaseSyncMonitoringView })),
+  'DatabaseSyncMonitoringView'
 );
-const DatabaseManagementView = lazy(() =>
-  import('./components/database/DatabaseManagementView').then(m => ({ default: m.DatabaseManagementView }))
+const DatabaseManagementView = lazyWithChunkRetry(
+  () => import('./components/database/DatabaseManagementView').then(m => ({ default: m.DatabaseManagementView })),
+  'DatabaseManagementView'
 );
-const TextToTableImporter = lazy(() =>
-  import('./components/textToTable/TextToTableImporter').then(m => ({ default: m.TextToTableImporter }))
+const TextToTableImporter = lazyWithChunkRetry(
+  () => import('./components/textToTable/TextToTableImporter').then(m => ({ default: m.TextToTableImporter })),
+  'TextToTableImporter'
 );
-const GoogleSheetsSyncView = lazy(() =>
-  import('./components/sheets/GoogleSheetsSyncView').then(m => ({ default: m.GoogleSheetsSyncView }))
+const GoogleSheetsSyncView = lazyWithChunkRetry(
+  () => import('./components/sheets/GoogleSheetsSyncView').then(m => ({ default: m.GoogleSheetsSyncView })),
+  'GoogleSheetsSyncView'
 );
-const MonitoringMapsView = lazy(() =>
-  import('./components/maps/MonitoringMapsView').then(m => ({ default: m.MonitoringMapsView }))
+const MonitoringMapsView = lazyWithChunkRetry(
+  () => import('./components/maps/MonitoringMapsView').then(m => ({ default: m.MonitoringMapsView })),
+  'MonitoringMapsView'
 );
 
 interface AccessDeniedRedirectViewProps {
@@ -241,6 +259,7 @@ const MainLayout: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<string>(getInitialActiveTab);
+  const [lazyRetryNonce, setLazyRetryNonce] = useState<number>(0);
 
   // Security guard: Reject any cross-date query params or disallowed route/hash for Installer
   useEffect(() => {
@@ -1317,9 +1336,15 @@ const MainLayout: React.FC = () => {
                   : 'max-w-7xl mx-auto min-w-0'
               }
             >
-              <Suspense fallback={<LoadingSkeleton variant="table" rows={6} />}>
-                {renderContent()}
-              </Suspense>
+              <LazyModuleErrorBoundary
+                activeTab={activeTab}
+                onNavigate={tab => navigateTo(tab)}
+                onRetryModule={() => setLazyRetryNonce(prev => prev + 1)}
+              >
+                <Suspense key={`${activeTab}-${lazyRetryNonce}`} fallback={<LoadingSkeleton variant="table" rows={6} />}>
+                  {renderContent()}
+                </Suspense>
+              </LazyModuleErrorBoundary>
             </div>
           </main>
         </div>

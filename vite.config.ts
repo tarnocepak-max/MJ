@@ -42,6 +42,7 @@ function distSecurityPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
+    base: '/',
     plugins: [react(), tailwindcss(), distSecurityPlugin()],
     resolve: {
       alias: {
