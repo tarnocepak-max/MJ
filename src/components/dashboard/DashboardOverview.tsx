@@ -69,6 +69,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     );
   }
 
+  const isMonitoringPriorityRole =
+    currentUser?.role === 'super_admin' || currentUser?.role === 'dispatch';
+
   return (
     <div className="space-y-6">
       {/* Stitch 3D Tactile Ops Command Header & Interactive Operational Views */}
@@ -79,12 +82,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         onSelectTicket={onSelectTicket}
         onOpenWhatsApp={onOpenWhatsApp}
         onDrillDown={handleKpiDrillDown}
+        overviewTopSlot={
+          isMonitoringPriorityRole ? (
+            <DashboardKpiSummaryCards
+              sectionMode="operational_and_approval"
+              onDrillDown={handleKpiDrillDown}
+              onOpenHistoryReport={() => onNavigate('history_progress')}
+              onSelectTicket={onSelectTicket}
+              onOpenVerificationDesk={() => setActiveCommandView('verification')}
+            />
+          ) : undefined
+        }
       />
 
       {activeCommandView === 'overview' && (
         <>
           {/* Live WO Lifecycle Vendor / Area / Leader / Installer Capacity Breakdown */}
           <DashboardKpiSummaryCards
+            sectionMode={isMonitoringPriorityRole ? 'perspectives_only' : 'full'}
             defaultPerspective="vendor"
             onDrillDown={handleKpiDrillDown}
             onOpenHistoryReport={() => onNavigate('history_progress')}

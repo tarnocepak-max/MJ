@@ -28,7 +28,9 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Building2
+  Building2,
+  ChevronDown,
+  FileText
 } from 'lucide-react';
 
 interface TicketMobileCardProps {
@@ -50,6 +52,7 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
   const { getTicketUnreadCount } = useApp();
   const { toast } = useToast();
   const [copiedWo, setCopiedWo] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const androidConfig = normalizeAndroidCardSettings(config.device?.android);
 
@@ -151,13 +154,33 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           )}
         </div>
 
-        {/* Right Slot Time / Schedule Badge */}
-        {ticket.slotTime && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDF3F8] dark:bg-[#160D29] text-[#26364A] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4B386B] font-mono text-[10.5px] font-bold tabular-nums shrink-0">
-            <Clock className="w-3 h-3 shrink-0 text-[#2E7D8B] dark:text-[#DAB9FF]" />
-            <span>{ticket.slotTime}</span>
-          </span>
-        )}
+        {/* Right Slot Time / Schedule Badge + Explicit Expand/Collapse Toggle */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {ticket.slotTime && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDF3F8] dark:bg-[#160D29] text-[#26364A] dark:text-[#DAB9FF] border border-[#DDE6F0] dark:border-[#4B386B] font-mono text-[10.5px] font-bold tabular-nums shrink-0">
+              <Clock className="w-3 h-3 shrink-0 text-[#2E7D8B] dark:text-[#DAB9FF]" />
+              <span>{ticket.slotTime}</span>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              setIsExpanded(prev => !prev);
+            }}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? `Collapse detail ${ticket.woNumber}` : `Expand detail ${ticket.woNumber}`}
+            title={isExpanded ? 'Sembunyikan detail baris' : 'Tampilkan detail baris'}
+            className={`inline-flex items-center gap-1 px-2 min-h-[32px] rounded-lg border text-[10.5px] font-bold transition-all cursor-pointer ${
+              isExpanded
+                ? 'bg-[#6657C8] dark:bg-[#7135B5] text-white border-[#5145A6] dark:border-[#9333EA]'
+                : 'bg-[#F8FAFD] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#4B386B] hover:text-[#5145A6] dark:hover:text-[#DAB9FF]'
+            }`}
+          >
+            <span>{isExpanded ? 'Tutup' : 'Detail'}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Customer Name Title */}
@@ -271,6 +294,66 @@ export const TicketMobileCard: React.FC<TicketMobileCardProps> = ({
           </span>
         )}
       </div>
+
+      {/* Expandable Inline Detail Drawer (Mobile Card) */}
+      {isExpanded && (
+        <div className="animate-in fade-in slide-in-from-top-1 duration-200 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] p-3 space-y-2.5 text-[11px]">
+          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#DDE6F0] dark:border-[#35105E]">
+            <span className="inline-flex items-center gap-1.5 font-bold text-[#5145A6] dark:text-[#DAB9FF] uppercase tracking-wider text-[10px]">
+              <FileText className="w-3.5 h-3.5" />
+              <span>Ringkasan Detail Work Order</span>
+            </span>
+            <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
+              {ticket.appointmentType || ticket.ticketCategory || 'FTTH'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] block">Kontraktor / Mitra</span>
+              <span className="font-semibold text-[#26364A] dark:text-white break-words">
+                {contractorName || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] block">Leader / Korlap</span>
+              <span className="font-semibold text-[#26364A] dark:text-white break-words">
+                {ticket.leaderName || ticket.corlapName || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] block">Cluster / OLT / FAT</span>
+              <span className="font-mono text-[#26364A] dark:text-white break-words">
+                {[ticket.clusterName, ticket.oltCode, ticket.fatCode || ticket.fat].filter(Boolean).join(' · ') || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#8492A5] dark:text-[#A79BC0] block">Redaman / Dropcore</span>
+              <span className="font-mono font-semibold text-[#26364A] dark:text-white">
+                {ticket.rosetRedamanDbm ?? ticket.technicalReport?.opticalPowerRx ?? '-'}{' '}
+                {ticket.dropcoreLength ?? ticket.dropcoreLengthMeter
+                  ? `• ${ticket.dropcoreLength ?? ticket.dropcoreLengthMeter}m`
+                  : ''}
+              </span>
+            </div>
+          </div>
+
+          {(ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber) && (
+            <div className="text-[10.5px] font-mono text-[#52647A] dark:text-[#CEC0E8] truncate">
+              ONT SN: {ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber}
+            </div>
+          )}
+
+          {(ticket.remarksAgent || ticket.approvalNotes || ticket.progressReports?.[0]?.remarksReport || ticket.technicalReport?.technicalDescription) && (
+            <div className="p-2 rounded-lg bg-white dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] text-[#52647A] dark:text-[#CEC0E8]">
+              {ticket.progressReports?.[0]?.remarksReport ||
+                ticket.technicalReport?.technicalDescription ||
+                ticket.approvalNotes ||
+                ticket.remarksAgent}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Compact Phone / WhatsApp & LiveChat Bar */}
       {showQuickBar && (

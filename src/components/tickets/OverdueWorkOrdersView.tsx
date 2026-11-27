@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   AlertTriangle,
@@ -43,7 +43,7 @@ import { isTicketInLeaderScope } from '../../services/assignmentClientHelpers';
 import {
   buildTechnicianCapacitySummaries,
   DEFAULT_LEADER_QUOTA_CONFIG,
-  fetchLeaderQuotaConfig,
+  fetchLeaderTechnicianCapacity,
   LeaderQuotaConfig
 } from '../../services/leaderQuotaService';
 import { StatusAgentBadge, StatusApprovalBadge, StatusInstallerBadge } from '../common/Badge';
@@ -58,7 +58,6 @@ import {
   HeaderSortButton,
   TableResetFilterButton
 } from '../common/InteractiveTableHeader';
-import { TableSelectionToolbar } from '../common/TableSelectionToolbar';
 import { ActionDropdownMenu, DropdownActionItem } from '../common/ActionDropdownMenu';
 import { getNextSortDirection, sortDataArray, SortDirection } from '../../utils/tableSorting';
 
@@ -225,8 +224,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
   const [isRescheduleSubmitting, setIsRescheduleSubmitting] = useState(false);
 
-  const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
-  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   const [quotaConfig, setQuotaConfig] = useState<LeaderQuotaConfig>(() => ({
     ...DEFAULT_LEADER_QUOTA_CONFIG,
     contractorName: currentUser.contractor || contractorsList?.[0] || ''
@@ -256,7 +253,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     if (!isLeaderRole) return;
     let active = true;
     const contractorScope = currentUser.contractor || contractorsList?.[0] || '';
-    fetchLeaderQuotaConfig(contractorScope)
+    fetchLeaderTechnicianCapacity(contractorScope)
       .then(res => {
         if (active && res.success && res.config) {
           setQuotaConfig(res.config);
@@ -440,54 +437,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     const start = (currentPage - 1) * pageSize;
     return filteredTickets.slice(start, start + pageSize);
   }, [filteredTickets, currentPage, pageSize]);
-
-  // Clear selection when switching overdue/exception view modes and prune stale IDs
-  useEffect(() => {
-    setSelectedTicketIds([]);
-  }, [viewMode]);
-
-  useEffect(() => {
-    const validIds = new Set(filteredTickets.map(t => t.id));
-    setSelectedTicketIds(prev => {
-      const next = prev.filter(id => validIds.has(id));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [filteredTickets]);
-
-  const selectedIdSet = useMemo(() => new Set(selectedTicketIds), [selectedTicketIds]);
-
-  const selectedTicketsList = useMemo(
-    () => filteredTickets.filter(t => selectedIdSet.has(t.id)),
-    [filteredTickets, selectedIdSet]
-  );
-
-  const visibleTicketIds = useMemo(() => paginatedTickets.map(t => t.id), [paginatedTickets]);
-  const allVisibleSelected =
-    visibleTicketIds.length > 0 && visibleTicketIds.every(id => selectedIdSet.has(id));
-  const someVisibleSelected =
-    visibleTicketIds.some(id => selectedIdSet.has(id)) && !allVisibleSelected;
-
-  useEffect(() => {
-    if (selectAllCheckboxRef.current) {
-      selectAllCheckboxRef.current.indeterminate = someVisibleSelected;
-    }
-  }, [someVisibleSelected]);
-
-  const toggleSelectOne = (ticketId: string) => {
-    setSelectedTicketIds(prev =>
-      prev.includes(ticketId) ? prev.filter(id => id !== ticketId) : [...prev, ticketId]
-    );
-  };
-
-  const toggleSelectAllVisible = () => {
-    if (visibleTicketIds.length === 0) return;
-    if (allVisibleSelected) {
-      const visibleSet = new Set(visibleTicketIds);
-      setSelectedTicketIds(prev => prev.filter(id => !visibleSet.has(id)));
-    } else {
-      setSelectedTicketIds(prev => Array.from(new Set([...prev, ...visibleTicketIds])));
-    }
-  };
 
   const leaderInstallers = useMemo(() => {
     if (!isLeaderRole) return [];
@@ -713,6 +662,84 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
     }
   };
 
+  const renderRowActionMenu = (ticket: Ticket, canReassign: boolean) => {
+    const overdueActions: DropdownActionItem[] = [
+      {
+        id: 'detail_wo',
+        label: 'Buka Detail & Laporan',
+        icon: <Eye className="w-3.5 h-3.5" />,
+        tone: 'primary',
+        onClick: () => onSelectTicket(ticket, 'overview')
+      },
+      {
+        id: 'history_wo',
+        label: 'Activity History',
+        icon: <History className="w-3.5 h-3.5" />,
+        onClick: () => onSelectTicket(ticket, 'history')
+      },
+      {
+        id: 'livechat_wo',
+        label: 'Buka LiveChat WO',
+        icon: <MessageSquare className="w-3.5 h-3.5" />,
+        onClick: () => onSelectTicket(ticket, 'chat')
+      }
+    ];
+    if (canRescheduleTicket(ticket)) {
+      overdueActions.push({
+        id: 'reschedule_appointment',
+        label: 'Ubah Schedule Appointment Date',
+        icon: <CalendarClock className="w-3.5 h-3.5" />,
+        tone: 'primary',
+        dividerBefore: true,
+        onClick: () => handleOpenReschedule(ticket)
+      });
+    }
+    if (canReassign) {
+      overdueActions.push({
+        id: 'reassign_wo',
+        label: 'Reassign Teknisi',
+        icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
+        tone: 'warning',
+        onClick: () => handleOpenReassign(ticket)
+      });
+    }
+    if (onOpenWhatsApp && ticket.customerPhone) {
+      overdueActions.push({
+        id: 'whatsapp',
+        label: 'WhatsApp Pelanggan',
+        icon: <MessageCircle className="w-3.5 h-3.5" />,
+        tone: 'success',
+        onClick: () => onOpenWhatsApp(ticket)
+      });
+    }
+    overdueActions.push({
+      id: 'maps',
+      label: 'Buka Google Maps',
+      icon: <MapPin className="w-3.5 h-3.5" />,
+      onClick: () => openCustomerAddressInGoogleMaps(ticket)
+    });
+    overdueActions.push({
+      id: 'copy_wo',
+      label: 'Salin No. WO',
+      icon: <Copy className="w-3.5 h-3.5" />,
+      dividerBefore: true,
+      onClick: () => {
+        navigator.clipboard?.writeText(ticket.woNumber);
+        toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
+      }
+    });
+    return (
+      <div className="inline-flex items-center justify-end">
+        <ActionDropdownMenu
+          actions={overdueActions}
+          triggerLabel={`Aksi WO ${ticket.woNumber}`}
+          align="right"
+          size="sm"
+        />
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5 pb-10">
       {/* Page Header */}
@@ -869,23 +896,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
         </div>
       )}
 
-      {/* Contextual Bulk Selection Toolbar */}
-      <TableSelectionToolbar
-        selectedCount={selectedTicketIds.length}
-        onClearSelection={() => setSelectedTicketIds([])}
-        label="WO Overdue terpilih pada halaman aktif"
-        testId="overdue-selection-toolbar"
-      >
-        <button
-          type="button"
-          onClick={handleExportExcel}
-          className="btn-3d-success px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Export Excel</span>
-        </button>
-      </TableSelectionToolbar>
-
       {/* Results Area */}
       {filteredTickets.length === 0 ? (
         <div className="bg-white/95 dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-2xl p-10 text-center space-y-3">
@@ -989,23 +999,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between px-1 text-xs">
-            <label className="inline-flex items-center gap-2 font-bold text-[#52647A] dark:text-[#CEC0E8] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={toggleSelectAllVisible}
-                aria-label="Pilih semua WO overdue pada halaman ini"
-                className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer"
-              />
-              <span>Pilih Semua di Halaman ({visibleTicketIds.length})</span>
-            </label>
-            {selectedTicketIds.length > 0 && (
-              <span className="font-mono font-bold text-[#5145A6] dark:text-[#DAB9FF] tabular-nums">
-                {selectedTicketIds.length} dipilih
-              </span>
-            )}
-          </div>
           {paginatedTickets.map(ticket => {
             const canReassign =
               isLeaderRole &&
@@ -1013,42 +1006,28 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
               Boolean(ticket.installerName) &&
               !isTicketClosed(ticket);
             const contractor = ticket.contactorName || ticket.contractorName || '-';
-            const isSelected = selectedIdSet.has(ticket.id);
             return (
               <article
                 key={ticket.id}
-                className={`rounded-2xl p-4 space-y-3 border transition-colors ${
-                  isSelected
-                    ? 'bg-[#EAE8FF]/85 dark:bg-[#2C1A4E] border-[#6657C8] dark:border-[#7135B5] ring-2 ring-[#6657C8]/25 dark:ring-[#7135B5]/25'
-                    : 'bg-white/95 dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]'
-                }`}
+                className="rounded-2xl p-4 space-y-3 border transition-colors bg-white/95 dark:bg-[#160D29] border-[#DDE6F0] dark:border-[#35105E]"
               >
                 <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelectOne(ticket.id)}
-                      aria-label={`Pilih ${ticket.woNumber}`}
-                      className="mt-0.5 w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => onSelectTicket(ticket, 'overview')}
-                          className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
-                        >
-                          {ticket.woNumber}
-                        </button>
-                        <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
-                          ID: {ticket.idCustomer || ticket.customerId || '-'}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-sm text-[#26364A] dark:text-white truncate mt-0.5">
-                        {ticket.customerName}
-                      </h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => onSelectTicket(ticket, 'overview')}
+                        className="font-mono text-xs font-extrabold text-[#5145A6] dark:text-[#DAB9FF] hover:underline cursor-pointer"
+                      >
+                        {ticket.woNumber}
+                      </button>
+                      <span className="font-mono text-[10.5px] text-[#8492A5] dark:text-[#A79BC0]">
+                        ID: {ticket.idCustomer || ticket.customerId || '-'}
+                      </span>
                     </div>
+                    <h3 className="font-bold text-sm text-[#26364A] dark:text-white truncate mt-0.5">
+                      {ticket.customerName}
+                    </h3>
                   </div>
 
                   {viewMode === 'overdue' ? (
@@ -1091,58 +1070,11 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                   <span className="text-[10.5px] font-mono text-[#8492A5] dark:text-[#A79BC0] tabular-nums">
                     Update: {formatLastUpdatedJakarta(ticket.updatedAt || ticket.createdAt)}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onSelectTicket(ticket, 'overview')}
-                      className="btn-3d-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Detail</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelectTicket(ticket, 'history')}
-                      className="btn-3d-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                      title="Riwayat Aktivitas"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelectTicket(ticket, 'chat')}
-                      className="btn-3d-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                      title="LiveChat Komunikasi"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </button>
-                    {canRescheduleTicket(ticket) && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReschedule(ticket)}
-                        data-testid={`overdue-reschedule-mobile-${ticket.woNumber}`}
-                        className="btn-3d-primary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                        title="Ubah Schedule Appointment Date"
-                      >
-                        <CalendarClock className="w-3.5 h-3.5" />
-                        <span>Ubah Jadwal</span>
-                      </button>
-                    )}
-                    {canReassign && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReassign(ticket)}
-                        className="btn-3d-secondary px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5" />
-                        <span>Reassign</span>
-                      </button>
-                    )}
-                  </div>
+                  {renderRowActionMenu(ticket, canReassign)}
                 </div>
               </article>
             );
@@ -1154,16 +1086,6 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
             <table className="mj-zebra-table w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#EDF3F8] dark:bg-[#22123F] border-b border-[#DDE6F0] dark:border-[#35105E] text-[10.5px] font-bold uppercase tracking-wider text-[#52647A] dark:text-[#CEC0E8]">
-                  <th className="pl-3.5 pr-2 py-3 w-10 text-center">
-                    <input
-                      ref={selectAllCheckboxRef}
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={toggleSelectAllVisible}
-                      aria-label="Pilih semua WO overdue pada tabel ini"
-                      className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer align-middle"
-                    />
-                  </th>
                   <th className="px-3.5 py-3 whitespace-nowrap">
                     <HeaderSearchPopover
                       label="WO Number"
@@ -1330,26 +1252,12 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                     viewMode === 'overdue' &&
                     Boolean(ticket.installerName) &&
                     !isTicketClosed(ticket);
-                  const isSelected = selectedIdSet.has(ticket.id);
 
                   return (
                     <tr
                       key={ticket.id}
-                      className={`transition-colors ${
-                        isSelected
-                          ? 'bg-[#EAE8FF]/85 dark:bg-[#2C1A4E]'
-                          : 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#1E1238]/70'
-                      }`}
+                      className="transition-colors hover:bg-[#F0EDFF]/65 dark:hover:bg-[#1E1238]/70"
                     >
-                      <td className="pl-3.5 pr-2 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectOne(ticket.id)}
-                          aria-label={`Pilih ${ticket.woNumber}`}
-                          className="w-4 h-4 rounded border-[#CFDCE8] dark:border-[#B7A9CE] accent-[#6657C8] dark:accent-[#58149C] cursor-pointer align-middle"
-                        />
-                      </td>
                       <td className="px-3.5 py-3 whitespace-nowrap">
                         <button
                           type="button"
@@ -1433,83 +1341,7 @@ export const OverdueWorkOrdersView: React.FC<OverdueWorkOrdersViewProps> = ({
                         {formatLastUpdatedJakarta(ticket.updatedAt || ticket.createdAt)}
                       </td>
                       <td className="px-3.5 py-3 whitespace-nowrap text-right">
-                        {(() => {
-                          const overdueActions: DropdownActionItem[] = [
-                            {
-                              id: 'detail_wo',
-                              label: 'Buka Detail & Laporan',
-                              icon: <Eye className="w-3.5 h-3.5" />,
-                              tone: 'primary',
-                              onClick: () => onSelectTicket(ticket, 'overview')
-                            },
-                            {
-                              id: 'history_wo',
-                              label: 'Activity History',
-                              icon: <History className="w-3.5 h-3.5" />,
-                              onClick: () => onSelectTicket(ticket, 'history')
-                            },
-                            {
-                              id: 'livechat_wo',
-                              label: 'Buka LiveChat WO',
-                              icon: <MessageSquare className="w-3.5 h-3.5" />,
-                              onClick: () => onSelectTicket(ticket, 'chat')
-                            }
-                          ];
-                          if (canRescheduleTicket(ticket)) {
-                            overdueActions.push({
-                              id: 'reschedule_appointment',
-                              label: 'Ubah Schedule Appointment Date',
-                              icon: <CalendarClock className="w-3.5 h-3.5" />,
-                              tone: 'primary',
-                              dividerBefore: true,
-                              onClick: () => handleOpenReschedule(ticket)
-                            });
-                          }
-                          if (canReassign) {
-                            overdueActions.push({
-                              id: 'reassign_wo',
-                              label: 'Reassign Teknisi',
-                              icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
-                              tone: 'warning',
-                              onClick: () => handleOpenReassign(ticket)
-                            });
-                          }
-                          if (onOpenWhatsApp && ticket.customerPhone) {
-                            overdueActions.push({
-                              id: 'whatsapp',
-                              label: 'WhatsApp Pelanggan',
-                              icon: <MessageCircle className="w-3.5 h-3.5" />,
-                              tone: 'success',
-                              onClick: () => onOpenWhatsApp(ticket)
-                            });
-                          }
-                          overdueActions.push({
-                            id: 'maps',
-                            label: 'Buka Google Maps',
-                            icon: <MapPin className="w-3.5 h-3.5" />,
-                            onClick: () => openCustomerAddressInGoogleMaps(ticket)
-                          });
-                          overdueActions.push({
-                            id: 'copy_wo',
-                            label: 'Salin No. WO',
-                            icon: <Copy className="w-3.5 h-3.5" />,
-                            dividerBefore: true,
-                            onClick: () => {
-                              navigator.clipboard?.writeText(ticket.woNumber);
-                              toast.info(`Nomor WO ${ticket.woNumber} disalin.`);
-                            }
-                          });
-                          return (
-                            <div className="inline-flex items-center justify-end">
-                              <ActionDropdownMenu
-                                actions={overdueActions}
-                                triggerLabel={`Aksi WO ${ticket.woNumber}`}
-                                align="right"
-                                size="sm"
-                              />
-                            </div>
-                          );
-                        })()}
+                        {renderRowActionMenu(ticket, canReassign)}
                       </td>
                     </tr>
                   );

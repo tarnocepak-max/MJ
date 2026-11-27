@@ -17652,14 +17652,15 @@ export async function createExpressApp(options?: {
   app.get('/api/leader/quota-config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      const allowedRoles = new Set(['leader', 'super_admin', 'dispatch']);
-      if (!allowedRoles.has(user.role)) {
-        return res.status(403).json({ success: false, error: 'Akses Ditolak.', code: 'FORBIDDEN' });
+      if (user.role !== 'super_admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Hanya Superadmin yang dapat mengakses dan mengelola kuota WO teknisi.',
+          code: 'FORBIDDEN_SUPERADMIN_ONLY'
+        });
       }
       const requestedContractor = String(req.query.contractor || '').trim();
-      const targetContractor = user.role === 'leader'
-        ? (user.contractor || requestedContractor || 'default')
-        : (requestedContractor || user.contractor || 'default');
+      const targetContractor = requestedContractor || user.contractor || 'default';
       const settingKey = normalizeLeaderQuotaKey(targetContractor);
 
       const readRes = await readGlobalConfigUnified(settingKey);
@@ -17688,20 +17689,63 @@ export async function createExpressApp(options?: {
     }
   });
 
-  app.put('/api/leader/quota-config', requireLeaderOrAdminForAssignment, async (req: AuthenticatedRequest, res: Response) => {
+  app.get('/api/leader/technician-capacity', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
-      const body = req.body || {};
-      const requestedContractor = String(body.contractorName || '').trim();
-      if (requestedContractor && user.contractor && !isContractorMatch(requestedContractor, user.contractor)) {
+      if (user.role !== 'leader' && user.role !== 'super_admin') {
         return res.status(403).json({
           success: false,
-          error: `Akses Ditolak: Anda hanya berwenang mengubah batas kuota untuk kontraktor ${user.contractor}.`,
-          code: 'SCOPE_MISMATCH'
+          error: 'Akses Ditolak.',
+          code: 'FORBIDDEN'
+        });
+      }
+      const requestedContractor = String(req.query.contractor || '').trim();
+      const targetContractor =
+        user.role === 'leader'
+          ? (user.contractor || requestedContractor || 'default')
+          : (requestedContractor || user.contractor || 'default');
+      const settingKey = normalizeLeaderQuotaKey(targetContractor);
+
+      const readRes = await readGlobalConfigUnified(settingKey);
+      if (!readRes.success) {
+        return res.status(readRes.status || 503).json({
+          success: false,
+          error: readRes.message || 'Gagal membaca kapasitas kuota teknisi.',
+          code: readRes.code || 'DATABASE_UNAVAILABLE'
         });
       }
 
-      const targetContractor = user.contractor || requestedContractor || 'default';
+      const config = normalizeLeaderQuotaPayload(readRes.value, targetContractor);
+      return res.json({
+        success: true,
+        readOnly: true,
+        key: settingKey,
+        config: {
+          ...config,
+          updatedBy: readRes.updatedBy || undefined,
+          updatedAt: readRes.updatedAt || undefined
+        },
+        version: readRes.version || 0,
+        isPersistedInDb: Boolean(readRes.value)
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat kapasitas teknisi.' });
+    }
+  });
+
+  app.put('/api/leader/quota-config', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'super_admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Akses Ditolak: Hanya Superadmin yang berwenang mengubah konfigurasi kuota WO teknisi.',
+          code: 'FORBIDDEN_SUPERADMIN_ONLY'
+        });
+      }
+      const body = req.body || {};
+      const requestedContractor = String(body.contractorName || '').trim();
+      const targetContractor = requestedContractor || user.contractor || 'default';
       const settingKey = normalizeLeaderQuotaKey(targetContractor);
       const normalized = {
         ...normalizeLeaderQuotaPayload(body, targetContractor),
@@ -17725,10 +17769,10 @@ export async function createExpressApp(options?: {
       }
 
       await logServerAuditAsync(
-        'Leader Quota Policy Updated',
+        'Technician Quota Policy Updated',
         'app_settings',
         settingKey,
-        `Leader ${user.name} (${targetContractor}) memperbarui kuota harian: default=${normalized.defaultMaxDailyQuota}, strict=${normalized.enforceStrictLimit}, custom=${Object.keys(normalized.customInstallerLimits).length} teknisi`,
+        `Superadmin ${user.name} memperbarui kuota harian (${targetContractor}): default=${normalized.defaultMaxDailyQuota}, strict=${normalized.enforceStrictLimit}, custom=${Object.keys(normalized.customInstallerLimits).length} teknisi`,
         user,
         { newState: normalized }
       );

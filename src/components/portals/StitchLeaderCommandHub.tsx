@@ -33,7 +33,6 @@ import {
   Send,
   ShieldCheck,
   Sliders,
-  Sparkles,
   TrendingUp,
   UserCheck,
   Users2,
@@ -55,9 +54,9 @@ import {
 } from '../../services/woLifecycleService';
 import {
   buildTechnicianCapacitySummaries,
-  computeAutoBalancePlan,
   DEFAULT_LEADER_QUOTA_CONFIG,
   fetchLeaderQuotaConfig,
+  fetchLeaderTechnicianCapacity,
   LeaderQuotaConfig,
   normalizeSlotIndex,
   TechnicianCapacitySummary
@@ -303,19 +302,22 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
   const [isRefreshingNow, setIsRefreshingNow] = useState(false);
   const [feedFilter, setFeedFilter] = useState<'all' | 'checkin' | 'issue' | 'complete'>('all');
 
-  // Instant Disposition / Auto-Balance Modal state
+  // Instant Disposition Modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [assignModalMode, setAssignModalMode] = useState<'manual' | 'auto'>('manual');
   const [modalTicketId, setModalTicketId] = useState<string>('');
   const [modalInstallerName, setModalInstallerName] = useState<string>('');
   const [modalSlotTime, setModalSlotTime] = useState<string>('');
   const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
 
-  // Load Leader Quota config from real backend API
+  // Load technician capacity limits (Superadmin reads quota-config; Leader reads read-only technician-capacity)
   useEffect(() => {
     let active = true;
     const scope = leaderContractor || displayContractor;
-    fetchLeaderQuotaConfig(scope)
+    const fetcher =
+      currentUser.role === 'super_admin'
+        ? fetchLeaderQuotaConfig(scope)
+        : fetchLeaderTechnicianCapacity(scope);
+    fetcher
       .then(res => {
         if (active && res.success && res.config) {
           setQuotaConfig(res.config);
@@ -325,7 +327,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     return () => {
       active = false;
     };
-  }, [leaderContractor, displayContractor]);
+  }, [currentUser.role, leaderContractor, displayContractor]);
 
   // Fallback 15-second Live Feed polling ONLY when SSE is not connected and tab is visible
   useEffect(() => {
@@ -847,16 +849,6 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     };
   }, [todayTickets, technicianSummaries]);
 
-  // Auto-balance plan preview computed cleanly from canonical service
-  const autoBalancePlan = useMemo(() => {
-    return computeAutoBalancePlan({
-      targetTickets: metrics.unassignedTickets,
-      installers: myInstallers,
-      existingTodayTickets: todayTickets,
-      quotaConfig
-    });
-  }, [metrics.unassignedTickets, myInstallers, todayTickets, quotaConfig]);
-
   // Navigation Helpers
   const navigateWithDrilldown = (
     filterKey: WOKpiFilterKey,
@@ -948,13 +940,12 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
     }
   };
 
-  const openQuickAssignModal = (opts?: { ticketId?: string; installerName?: string; mode?: 'manual' | 'auto' }) => {
+  const openQuickAssignModal = (opts?: { ticketId?: string; installerName?: string }) => {
     const defaultTicketId = opts?.ticketId || metrics.unassignedTickets[0]?.id || '';
     const firstAvailTech =
       technicianSummaries.find(s => !s.isFull)?.installer.name ||
       myInstallers[0]?.name ||
       '';
-    setAssignModalMode(opts?.mode || 'manual');
     setModalTicketId(defaultTicketId);
     setModalInstallerName(opts?.installerName || firstAvailTech);
     const chosenT = todayTickets.find(t => t.id === defaultTicketId);
@@ -1014,52 +1005,6 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               techSummary.installer.id
             );
       if (res.success) {
-        setAssignModalOpen(false);
-      }
-    } finally {
-      setIsSubmittingAssign(false);
-    }
-  };
-
-  const handleExecuteAutoBalance = async () => {
-    if (currentUser.role !== 'leader') {
-      toast.error('Hanya akun Leader yang dapat menjalankan Auto-Balance.', 'Akses Ditolak');
-      return;
-    }
-    if (autoBalancePlan.planned.length === 0) {
-      toast.warning('Tidak ada pasangan WO & teknisi tersedia untuk Auto-Balance.', 'Tidak Ada Rencana');
-      return;
-    }
-    setIsSubmittingAssign(true);
-    try {
-      const grouped = new Map<string, { installerId: string; installerName: string; ids: string[] }>();
-      autoBalancePlan.planned.forEach(item => {
-        const entry = grouped.get(item.installer.id) || {
-          installerId: item.installer.id,
-          installerName: item.installer.name,
-          ids: []
-        };
-        entry.ids.push(item.ticket.id);
-        grouped.set(item.installer.id, entry);
-      });
-
-      let okCount = 0;
-      let failCount = 0;
-      for (const group of grouped.values()) {
-        const r = await bulkAssignPersonnel(
-          group.ids,
-          currentUser.name,
-          group.installerName,
-          undefined,
-          undefined,
-          group.installerId
-        );
-        okCount += r.count || 0;
-        if (!r.success) {
-          failCount += r.failedCount ?? group.ids.length;
-        }
-      }
-      if (failCount === 0 && okCount > 0) {
         setAssignModalOpen(false);
       }
     } finally {
@@ -1166,7 +1111,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             <button
               type="button"
-              onClick={() => openQuickAssignModal({ mode: metrics.unassignedTickets.length > 1 ? 'auto' : 'manual' })}
+              onClick={() => openQuickAssignModal()}
               className="mj-btn-leader-primary px-4 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -1339,7 +1284,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
             type="button"
             onClick={() =>
               metrics.unassignedTickets.length > 0
-                ? openQuickAssignModal({ mode: 'manual' })
+                ? openQuickAssignModal()
                 : navigateWithDrilldown('assigned', 'assigned')
             }
             className={`w-full py-1.5 text-[11px] text-center cursor-pointer ${
@@ -1594,7 +1539,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               type="button"
               onClick={() => {
                 if (slot.unassigned > 0) {
-                  openQuickAssignModal({ mode: 'manual' });
+                  openQuickAssignModal();
                 } else if (onSwitchLeaderTab) {
                   onSwitchLeaderTab('wo_assignment', 'all');
                 } else {
@@ -1834,7 +1779,6 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                             type="button"
                             onClick={() =>
                               openQuickAssignModal({
-                                mode: 'manual',
                                 installerName: inst.name
                               })
                             }
@@ -1884,7 +1828,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => openQuickAssignModal({ mode: 'manual', installerName: s.installer.name })}
+                              onClick={() => openQuickAssignModal({ installerName: s.installer.name })}
                               className="mj-btn-leader-primary mj-btn-xs px-2.5 py-0.5 text-[10px] shrink-0 cursor-pointer"
                             >
                               Assign
@@ -2101,7 +2045,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                           {!assigned && (
                             <button
                               type="button"
-                              onClick={() => openQuickAssignModal({ ticketId: t.id, mode: 'manual' })}
+                              onClick={() => openQuickAssignModal({ ticketId: t.id })}
                               className="mj-btn-leader-primary mj-btn-xs px-2.5 py-1 text-[11px] cursor-pointer"
                             >
                               Assign
@@ -2274,7 +2218,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => openQuickAssignModal({ ticketId: t.id, mode: 'manual' })}
+                      onClick={() => openQuickAssignModal({ ticketId: t.id })}
                       className="mj-btn-leader-primary mj-btn-xs px-2.5 py-1 text-[10.5px] shrink-0 cursor-pointer"
                     >
                       Disposisi
@@ -2288,7 +2232,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               type="button"
               onClick={() =>
                 metrics.unassignedTickets.length > 0
-                  ? openQuickAssignModal({ mode: 'auto' })
+                  ? openQuickAssignModal()
                   : onSwitchLeaderTab
                   ? onSwitchLeaderTab('wo_assignment', 'all')
                   : onNavigate('wo_assignment')
@@ -2298,7 +2242,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
               <Bolt className="w-4 h-4" />
               <span>
                 {metrics.unassignedTickets.length > 0
-                  ? `Buka Modal Auto/Manual Assign (${metrics.unassignedTickets.length} Tiket)`
+                  ? `Buka Modal Assign Manual (${metrics.unassignedTickets.length} Tiket)`
                   : 'Buka Matriks Penugasan Assign WO'}
               </span>
             </button>
@@ -2408,7 +2352,7 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
       </section>
 
       {/* ==================================================================== */}
-      {/* 5. INSTANT DISPOSITION & AUTO-BALANCE MODAL                          */}
+      {/* 5. INSTANT DISPOSITION MODAL (MANUAL ASSIGNMENT)                     */}
       {/* ==================================================================== */}
       <ResponsiveModal
         isOpen={assignModalOpen}
@@ -2420,208 +2364,111 @@ export const StitchLeaderCommandHub: React.FC<StitchLeaderCommandHubProps> = ({
         size="lg"
       >
         <div className="space-y-4">
-          {/* Mode Tabs */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#EDF3F8] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
-            <button
-              type="button"
-              onClick={() => setAssignModalMode('manual')}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                assignModalMode === 'manual'
-                  ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-white shadow-xs'
-                  : 'text-[#52647A] dark:text-[#CEC0E8]'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Disposisi Manual</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAssignModalMode('auto')}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                assignModalMode === 'auto'
-                  ? 'bg-white dark:bg-[#35105E] text-[#5145A6] dark:text-white shadow-xs'
-                  : 'text-[#52647A] dark:text-[#CEC0E8]'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Smart Auto-Balance ({autoBalancePlan.planned.length})</span>
-            </button>
-          </div>
-
-          {assignModalMode === 'manual' ? (
-            metrics.unassignedTickets.length === 0 ? (
-              <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <div className="font-bold text-[#26364A] dark:text-white">
-                  Semua Work Order Hari Ini Telah Di-assign
-                </div>
-                <p>Anda dapat mengelola Reassign atau melihat jadwal slot pada menu Assign WO.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAssignModalOpen(false);
-                    if (onSwitchLeaderTab) onSwitchLeaderTab('wo_assignment', 'all');
-                    else onNavigate('wo_assignment');
-                  }}
-                  className="mj-btn-leader-primary mj-btn-compact px-4 py-2 text-xs cursor-pointer"
-                >
-                  Buka Matriks Assign WO
-                </button>
+          {metrics.unassignedTickets.length === 0 ? (
+            <div className="p-6 text-center rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] text-xs text-[#52647A] dark:text-[#CEC0E8] space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+              <div className="font-bold text-[#26364A] dark:text-white">
+                Semua Work Order Hari Ini Telah Di-assign
               </div>
-            ) : (
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
-                    1. Pilih Work Order Unassigned ({metrics.unassignedTickets.length})
-                  </label>
-                  <select
-                    value={modalTicketId}
-                    onChange={e => {
-                      const id = e.target.value;
-                      setModalTicketId(id);
-                      const found = todayTickets.find(t => t.id === id);
-                      if (found) setModalSlotTime(found.slotTime || '');
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
-                  >
-                    {metrics.unassignedTickets.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.woNumber} — {t.customerName} ({t.clusterName || t.area} • {t.slotTime || 'Standar'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
-                    2. Pilih Teknisi Pelaksana ({myInstallers.length} Aktif)
-                  </label>
-                  <SearchableInstallerSelect
-                    value={modalInstallerName}
-                    onChange={val => setModalInstallerName(val)}
-                    options={technicianSummaries.map<SearchableInstallerOption>(s => ({
-                      id: s.installer.id,
-                      name: s.installer.name,
-                      username: s.installer.username,
-                      assignedCount: s.assignedCount,
-                      maxLimit: s.maxLimit,
-                      isFull: s.isFull,
-                      statusLabel: s.liveStatusLabel,
-                      area: s.installer.area
-                    }))}
-                    placeholder="Pilih Teknisi Pelaksana..."
-                    searchPlaceholder="Cari nama atau username installer..."
-                    isLoading={isDataLoading}
-                    disableFullOptions={quotaConfig.enforceStrictLimit}
-                    ariaLabel="Pilih teknisi pelaksana"
-                    testId="hub-assign-modal-installer-select"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-[#26364A] dark:text-white mb-1">
-                    3. Slot Jadwal Kunjungan
-                  </label>
-                  <select
-                    value={modalSlotTime}
-                    onChange={e => setModalSlotTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
-                  >
-                    <option value="">Pertahankan Slot Bawaan WO</option>
-                    <option value="09:00 - 11:00 WIB">Slot 1 (09:00 - 11:00 WIB)</option>
-                    <option value="11:00 - 13:00 WIB">Slot 2 (11:00 - 13:00 WIB)</option>
-                    <option value="13:00 - 15:00 WIB">Slot 3 (13:00 - 15:00 WIB)</option>
-                    <option value="15:00 - 17:00 WIB">Slot 4 (15:00 - 17:00 WIB)</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
-                  <button
-                    type="button"
-                    disabled={isSubmittingAssign}
-                    onClick={() => setAssignModalOpen(false)}
-                    className="mj-btn-leader-neutral px-4 py-2 cursor-pointer disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmittingAssign || !modalTicketId || !modalInstallerName}
-                    onClick={handleConfirmManualAssign}
-                    className={`mj-btn-leader-primary px-4 py-2 flex items-center gap-1.5 cursor-pointer ${
-                      isSubmittingAssign ? 'mj-btn-loading' : ''
-                    }`}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Konfirmasi Disposisi</span>
-                  </button>
-                </div>
-              </div>
-            )
+              <p>Anda dapat mengelola Reassign atau melihat jadwal slot pada menu Assign WO.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignModalOpen(false);
+                  if (onSwitchLeaderTab) onSwitchLeaderTab('wo_assignment', 'all');
+                  else onNavigate('wo_assignment');
+                }}
+                className="mj-btn-leader-primary mj-btn-compact px-4 py-2 text-xs cursor-pointer"
+              >
+                Buka Matriks Assign WO
+              </button>
+            </div>
           ) : (
             <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E]">
-                <div className="font-bold text-[#26364A] dark:text-white">
-                  Rencana Auto-Balance: {autoBalancePlan.planned.length} WO Siap Didistribusikan
-                </div>
-                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
-                  Algoritma memilih teknisi cakupan area dengan beban terendah dan bebas bentrok slot jadwal.
-                </div>
+              <div>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">
+                  1. Pilih Work Order Unassigned ({metrics.unassignedTickets.length})
+                </label>
+                <select
+                  value={modalTicketId}
+                  onChange={e => {
+                    const id = e.target.value;
+                    setModalTicketId(id);
+                    const found = todayTickets.find(t => t.id === id);
+                    if (found) setModalSlotTime(found.slotTime || '');
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
+                >
+                  {metrics.unassignedTickets.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.woNumber} — {t.customerName} ({t.clusterName || t.area} • {t.slotTime || 'Standar'})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {autoBalancePlan.planned.length === 0 ? (
-                <div className="p-4 text-center text-[#8492A5] dark:text-[#CEC0E8]">
-                  Tidak ada WO unassigned atau seluruh teknisi area telah mencapai batas kuota harian.
-                </div>
-              ) : (
-                <div className="max-h-60 overflow-y-auto divide-y divide-[#E2E8F0] dark:divide-[#35105E] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl">
-                  {autoBalancePlan.planned.map(item => (
-                    <div key={item.ticket.id} className="p-2.5 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-mono font-bold text-[#5145A6] dark:text-[#dab9ff]">
-                          {item.ticket.woNumber}
-                        </div>
-                        <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
-                          {item.ticket.customerName} • {item.ticket.clusterName || item.ticket.area}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-bold text-emerald-700 dark:text-emerald-300">
-                          → {item.installer.name}
-                        </div>
-                        <div className="text-[10px] text-[#8492A5]">
-                          {item.slotIndex ? `Slot S${item.slotIndex}` : item.ticket.slotTime || 'Fleksibel'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">
+                  2. Pilih Teknisi Pelaksana ({myInstallers.length} Aktif)
+                </label>
+                <SearchableInstallerSelect
+                  value={modalInstallerName}
+                  onChange={val => setModalInstallerName(val)}
+                  options={technicianSummaries.map<SearchableInstallerOption>(s => ({
+                    id: s.installer.id,
+                    name: s.installer.name,
+                    username: s.installer.username,
+                    assignedCount: s.assignedCount,
+                    maxLimit: s.maxLimit,
+                    isFull: s.isFull,
+                    statusLabel: s.liveStatusLabel,
+                    area: s.installer.area
+                  }))}
+                  placeholder="Pilih Teknisi Pelaksana..."
+                  searchPlaceholder="Cari nama atau username installer..."
+                  isLoading={isDataLoading}
+                  disableFullOptions={quotaConfig.enforceStrictLimit}
+                  ariaLabel="Pilih teknisi pelaksana"
+                  testId="hub-assign-modal-installer-select"
+                />
+              </div>
 
-              {autoBalancePlan.skipped.length > 0 && (
-                <div className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-                  {autoBalancePlan.skipped.length} WO dilewati karena kuota teknisi area penuh.
-                </div>
-              )}
+              <div>
+                <label className="block font-bold text-[#26364A] dark:text-white mb-1">
+                  3. Slot Jadwal Kunjungan
+                </label>
+                <select
+                  value={modalSlotTime}
+                  onChange={e => setModalSlotTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4F7FB] dark:bg-[#22123F] border border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-white font-medium"
+                >
+                  <option value="">Pertahankan Slot Bawaan WO</option>
+                  <option value="09:00 - 11:00 WIB">Slot 1 (09:00 - 11:00 WIB)</option>
+                  <option value="11:00 - 13:00 WIB">Slot 2 (11:00 - 13:00 WIB)</option>
+                  <option value="13:00 - 15:00 WIB">Slot 3 (13:00 - 15:00 WIB)</option>
+                  <option value="15:00 - 17:00 WIB">Slot 4 (15:00 - 17:00 WIB)</option>
+                </select>
+              </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
                 <button
                   type="button"
+                  disabled={isSubmittingAssign}
                   onClick={() => setAssignModalOpen(false)}
-                  className="mj-btn-leader-neutral px-4 py-2 cursor-pointer"
+                  className="mj-btn-leader-neutral px-4 py-2 cursor-pointer disabled:opacity-50"
                 >
-                  Tutup
+                  Batal
                 </button>
                 <button
                   type="button"
-                  disabled={isSubmittingAssign || autoBalancePlan.planned.length === 0}
-                  onClick={handleExecuteAutoBalance}
+                  disabled={isSubmittingAssign || !modalTicketId || !modalInstallerName}
+                  onClick={handleConfirmManualAssign}
                   className={`mj-btn-leader-primary px-4 py-2 flex items-center gap-1.5 cursor-pointer ${
                     isSubmittingAssign ? 'mj-btn-loading' : ''
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Eksekusi Auto-Balance ({autoBalancePlan.planned.length} WO)</span>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Konfirmasi Disposisi</span>
                 </button>
               </div>
             </div>

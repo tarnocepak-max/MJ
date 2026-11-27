@@ -25,6 +25,7 @@ import {
   MessageSquare,
   CheckSquare,
   Square,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -773,12 +774,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   const stickyColumnsEnabled = config.device?.pc?.stickyColumns !== false;
   const freezeColumnCount = Math.max(1, Math.min(4, config.ticketsTable.freezeColumnCount ?? 4));
 
-  // Cumulative sticky-left pixel positions for frozen data columns (after 44px selection column)
+  // Cumulative sticky-left pixel positions for frozen data columns (after 44px bulk checkbox + 40px expand column)
   const stickyLeftMap = useMemo(() => {
     const map: Record<string, { left: number; isLastFrozen: boolean }> = {};
     if (!stickyColumnsEnabled) return map;
     const freezeDataColsCount = Math.min(Math.max(0, freezeColumnCount - 1), renderedCanonicalColumns.length);
-    let accLeft = 44;
+    let accLeft = 84;
     for (let i = 0; i < freezeDataColsCount; i++) {
       const col = renderedCanonicalColumns[i];
       const w = col.width || 130;
@@ -1124,8 +1125,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
   }, [currentPage, totalPages]);
 
   const formattedAppointmentChip = formatIndonesianWODate(todayWIB || getJakartaDateString(0));
-  const stitchColSpan = 9;
-  const canonicalColSpan = renderedCanonicalColumns.length + 2;
+  const stitchColSpan = 10;
+  const canonicalColSpan = renderedCanonicalColumns.length + 3;
 
   const shouldVirtualizeRows =
     effectiveLayout === 'table' && paginatedTickets.length > 25 && !expandedDrawerTicketId;
@@ -1180,20 +1181,31 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
     const dropcoreVal = ticket.dropcoreLength ?? ticket.dropcoreLengthMeter;
     const ontSn = ticket.ontSerialNumber || ticket.technicalReport?.deviceSerialNumber;
 
+    const fullAddr =
+      ticket.streetName || (ticket as any).customerAddress || (ticket as any).address || '-';
+    const phoneStr = ticket.customerPhone || (ticket as any).phoneNumber || '';
+    const apptDateDisplay = formatIndonesianWODate(getTicketAppointmentDate(ticket) || todayWIB);
+    const isVerificationMode =
+      ticket.approvalStatus === 'BUTUH APPROVAL' ||
+      Boolean(ticket.technicalReport) ||
+      Boolean(ticket.progressReports && ticket.progressReports.length > 0);
+
     return (
       <tr className="bg-[#EDF3F8] dark:bg-[#251247]/80 border-b border-[#DDE6F0] dark:border-[#5B35B1]">
         <td colSpan={colSpan} className="p-3 sm:p-4 border-y border-[#DCE3F2] dark:border-[#5B35B1]">
-          <div className="card-3d-lavender rounded-xl p-4 shadow-md border border-[#DCE3F2] dark:border-[#5B35B1] space-y-3.5">
+          <div className="animate-in fade-in slide-in-from-top-1 duration-200 card-3d-lavender rounded-xl p-4 shadow-md border border-[#DCE3F2] dark:border-[#5B35B1] space-y-3.5">
             {/* Drawer Header with 3D Tactile CTA Buttons */}
             <div className="flex flex-wrap items-center justify-between pb-3 gap-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-lg bg-[#FFF2D9] dark:bg-[#E59A27]/20 border border-[#F2CF95] dark:border-[#E59A27]/40 text-[#9D661F] dark:text-[#E59A27] flex items-center justify-center shrink-0 shadow-2xs">
-                  <ShieldCheck className="w-5 h-5" />
+                  {isVerificationMode ? <ShieldCheck className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-display text-sm sm:text-base font-bold text-[#26364A] dark:text-white">
-                      Verifikasi Hasil Pekerjaan Teknisi
+                      {ticket.approvalStatus === 'BUTUH APPROVAL'
+                        ? 'Verifikasi Hasil Pekerjaan Teknisi'
+                        : `Detail Lengkap Work Order — ${ticket.customerName || ticket.woNumber}`}
                     </h4>
                     <StatusApprovalBadge status={ticket.approvalStatus} />
                   </div>
@@ -1251,7 +1263,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => onSelectTicket(ticket, 'report')}
+                  onClick={() => onSelectTicket(ticket, isVerificationMode ? 'report' : 'overview')}
                   className="btn-3d-ceramic inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#26364A] dark:text-[#E9D5FF] cursor-pointer whitespace-nowrap"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
@@ -1262,8 +1274,8 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                   type="button"
                   onClick={() => toggleInlineDrawer(ticket)}
                   className="btn-3d-icon w-8 h-8 cursor-pointer"
-                  title="Tutup Drawer"
-                  aria-label="Tutup Drawer"
+                  title="Collapse Detail"
+                  aria-label="Collapse Detail"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1299,6 +1311,82 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Complete Customer, Schedule, Address & Assignment Overview Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] space-y-1">
+                <span className="text-[10.5px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
+                  Pelanggan &amp; Kontak
+                </span>
+                <div className="font-bold text-[#26364A] dark:text-white truncate">
+                  {ticket.customerName || '-'}
+                </div>
+                <div className="font-mono text-[11px] text-[#5145A6] dark:text-[#D8B4FE]">
+                  ID Cust: {ticket.idCustomer || '-'}
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-[#52647A] dark:text-[#CEC0E8] font-mono">
+                  <span>{phoneStr || 'Tanpa nomor HP'}</span>
+                  {phoneStr && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenWhatsApp(ticket)}
+                      className="text-[#218A63] dark:text-emerald-300 font-sans font-bold hover:underline cursor-pointer"
+                    >
+                      WhatsApp
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] space-y-1">
+                <span className="text-[10.5px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
+                  Lokasi &amp; Node FTTH
+                </span>
+                <div className="font-semibold text-[#26364A] dark:text-white">
+                  {ticket.area || '-'} {ticket.clusterName ? `· ${ticket.clusterName}` : ''}
+                </div>
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] line-clamp-2">
+                  {fullAddr}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openCustomerAddressInGoogleMaps(ticket)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:underline cursor-pointer"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>Buka Google Maps</span>
+                </button>
+              </div>
+
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] space-y-1">
+                <span className="text-[10.5px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
+                  Jadwal &amp; Tim Operasional
+                </span>
+                <div className="font-semibold text-[#26364A] dark:text-white tabular-nums">
+                  {apptDateDisplay} · {ticket.slotTime || '-'}
+                </div>
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
+                  Kontraktor: {ticket.contactorName || ticket.contractorName || '-'}
+                </div>
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
+                  Leader: {ticket.leaderName || ticket.corlapName || '-'} · Tech: {ticket.installerName || 'Unassigned'}
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E] space-y-1.5">
+                <span className="text-[10.5px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
+                  Status Workflow &amp; Kategori
+                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  <StatusAgentBadge status={ticket.statusWOAgent} />
+                  <StatusInstallerBadge status={ticket.statusWOInstaller} />
+                  <StatusWhatsAppBadge status={ticket.statusWhatsApp} />
+                </div>
+                <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
+                  {ticket.ticketCategory || ticket.appointmentType || 'FTTH'} {ticket.plan ? `· ${ticket.plan}` : ''}
+                </div>
+              </div>
+            </div>
 
             {/* 4-Card Telemetry & Optical Specifications Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -2278,6 +2366,9 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         )}
                       </button>
                     </th>
+                    <th className="py-2.5 px-2 w-10 min-w-[40px] max-w-[40px] text-center whitespace-nowrap">
+                      DETAIL
+                    </th>
                     <th className="py-2.5 px-3 whitespace-nowrap">
                       <HeaderSearchPopover
                         label="WO Number"
@@ -2574,7 +2665,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 : 'hover:bg-[#F0EDFF]/65 dark:hover:bg-[#251545]/60'
                             }`}
                           >
-                            {/* 1. Checkbox */}
+                            {/* 1. Checkbox (Bulk Selection Only) */}
                             <td className="py-3 px-3 text-center align-top">
                               <button
                                 type="button"
@@ -2582,6 +2673,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   e.stopPropagation();
                                   handleToggleSelect(ticket.id);
                                 }}
+                                aria-label={`Pilih ${ticket.woNumber} untuk aksi massal`}
                                 className="text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
                               >
                                 {isSelected ? (
@@ -2592,6 +2684,28 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                               </button>
                             </td>
 
+                            {/* 1b. Dedicated Expand / Collapse Row Detail Button */}
+                            <td className="py-3 px-2 w-10 min-w-[40px] max-w-[40px] text-center align-top">
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  toggleInlineDrawer(ticket);
+                                }}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? `Collapse detail ${ticket.woNumber}` : `Expand detail ${ticket.woNumber}`}
+                                title={isExpanded ? 'Sembunyikan detail baris' : 'Tampilkan detail baris'}
+                                data-testid={`ticket-expand-${ticket.woNumber}`}
+                                className={`w-7 h-7 rounded-lg inline-flex items-center justify-center border transition-all cursor-pointer ${
+                                  isExpanded
+                                    ? 'bg-[#6657C8] dark:bg-[#7135B5] text-white border-[#5145A6] dark:border-[#9333EA] shadow-xs'
+                                    : 'bg-[#F8FAFD] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#4B386B] hover:text-[#5145A6] dark:hover:text-[#DAB9FF] hover:border-[#6657C8]/50'
+                                }`}
+                              >
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            </td>
+
                             {/* 2. WO Number + Copy + Category */}
                             <td className="py-3 px-3 align-top whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
@@ -2599,11 +2713,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                   type="button"
                                   onClick={e => {
                                     e.stopPropagation();
-                                    if (hasInlineEvidence && isUrgentRow) {
-                                      toggleInlineDrawer(ticket);
-                                    } else {
-                                      onSelectTicket(ticket);
-                                    }
+                                    onSelectTicket(ticket);
                                   }}
                                   className="font-mono text-xs font-bold text-[#5145A6] dark:text-[#D8B4FE] hover:underline cursor-pointer tabular-nums"
                                 >
@@ -2864,15 +2974,12 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                     <th
                       className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center bg-[#EDF3F8] dark:bg-[#251545] border-r border-[#DDE6F0] dark:border-[#35105E] ${
                         stickyColumnsEnabled ? 'sticky left-0 z-20' : ''
-                      } ${
-                        stickyColumnsEnabled && freezeColumnCount === 1
-                          ? 'shadow-[2px_0_4px_-2px_rgba(38,54,74,0.08)]'
-                          : ''
                       }`}
                     >
                       <button
                         type="button"
                         onClick={handleSelectAll}
+                        aria-label="Pilih semua baris pada halaman ini"
                         className="text-[#5145A6] dark:text-[#D8B4FE] cursor-pointer"
                       >
                         {selectedIds.size === paginatedTickets.length && paginatedTickets.length > 0 ? (
@@ -2881,6 +2988,17 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                           <Square className="w-4 h-4 opacity-60" />
                         )}
                       </button>
+                    </th>
+                    <th
+                      className={`py-3 px-2 w-10 min-w-[40px] max-w-[40px] text-center bg-[#EDF3F8] dark:bg-[#251545] border-r border-[#DDE6F0] dark:border-[#35105E] ${
+                        stickyColumnsEnabled ? 'sticky left-[44px] z-20' : ''
+                      } ${
+                        stickyColumnsEnabled && freezeColumnCount === 1
+                          ? 'shadow-[2px_0_4px_-2px_rgba(38,54,74,0.08)]'
+                          : ''
+                      }`}
+                    >
+                      DETAIL
                     </th>
 
                     {renderedCanonicalColumns.map(col => {
@@ -3241,6 +3359,27 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                             <td
                               className={`py-2.5 px-3 w-11 min-w-[44px] max-w-[44px] text-center ${stickyCellBg} border-r border-[#DDE6F0] dark:border-[#35105E] transition-colors ${
                                 stickyColumnsEnabled ? 'sticky left-0 z-10' : ''
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleToggleSelect(ticket.id);
+                                }}
+                                aria-label={`Pilih ${ticket.woNumber} untuk aksi massal`}
+                                className="text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+                            <td
+                              className={`py-2.5 px-2 w-10 min-w-[40px] max-w-[40px] text-center ${stickyCellBg} border-r border-[#DDE6F0] dark:border-[#35105E] transition-colors ${
+                                stickyColumnsEnabled ? 'sticky left-[44px] z-10' : ''
                               } ${
                                 stickyColumnsEnabled && freezeColumnCount === 1
                                   ? 'shadow-[2px_0_4px_-2px_rgba(38,54,74,0.06)]'
@@ -3251,15 +3390,19 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                                 type="button"
                                 onClick={e => {
                                   e.stopPropagation();
-                                  handleToggleSelect(ticket.id);
+                                  toggleInlineDrawer(ticket);
                                 }}
-                                className="text-[#8492A5] hover:text-[#5145A6] dark:text-[#8B8495] dark:hover:text-[#D8B4FE] cursor-pointer"
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? `Collapse detail ${ticket.woNumber}` : `Expand detail ${ticket.woNumber}`}
+                                title={isExpanded ? 'Sembunyikan detail baris' : 'Tampilkan detail baris'}
+                                data-testid={`ticket-expand-canonical-${ticket.woNumber}`}
+                                className={`w-7 h-7 rounded-lg inline-flex items-center justify-center border transition-all cursor-pointer ${
+                                  isExpanded
+                                    ? 'bg-[#6657C8] dark:bg-[#7135B5] text-white border-[#5145A6] dark:border-[#9333EA] shadow-xs'
+                                    : 'bg-[#F8FAFD] dark:bg-[#160D29] text-[#52647A] dark:text-[#CEC0E8] border-[#DDE6F0] dark:border-[#4B386B] hover:text-[#5145A6] dark:hover:text-[#DAB9FF] hover:border-[#6657C8]/50'
+                                }`}
                               >
-                                {isSelected ? (
-                                  <CheckSquare className="w-4 h-4 text-[#6657C8] dark:text-[#A78BFA]" />
-                                ) : (
-                                  <Square className="w-4 h-4" />
-                                )}
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                               </button>
                             </td>
 

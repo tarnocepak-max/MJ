@@ -29,6 +29,7 @@ interface OpsCommandHeroProps {
   onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
   onOpenWhatsApp?: (ticket: Ticket) => void;
   onDrillDown?: (filterKey: WOKpiFilterKey, filters?: { contractor?: string; area?: string }) => void;
+  overviewTopSlot?: React.ReactNode;
 }
 
 export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
@@ -37,7 +38,8 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
   onNavigate,
   onSelectTicket,
   onOpenWhatsApp,
-  onDrillDown
+  onDrillDown,
+  overviewTopSlot
 }) => {
   const {
     currentUser,
@@ -257,22 +259,26 @@ export const OpsCommandHero: React.FC<OpsCommandHeroProps> = ({
         </div>
       </div>
 
-      {/* TAB 1: ROLE-ADAPTIVE STITCH COMMAND CENTER (Dispatch Workspace vs Superadmin Master Console) */}
-      {activeView === 'overview' &&
-        (currentUser.role === 'dispatch' ? (
-          <StitchDispatchWorkspace
-            onNavigate={onNavigate}
-            onSelectTicket={onSelectTicket}
-            onOpenWhatsApp={onOpenWhatsApp}
-            onDrillDown={resolvedDrillDown}
-          />
-        ) : (
-          <StitchOpsCommandCenter
-            onNavigate={onNavigate}
-            onSelectTicket={onSelectTicket}
-            onDrillDown={resolvedDrillDown}
-          />
-        ))}
+      {/* TAB 1: ROLE-ADAPTIVE STITCH COMMAND CENTER (Position 1 & 2 Priority Cards first, then Command Workspace) */}
+      {activeView === 'overview' && (
+        <>
+          {overviewTopSlot}
+          {currentUser.role === 'dispatch' ? (
+            <StitchDispatchWorkspace
+              onNavigate={onNavigate}
+              onSelectTicket={onSelectTicket}
+              onOpenWhatsApp={onOpenWhatsApp}
+              onDrillDown={resolvedDrillDown}
+            />
+          ) : (
+            <StitchOpsCommandCenter
+              onNavigate={onNavigate}
+              onSelectTicket={onSelectTicket}
+              onDrillDown={resolvedDrillDown}
+            />
+          )}
+        </>
+      )}
 
       {/* TAB 1B: STITCH AI DISPATCH VERIFICATION & QC DESK */}
       {activeView === 'verification' && (

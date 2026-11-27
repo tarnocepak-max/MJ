@@ -171,6 +171,48 @@ export async function fetchLeaderQuotaConfig(contractorName?: string): Promise<{
   };
 }
 
+export async function fetchLeaderTechnicianCapacity(contractorName?: string): Promise<{
+  success: boolean;
+  config: LeaderQuotaConfig;
+  key?: string;
+  version?: number;
+  isPersistedInDb?: boolean;
+  readOnly?: boolean;
+  latencyMs?: number;
+  error?: string;
+}> {
+  const started = performance.now();
+  const qs = contractorName ? `?contractor=${encodeURIComponent(contractorName)}` : '';
+  const res = await fetch(`/api/leader/technician-capacity${qs}`, {
+    credentials: 'include',
+    headers: getAuthHeaders()
+  });
+  const latencyMs = Math.max(1, Math.round(performance.now() - started));
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) {
+    return {
+      success: false,
+      config: { ...DEFAULT_LEADER_QUOTA_CONFIG, contractorName: contractorName || '' },
+      readOnly: true,
+      latencyMs,
+      error: json?.error || `Gagal memuat kapasitas kuota teknisi (${res.status})`
+    };
+  }
+  return {
+    success: true,
+    config: {
+      ...DEFAULT_LEADER_QUOTA_CONFIG,
+      ...(json.config || {}),
+      customInstallerLimits: { ...(json.config?.customInstallerLimits || {}) }
+    },
+    key: json.key,
+    version: json.version,
+    isPersistedInDb: json.isPersistedInDb,
+    readOnly: true,
+    latencyMs
+  };
+}
+
 export async function saveLeaderQuotaConfig(config: LeaderQuotaConfig): Promise<{
   success: boolean;
   config?: LeaderQuotaConfig;

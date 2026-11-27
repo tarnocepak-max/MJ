@@ -33,7 +33,6 @@ import {
   MessageSquare,
   Clock,
   UserPlus,
-  KeyRound,
   Shield,
   Building2,
   Phone,
@@ -53,7 +52,6 @@ import {
   Filter,
   X,
   AlertTriangle,
-  Sparkles,
   RefreshCw,
   FileSpreadsheet,
   Printer,
@@ -111,11 +109,11 @@ import {
 } from '../../services/assignmentClientHelpers';
 import {
   fetchLeaderQuotaConfig,
+  fetchLeaderTechnicianCapacity,
   saveLeaderQuotaConfig,
   fetchLeaderAssignmentFeed,
   executeBulkReassignApi,
   buildTechnicianCapacitySummaries,
-  computeAutoBalancePlan,
   normalizeSlotIndex,
   normalizeQuotaKeySlug,
   DEFAULT_LEADER_QUOTA_CONFIG,
@@ -185,7 +183,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     refreshActiveTickets,
     activeKpiDrilldown,
     setActiveKpiDrilldown,
-    setIsChangePasswordModalOpen,
     markTicketEditing
   } = useApp();
   const { isCompactUI } = useResponsiveViewport();
@@ -231,9 +228,30 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
 
   // Leader contractor & area + strict role authorization (App Flow 2 & 3)
   const isLeaderRole = currentUser.role === 'leader';
+  const isSuperAdminRole = currentUser.role === 'super_admin';
   const leaderContractor = currentUser.contractor || '';
   const leaderArea = currentUser.area || '';
-  const displayContractor = leaderContractor || contractorsList?.[0] || 'Belum Terpetakan';
+  const allQuotaContractors = useMemo(() => {
+    const set = new Set<string>();
+    (contractorsList || []).forEach(c => {
+      const clean = String(c || '').trim();
+      if (clean) set.add(clean);
+    });
+    (users || []).forEach(u => {
+      const clean = String(u.contractor || '').trim();
+      if (clean) set.add(clean);
+    });
+    if (leaderContractor.trim()) set.add(leaderContractor.trim());
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [contractorsList, users, leaderContractor]);
+  const [selectedQuotaContractor, setSelectedQuotaContractor] = useState<string>(
+    () => leaderContractor || contractorsList?.[0] || ''
+  );
+  const displayContractor =
+    (isSuperAdminRole && activeTab === 'quota_settings' && selectedQuotaContractor) ||
+    leaderContractor ||
+    contractorsList?.[0] ||
+    'Belum Terpetakan';
   const displayArea = leaderArea || areasList?.[0] || 'Belum Terpetakan';
 
   const isScopeTextMatch = (a?: string | null, b?: string | null): boolean => {
@@ -244,23 +262,37 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   };
 
   // Persistent Quota Settings (Backend Express + Supabase PostgreSQL `app_settings`)
-  const QUOTA_STORAGE_KEY = `morajaws_leader_quota_${(leaderContractor || 'default').replace(/\s+/g, '_').toLowerCase()}`;
+  const effectiveQuotaContractor =
+    isSuperAdminRole && selectedQuotaContractor
+      ? selectedQuotaContractor
+      : leaderContractor || displayContractor;
+  const QUOTA_STORAGE_KEY = `morajaws_leader_quota_${(effectiveQuotaContractor || 'default').replace(/\s+/g, '_').toLowerCase()}`;
   const [quotaSettings, setQuotaSettings] = useState<QuotaSettings>(() => {
     try {
       const saved = safeLocalStorageGet(QUOTA_STORAGE_KEY);
-      if (saved) return { ...DEFAULT_QUOTA_SETTINGS, ...JSON.parse(saved), contractorName: displayContractor };
+      if (saved) return { ...DEFAULT_QUOTA_SETTINGS, ...JSON.parse(saved), contractorName: effectiveQuotaContractor };
     } catch {}
-    return { ...DEFAULT_QUOTA_SETTINGS, contractorName: displayContractor };
+    return { ...DEFAULT_QUOTA_SETTINGS, contractorName: effectiveQuotaContractor };
   });
   const [isSavingQuota, setIsSavingQuota] = useState(false);
   const [quotaApiLatencyMs, setQuotaApiLatencyMs] = useState<number | null>(null);
   const [assignmentFeed, setAssignmentFeed] = useState<AssignmentFeedEntry[]>([]);
 
-  // Load persisted quota configuration and recent reassign feed from backend
+  // Load persisted quota configuration (Superadmin: /api/leader/quota-config, Leader: read-only /api/leader/technician-capacity)
   useEffect(() => {
     let active = true;
-    const contractorScope = leaderContractor || displayContractor;
-    fetchLeaderQuotaConfig(contractorScope).then(res => {
+    const contractorScope = effectiveQuotaContractor;
+    const quotaPromise = isSuperAdminRole
+      ? fetchLeaderQuotaConfig(contractorScope)
+      : isLeaderRole
+      ? fetchLeaderTechnicianCapacity(contractorScope)
+      : Promise.resolve({
+          success: false,
+          config: { ...DEFAULT_LEADER_QUOTA_CONFIG, contractorName: contractorScope },
+          latencyMs: undefined
+        });
+
+    quotaPromise.then(res => {
       if (!active) return;
       if (typeof res.latencyMs === 'number') setQuotaApiLatencyMs(res.latencyMs);
       if (res.success && res.config) {
@@ -298,10 +330,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       active = false;
       unsubQuota();
     };
-  }, [leaderContractor, displayContractor, QUOTA_STORAGE_KEY]);
+  }, [isSuperAdminRole, isLeaderRole, effectiveQuotaContractor, QUOTA_STORAGE_KEY]);
 
   const reloadAssignmentFeed = async () => {
-    const contractorScope = leaderContractor || displayContractor;
+    const contractorScope = effectiveQuotaContractor;
     const res = await fetchLeaderAssignmentFeed({ contractor: contractorScope, action: 'reassign', limit: 35 }).catch(() => ({
       success: false,
       feed: []
@@ -312,14 +344,14 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
   };
 
   const saveQuotaSettings = async (updates: Partial<QuotaSettings>) => {
-    if (!isLeaderRole) {
-      toast.error('Akses Ditolak: Hanya akun Leader yang dapat mengubah batas kuota teknisi.', 'Otoritas Dibatasi');
+    if (!isSuperAdminRole) {
+      toast.error('Akses Ditolak: Hanya Superadmin yang berwenang mengubah batas kuota teknisi.', 'Otoritas Dibatasi');
       return;
     }
     const next: QuotaSettings = {
       ...quotaSettings,
       ...updates,
-      contractorName: leaderContractor || displayContractor
+      contractorName: effectiveQuotaContractor
     };
     const prevSnapshot = quotaSettings;
     setQuotaSettings(next);
@@ -1417,87 +1449,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
     }
   };
 
-  // Auto-Balance Slot Engine (Leader Only, Real Slot Matching + Quota Check)
-  const handleExecuteAutoBalance = async () => {
-    if (!isLeaderRole) {
-      toast.error('Akses Ditolak: Hanya Leader yang berwenang menjalankan Auto-Balance Slot.', 'Akses Ditolak');
-      return;
-    }
-    if (isSubmittingAssign) return;
-    const targetPool =
-      selectedTicketIds.length > 0
-        ? filteredTickets.filter(t => selectedTicketIds.includes(t.id) && !t.installerName)
-        : filteredTickets.filter(t => !t.installerName);
-
-    if (targetPool.length === 0) {
-      toast.info('Tidak ada Work Order Unassigned pada antrean filter aktif untuk diseimbangkan.', 'Antrean Kosong');
-      return;
-    }
-
-    const plan = computeAutoBalancePlan({
-      targetTickets: targetPool,
-      installers: myInstallers,
-      existingTodayTickets: todayContractorTickets,
-      quotaConfig: quotaSettings
-    });
-
-    if (plan.planned.length === 0) {
-      toast.warning(
-        plan.skipped[0]?.reason || 'Semua teknisi aktif dalam area sudah mencapai batas kuota harian.',
-        'Auto-Balance Tidak Tersedia'
-      );
-      return;
-    }
-
-    // Group planned tickets by chosen technician and dispatch sequentially through authoritative API
-    const grouped = new Map<string, { installerId: string; installerName: string; ids: string[] }>();
-    plan.planned.forEach(item => {
-      const existing = grouped.get(item.installer.id) || {
-        installerId: item.installer.id,
-        installerName: item.installer.name,
-        ids: []
-      };
-      existing.ids.push(item.ticket.id);
-      grouped.set(item.installer.id, existing);
-    });
-
-    setIsSubmittingAssign(true);
-    try {
-      let dispatched = 0;
-      let failedCount = 0;
-      let firstError = '';
-      for (const group of grouped.values()) {
-        const r = await bulkAssignPersonnel(
-          group.ids,
-          currentUser.name,
-          group.installerName,
-          undefined,
-          undefined,
-          group.installerId
-        );
-        dispatched += r.count || 0;
-        if (!r.success) {
-          failedCount += r.failedCount ?? group.ids.length;
-          if (!firstError && r.error) firstError = r.error;
-        }
-      }
-
-      const skippedNote = plan.skipped.length > 0 ? ` (${plan.skipped.length} WO dilewati karena kuota penuh)` : '';
-      if (failedCount > 0) {
-        triggerNotice(
-          'error',
-          `Auto-Balance selesai sebagian: ${dispatched} WO berhasil, ${failedCount} gagal.${firstError ? ` Penyebab: ${firstError}` : ''}`
-        );
-        return;
-      }
-
-      setSelectedTicketIds([]);
-      triggerNotice('success', `Auto-Balance Slot selesai: ${dispatched} WO didistribusikan merata ke teknisi siaga${skippedNote}.`);
-    } finally {
-      setIsSubmittingAssign(false);
-    }
-  };
-
   // Direct Assign from Right Sidebar Technician Card
   const handleDirectAssignToTechnician = async (installer: User) => {
     if (!isLeaderRole || isSubmittingAssign) return;
@@ -2464,20 +2415,8 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               </div>
             </div>
 
-            {/* Right Action Cluster: Primary Smart Dispatch + Secondary Tools */}
+            {/* Right Action Cluster: Manual Operational Tools */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {isLeaderRole && activeTab === 'wo_assignment' && (
-                <button
-                  type="button"
-                  onClick={handleExecuteAutoBalance}
-                  className="mj-btn-leader-primary px-4 py-2 rounded-2xl text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  title="Smart Dispatch: Distribusikan otomatis WO Unassigned sesuai slot waktu & kuota terendah"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Smart Dispatch</span>
-                </button>
-              )}
-
               <button
                 type="button"
                 disabled={!isLeaderRole}
@@ -2502,15 +2441,17 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => setIsDailyLimitModalOpen(true)}
-                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-              >
-                <Sliders className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
-                <span className="hidden sm:inline">Limit Harian</span>
-                <span className="sm:hidden">Limit</span>
-              </button>
+              {isSuperAdminRole && (
+                <button
+                  type="button"
+                  onClick={() => setIsDailyLimitModalOpen(true)}
+                  className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
+                  <span className="hidden sm:inline">Limit Harian</span>
+                  <span className="sm:hidden">Limit</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -2519,17 +2460,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               >
                 <Download className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
                 <span>Export</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsChangePasswordModalOpen(true)}
-                className="mj-btn-leader-neutral px-3 py-2 text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                title="Ganti Password Akun Leader"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#dab9ff]" />
-                <span className="hidden sm:inline">Ganti Password</span>
-                <span className="sm:hidden">Password</span>
               </button>
             </div>
           </div>
@@ -2668,8 +2598,10 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 </div>
 
                 <div
-                  onClick={() => setIsDailyLimitModalOpen(true)}
-                  className="hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex-col justify-between cursor-pointer hover:border-[#6657C8] transition-all"
+                  onClick={isSuperAdminRole ? () => setIsDailyLimitModalOpen(true) : undefined}
+                  className={`hidden lg:flex bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-3.5 shadow-[0_2px_10px_rgba(38,54,74,0.04)] flex-col justify-between transition-all ${
+                    isSuperAdminRole ? 'cursor-pointer hover:border-[#6657C8]' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-1 text-[#52647A] dark:text-[#CEC0E8]">
                     <span className="text-[10.5px] font-bold truncate">Utilisasi Kuota</span>
@@ -2950,7 +2882,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 bulkQuickInstaller={bulkQuickInstaller}
                 onBulkQuickInstallerChange={setBulkQuickInstaller}
                 onExecuteBulkQuickAssign={handleExecuteBulkQuickAssign}
-                onExecuteAutoBalance={handleExecuteAutoBalance}
               isLeaderRole={isLeaderRole}
               isSubmittingAssign={isSubmittingAssign}
               isLoadingInstallers={isDataLoading}
@@ -3002,6 +2933,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
               technicians={technicianSummaries}
               auditFeed={mergedAuditFeed}
               isLeaderRole={isLeaderRole}
+              canManageQuota={isSuperAdminRole}
               isSavingQuota={isSavingQuota}
               selectedCount={selectedTicketIds.length}
               hasUnassignedTickets={summaryMetrics.unassigned > 0}
@@ -3044,7 +2976,6 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
           summaryMetrics={summaryMetrics}
           onOpenReassignModal={handleOpenReassignModal}
           onOpenBulkReassign={() => setIsBulkReassignModalOpen(true)}
-          onExecuteAutoBalance={handleExecuteAutoBalance}
           onExportExcel={handleExportExcel}
           onOpenAuditTrail={() => setIsAuditTrailModalOpen(true)}
           onSelectTicket={onSelectTicket}
@@ -3110,13 +3041,24 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* TAB 4: PENGATURAN KUOTA & KOLOM VISIBILITAS (STITCH)         */}
+      {/* TAB 4: PENGATURAN KUOTA & LIMIT TEKNISI (SUPERADMIN ONLY)    */}
       {/* ============================================================ */}
-      {activeTab === 'quota_settings' && (
+      {activeTab === 'quota_settings' && !isSuperAdminRole && (
+        <div className="bg-white dark:bg-[#1E1238] rounded-2xl border border-rose-200 dark:border-rose-800 p-6 text-center space-y-2 text-xs">
+          <Lock className="w-7 h-7 text-rose-600 mx-auto" />
+          <div className="font-bold text-sm text-[#26364A] dark:text-white">
+            Akses Ditolak: Pengaturan Kuota WO Teknisi
+          </div>
+          <p className="text-[#52647A] dark:text-[#CEC0E8]">
+            Hanya Superadmin yang berwenang melihat dan mengubah konfigurasi kuota harian teknisi.
+          </p>
+        </div>
+      )}
+      {activeTab === 'quota_settings' && isSuperAdminRole && (
         <div className={`grid gap-4 text-xs ${isCompactUI ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12 items-start'}`}>
           {/* Card 1: Pengaturan Kuota Harian & Limit Teknisi */}
           <div className="lg:col-span-12 bg-white dark:bg-[#1E1238] rounded-2xl border border-[#DDE6F0] dark:border-[#3E246F] p-5 sm:p-6 shadow-[0_3px_0_#E2E8F0,0_6px_16px_rgba(38,54,74,0.05)] dark:shadow-[0_3px_0_#120826] space-y-5">
-            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
+            <div className="flex flex-wrap items-start justify-between gap-3 pb-3.5 border-b border-[#E2E8F0] dark:border-[#35105E]">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 bg-[#DDF4F4] dark:bg-[#35105E] text-[#2E7D8B] dark:text-[#dab9ff] rounded-xl flex items-center justify-center shrink-0">
                   <Sliders className="w-5 h-5" />
@@ -3129,13 +3071,29 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     Pengaturan Kuota Harian &amp; Limit Teknisi
                   </h3>
                   <p className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
-                    Kontrol distribusi beban kerja harian {displayContractor} · {displayArea}
+                    Kontrol distribusi beban kerja harian {effectiveQuotaContractor} · {displayArea}
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#C5BEEF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0 tabular-nums">
-                AKTIF: {summaryMetrics.assigned}/{totalMaxSlots} WO
-              </span>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {allQuotaContractors.length > 0 && (
+                  <select
+                    aria-label="Pilih Kontraktor untuk Pengaturan Kuota"
+                    value={effectiveQuotaContractor}
+                    onChange={e => setSelectedQuotaContractor(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl bg-[#F4F7FB] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] text-xs font-bold text-[#26364A] dark:text-white"
+                  >
+                    {allQuotaContractors.map(c => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <span className="px-2.5 py-1 rounded-full bg-[#EAE8FF] dark:bg-[#2E1B59] border border-[#C5BEEF] dark:border-[#58149C]/50 font-mono text-[10.5px] font-bold text-[#5145A6] dark:text-[#DAB9FF] shrink-0 tabular-nums">
+                  AKTIF: {summaryMetrics.assigned}/{totalMaxSlots} WO
+                </span>
+              </div>
             </div>
 
             {/* 2-Column Numeric Limit & Capacity Summary */}
@@ -3150,7 +3108,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                     type="number"
                     min={1}
                     max={12}
-                    disabled={!isLeaderRole || isSavingQuota}
+                    disabled={!isSuperAdminRole || isSavingQuota}
                     value={quotaSettings.defaultMaxDailyQuota}
                     onChange={e => saveQuotaSettings({ defaultMaxDailyQuota: Number(e.target.value) })}
                     className="tactile-debossed-input w-20 px-3 py-2 bg-white dark:bg-[#1E1238] border border-[#CBD5E1] dark:border-[#4b386b] rounded-xl font-mono font-extrabold text-base text-[#26364A] dark:text-white focus:outline-hidden focus:border-[#6657C8] tabular-nums"
@@ -3222,7 +3180,7 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                   <input
                     type="checkbox"
-                    disabled={!isLeaderRole || isSavingQuota}
+                    disabled={!isSuperAdminRole || isSavingQuota}
                     checked={quotaSettings.enforceStrictLimit}
                     onChange={e => saveQuotaSettings({ enforceStrictLimit: e.target.checked })}
                     className="sr-only peer"
@@ -3623,15 +3581,15 @@ export const LeaderPortal: React.FC<LeaderPortalProps> = ({
       />
 
       {/* ============================================================ */}
-      {/* MODAL 8: DAILY LIMIT SETTINGS MODAL (ATUR LIMIT HARIAN)      */}
+      {/* MODAL 8: DAILY LIMIT SETTINGS MODAL (SUPERADMIN ONLY)        */}
       {/* ============================================================ */}
       <DailyLimitSettingsModal
-        isOpen={isDailyLimitModalOpen}
+        isOpen={isSuperAdminRole && isDailyLimitModalOpen}
         onClose={() => setIsDailyLimitModalOpen(false)}
         quotaConfig={quotaSettings}
         technicians={technicianSummaries}
-        contractorName={displayContractor}
-        isLeaderRole={isLeaderRole}
+        contractorName={effectiveQuotaContractor}
+        canManageQuota={isSuperAdminRole}
         isSaving={isSavingQuota}
         onSave={async nextConfig => {
           await saveQuotaSettings(nextConfig);

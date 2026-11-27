@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Wand2,
   MapPin,
   MessageSquare,
   Clock,
@@ -78,7 +77,6 @@ interface LeaderAssignMatrixPanelProps {
   bulkQuickInstaller: string;
   onBulkQuickInstallerChange: (name: string) => void;
   onExecuteBulkQuickAssign: () => void;
-  onExecuteAutoBalance: () => void;
 
   // Per-card actions
   isLeaderRole: boolean;
@@ -227,7 +225,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
   bulkQuickInstaller,
   onBulkQuickInstallerChange,
   onExecuteBulkQuickAssign,
-  onExecuteAutoBalance,
   isLeaderRole,
   isSubmittingAssign = false,
   isLoadingInstallers = false,
@@ -431,19 +428,6 @@ export const LeaderAssignMatrixPanel: React.FC<LeaderAssignMatrixPanelProps> = (
           </div>
 
           <div className="flex flex-wrap items-center gap-2 ml-auto">
-            {isLeaderRole && (
-              <button
-                type="button"
-                disabled={isSubmittingAssign}
-                onClick={onExecuteAutoBalance}
-                title="Auto-Balance Slot: distribusikan otomatis WO Unassigned sesuai slot waktu & sisa kuota terendah"
-                className="mj-btn-leader-neutral mj-btn-compact px-3 py-1.5 text-[#5145A6] dark:text-[#dab9ff] cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-bold">Auto-Balance</span>
-              </button>
-            )}
-
             {effectiveViewMode === 'table' && (
               <>
                 <button

@@ -112,7 +112,6 @@ export function canRoleNavigateToTab(role: UserRole, tab?: string): boolean {
       'reassign_wo',
       'progress_dashboard',
       'installer_mgmt',
-      'quota_settings',
       'contractor_recap',
       'monitoring_maps',
       'overdue_wo',

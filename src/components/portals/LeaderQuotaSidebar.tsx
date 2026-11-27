@@ -12,6 +12,7 @@ interface LeaderQuotaSidebarProps {
   technicians: TechnicianCapacitySummary[];
   auditFeed: AssignmentFeedEntry[];
   isLeaderRole: boolean;
+  canManageQuota?: boolean;
   isSavingQuota: boolean;
   selectedCount: number;
   hasUnassignedTickets: boolean;
@@ -62,6 +63,7 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
   technicians,
   auditFeed,
   isLeaderRole,
+  canManageQuota = false,
   isSavingQuota,
   selectedCount,
   hasUnassignedTickets,
@@ -109,33 +111,38 @@ export const LeaderQuotaSidebar: React.FC<LeaderQuotaSidebarProps> = ({
           Sistem otomatis mengunci teknisi berkuota penuh untuk menjaga kualitas SOP &amp; waktu tempuh.
         </p>
 
-        {/* Enforcement Toggle Strip */}
+        {/* Enforcement Strip (Editable strictly by Superadmin, read-only indicator for Leader) */}
         <div className="bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 min-h-[44px]">
           <span className="text-[11.5px] font-semibold text-[#26364A] dark:text-[#E8DDFF] flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
             <span>Enforcement Kunci Slot Melebihi Kuota</span>
           </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={quotaConfig.enforceStrictLimit}
-            disabled={!isLeaderRole || isSavingQuota}
-            onClick={() => onToggleStrictEnforcement(!quotaConfig.enforceStrictLimit)}
-            title={
-              isLeaderRole
-                ? 'Aktifkan/nonaktifkan penguncian slot melebihi kuota'
-                : 'Hanya Leader yang dapat mengubah mode enforcement'
-            }
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-              quotaConfig.enforceStrictLimit ? 'bg-[#6657C8] dark:bg-[#7135B5]' : 'bg-[#CFDCE8] dark:bg-[#35105E]'
-            } ${!isLeaderRole || isSavingQuota ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
+          {canManageQuota ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={quotaConfig.enforceStrictLimit}
+              disabled={isSavingQuota}
+              onClick={() => onToggleStrictEnforcement(!quotaConfig.enforceStrictLimit)}
+              title="Aktifkan/nonaktifkan penguncian slot melebihi kuota"
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                quotaConfig.enforceStrictLimit ? 'bg-[#6657C8] dark:bg-[#7135B5]' : 'bg-[#CFDCE8] dark:bg-[#35105E]'
+              } ${isSavingQuota ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                  quotaConfig.enforceStrictLimit ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          ) : (
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
-                quotaConfig.enforceStrictLimit ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+              className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#EDF3F8] dark:bg-[#261942] text-[#52647A] dark:text-[#CEC0E8] border border-[#DDE6F0] dark:border-[#3E246F] shrink-0"
+              title="Kebijakan kuota dikelola oleh Superadmin"
+            >
+              {quotaConfig.enforceStrictLimit ? 'Terkunci (Admin)' : 'Soft Warning'}
+            </span>
+          )}
         </div>
 
         {/* Technician Quota Cards Stack */}

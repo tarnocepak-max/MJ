@@ -28,7 +28,7 @@ interface DailyLimitSettingsModalProps {
   quotaConfig: LeaderQuotaConfig;
   technicians: TechnicianCapacitySummary[];
   contractorName: string;
-  isLeaderRole: boolean;
+  canManageQuota: boolean;
   isSaving: boolean;
   onSave: (nextConfig: LeaderQuotaConfig) => Promise<void>;
 }
@@ -39,7 +39,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
   quotaConfig,
   technicians,
   contractorName,
-  isLeaderRole,
+  canManageQuota,
   isSaving,
   onSave
 }) => {
@@ -59,7 +59,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLeaderRole || isSaving) return;
+    if (!canManageQuota || isSaving) return;
     await onSave({
       ...quotaConfig,
       contractorName,
@@ -88,7 +88,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
           >
             Tutup
           </button>
-          {isLeaderRole && (
+          {canManageQuota && (
             <button
               type="submit"
               form="leader-daily-limit-form"
@@ -116,7 +116,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
                 type="number"
                 min={1}
                 max={12}
-                disabled={!isLeaderRole}
+                disabled={!canManageQuota}
                 value={defaultLimit}
                 onChange={e => setDefaultLimit(Number(e.target.value) || 1)}
                 className="tactile-debossed-input w-20 min-h-[44px] sm:min-h-[40px] px-3 py-2 bg-[#FFFFFF] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#4B386B] rounded-xl font-mono font-bold text-sm text-[#5145A6] dark:text-[#DAB9FF] tabular-nums focus:outline-hidden focus:ring-2 focus:ring-[#6657C8] dark:focus:ring-[#58149C]"
@@ -141,11 +141,11 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
               type="button"
               role="switch"
               aria-checked={strictLimit}
-              disabled={!isLeaderRole}
+              disabled={!canManageQuota}
               onClick={() => setStrictLimit(prev => !prev)}
               className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
                 strictLimit ? 'bg-[#6657C8] dark:bg-[#7135B5]' : 'bg-[#CFDCE8] dark:bg-[#35105E]'
-              } ${!isLeaderRole ? 'opacity-60 cursor-not-allowed' : ''}`}
+              } ${!canManageQuota ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -163,7 +163,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
               <Users2 className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
               <span>Custom Limit per Teknisi ({technicians.length} Teknisi Aktif)</span>
             </div>
-            {Object.keys(customLimits).length > 0 && isLeaderRole && (
+            {Object.keys(customLimits).length > 0 && canManageQuota && (
               <button
                 type="button"
                 onClick={() => setCustomLimits({})}
@@ -204,7 +204,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
                         type="number"
                         min={1}
                         max={12}
-                        disabled={!isLeaderRole}
+                        disabled={!canManageQuota}
                         value={effectiveVal}
                         onChange={e => {
                           const val = Math.min(Math.max(Math.round(Number(e.target.value) || 1), 1), 12);
@@ -215,7 +215,7 @@ export const DailyLimitSettingsModal: React.FC<DailyLimitSettingsModalProps> = (
                         }}
                         className="tactile-debossed-input w-16 min-h-[40px] px-2.5 py-1.5 bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#4B386B] rounded-lg font-mono font-bold text-center text-[#26364A] dark:text-white tabular-nums"
                       />
-                      {hasOverride && isLeaderRole && (
+                      {hasOverride && canManageQuota && (
                         <button
                           type="button"
                           onClick={() => {

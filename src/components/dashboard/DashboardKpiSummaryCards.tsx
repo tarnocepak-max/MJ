@@ -22,9 +22,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { WOKpiFilterKey, WOKpiSummary } from '../../types';
-import { computeClientKpiSummary } from '../../services/woLifecycleService';
-import { StatusBadge } from '../common/Badge';
+import { Ticket, WOKpiFilterKey, WOKpiSummary } from '../../types';
+import { computeClientKpiSummary, getTicketCanonicalApprovalStatus } from '../../services/woLifecycleService';
+import { getTicketAppointmentDate } from '../../services/appointmentDateParser';
+import { StatusApprovalBadge, StatusBadge, StatusInstallerBadge } from '../common/Badge';
 import { ResponsiveDataTable, ResponsiveColumn } from '../common/ResponsiveDataTable';
 import { SortState, getNextSortDirection, sortDataArray } from '../../utils/tableSorting';
 
@@ -34,8 +35,11 @@ interface DashboardKpiSummaryCardsProps {
     filters?: { contractor?: string; area?: string }
   ) => void;
   onOpenHistoryReport?: () => void;
+  onSelectTicket?: (ticket: Ticket, defaultTab?: 'overview' | 'report' | 'chat' | 'history') => void;
+  onOpenVerificationDesk?: () => void;
   compact?: boolean;
   defaultPerspective?: 'overview' | 'vendor' | 'area' | 'leader' | 'installer';
+  sectionMode?: 'full' | 'operational_and_approval' | 'perspectives_only';
 }
 
 interface KpiCardDef {
@@ -53,12 +57,16 @@ interface KpiCardDef {
 export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> = ({
   onDrillDown,
   onOpenHistoryReport,
+  onSelectTicket,
+  onOpenVerificationDesk,
   compact = false,
-  defaultPerspective = 'overview'
+  defaultPerspective = 'overview',
+  sectionMode = 'full'
 }) => {
   const {
     currentUser,
     tickets,
+    scopedTickets,
     todayWIB,
     kpiSummary,
     isKpiLoading,
@@ -87,8 +95,13 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     });
   }, [lastKpiUpdatedAt]);
 
+  const initialPerspective =
+    sectionMode === 'perspectives_only' && defaultPerspective === 'overview'
+      ? 'vendor'
+      : defaultPerspective;
+
   const [perspective, setPerspective] = useState<'overview' | 'vendor' | 'area' | 'leader' | 'installer'>(
-    defaultPerspective
+    initialPerspective
   );
 
   // Interactive table header search/filter/sort state for breakdown tables
@@ -383,6 +396,56 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     return allCards;
   }, [allCards, isInstaller]);
 
+  const APPROVAL_CARD_KEYS = useMemo(
+    () =>
+      new Set<WOKpiFilterKey>([
+        'butuh_approval',
+        'approved',
+        'approved_done',
+        'approved_pending',
+        'approved_reschedule',
+        'approved_cancel',
+        'revision_rejected',
+        'closed'
+      ]),
+    []
+  );
+
+  const operationalCards = useMemo(
+    () => visibleCards.filter(card => !APPROVAL_CARD_KEYS.has(card.key)),
+    [visibleCards, APPROVAL_CARD_KEYS]
+  );
+
+  const approvalCards = useMemo(
+    () => visibleCards.filter(card => APPROVAL_CARD_KEYS.has(card.key)),
+    [visibleCards, APPROVAL_CARD_KEYS]
+  );
+
+  const approvalPreviewQueue = useMemo(() => {
+    const source = scopedTickets || tickets || [];
+    return source
+      .filter(t => {
+        if (!t || t.isArchived || t.isDeleted) return false;
+        if (getTicketAppointmentDate(t) !== todayWIB) return false;
+        if (kpiContractorFilter !== 'ALL') {
+          const v = String(t.contactorName || t.contractorName || '').trim().toLowerCase();
+          if (v !== kpiContractorFilter.trim().toLowerCase()) return false;
+        }
+        if (kpiAreaFilter !== 'ALL') {
+          const a = String(t.area || '').trim().toLowerCase();
+          if (a !== kpiAreaFilter.trim().toLowerCase()) return false;
+        }
+        return getTicketCanonicalApprovalStatus(t) === 'BUTUH APPROVAL';
+      })
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt).getTime() -
+          new Date(a.updatedAt || a.createdAt).getTime()
+      )
+      .slice(0, 5);
+  }, [scopedTickets, tickets, todayWIB, kpiContractorFilter, kpiAreaFilter]);
+
   const handleCardClick = (filterKey: WOKpiFilterKey) => {
     onDrillDown(filterKey, {
       contractor: kpiContractorFilter !== 'ALL' ? kpiContractorFilter : undefined,
@@ -390,154 +453,380 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
     });
   };
 
+  const renderKpiCardButton = (card: KpiCardDef) => {
+    const Icon = card.icon;
+    return (
+      <button
+        key={card.key}
+        type="button"
+        onClick={() => handleCardClick(card.key)}
+        className={`card-3d-lavender group text-left rounded-xl p-3.5 transition-all hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#6657C8] min-h-[96px] flex flex-col justify-between`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] leading-snug">
+            {card.label}
+          </span>
+          <span
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${card.accentBg} ${card.accentText}`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+          </span>
+        </div>
+        <div className="mt-2 flex items-baseline justify-between gap-2">
+          <span className="text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white font-mono tabular-nums">
+            {card.value}
+          </span>
+          <span className="text-[10px] font-bold text-[#5145A6] dark:text-[#D8B4FE] opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
+            Detail <ChevronRight className="w-3 h-3" />
+          </span>
+        </div>
+        <p className="mt-1 text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
+          {card.sublabel}
+        </p>
+      </button>
+    );
+  };
+
+  const perspectiveTabs = [
+    ...(sectionMode === 'full'
+      ? [{ id: 'overview', label: `${visibleCards.length} KPI Summary Cards`, icon: Layers }]
+      : []),
+    { id: 'vendor', label: `Perspektif Vendor / Kontraktor (${effectiveSummary.byVendor.length})`, icon: Building2 },
+    { id: 'area', label: `Per Area (${effectiveSummary.byArea.length})`, icon: MapPin },
+    { id: 'leader', label: `Per Leader (${effectiveSummary.byLeader.length})`, icon: Users },
+    { id: 'installer', label: `Per Teknisi (${effectiveSummary.byInstaller.length})`, icon: UserCheck }
+  ] as const;
+
   return (
     <section aria-label="WO Lifecycle KPI Summary" className="space-y-4">
-      {/* Unified Aqua-Violet Glass Command Banner (Light) / Deep Purple Command Banner (Night) */}
-      <div className="rounded-2xl bg-gradient-to-br from-white/95 via-[#F4F7FB]/92 to-[#EAE8FF]/88 dark:from-[#240C45] dark:via-[#35105E] dark:to-[#1A0933] text-[#26364A] dark:text-white p-4 sm:p-5 border border-[#CFDCE8] dark:border-[#7135B5]/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_4px_0_#DDE6F0,0_14px_28px_-10px_rgba(38,54,74,0.10)] dark:shadow-[0_6px_0_#130626,0_14px_28px_-8px_rgba(36,12,69,0.45)]">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-[#EAE8FF] dark:bg-[#7135B5] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-white/15">
-                <Activity className="w-3.5 h-3.5" />
-                <span>WO Lifecycle Live KPI</span>
-              </span>
-              <span className="text-xs font-mono font-semibold tabular-nums text-[#2E7D8B] dark:text-[#D8B4FE]">
-                WIB: {todayWIB}
-              </span>
-              <span className="px-2 py-0.5 rounded bg-[#E4F5EC] dark:bg-emerald-500/20 text-[#218A63] dark:text-emerald-300 border border-[#B7E4CC] dark:border-transparent font-mono text-[10.5px] font-bold tabular-nums">
-                Approval: {c.approvalRatePct}% · Done: {c.completionRatePct}%
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold tabular-nums ${
-                  realtimeConnectionState === 'connected'
-                    ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/15 dark:text-emerald-300'
-                    : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
-                    ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-500/15 dark:text-amber-300'
-                    : 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    realtimeConnectionState === 'connected'
-                      ? 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
-                      : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
-                      ? 'bg-[#C88735] animate-pulse'
-                      : 'bg-[#D45B66]'
-                  }`}
-                />
-                <span>
-                  {realtimeConnectionState === 'connected'
-                    ? 'Live SSE'
-                    : realtimeConnectionState === 'reconnecting'
-                    ? 'Reconnecting'
-                    : realtimeConnectionState === 'connecting'
-                    ? 'Connecting'
-                    : 'Terputus'}
-                  {lastKpiWibLabel ? ` · Update ${lastKpiWibLabel} WIB` : ''}
-                </span>
-              </span>
+      {sectionMode !== 'perspectives_only' && (
+        <>
+          {/* Position 1: Monitoring Status Operasional */}
+          <div data-testid="dashboard-monitoring-operational" className="space-y-3.5">
+            {/* Unified Aqua-Violet Glass Command Banner (Light) / Deep Purple Command Banner (Night) */}
+            <div className="rounded-2xl bg-gradient-to-br from-white/95 via-[#F4F7FB]/92 to-[#EAE8FF]/88 dark:from-[#240C45] dark:via-[#35105E] dark:to-[#1A0933] text-[#26364A] dark:text-white p-4 sm:p-5 border border-[#CFDCE8] dark:border-[#7135B5]/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_4px_0_#DDE6F0,0_14px_28px_-10px_rgba(38,54,74,0.10)] dark:shadow-[0_6px_0_#130626,0_14px_28px_-8px_rgba(36,12,69,0.45)]">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-[#EAE8FF] dark:bg-[#7135B5] text-[#5145A6] dark:text-white border border-[#DCE3F2] dark:border-white/15">
+                      <Activity className="w-3.5 h-3.5" />
+                      <span>WO Lifecycle Live KPI</span>
+                    </span>
+                    <span className="text-xs font-mono font-semibold tabular-nums text-[#2E7D8B] dark:text-[#D8B4FE]">
+                      WIB: {todayWIB}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-[#E4F5EC] dark:bg-emerald-500/20 text-[#218A63] dark:text-emerald-300 border border-[#B7E4CC] dark:border-transparent font-mono text-[10.5px] font-bold tabular-nums">
+                      Approval: {c.approvalRatePct}% · Done: {c.completionRatePct}%
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold tabular-nums ${
+                        realtimeConnectionState === 'connected'
+                          ? 'bg-[#E4F5EC] text-[#218A63] dark:bg-emerald-500/15 dark:text-emerald-300'
+                          : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                          ? 'bg-[#FFF2D9] text-[#9D661F] dark:bg-amber-500/15 dark:text-amber-300'
+                          : 'bg-[#FCE9EB] text-[#9B2C37] dark:bg-rose-500/15 dark:text-rose-300'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          realtimeConnectionState === 'connected'
+                            ? 'bg-[#218A63] dark:bg-emerald-400 animate-pulse'
+                            : realtimeConnectionState === 'reconnecting' || realtimeConnectionState === 'connecting'
+                            ? 'bg-[#C88735] animate-pulse'
+                            : 'bg-[#D45B66]'
+                        }`}
+                      />
+                      <span>
+                        {realtimeConnectionState === 'connected'
+                          ? 'Live SSE'
+                          : realtimeConnectionState === 'reconnecting'
+                          ? 'Reconnecting'
+                          : realtimeConnectionState === 'connecting'
+                          ? 'Connecting'
+                          : 'Terputus'}
+                        {lastKpiWibLabel ? ` · Update ${lastKpiWibLabel} WIB` : ''}
+                      </span>
+                    </span>
+                  </div>
+                  <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white">
+                    Monitoring Status Operasional
+                  </h2>
+                  <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
+                    Ringkasan progres operasional hari ini. Klik kartu untuk drill-down ke daftar Work Order.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Vendor & Area Filters */}
+                  {isGlobalRole ? (
+                    <>
+                      <div className="relative w-full sm:w-auto">
+                        <Building2 className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <select
+                          aria-label="Filter Vendor Kontraktor"
+                          value={kpiContractorFilter}
+                          onChange={(e) => setKpiContractorFilter(e.target.value)}
+                          className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
+                        >
+                          <option value="ALL">Semua Vendor / Kontraktor</option>
+                          {contractorsList.map(vendor => (
+                            <option key={vendor} value={vendor}>
+                              {vendor}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="relative w-full sm:w-auto">
+                        <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <select
+                          aria-label="Filter Area"
+                          value={kpiAreaFilter}
+                          onChange={(e) => setKpiAreaFilter(e.target.value)}
+                          className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
+                        >
+                          <option value="ALL">Semua Area</option>
+                          {areasList.map(area => (
+                            <option key={area} value={area}>
+                              {area}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs text-[#52647A] dark:text-[#E9D5FF]">
+                      <Filter className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
+                      <span>
+                        Scope:{' '}
+                        <strong className="text-[#26364A] dark:text-white">
+                          {currentUser.contractor || 'Semua Vendor'} {currentUser.area ? `· ${currentUser.area}` : ''}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+
+                  {onOpenHistoryReport && (
+                    <button
+                      type="button"
+                      onClick={onOpenHistoryReport}
+                      className="btn-3d-primary inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      <span>History Progress</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => refreshKpiSummary()}
+                    disabled={isKpiLoading}
+                    className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60 whitespace-nowrap"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isKpiLoading && !kpiSummary ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Perspective Tabs (only shown inline in full mode) */}
+              {sectionMode === 'full' && !isInstaller && !compact && (
+                <div className="mt-4 pt-3 border-t border-[#DDE6F0] dark:border-white/10 flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  {perspectiveTabs.map(tab => {
+                    const Icon = tab.icon;
+                    const active = perspective === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setPerspective(tab.id as any)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                          active
+                            ? 'btn-3d-primary text-white'
+                            : 'bg-white/85 dark:bg-white/10 text-[#52647A] dark:text-[#E9D5FF] hover:bg-[#F0EDFF] dark:hover:bg-white/18 hover:text-[#5145A6] dark:hover:text-white border border-[#DDE6F0] dark:border-white/10'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white">
-              Monitoring Status Operasional &amp; Approval Work Order
-            </h2>
-            <p className="text-xs text-[#52647A] dark:text-[#CEC0E8]">
-              Klik kartu KPI untuk drill-down langsung ke daftar Work Order terkait.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Vendor & Area Filters */}
-            {isGlobalRole ? (
-              <>
-                <div className="relative w-full sm:w-auto">
-                  <Building2 className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    aria-label="Filter Vendor Kontraktor"
-                    value={kpiContractorFilter}
-                    onChange={(e) => setKpiContractorFilter(e.target.value)}
-                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
-                  >
-                    <option value="ALL">Semua Vendor / Kontraktor</option>
-                    {contractorsList.map(vendor => (
-                      <option key={vendor} value={vendor}>
-                        {vendor}
-                      </option>
-                    ))}
-                  </select>
+            {/* Error State Banner */}
+            {kpiError && (
+              <div className="rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800 px-4 py-3 flex items-center justify-between gap-3 text-xs text-[#9B2C37] dark:text-rose-200">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Sinkronisasi KPI backend tertunda ({kpiError}). Menampilkan perhitungan sinkron lokal.</span>
                 </div>
-
-                <div className="relative w-full sm:w-auto">
-                  <MapPin className="w-3.5 h-3.5 text-[#2E7D8B] dark:text-[#D8B4FE] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    aria-label="Filter Area"
-                    value={kpiAreaFilter}
-                    onChange={(e) => setKpiAreaFilter(e.target.value)}
-                    className="w-full sm:w-auto pl-8 pr-7 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs font-medium text-[#26364A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#65B8C4]/40 dark:focus:ring-[#D8B4FE]/50"
-                  >
-                    <option value="ALL">Semua Area</option>
-                    {areasList.map(area => (
-                      <option key={area} value={area}>
-                        {area}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl bg-[#F8FAFD] dark:bg-[#160D29]/90 border border-[#DDE6F0] dark:border-[#5B35B1] text-xs text-[#52647A] dark:text-[#E9D5FF]">
-                <Filter className="w-3.5 h-3.5 text-[#6657C8] dark:text-[#D8B4FE]" />
-                <span>
-                  Scope:{' '}
-                  <strong className="text-[#26364A] dark:text-white">
-                    {currentUser.contractor || 'Semua Vendor'} {currentUser.area ? `· ${currentUser.area}` : ''}
-                  </strong>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => refreshKpiSummary()}
+                  className="btn-3d-secondary px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Coba Lagi
+                </button>
               </div>
             )}
 
-            {onOpenHistoryReport && (
+            {/* Unmapped Distribution Alert Banner (Dispatch & Super Admin) */}
+            {isGlobalRole && c.unmappedDistribution > 0 && (
               <button
                 type="button"
-                onClick={onOpenHistoryReport}
-                className="btn-3d-primary inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl text-xs font-bold cursor-pointer whitespace-nowrap"
+                onClick={() => handleCardClick('unmapped_distribution')}
+                className="w-full text-left rounded-xl bg-[#FFF2D9] dark:bg-orange-950/40 border border-[#F2CF95] dark:border-orange-800 px-4 py-3 flex items-center justify-between gap-3 hover:brightness-[0.98] transition-colors cursor-pointer"
               >
-                <History className="w-3.5 h-3.5" />
-                <span>History Progress</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#C88735]/15 text-[#9D661F] dark:text-orange-300 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#9D661F] dark:text-orange-200">
+                      {c.unmappedDistribution} Work Order Belum Terdistribusi ke Leader
+                    </p>
+                    <p className="text-[11px] text-[#9D661F]/90 dark:text-orange-300">
+                      Mapping Vendor + Area belum menemukan Leader aktif. Klik untuk meninjau &amp; mendistribusikan manual.
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#9D661F] dark:text-orange-300 shrink-0">
+                  Lihat Antrean <ChevronRight className="w-4 h-4" />
+                </span>
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => refreshKpiSummary()}
-              disabled={isKpiLoading}
-              className="btn-3d-lilac inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] sm:min-h-[38px] rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60 whitespace-nowrap"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isKpiLoading && !kpiSummary ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+            {/* Operational Status KPI Cards Grid (when operational_and_approval mode) */}
+            {sectionMode === 'operational_and_approval' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+                {operationalCards.map(renderKpiCardButton)}
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Perspective Tabs (for non-installer roles) — clean horizontal scroll on mobile */}
-        {!isInstaller && !compact && (
-          <div className="mt-4 pt-3 border-t border-[#DDE6F0] dark:border-white/10 flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            {(
-              [
-                { id: 'overview', label: `${visibleCards.length} KPI Summary Cards`, icon: Layers },
-                { id: 'vendor', label: `Perspektif Vendor / Kontraktor (${effectiveSummary.byVendor.length})`, icon: Building2 },
-                { id: 'area', label: `Per Area (${effectiveSummary.byArea.length})`, icon: MapPin },
-                { id: 'leader', label: `Per Leader (${effectiveSummary.byLeader.length})`, icon: Users },
-                { id: 'installer', label: `Per Teknisi (${effectiveSummary.byInstaller.length})`, icon: UserCheck }
-              ] as const
-            ).map(tab => {
+          {/* Position 2: Approval Work Order */}
+          {sectionMode === 'operational_and_approval' && (
+            <div
+              data-testid="dashboard-approval-work-order"
+              className="card-3d-lavender rounded-2xl p-4 sm:p-5 space-y-4 border border-[#DCE3F2] dark:border-[#5B35B1]"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#FFF2D9] dark:bg-orange-950/60 border border-[#F2CF95] dark:border-orange-800 text-[#C88735] dark:text-orange-300 flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-[#26364A] dark:text-white">
+                        Approval Work Order
+                      </h2>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold tabular-nums ${
+                          c.butuhApproval > 0
+                            ? 'bg-[#FFF2D9] text-[#9D661F] border border-[#F2CF95] dark:bg-orange-950/70 dark:text-orange-200 dark:border-orange-800'
+                            : 'bg-[#E4F5EC] text-[#218A63] border border-[#B7E4CC] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                        }`}
+                      >
+                        {c.butuhApproval} Menunggu Approval
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#52647A] dark:text-[#CEC0E8] mt-0.5">
+                      Verifikasi laporan teknisi, approval Dispatch, revisi, dan penutupan Work Order.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick('butuh_approval')}
+                    className="btn-3d-lilac px-3 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <span>Lihat Semua Antrean</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  {onOpenVerificationDesk && (
+                    <button
+                      type="button"
+                      onClick={onOpenVerificationDesk}
+                      className="btn-3d-primary px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5" />
+                      <span>Buka Antrean Verifikasi QC</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+                {approvalCards.map(renderKpiCardButton)}
+              </div>
+
+              {approvalPreviewQueue.length > 0 && (
+                <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] uppercase tracking-wider">
+                    <span>Antrean Terbaru Butuh Approval ({approvalPreviewQueue.length} dari {c.butuhApproval})</span>
+                    <span className="font-mono text-[#5145A6] dark:text-[#D8B4FE]">WIB {todayWIB}</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    {approvalPreviewQueue.map(ticket => (
+                      <div
+                        key={ticket.id}
+                        className="p-3 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] flex items-center justify-between gap-2.5"
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-[#5145A6] dark:text-[#D8B4FE]">
+                              {ticket.woNumber}
+                            </span>
+                            <StatusApprovalBadge status={ticket.approvalStatus} />
+                          </div>
+                          <div className="text-xs font-bold text-[#26364A] dark:text-white truncate">
+                            {ticket.customerName}
+                          </div>
+                          <div className="text-[11px] text-[#52647A] dark:text-[#CEC0E8] truncate">
+                            {ticket.installerName || '-'} · {ticket.contactorName || ticket.contractorName || '-'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSelectTicket
+                              ? onSelectTicket(ticket, 'report')
+                              : handleCardClick('butuh_approval')
+                          }
+                          className="btn-3d-success px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer whitespace-nowrap"
+                        >
+                          Review
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Perspective Switcher Bar (perspectives_only mode) */}
+      {sectionMode === 'perspectives_only' && !isInstaller && !compact && (
+        <div className="card-3d-lavender rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs font-bold text-[#26364A] dark:text-white">
+            Breakdown Operasional Berdasarkan Dimensi
+          </div>
+          <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {perspectiveTabs.map(tab => {
               const Icon = tab.icon;
               const active = perspective === tab.id;
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setPerspective(tab.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  onClick={() => setPerspective(tab.id as any)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     active
                       ? 'btn-3d-primary text-white'
                       : 'bg-white/85 dark:bg-white/10 text-[#52647A] dark:text-[#E9D5FF] hover:bg-[#F0EDFF] dark:hover:bg-white/18 hover:text-[#5145A6] dark:hover:text-white border border-[#DDE6F0] dark:border-white/10'
@@ -549,54 +838,11 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               );
             })}
           </div>
-        )}
-      </div>
-
-      {/* Error State Banner */}
-      {kpiError && (
-        <div className="rounded-xl bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800 px-4 py-3 flex items-center justify-between gap-3 text-xs text-[#9B2C37] dark:text-rose-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Sinkronisasi KPI backend tertunda ({kpiError}). Menampilkan perhitungan sinkron lokal.</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => refreshKpiSummary()}
-            className="btn-3d-secondary px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
-          >
-            Coba Lagi
-          </button>
         </div>
       )}
 
-      {/* Unmapped Distribution Alert Banner (Dispatch & Super Admin) */}
-      {isGlobalRole && c.unmappedDistribution > 0 && (
-        <button
-          type="button"
-          onClick={() => handleCardClick('unmapped_distribution')}
-          className="w-full text-left rounded-xl bg-[#FFF2D9] dark:bg-orange-950/40 border border-[#F2CF95] dark:border-orange-800 px-4 py-3 flex items-center justify-between gap-3 hover:brightness-[0.98] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#C88735]/15 text-[#9D661F] dark:text-orange-300 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#9D661F] dark:text-orange-200">
-                {c.unmappedDistribution} Work Order Belum Terdistribusi ke Leader
-              </p>
-              <p className="text-[11px] text-[#9D661F]/90 dark:text-orange-300">
-                Mapping Vendor + Area belum menemukan Leader aktif. Klik untuk meninjau &amp; mendistribusikan manual.
-              </p>
-            </div>
-          </div>
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#9D661F] dark:text-orange-300 shrink-0">
-            Lihat Antrean <ChevronRight className="w-4 h-4" />
-          </span>
-        </button>
-      )}
-
-      {/* Perspective: 13 KPI Summary Cards */}
-      {perspective === 'overview' && (
+      {/* Perspective: 17 KPI Summary Cards (full mode) */}
+      {sectionMode === 'full' && perspective === 'overview' && (
         <div
           className={`grid gap-3 ${
             isInstaller
@@ -606,39 +852,7 @@ export const DashboardKpiSummaryCards: React.FC<DashboardKpiSummaryCardsProps> =
               : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7'
           }`}
         >
-          {visibleCards.map(card => {
-            const Icon = card.icon;
-            return (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => handleCardClick(card.key)}
-                className={`card-3d-lavender group text-left rounded-xl p-3.5 transition-all hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer ${card.borderHover} focus:outline-none focus:ring-2 focus:ring-[#6657C8] min-h-[96px] flex flex-col justify-between`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-[11px] font-bold text-[#52647A] dark:text-[#CEC0E8] leading-snug">
-                    {card.label}
-                  </span>
-                  <span
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${card.accentBg} ${card.accentText}`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-                <div className="mt-2 flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-extrabold tracking-tight text-[#26364A] dark:text-white font-mono tabular-nums">
-                    {card.value}
-                  </span>
-                  <span className="text-[10px] font-bold text-[#5145A6] dark:text-[#D8B4FE] opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center">
-                    Detail <ChevronRight className="w-3 h-3" />
-                  </span>
-                </div>
-                <p className="mt-1 text-[10px] text-[#8492A5] dark:text-[#A79BC0] truncate">
-                  {card.sublabel}
-                </p>
-              </button>
-            );
-          })}
+          {visibleCards.map(renderKpiCardButton)}
         </div>
       )}
 

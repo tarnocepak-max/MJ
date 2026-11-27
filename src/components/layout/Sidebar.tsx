@@ -149,6 +149,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (menuId === 'overdue_wo') {
       return ['super_admin', 'dispatch', 'leader'].includes(userRole);
     }
+    if (menuId === 'quota_settings') {
+      return userRole === 'super_admin';
+    }
     if (menuId === 'database_management' || menuId === 'data_deletion') {
       return userRole === 'super_admin' || (userRole === 'dispatch' && hasPermission('delete_wo_data'));
     }
@@ -268,6 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return [...list]
       .filter(item => {
         if (!item || item.visible === false) return false;
+        if (item.id === 'quota_settings' && userRole !== 'super_admin') return false;
         if (item.id === 'templates' && userRole !== 'super_admin' && userRole !== 'dispatch') return false;
         if (item.id === 'database_management') {
           return canAccessMenuId('database_management');
@@ -340,6 +344,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 subId === 'sound_settings' ||
                 subId.includes('setting'))
             ) {
+              return false;
+            }
+            // Pengaturan Kuota WO Teknisi strictly for super_admin only
+            if (subId === 'quota_settings' && userRole !== 'super_admin') {
               return false;
             }
             // Requirement 5: WhatsApp Templates strictly for super_admin and dispatch only

@@ -401,8 +401,13 @@ const MainLayout: React.FC = () => {
     if (isInstaller && !installerAllowedTabs.includes(tab)) {
       targetTab = 'installer_dashboard';
     }
-    if (currentUser?.role === 'leader' && targetTab === 'quota_settings') {
-      targetTab = 'wo_assignment';
+    if (currentUser?.role !== 'super_admin' && targetTab === 'quota_settings') {
+      targetTab =
+        currentUser?.role === 'leader'
+          ? 'wo_assignment'
+          : currentUser?.role === 'installer'
+          ? 'installer_dashboard'
+          : 'dashboard';
     }
     if (targetTab === 'database_management') {
       setDataDeletionNavContext(null);
@@ -436,8 +441,13 @@ const MainLayout: React.FC = () => {
         if (isInstaller && !installerAllowedTabs.includes(targetTab)) {
           targetTab = 'installer_dashboard';
         }
-        if (currentUser?.role === 'leader' && targetTab === 'quota_settings') {
-          targetTab = 'wo_assignment';
+        if (currentUser?.role !== 'super_admin' && targetTab === 'quota_settings') {
+          targetTab =
+            currentUser?.role === 'leader'
+              ? 'wo_assignment'
+              : currentUser?.role === 'installer'
+              ? 'installer_dashboard'
+              : 'dashboard';
         }
         setActiveTab(targetTab);
         if (
@@ -978,14 +988,18 @@ const MainLayout: React.FC = () => {
           />
         );
       case 'quota_settings':
-        if (currentUser.role === 'leader') {
+        if (currentUser.role !== 'super_admin') {
+          const redirectTarget = isInstaller
+            ? 'installer_dashboard'
+            : currentUser.role === 'leader'
+            ? 'wo_assignment'
+            : 'dashboard';
           return (
-            <LeaderPortal
-              onSelectTicket={handleOpenTicketDetail}
-              onOpenWhatsApp={handleOpenWhatsAppModal}
-              onNavigate={tab => navigateTo(tab)}
-              activeLeaderTab="wo_assignment"
-              onLeaderTabChange={tab => navigateTo(tab)}
+            <AccessDeniedRedirectView
+              title="Akses Ditolak: Pengaturan Kuota WO Teknisi"
+              description={`Pengaturan Kuota Harian WO Teknisi hanya dapat diakses dan diubah oleh Superadmin. Role Anda (${currentUser.role}) tidak memiliki izin.`}
+              redirectTarget={redirectTarget}
+              onRedirect={tab => navigateTo(tab)}
             />
           );
         }

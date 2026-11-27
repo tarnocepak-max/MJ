@@ -21,7 +21,6 @@ import {
   Phone,
   RefreshCw,
   RotateCcw,
-  Sparkles,
   UserCheck,
   Users2,
   Wrench,
@@ -75,7 +74,6 @@ interface LeaderReassignViewProps {
   };
   onOpenReassignModal: (ticket: Ticket) => void;
   onOpenBulkReassign: () => void;
-  onExecuteAutoBalance: () => void;
   onExportExcel: () => void;
   onOpenAuditTrail: () => void;
   onSelectTicket: (ticket: Ticket) => void;
@@ -177,7 +175,6 @@ export const LeaderReassignView: React.FC<LeaderReassignViewProps> = ({
   summaryMetrics,
   onOpenReassignModal,
   onOpenBulkReassign,
-  onExecuteAutoBalance,
   onExportExcel,
   onOpenAuditTrail,
   onSelectTicket,

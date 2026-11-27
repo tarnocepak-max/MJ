@@ -582,7 +582,8 @@ export const UIConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (item.id === 'quota_settings') {
           return {
             ...item,
-            label: 'Pengaturan Kuota'
+            label: 'Pengaturan Kuota',
+            roles: ['super_admin']
           };
         }
         if (item.id === 'wo_assignment') {
