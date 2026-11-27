@@ -51,9 +51,9 @@ interface FullviewLiveChatSectionProps {
 
 const CANNED_QUICK_REPLIES = [
   {
-    label: 'Check-In Lokasi',
+    label: 'Tiba di Lokasi',
     categoryHint: 'PROGRESS',
-    text: 'Teknisi sudah tiba di lokasi pelanggan dan memulai instalasi.'
+    text: 'Teknisi sudah tiba di lokasi pelanggan dan melanjutkan pengecekan instalasi.'
   },
   {
     label: 'OPM Normal',
@@ -176,7 +176,7 @@ export const FullviewLiveChatSection: React.FC<FullviewLiveChatSectionProps> = (
       onClick={() => {
         if (!isChatActive) onActivateChat();
       }}
-      className="bg-white/95 dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] shadow-xs flex flex-col h-[440px]"
+      className="bg-white/95 dark:bg-[#1E1238] rounded-xl p-3 sm:p-4 border border-[#DDE6F0] dark:border-[#35105E] shadow-xs flex flex-col flex-1 h-full min-h-0"
     >
       {/* Chat Header */}
       <div className="flex items-center justify-between pb-2.5 border-b border-[#DDE6F0] dark:border-[#35105E] shrink-0 gap-2 flex-wrap">
@@ -244,7 +244,7 @@ export const FullviewLiveChatSection: React.FC<FullviewLiveChatSectionProps> = (
       <div
         ref={streamRef}
         onScroll={handleStreamScroll}
-        className="flex-1 p-3 my-2.5 overflow-y-auto space-y-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] relative"
+        className="flex-1 min-h-0 p-3 my-2.5 overflow-y-auto space-y-2.5 bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl border border-[#DDE6F0] dark:border-[#35105E] relative"
       >
         {messages.length >= 25 && hasOlderMessages && (
           <div className="flex justify-center">
@@ -268,7 +268,7 @@ export const FullviewLiveChatSection: React.FC<FullviewLiveChatSectionProps> = (
               Belum Ada Pesan Koordinasi
             </h4>
             <p className="text-[11px] max-w-xs text-[#52647A] dark:text-[#C4B5D6] leading-relaxed">
-              Pilih kategori <strong className="text-[#5145A6] dark:text-[#DAB9FF]">PROGRESS</strong> lalu kirim pesan atau foto Check-In untuk mencatat kehadiran lapangan.
+              Pilih kategori pesan lalu kirim update lapangan atau lampiran foto ke tim Dispatch &amp; Korlap.
             </p>
           </div>
         ) : (

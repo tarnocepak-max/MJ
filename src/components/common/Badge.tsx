@@ -46,6 +46,8 @@ const BADGE_TONES = {
     'bg-[#FFF2D9] text-[#C88735] border-[#F4D392] dark:bg-orange-950/60 dark:text-orange-200 dark:border-orange-700',
   red:
     'bg-[#FCE9EB] text-[#D45B66] border-[#F2BCC2] dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-700',
+  deepRed:
+    'bg-[#FCE9EB] text-[#9B2C37] border-[#E79AA2] dark:bg-rose-950/80 dark:text-rose-100 dark:border-rose-600',
   slateDark:
     'bg-[#26364A] text-white border-[#1C2A3B] dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700'
 };
@@ -71,10 +73,10 @@ function resolveBadgeStyle(rawStatus: string, variant: StatusBadgeVariant): { la
     return { label: 'APPROVED - PENDING', style: BADGE_TONES.amber, dot: 'bg-[#C88735] dark:bg-[#B45309]' };
   }
   if (u === 'APPROVED - RESCHEDULE') {
-    return { label: 'APPROVED - RESCHEDULE', style: BADGE_TONES.violet, dot: 'bg-[#6657C8] dark:bg-[#6D28D9]' };
+    return { label: 'APPROVED - RESCHEDULE', style: BADGE_TONES.blue, dot: 'bg-[#3E81C6] dark:bg-blue-400' };
   }
   if (u === 'APPROVED - CANCEL') {
-    return { label: 'APPROVED - CANCEL', style: BADGE_TONES.red, dot: 'bg-[#D45B66] dark:bg-[#B91C1C]' };
+    return { label: 'APPROVED - CANCEL', style: BADGE_TONES.deepRed, dot: 'bg-[#9B2C37] dark:bg-rose-400' };
   }
   if (u === 'APPROVED') {
     return { label: 'APPROVED', style: BADGE_TONES.green, dot: 'bg-[#218A63] dark:bg-[#15803D]' };
@@ -97,7 +99,7 @@ function resolveBadgeStyle(rawStatus: string, variant: StatusBadgeVariant): { la
 
   // CANCEL / REVISION / REJECTED
   if (u === 'CANCEL' || u === 'CANCELLED' || u === 'FAILED / CANCELLED') {
-    return { label: 'CANCEL', style: BADGE_TONES.red, dot: 'bg-[#D45B66] dark:bg-[#B91C1C]' };
+    return { label: 'CANCEL', style: BADGE_TONES.deepRed, dot: 'bg-[#9B2C37] dark:bg-rose-400' };
   }
   if (u === 'REJECTED' || u === 'REVISI' || u === 'REVISION' || u === 'REVISION / REJECTED' || u === 'PERLU REVISI') {
     return { label: 'REVISION / REJECTED', style: BADGE_TONES.red, dot: 'bg-[#D45B66] dark:bg-[#B91C1C]' };
@@ -105,7 +107,7 @@ function resolveBadgeStyle(rawStatus: string, variant: StatusBadgeVariant): { la
 
   // RESCHEDULE
   if (u.includes('RESCHEDULE')) {
-    return { label: 'RESCHEDULE', style: BADGE_TONES.violet, dot: 'bg-[#6657C8] dark:bg-[#6D28D9]' };
+    return { label: 'RESCHEDULE', style: BADGE_TONES.blue, dot: 'bg-[#3E81C6] dark:bg-blue-400' };
   }
 
   // PENDING
@@ -168,8 +170,8 @@ export const StatusAgentBadge: React.FC<{ status: TicketStatusWOAgent | string }
   if (upper === 'CLOSED') tone = BADGE_TONES.slateDark;
   else if (upper === 'ASSIGNED' || upper === 'IN PROGRESS' || upper === 'PROGRESS') tone = BADGE_TONES.blue;
   else if (upper === 'DONE' || upper === 'RESOLVED' || upper === 'COMPLETE' || upper === 'COMPLETED') tone = BADGE_TONES.green;
-  else if (upper === 'CANCELLED' || upper === 'CANCEL') tone = BADGE_TONES.red;
-  else if (upper === 'RESCHEDULE') tone = BADGE_TONES.violet;
+  else if (upper === 'CANCELLED' || upper === 'CANCEL') tone = BADGE_TONES.deepRed;
+  else if (upper === 'RESCHEDULE') tone = BADGE_TONES.blue;
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide tabular-nums border rounded-full whitespace-nowrap ${tone}`}>
@@ -187,8 +189,8 @@ export const StatusInstallerBadge: React.FC<{
   let tone = BADGE_TONES.neutral;
   if (upper === 'COMPLETE' || upper === 'COMPLETED' || upper === 'INSTALLED') tone = BADGE_TONES.green;
   else if (upper === 'PENDING' || upper === 'PENDING TECHNICAL') tone = BADGE_TONES.amber;
-  else if (upper.includes('RESCHEDULE')) tone = BADGE_TONES.violet;
-  else if (upper.includes('CANCEL') || upper.includes('FAILED')) tone = BADGE_TONES.red;
+  else if (upper.includes('RESCHEDULE')) tone = BADGE_TONES.blue;
+  else if (upper.includes('CANCEL') || upper.includes('FAILED')) tone = BADGE_TONES.deepRed;
   else if (upper === 'ASSIGNED' || upper === 'REQUESTED' || upper === 'EN ROUTE' || upper === 'ON SITE' || upper === 'IN PROGRESS' || upper === 'PROGRESS') tone = BADGE_TONES.blue;
 
   return (
@@ -205,7 +207,7 @@ export const StatusWhatsAppBadge: React.FC<{ status: WhatsAppConfirmationStatus 
     'opened_in_whatsapp': { label: 'OPENED', style: BADGE_TONES.amber },
     'awaiting_confirmation': { label: 'AWAITING CONFIRMATION', style: BADGE_TONES.violet },
     'confirmed': { label: 'CONFIRMED', style: BADGE_TONES.green },
-    'reschedule_requested': { label: 'RESCHEDULE', style: BADGE_TONES.violet },
+    'reschedule_requested': { label: 'RESCHEDULE', style: BADGE_TONES.blue },
     'unreachable': { label: 'UNREACHABLE', style: BADGE_TONES.red },
     'invalid_number': { label: 'INVALID PHONE', style: BADGE_TONES.red },
     'cancelled': { label: 'CANCELLED', style: BADGE_TONES.neutral }

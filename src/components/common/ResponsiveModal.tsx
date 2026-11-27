@@ -23,6 +23,8 @@ export interface ResponsiveModalProps {
   layerTier?: ModalLayerTier;
   hidesBottomNav?: boolean;
   variant?: 'default' | 'dark_purple';
+  bodyClassName?: string;
+  dialogClassName?: string;
 }
 
 const SIZE_MAX_WIDTH: Record<NonNullable<ResponsiveModalProps['size']>, string> = {
@@ -49,7 +51,9 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
   zIndexClass,
   layerTier = 'modal',
   hidesBottomNav = true,
-  variant = 'default'
+  variant = 'default',
+  bodyClassName,
+  dialogClassName = ''
 }) => {
   const { isCompactUI } = useResponsiveViewport();
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -109,7 +113,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
             ? 'h-dvh rounded-none'
             : isSheetMobile
             ? 'max-h-[92dvh] rounded-t-[22px] mj-sheet-enter'
-            : `${SIZE_MAX_WIDTH[size]} max-h-[92dvh] rounded-[20px]`
+            : `${SIZE_MAX_WIDTH[size]} max-h-[92dvh] rounded-[20px] ${dialogClassName}`
         }`}
       >
         {isSheetMobile && (
@@ -191,7 +195,7 @@ export const ResponsiveModal: React.FC<ResponsiveModalProps> = ({
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <div className={bodyClassName || 'flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5'}>
           {children}
         </div>
 

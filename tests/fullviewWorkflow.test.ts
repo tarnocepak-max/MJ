@@ -74,9 +74,10 @@ test('resolveCompletedStatusHierarchy supports custom Completed/Done configs and
   assert.equal(res.defaultStatus?.reasons.filter(r => r.active !== false).length, 1);
 });
 
-test('resolveUnsuccessCategories resolves Pending, Reschedule, Cancel and Kendala Lapangan cleanly', () => {
+test('resolveUnsuccessCategories resolves Pending, Reschedule, Cancel strictly without standalone Kendala Lapangan', () => {
   const categories = resolveUnsuccessCategories(INITIAL_HIERARCHICAL_DROPLISTS);
-  assert.equal(categories.length, 4);
+  assert.equal(categories.length, 3);
+  assert.deepEqual(categories.map(c => c.key), ['pending', 'reschedule', 'cancel']);
 
   const byKey = new Map(categories.map(c => [c.key, c]));
   assert.equal(byKey.get('pending')?.flowType, 'progress_report');
@@ -91,13 +92,10 @@ test('resolveUnsuccessCategories resolves Pending, Reschedule, Cancel and Kendal
   assert.equal(byKey.get('cancel')?.matchedStatus?.id, 'hs-cancel');
   assert.equal(byKey.get('cancel')?.isConfigured, true);
 
-  assert.equal(byKey.get('kendala')?.flowType, 'kendala_modal');
-  assert.equal(byKey.get('kendala')?.matchedStatus, null);
-  assert.equal(byKey.get('kendala')?.isConfigured, true);
-
   const emptyCfg = resolveUnsuccessCategories([]);
   assert.equal(emptyCfg.find(c => c.key === 'pending')?.isConfigured, false);
-  assert.equal(emptyCfg.find(c => c.key === 'kendala')?.isConfigured, true);
+  assert.equal(emptyCfg.find(c => c.key === 'reschedule')?.isConfigured, false);
+  assert.equal(emptyCfg.find(c => c.key === 'cancel')?.isConfigured, false);
 });
 
 test('formatInstallerStatusDisplay renders Assigned as REQUESTED only for installer view', () => {

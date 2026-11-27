@@ -127,12 +127,15 @@ import {
 } from './server/supabaseAdapter.ts';
 import {
   evaluatePhotoEvidenceCompleteness,
-  buildPhotoEvidenceIncompleteErrorMessage
+  evaluateReportPhotoEvidenceRequirement,
+  buildPhotoEvidenceIncompleteErrorMessage,
+  isPersistedStoragePhotoUrl,
+  MIN_COMPLETED_PHOTO_EVIDENCE
 } from './src/utils/photoEvidenceValidation.ts';
+import { validateHierarchicalDroplistSelection } from './src/utils/hierarchicalValidation.ts';
+import { INITIAL_HIERARCHICAL_DROPLISTS } from './src/constants/hierarchicalDroplists.ts';
 import {
   resolveLeaderForWorkOrder,
-  isProgressCategoryOnly,
-  hasUserSentProgressMessage,
   isContractorMatch,
   isAreaMatch,
   doesContractorScopeMatch,
@@ -6739,30 +6742,13 @@ export async function createExpressApp(options?: {
       ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
     }
 
-    // App Flow 5: Check-in via LiveChat PROGRESS (specific to WO ID & logged-in technician User ID) is mandatory before Installer Save Report
+    // Authoritative Check-In guard: Check-In is persisted strictly via Camera + GPS Check-In (never LiveChat PROGRESS)
     if (req.user!.role === 'installer') {
-      let woMsgs: any[] = [];
-      if (isSupabaseMode()) {
-        const msgRes = await getTicketMessagesFromSupabase(ticket.id);
-        if (msgRes.success && Array.isArray(msgRes.data)) {
-          woMsgs = msgRes.data;
-        } else if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: 'Gagal memverifikasi riwayat LiveChat PROGRESS dari database.',
-            code: 'DATABASE_UNAVAILABLE'
-          });
-        }
-      }
-      if (woMsgs.length === 0 && isLocalJsonModeAllowed()) {
-        woMsgs = db.ticketMessages || [];
-      }
-      const hasProgressMsg = hasUserSentProgressMessage(woMsgs, ticket, req.user!.id);
-      if (!ticket.checkInAt || !hasProgressMsg) {
+      if (!ticket.checkInAt) {
         return res.status(400).json({
           success: false,
           code: 'CHECK_IN_REQUIRED',
-          error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+          error: 'Anda wajib melakukan Check-In Foto Rumah + GPS terlebih dahulu sebelum menyimpan laporan.'
         });
       }
 
@@ -6915,6 +6901,281 @@ export async function createExpressApp(options?: {
     if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
     return true;
   }
+
+  // Dedicated Authoritative Installer Check-In Endpoint (Camera + GPS Geotag)
+  app.post('/api/tickets/:id/check-in', requireAuth, async (req: AuthenticatedRequest, res) => {
+    const cleanId = (req.params.id || '').trim();
+    const {
+      latitude,
+      longitude,
+      gpsAccuracyMeters,
+      altitudeMeters,
+      headingDeg,
+      speedMps,
+      locationSource,
+      permissionStatus,
+      clientCaptureId,
+      photoSlotId,
+      fieldNotes
+    } = req.body || {};
+
+    if (!isSupabaseMode() && !isLocalJsonModeAllowed()) {
+      return res.status(503).json({
+        success: false,
+        code: 'SUPABASE_NOT_CONFIGURED',
+        error: 'Database authoritative tidak tersedia.'
+      });
+    }
+
+    if (req.user!.role !== 'installer') {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_ROLE',
+        error: 'Akses Ditolak: Hanya akun Installer yang berhak melakukan Check-In pekerjaan lapangan.'
+      });
+    }
+
+    let ticket: any = null;
+    if (isSupabaseMode()) {
+      const supaGet = await getWorkOrderByIdFromSupabase(cleanId);
+      if (supaGet.success && supaGet.data) {
+        ticket = supaGet.data;
+      } else {
+        const supaByWo = await getWorkOrderByWoNumberFromSupabase(cleanId);
+        if (supaByWo.success && supaByWo.data) ticket = supaByWo.data;
+      }
+    }
+    if (!ticket && isLocalJsonModeAllowed()) {
+      ticket = db.tickets.find(t => t.id === cleanId || t.woNumber === cleanId);
+    }
+    if (!ticket) {
+      return res.status(404).json({ success: false, code: 'WO_NOT_FOUND', error: 'Work Order tidak ditemukan.' });
+    }
+    if (ticket.isDeleted) {
+      return res.status(409).json({
+        success: false,
+        code: 'WO_SOFT_DELETED',
+        error: 'Work Order ini telah dihapus (soft delete).'
+      });
+    }
+    if (isSupabaseMode()) {
+      ticket = await hydrateTicketPhotoEvidenceFromSupabase(ticket);
+    }
+
+    if (!checkTicketAccess(ticket, req.user!)) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_WO_ACCESS',
+        error: 'Akses Ditolak: Work Order ini bukan merupakan penugasan akun Installer Anda.'
+      });
+    }
+
+    if (!checkOperationalTicketAccess(ticket, req.user!, getJakartaDateStringServer(getNow()))) {
+      return res.status(403).json({
+        success: false,
+        code: 'FORBIDDEN_CROSS_DATE_ACCESS',
+        error: 'Akses Ditolak: Check-In hanya diizinkan pada Work Order yang dijadwalkan untuk hari ini.'
+      });
+    }
+
+    if (isTicketClosed(ticket)) {
+      return res.status(409).json({
+        success: false,
+        code: 'WO_CLOSED',
+        error: 'Work Order sudah berstatus CLOSED dan tidak dapat dilakukan Check-In ulang.'
+      });
+    }
+
+    const existingSlots: any[] = Array.isArray(ticket.technicalReport?.photoSlots)
+      ? ticket.technicalReport.photoSlots
+      : [];
+    const houseSlot = existingSlots.find((s: any) => s && s.slotKey === 'customer_house');
+
+    const cleanCaptureId =
+      typeof clientCaptureId === 'string' && clientCaptureId.trim() ? clientCaptureId.trim() : undefined;
+    const cleanPhotoSlotId =
+      typeof photoSlotId === 'string' && photoSlotId.trim() ? photoSlotId.trim() : undefined;
+
+    // Idempotency & Duplicate Active Check-In guard
+    const existingSessions: any[] = Array.isArray(ticket.workSessions) ? [...ticket.workSessions] : [];
+    const hasActiveSession = Boolean(
+      ticket.checkInAt && (ticket.workSessionStatus === 'Sedang Dikerjakan' || !ticket.checkOutAt)
+    );
+    if (hasActiveSession) {
+      const sameCapture = Boolean(
+        (cleanCaptureId &&
+          (houseSlot?.clientCaptureId === cleanCaptureId ||
+            existingSessions.some((s: any) => s?.clientCaptureId === cleanCaptureId))) ||
+          (cleanPhotoSlotId &&
+            (houseSlot?.id === cleanPhotoSlotId || ticket.houseLocation?.photoId === cleanPhotoSlotId))
+      );
+      if (sameCapture) {
+        return res.json({
+          success: true,
+          deduplicated: true,
+          checkInAt: ticket.checkInAt,
+          workSessionStatus: ticket.workSessionStatus || 'Sedang Dikerjakan',
+          workSessions: existingSessions,
+          ticket
+        });
+      }
+      return res.status(409).json({
+        success: false,
+        code: 'CHECK_IN_ALREADY_ACTIVE',
+        error: 'Work Order ini sudah memiliki sesi Check-In aktif yang sedang berjalan.',
+        ticket
+      });
+    }
+
+    // Verify Check-In House Photo exists in backend & was captured via live camera
+    if (!houseSlot || !isPersistedStoragePhotoUrl(houseSlot.url) || houseSlot.uploadStatus === 'failed') {
+      return res.status(400).json({
+        success: false,
+        code: 'CHECKIN_PHOTO_REQUIRED',
+        error: 'Foto Rumah (#01) wajib diambil melalui kamera langsung dan tersimpan di backend sebelum Check-In.'
+      });
+    }
+    if (houseSlot.captureMethod === 'gallery') {
+      return res.status(400).json({
+        success: false,
+        code: 'GALLERY_FORBIDDEN_FOR_CHECKIN',
+        error: 'Check-In Foto Rumah GPS wajib diambil langsung dari kamera perangkat (anti-galeri).'
+      });
+    }
+
+    // Validate GPS coordinates from request or verified houseSlot / houseLocation
+    const candidateLat =
+      latitude !== undefined && latitude !== null && latitude !== ''
+        ? Number(latitude)
+        : houseSlot.latitude !== undefined
+        ? Number(houseSlot.latitude)
+        : Number(ticket.houseLocation?.latitude);
+    const candidateLng =
+      longitude !== undefined && longitude !== null && longitude !== ''
+        ? Number(longitude)
+        : houseSlot.longitude !== undefined
+        ? Number(houseSlot.longitude)
+        : Number(ticket.houseLocation?.longitude);
+
+    if (!isValidServerGeoCoord(candidateLat, candidateLng)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_GEOTAG',
+        error: 'Koordinat GPS/Geotag valid wajib disertakan untuk menyelesaikan Check-In.'
+      });
+    }
+
+    const parsedLat = Number(candidateLat.toFixed(7));
+    const parsedLng = Number(candidateLng.toFixed(7));
+    let parsedAccuracy =
+      gpsAccuracyMeters !== undefined && gpsAccuracyMeters !== null && gpsAccuracyMeters !== ''
+        ? Number(gpsAccuracyMeters)
+        : typeof houseSlot.gpsAccuracyMeters === 'number'
+        ? houseSlot.gpsAccuracyMeters
+        : undefined;
+    if (parsedAccuracy !== undefined) {
+      if (!Number.isFinite(parsedAccuracy) || parsedAccuracy < 0 || parsedAccuracy > 100000) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_GPS_ACCURACY',
+          error: 'Nilai akurasi GPS tidak valid.'
+        });
+      }
+      parsedAccuracy = Math.round(parsedAccuracy);
+    }
+
+    const nowIso = new Date().toISOString();
+    const prevSnapshot = { ...ticket };
+    const newSession = {
+      sessionId: `ws_${Date.now()}`,
+      checkInAt: nowIso,
+      status: 'Sedang Dikerjakan',
+      technicianId: req.user!.id,
+      technicianName: req.user!.name,
+      latitude: parsedLat,
+      longitude: parsedLng,
+      ...(parsedAccuracy !== undefined ? { accuracyMeters: parsedAccuracy } : {}),
+      ...(cleanCaptureId ? { clientCaptureId: cleanCaptureId } : {})
+    };
+    const nextSessions = [...existingSessions, newSession];
+    const cleanNotes =
+      typeof fieldNotes === 'string' && fieldNotes.trim() ? fieldNotes.trim().slice(0, 300) : undefined;
+
+    const updates: Record<string, any> = {
+      checkInAt: nowIso,
+      workStartedAt: ticket.workStartedAt || nowIso,
+      workSessionStatus: 'Sedang Dikerjakan',
+      workSessions: nextSessions,
+      statusWOInstaller:
+        ticket.statusWOInstaller !== 'Completed' && ticket.statusWOInstaller !== 'Installed'
+          ? 'On Site'
+          : ticket.statusWOInstaller,
+      houseLocation: {
+        ...(ticket.houseLocation || {}),
+        latitude: parsedLat,
+        longitude: parsedLng,
+        ...(parsedAccuracy !== undefined ? { accuracyMeters: parsedAccuracy } : {}),
+        ...(typeof altitudeMeters === 'number' && Number.isFinite(altitudeMeters) ? { altitudeMeters } : {}),
+        ...(typeof headingDeg === 'number' && Number.isFinite(headingDeg) ? { headingDeg } : {}),
+        ...(typeof speedMps === 'number' && Number.isFinite(speedMps) ? { speedMps } : {}),
+        locationSource: typeof locationSource === 'string' ? locationSource : houseSlot.locationSource || 'device_gps_high_accuracy',
+        ...(typeof permissionStatus === 'string' ? { permissionStatus } : {}),
+        capturedAt: houseSlot.capturedAtIso || ticket.houseLocation?.capturedAt || nowIso,
+        uploadedAt: houseSlot.uploadedAt || nowIso,
+        photoUrl: houseSlot.url,
+        storagePath: houseSlot.storagePath,
+        photoId: houseSlot.id,
+        slotKey: 'customer_house',
+        technicianId: req.user!.id,
+        technicianName: req.user!.name,
+        geotagStatus: parsedAccuracy !== undefined && parsedAccuracy > 50 ? 'weak' : 'valid',
+        ...(cleanNotes ? { fieldNotes: cleanNotes } : {})
+      },
+      updatedAt: nowIso,
+      updatedBy: req.user!.name
+    };
+
+    let updatedTicket = { ...ticket, ...updates };
+    if (isSupabaseMode()) {
+      const supaRes = await updateWorkOrderInSupabase(ticket.id, updates);
+      if (!supaRes.success && !isLocalJsonModeAllowed()) {
+        return res.status(503).json({
+          success: false,
+          code: 'DATABASE_UNAVAILABLE',
+          error: 'Gagal menyimpan sesi Check-In ke database authoritative Supabase.'
+        });
+      }
+      if (supaRes.success && supaRes.data) {
+        updatedTicket = supaRes.data;
+      }
+    }
+
+    if (isLocalJsonModeAllowed()) {
+      const idx = db.tickets.findIndex(t => t.id === ticket.id || t.woNumber === ticket.woNumber);
+      if (idx !== -1) {
+        db.tickets[idx] = updatedTicket;
+      }
+      saveDatabaseToDisk();
+    }
+
+    broadcastSupabaseChange('work_orders', 'UPDATE', updatedTicket, { previousRecord: prevSnapshot });
+    await logServerAuditAsync(
+      'Installer Check-in Recorded',
+      'ticket',
+      ticket.woNumber || ticket.id,
+      `Teknisi ${req.user!.name} melakukan Check-In Kamera + GPS pada WO ${ticket.woNumber} (${parsedLat}, ${parsedLng})`,
+      req.user
+    );
+
+    return res.json({
+      success: true,
+      deduplicated: false,
+      checkInAt: nowIso,
+      workSessionStatus: 'Sedang Dikerjakan',
+      workSessions: nextSessions,
+      ticket: updatedTicket
+    });
+  });
 
   app.post('/api/tickets/:id/photo-evidence', requireAuth, async (req: AuthenticatedRequest, res) => {
     const cleanId = (req.params.id || '').trim();
@@ -7574,56 +7835,87 @@ export async function createExpressApp(options?: {
       });
     }
 
-    // App Flow 5: Check-in via LiveChat PROGRESS (specific to WO ID & logged-in technician User ID) is mandatory before Installer Save Report
-    if (req.user!.role === 'installer') {
-      let woMsgs: any[] = [];
-      if (isSupabaseMode()) {
-        const msgRes = await getTicketMessagesFromSupabase(ticket.id);
-        if (msgRes.success && Array.isArray(msgRes.data)) {
-          woMsgs = msgRes.data;
-        } else if (!isLocalJsonModeAllowed()) {
-          return res.status(503).json({
-            success: false,
-            error: 'Gagal memverifikasi riwayat LiveChat PROGRESS dari database.',
-            code: 'DATABASE_UNAVAILABLE'
-          });
+    // Resolve active hierarchical droplists (Level 1 Status WO -> Level 2 Reason WO)
+    let activeHierarchicalStatuses: any[] = INITIAL_HIERARCHICAL_DROPLISTS;
+    try {
+      const hierRead = await readGlobalConfigUnified('hierarchical_droplists');
+      if (hierRead.success && hierRead.value) {
+        const list = Array.isArray(hierRead.value)
+          ? hierRead.value
+          : Array.isArray(hierRead.value?.statuses)
+          ? hierRead.value.statuses
+          : null;
+        if (list && list.length > 0) {
+          activeHierarchicalStatuses = list;
         }
       }
-      if (woMsgs.length === 0 && isLocalJsonModeAllowed()) {
-        woMsgs = db.ticketMessages || [];
-      }
-      const hasProgressMsg = hasUserSentProgressMessage(woMsgs, ticket, req.user!.id);
-      if (!ticket.checkInAt || !hasProgressMsg) {
+    } catch {
+      activeHierarchicalStatuses = INITIAL_HIERARCHICAL_DROPLISTS;
+    }
+
+    const rawIncomingStatusLabel = reportStatusLabel || entry?.reportStatusLabel || entry?.reportStatus || status || '';
+    const rawIncomingStatusId = reportStatusId || entry?.reportStatusId || '';
+    const rawIncomingReasonLabel = reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '';
+    const rawIncomingReasonId = reasonReportId || entry?.reasonReportId || '';
+
+    const hierarchyCheck = validateHierarchicalDroplistSelection({
+      statuses: activeHierarchicalStatuses,
+      reportStatusId: rawIncomingStatusId,
+      reportStatusLabel: rawIncomingStatusLabel,
+      reasonReportId: rawIncomingReasonId,
+      reasonReportLabel: rawIncomingReasonLabel
+    });
+
+    if ('code' in hierarchyCheck) {
+      return res.status(400).json({
+        success: false,
+        code: hierarchyCheck.code,
+        error: hierarchyCheck.error
+      });
+    }
+
+    const validatedStatusObj = hierarchyCheck.matchedStatus;
+    const validatedReasonObj = hierarchyCheck.matchedReason;
+    const rawReportStatus = validatedStatusObj.name || rawIncomingStatusLabel || 'COMPLETE';
+    const canonicalRepStatus = normalizeCanonicalReportStatus(validatedStatusObj.code || rawReportStatus);
+    const finalReportStatusLabel =
+      canonicalRepStatus !== 'NONE' ? canonicalRepStatus : String(rawReportStatus).trim().toUpperCase();
+
+    // Authoritative Check-In & Evidence Validation (Camera+GPS Check-In + 3 mandatory for COMPLETE, 4 total incl. 3 mandatory for UNSUCCESS)
+    if (req.user!.role === 'installer') {
+      if (!ticket.checkInAt) {
         return res.status(400).json({
           success: false,
           code: 'CHECK_IN_REQUIRED',
-          error: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+          error: 'Anda wajib melakukan Check-In Foto Rumah + GPS terlebih dahulu sebelum menyimpan laporan.'
         });
       }
 
-      const evidenceEval = evaluateServerTicketPhotoEvidence(ticket);
-      if (!evidenceEval.isMandatoryComplete) {
+      const serverSlots: any[] = Array.isArray(ticket?.technicalReport?.photoSlots)
+        ? ticket.technicalReport.photoSlots
+        : [];
+      const evidenceReq = evaluateReportPhotoEvidenceRequirement(serverSlots, finalReportStatusLabel);
+      if (!evidenceReq.isReady) {
         return res.status(400).json({
           success: false,
           code: 'PHOTO_EVIDENCE_INCOMPLETE',
-          requiredCount: MIN_CHECKOUT_PHOTO_EVIDENCE,
-          uploadedCount: evidenceEval.mandatoryCount,
-          mandatoryCount: evidenceEval.mandatoryCount,
-          verifiedTotalCount: evidenceEval.verifiedTotalCount,
-          missingMandatorySlots: evidenceEval.missingMandatorySlots,
-          error: buildPhotoEvidenceIncompleteErrorMessage(evidenceEval)
+          requiredCount: evidenceReq.requiredTotalCount,
+          uploadedCount: evidenceReq.evaluation.verifiedTotalCount,
+          mandatoryCount: evidenceReq.evaluation.mandatoryCount,
+          verifiedTotalCount: evidenceReq.evaluation.verifiedTotalCount,
+          missingMandatorySlots: evidenceReq.evaluation.missingMandatorySlots,
+          error: evidenceReq.errorMessage
         });
       }
     }
 
     const now = new Date().toISOString();
     const existingReports = Array.isArray(ticket.progressReports) ? [...ticket.progressReports] : [];
-    const rawReportStatus = reportStatusLabel || entry?.reportStatusLabel || entry?.reportStatus || status || 'COMPLETE';
-    const canonicalRepStatus = normalizeCanonicalReportStatus(rawReportStatus);
-    const finalReportStatusLabel = canonicalRepStatus !== 'NONE' ? canonicalRepStatus : String(rawReportStatus).trim().toUpperCase();
     const nextVersionNumber = existingReports.length + 1;
-    const resolvedReasonLabel = reasonReportLabel || entry?.reasonReportLabel || entry?.reasonReport || '';
+    const resolvedReasonLabel = validatedReasonObj.name || rawIncomingReasonLabel || '';
     const resolvedRootcauseLabel = rootcauseLabel || entry?.rootcauseLabel || entry?.rootCause || undefined;
+    const resolvedStatusId = validatedStatusObj.id;
+    const resolvedReasonId = validatedReasonObj.id;
     const cleanIdempotencyKey =
       typeof idempotencyKey === 'string' && idempotencyKey.trim()
         ? idempotencyKey.trim()
@@ -7666,10 +7958,10 @@ export async function createExpressApp(options?: {
       userRole: req.user!.role,
       installerName: entry?.installerName || ticket.installerName || req.user!.name,
       reportStatus: finalReportStatusLabel,
-      reportStatusId: reportStatusId || entry?.reportStatusId,
+      reportStatusId: resolvedStatusId,
       reportStatusLabel: finalReportStatusLabel,
       reasonReport: resolvedReasonLabel,
-      reasonReportId: reasonReportId || entry?.reasonReportId,
+      reasonReportId: resolvedReasonId,
       reasonReportLabel: resolvedReasonLabel,
       ...(resolvedRootcauseLabel ? { rootCause: resolvedRootcauseLabel, rootcauseLabel: resolvedRootcauseLabel } : {}),
       ...(rootcauseId || entry?.rootcauseId ? { rootcauseId: rootcauseId || entry?.rootcauseId } : {}),
@@ -7743,9 +8035,9 @@ export async function createExpressApp(options?: {
       statusWOInstaller: status || mappedInstallerStatus,
       statusWOAgent: isTicketClosed(ticket) ? (ticket.statusWOAgent || 'Done') : 'In Progress',
       approvalStatus: 'BUTUH APPROVAL',
-      reportStatusId: reportStatusId || reportEntry.reportStatusId,
+      reportStatusId: resolvedStatusId,
       reportStatusLabel: finalReportStatusLabel,
-      reasonReportId: reasonReportId || reportEntry.reasonReportId,
+      reasonReportId: resolvedReasonId,
       reasonReportLabel: reportEntry.reasonReportLabel,
       rootcauseId: rootcauseId || reportEntry.rootcauseId,
       rootcauseLabel: reportEntry.rootcauseLabel,
@@ -13085,7 +13377,7 @@ export async function createExpressApp(options?: {
         });
       }
 
-      // App Flow 5: Installer cannot submit technicalReport or new progressReports before PROGRESS Check-in
+      // Authoritative Check-In Guard: Installer cannot submit technicalReport or new progressReports before Camera+GPS Check-In
       const hasNewProgressReport =
         Array.isArray(updates.progressReports) &&
         updates.progressReports.length > (Array.isArray(existing.progressReports) ? existing.progressReports.length : 0);
@@ -13099,7 +13391,7 @@ export async function createExpressApp(options?: {
           code: 'CHECK_IN_REQUIRED',
           error: {
             code: 'CHECK_IN_REQUIRED',
-            message: 'Anda wajib Check-in terlebih dahulu dengan mengirim pesan kategori PROGRESS di LiveChat sebelum menyimpan laporan.'
+            message: 'Anda wajib melakukan Check-In Foto Rumah + GPS terlebih dahulu sebelum menyimpan laporan.'
           }
         });
       }
@@ -18266,24 +18558,18 @@ export async function createExpressApp(options?: {
             before: rawBefore
           });
           if (pageRes.success && pageRes.data) {
-            const hasProgressTrigger =
-              req.user!.role === 'installer' &&
-              hasUserSentProgressMessage(pageRes.data.messages, ticketObj || id, req.user!.id);
             return res.json({
               success: true,
               messages: pageRes.data.messages,
               hasMore: pageRes.data.hasMore,
               nextCursor: pageRes.data.nextCursor,
-              hasProgressTrigger
+              hasProgressTrigger: false
             });
           }
         } else {
           const msgRes = await getTicketMessagesFromSupabase(lookupKey);
           if (msgRes.success && msgRes.data) {
-            const hasProgressTrigger =
-              req.user!.role === 'installer' &&
-              hasUserSentProgressMessage(msgRes.data, ticketObj || id, req.user!.id);
-            return res.json({ success: true, messages: msgRes.data, hasMore: false, nextCursor: null, hasProgressTrigger });
+            return res.json({ success: true, messages: msgRes.data, hasMore: false, nextCursor: null, hasProgressTrigger: false });
           }
         }
         if (!isLocalJsonModeAllowed()) {
@@ -18335,10 +18621,7 @@ export async function createExpressApp(options?: {
       }
     }
 
-    const hasProgressTrigger =
-      req.user!.role === 'installer' &&
-      hasUserSentProgressMessage(msgs, ticket || id, req.user!.id);
-    res.json({ success: true, messages: msgs, hasMore, nextCursor, hasProgressTrigger });
+    res.json({ success: true, messages: msgs, hasMore, nextCursor, hasProgressTrigger: false });
   });
 
   app.post('/api/tickets/:id/messages', requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -18420,7 +18703,7 @@ export async function createExpressApp(options?: {
       }
     }
 
-    const isInstallerProgressCheckIn = isInstallerRole && Boolean(selectedCategory && isProgressCategoryOnly(selectedCategory));
+    // Chat category PROGRESS is strictly a LiveChat communication category; it never triggers WO Check-In
     const nowIso = new Date().toISOString();
     const msgSnippet = cleanText || (safeAttachments.length > 0 ? `[Foto: ${safeAttachments[0]?.fileName || 'Lampiran'}]` : '');
 
@@ -18447,10 +18730,7 @@ export async function createExpressApp(options?: {
         }
 
         const prevTicketSnapshot = ticketData ? { ...ticketData } : undefined;
-        // App Flow 5: Trigger Check-in ONLY when Installer sends message with selected category PROGRESS
-        const triggeredCheckIn = Boolean(
-          ticketData && isInstallerProgressCheckIn && (!ticketData.checkInAt || ticketData.workSessionStatus === 'Belum Check-in')
-        );
+        const triggeredCheckIn = false;
 
         const newMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const insertRes = await insertTicketMessageToSupabase({
@@ -18463,7 +18743,7 @@ export async function createExpressApp(options?: {
           senderRole: user.role,
           messageText: cleanText,
           category: selectedCategory,
-          isCheckIn: triggeredCheckIn,
+          isCheckIn: false,
           attachments: safeAttachments
         });
 
@@ -18490,23 +18770,6 @@ export async function createExpressApp(options?: {
           ticketUpdates.lastMessageSnippet = msgSnippet;
           ticketUpdates.updatedAt = nowIso;
           ticketUpdates.updatedBy = user.name;
-        }
-
-        if (ticketData && !isDeduplicated && triggeredCheckIn) {
-          const existingSessions = Array.isArray(ticketData.workSessions) ? [...ticketData.workSessions] : [];
-          if (!existingSessions.some((s: any) => s.status === 'Sedang Dikerjakan')) {
-            existingSessions.push({
-              sessionId: 'ws_' + Date.now(),
-              checkInAt: nowIso,
-              status: 'Sedang Dikerjakan'
-            });
-          }
-          ticketUpdates.checkInAt = nowIso;
-          ticketUpdates.workSessionStatus = 'Sedang Dikerjakan';
-          ticketUpdates.workSessions = existingSessions;
-          if (ticketData.statusWOInstaller !== 'Completed' && ticketData.statusWOInstaller !== 'Installed') {
-            ticketUpdates.statusWOInstaller = 'On Site';
-          }
         }
 
         if (ticketData && Object.keys(ticketUpdates).length > 0 && insertRes.success) {
@@ -18538,23 +18801,15 @@ export async function createExpressApp(options?: {
           broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticketData });
         }
 
-        const hasProgressTrigger = Boolean(
-          insertRes.success &&
-          isInstallerRole &&
-          selectedCategory &&
-          isProgressCategoryOnly(selectedCategory) &&
-          String(newMsg.senderId || '') === String(user.id || '')
-        );
-
         if (!isLocalJsonModeAllowed()) {
           return res.json({
             success: true,
             deduplicated: isDeduplicated,
             message: newMsg,
             ticket: ticketData,
-            checkInTriggered: !isDeduplicated && triggeredCheckIn,
-            checkedIn: !isDeduplicated && triggeredCheckIn,
-            hasProgressTrigger
+            checkInTriggered: false,
+            checkedIn: false,
+            hasProgressTrigger: false
           });
         }
       } catch (err: any) {
@@ -18609,8 +18864,7 @@ export async function createExpressApp(options?: {
 
     clearTypingEntryForUser(String(ticket ? ticket.id : id), user.id, true);
 
-    const prevLocalTicket = ticket ? { ...ticket } : undefined;
-    let triggeredCheckIn = false;
+    const triggeredCheckIn = false;
     if (ticket) {
       if (selectedCategory) {
         ticket.chatCategory = selectedCategory;
@@ -18620,27 +18874,6 @@ export async function createExpressApp(options?: {
       ticket.lastMessageSnippet = msgSnippet;
       ticket.updatedAt = nowIso;
       ticket.updatedBy = user.name;
-    }
-
-    if (ticket && isInstallerProgressCheckIn && (!ticket.checkInAt || ticket.workSessionStatus === 'Belum Check-in')) {
-      triggeredCheckIn = true;
-      ticket.checkInAt = nowIso;
-      ticket.workSessionStatus = 'Sedang Dikerjakan';
-      if (ticket.statusWOInstaller !== 'Completed' && ticket.statusWOInstaller !== 'Installed') {
-        ticket.statusWOInstaller = 'On Site';
-      }
-      if (!Array.isArray(ticket.workSessions)) {
-        ticket.workSessions = [];
-      }
-      const hasActiveSession = ticket.workSessions.some((s: any) => s.status === 'Sedang Dikerjakan');
-      if (!hasActiveSession) {
-        ticket.workSessions.push({
-          sessionId: 'ws_' + Date.now(),
-          checkInAt: nowIso,
-          status: 'Sedang Dikerjakan'
-        });
-      }
-      broadcastSupabaseChange('work_orders', 'UPDATE', ticket, { previousRecord: prevLocalTicket });
     }
 
     const newMsg: any = {
@@ -18659,28 +18892,21 @@ export async function createExpressApp(options?: {
       deliveredAt: { [user.id]: nowIso },
       readBy: [user.id],
       readAt: { [user.id]: nowIso },
-      isCheckIn: triggeredCheckIn
+      isCheckIn: false
     };
 
     db.ticketMessages.push(newMsg);
     saveDatabaseToDisk();
     broadcastSupabaseChange('ticket_messages', 'INSERT', newMsg, { scopeTicket: ticket });
 
-    const localMsgs = db.ticketMessages.filter(
-      m => m.ticketId === (ticket ? ticket.id : id) || m.woNumber === (ticket ? ticket.woNumber : id)
-    );
-    const hasProgressTrigger =
-      isInstallerRole &&
-      hasUserSentProgressMessage(localMsgs, ticket || id, user.id);
-
     res.json({
       success: true,
       deduplicated: false,
       message: newMsg,
       ticket,
-      checkInTriggered: triggeredCheckIn,
-      checkedIn: triggeredCheckIn,
-      hasProgressTrigger
+      checkInTriggered: false,
+      checkedIn: false,
+      hasProgressTrigger: false
     });
   });
 

@@ -222,8 +222,29 @@ export function evaluatePhotoEvidenceCompleteness(
   };
 }
 
+export const MIN_COMPLETED_PHOTO_EVIDENCE = 3;
+export const MIN_UNSUCCESS_PHOTO_EVIDENCE = 4;
+
 export function isMandatoryPhotoSlotKey(slotKey: unknown): boolean {
   return typeof slotKey === 'string' && MANDATORY_SLOT_KEY_SET.has(slotKey.trim());
+}
+
+export function isUnsuccessCanonicalStatus(rawStatus: unknown): boolean {
+  const s = String(rawStatus || '').trim().toUpperCase();
+  if (!s) return false;
+  return (
+    s === 'PENDING' ||
+    s === 'RESCHEDULE' ||
+    s === 'CANCEL' ||
+    s.includes('PENDING') ||
+    s.includes('RESCHEDULE') ||
+    s.includes('RESCH') ||
+    s.includes('CANCEL') ||
+    s.includes('BATAL') ||
+    s.includes('TERTUNDA') ||
+    s.includes('KENDALA') ||
+    s.includes('FAILED')
+  );
 }
 
 export function buildPhotoEvidenceIncompleteErrorMessage(evaluation: PhotoEvidenceEvaluation): string {
@@ -237,3 +258,60 @@ export function buildPhotoEvidenceIncompleteErrorMessage(evaluation: PhotoEviden
       : '';
   return `Check-Out ditolak: Wajib mengunggah 3 foto bukti wajib (${missingText} belum terunggah & terverifikasi di server; saat ini Wajib ${evaluation.mandatoryCount}/3, Total ${evaluation.verifiedTotalCount}/7).${extraHint}`;
 }
+
+export function buildUnsuccessPhotoEvidenceIncompleteErrorMessage(
+  evaluation: PhotoEvidenceEvaluation
+): string {
+  if (evaluation.isMandatoryComplete && evaluation.verifiedTotalCount >= MIN_UNSUCCESS_PHOTO_EVIDENCE) {
+    return '';
+  }
+  const baseMessage = 'Laporan Unsuccess membutuhkan minimal 4 foto evidence, termasuk seluruh foto wajib.';
+  if (!evaluation.isMandatoryComplete) {
+    const missingText = evaluation.missingMandatorySummary || 'Foto Wajib #1, #2, dan #3';
+    return `${baseMessage} Kurang foto wajib: ${missingText} (Wajib ${evaluation.mandatoryCount}/3, Foto Valid: ${evaluation.verifiedTotalCount}/7).`;
+  }
+  return `${baseMessage} Lengkapi minimal 1 foto tambahan pada slot #4-#7 (Foto Valid: ${evaluation.verifiedTotalCount}/7).`;
+}
+
+export interface ReportPhotoEvidenceRequirementResult {
+  isReady: boolean;
+  isUnsuccess: boolean;
+  requiredTotalCount: number;
+  evaluation: PhotoEvidenceEvaluation;
+  errorMessage: string;
+}
+
+export function evaluateReportPhotoEvidenceRequirement(
+  slotsInput:
+    | ReadonlyArray<TechnicalPhotoSlot | null | undefined>
+    | Partial<Record<string, TechnicalPhotoSlot | null | undefined>>
+    | null
+    | undefined,
+  reportStatus: unknown,
+  runtimeUploadState?: Partial<Record<string, SlotUploadStateInput | undefined>> | null
+): ReportPhotoEvidenceRequirementResult {
+  const evaluation = evaluatePhotoEvidenceCompleteness(slotsInput, runtimeUploadState);
+  const isUnsuccess = isUnsuccessCanonicalStatus(reportStatus);
+  const requiredTotalCount = isUnsuccess
+    ? MIN_UNSUCCESS_PHOTO_EVIDENCE
+    : MIN_COMPLETED_PHOTO_EVIDENCE;
+
+  const isReady = isUnsuccess
+    ? evaluation.isMandatoryComplete && evaluation.verifiedTotalCount >= MIN_UNSUCCESS_PHOTO_EVIDENCE
+    : evaluation.isMandatoryComplete;
+
+  const errorMessage = isReady
+    ? ''
+    : isUnsuccess
+    ? buildUnsuccessPhotoEvidenceIncompleteErrorMessage(evaluation)
+    : buildPhotoEvidenceIncompleteErrorMessage(evaluation);
+
+  return {
+    isReady,
+    isUnsuccess,
+    requiredTotalCount,
+    evaluation,
+    errorMessage
+  };
+}
+

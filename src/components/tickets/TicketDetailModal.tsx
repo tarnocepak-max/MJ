@@ -454,7 +454,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     { label: '1. Import', done: Boolean(ticket.createdAt), detail: ticket.appointmentDate || '-' },
     { label: '2. Distribusi', done: Boolean(ticket.leaderName), detail: ticket.leaderName || 'Unmapped' },
     { label: '3. Assign', done: isTicketAssigned(ticket), detail: ticket.installerName || 'Belum Assign' },
-    { label: '4. Check-in', done: isTicketCheckedIn(ticket), detail: ticket.checkInAt ? 'PROGRESS' : 'Belum' },
+    { label: '4. Check-in', done: isTicketCheckedIn(ticket), detail: ticket.checkInAt ? 'Kamera+GPS' : 'Belum' },
     {
       label: '5. Report',
       done: getTicketCanonicalReportStatus(ticket) !== 'NONE',

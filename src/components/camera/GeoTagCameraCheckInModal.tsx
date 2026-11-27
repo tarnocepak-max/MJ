@@ -21,7 +21,7 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import { Ticket, TechnicalPhotoSlot, ChatAttachment } from '../../types/index.ts';
+import { Ticket, TechnicalPhotoSlot } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -62,7 +62,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
   ticket,
   onCheckInSuccess
 }) => {
-  const { currentUser, uploadWoPhotoEvidence, sendTicketMessage } = useApp();
+  const { currentUser, uploadWoPhotoEvidence, checkInWorkOrder } = useApp();
   const { toast } = useToast();
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -400,7 +400,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
       applyGeoTagWatermarkToCanvas(markedCanvas, {
         woNumber: ticket.woNumber,
         slotTitle: 'Check-In Foto Rumah Pelanggan',
-        technicianName: currentUser.name,
+        technicianName: currentUser?.name || 'Teknisi',
         customerName: ticket.customerName,
         capturedAtIso,
         latitude: finalGps?.latitude,
@@ -505,49 +505,36 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
         return;
       }
 
-      // Atomic AppFlow Trigger: Send LiveChat category PROGRESS reusing the exact uploaded storage URL
-      setSubmitStepLabel('Mencatat Check-in #PROGRESS...');
+      setSubmitStepLabel('Mengaktifkan Sesi Check-In WO...');
       const savedSlot = uploadRes.photoSlot as TechnicalPhotoSlot | undefined;
-      const attachments: ChatAttachment[] = savedSlot?.url
-        ? [
-            {
-              id: savedSlot.id || `att_${Date.now()}`,
-              url: savedSlot.url,
-              fileName: savedSlot.fileName || capturedPhoto.fileName,
-              fileSize: savedSlot.fileSizeBytes || capturedPhoto.fileSizeBytes,
-              mimeType: savedSlot.mimeType || 'image/jpeg'
-            }
-          ]
-        : [];
+      const checkInRes = await checkInWorkOrder(ticket.id, {
+        latitude: activeGps.latitude,
+        longitude: activeGps.longitude,
+        gpsAccuracyMeters: activeGps.accuracyMeters,
+        altitudeMeters: activeGps.altitudeMeters,
+        headingDeg: activeGps.headingDeg,
+        speedMps: activeGps.speedMps,
+        locationSource: activeGps.locationSource,
+        permissionStatus: activeGps.permissionStatus,
+        clientCaptureId,
+        photoSlotId: savedSlot?.id,
+        fieldNotes: cleanNotes || undefined
+      });
 
-      const coordLabel = formatCoordinates(activeGps.latitude, activeGps.longitude);
-      const radiusPart =
-        distanceToRegisteredMeters !== null
-          ? ` | Jarak titik order: ${formatDistanceMetersLabel(distanceToRegisteredMeters)}`
-          : '';
-      const messageText = [
-        `[CHECK-IN FOTO RUMAH GPS] Lokasi tiba terverifikasi (${coordLabel}, akurasi ±${Math.round(
-          activeGps.accuracyMeters
-        )}m${radiusPart}).`,
-        cleanNotes ? `Catatan: ${cleanNotes}` : ''
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      const chatRes = await sendTicketMessage(ticket.id, messageText, attachments, 'PROGRESS');
-      if (!chatRes.success) {
-        toast.warning(
-          `Foto rumah tersimpan, namun pesan #PROGRESS gagal tercatat: ${chatRes.error || 'Coba kirim di LiveChat.'}`,
-          'Perlu Konfirmasi LiveChat'
+      if (!checkInRes.success) {
+        toast.error(
+          checkInRes.error || 'Foto rumah tersimpan, namun pencatatan Check-In WO gagal. Silakan coba konfirmasi ulang.',
+          'Check-In Gagal'
         );
-      } else {
-        toast.success(
-          `Check-In Foto Rumah GPS untuk WO ${ticket.woNumber} tersimpan & tersinkron ke Monitoring Maps.`,
-          'Check-In Berhasil'
-        );
+        return;
       }
 
-      onCheckInSuccess?.(uploadRes.ticket || ticket);
+      toast.success(
+        `Check-In Foto Rumah & GPS untuk WO ${ticket.woNumber} tersimpan & tersinkron ke Monitoring Maps.`,
+        'Check-In Berhasil'
+      );
+
+      onCheckInSuccess?.(checkInRes.ticket || uploadRes.ticket || ticket);
       onClose();
     } catch (err: any) {
       toast.error(err?.message || 'Terjadi kendala saat memproses Check-In Foto Rumah.', 'Error Check-In');
@@ -885,8 +872,7 @@ export const GeoTagCameraCheckInModal: React.FC<GeoTagCameraCheckInModalProps> =
                   Panduan Check-In Foto Rumah GPS
                 </div>
                 <p className="text-[#cbc3d7] leading-relaxed">
-                  Ambil foto tampak depan rumah/pagar pelanggan menggunakan kamera langsung. Upload galeri diblokir otomatis demi validasi GPS &amp; anti-spoof. Setelah konfirmasi, bukti foto dan pesan LiveChat{' '}
-                  <span className="font-mono font-bold text-[#40efb7]">#PROGRESS</span> langsung tersinkron ke Dispatch.
+                  Ambil foto tampak depan rumah/pagar pelanggan menggunakan kamera langsung. Upload galeri diblokir otomatis demi validasi GPS &amp; anti-spoof. Setelah konfirmasi, foto rumah, koordinat GPS, dan waktu Check-In langsung tersinkron ke Dispatch.
                 </p>
               </div>
               <button

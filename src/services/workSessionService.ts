@@ -2,8 +2,8 @@
  * MoraJaws Work Session & Installer Check-in / Check-out Service
  *
  * Implements:
- * - Automatic check-in on first valid 'PROGRESS' message from Installer in Live Chat
- * - Automatic check-out when Installer successfully saves technical report
+ * - Authoritative Check-in via live camera + GPS geotag persistence (decoupled from LiveChat PROGRESS)
+ * - Automatic check-out when Installer successfully saves progress/technical report
  * - Work duration calculation (in minutes and human-readable Indonesian format)
  * - Server-grade timestamping in Asia/Jakarta (WIB) timezone
  * - Protection against double check-in and duplicate check-out submissions

@@ -115,21 +115,100 @@ export function resolveCompletedStatusHierarchy(
   };
 }
 
-export type UnsuccessOptionKey = 'pending' | 'reschedule' | 'cancel' | 'kendala';
+export type UnsuccessOptionKey = 'pending' | 'reschedule' | 'cancel';
 
 export interface UnsuccessCategoryOption {
   key: UnsuccessOptionKey;
   title: string;
   description: string;
-  flowType: 'progress_report' | 'kendala_modal';
+  flowType: 'progress_report';
   matchedStatus: HierarchicalStatus | null;
   reasons: HierarchicalReason[];
   isConfigured: boolean;
 }
 
+export interface SemanticStatusToneStyles {
+  cardSelected: string;
+  cardIdle: string;
+  iconSelected: string;
+  iconIdle: string;
+  radioSelected: string;
+  badge: string;
+  accentText: string;
+  focusRing: string;
+  dot: string;
+}
+
+const SEMANTIC_UNSUCCESS_STYLES: Record<UnsuccessOptionKey, SemanticStatusToneStyles> = {
+  pending: {
+    cardSelected:
+      'bg-[#FFF2D9] dark:bg-amber-950/55 border-[#D4933E] dark:border-amber-500 text-[#9D661F] dark:text-amber-100 shadow-xs',
+    cardIdle:
+      'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF] hover:border-[#D4933E]/70',
+    iconSelected: 'bg-[#D4933E] dark:bg-amber-600 text-white',
+    iconIdle: 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#C88735] dark:text-amber-300',
+    radioSelected: 'bg-[#C88735] dark:bg-amber-500 border-[#C88735] dark:border-amber-500 text-white',
+    badge:
+      'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-200 border-[#F2CF95] dark:border-amber-700',
+    accentText: 'text-[#9D661F] dark:text-amber-300',
+    focusRing: 'focus:ring-[#C88735] dark:focus:ring-amber-500',
+    dot: 'bg-[#C88735] dark:bg-amber-500'
+  },
+  reschedule: {
+    cardSelected:
+      'bg-[#E7F1FB] dark:bg-blue-950/55 border-[#3E81C6] dark:border-blue-500 text-[#1E4F8A] dark:text-blue-100 shadow-xs',
+    cardIdle:
+      'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF] hover:border-[#3E81C6]/70',
+    iconSelected: 'bg-[#3E81C6] dark:bg-blue-600 text-white',
+    iconIdle: 'bg-[#E7F1FB] dark:bg-blue-950/60 text-[#3E81C6] dark:text-blue-300',
+    radioSelected: 'bg-[#3E81C6] dark:bg-blue-500 border-[#3E81C6] dark:border-blue-500 text-white',
+    badge:
+      'bg-[#E7F1FB] dark:bg-blue-950/60 text-[#1E4F8A] dark:text-blue-200 border-[#B6D4F4] dark:border-blue-700',
+    accentText: 'text-[#1E4F8A] dark:text-blue-300',
+    focusRing: 'focus:ring-[#3E81C6] dark:focus:ring-blue-500',
+    dot: 'bg-[#3E81C6] dark:bg-blue-500'
+  },
+  cancel: {
+    cardSelected:
+      'bg-[#FCE9EB] dark:bg-rose-950/60 border-[#9B2C37] dark:border-rose-500 text-[#7F1D27] dark:text-rose-100 shadow-xs',
+    cardIdle:
+      'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF] hover:border-[#9B2C37]/70',
+    iconSelected: 'bg-[#9B2C37] dark:bg-rose-700 text-white',
+    iconIdle: 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300',
+    radioSelected: 'bg-[#9B2C37] dark:bg-rose-600 border-[#9B2C37] dark:border-rose-600 text-white',
+    badge:
+      'bg-[#FCE9EB] dark:bg-rose-950/65 text-[#9B2C37] dark:text-rose-200 border-[#F2BCC2] dark:border-rose-700',
+    accentText: 'text-[#9B2C37] dark:text-rose-300',
+    focusRing: 'focus:ring-[#9B2C37] dark:focus:ring-rose-500',
+    dot: 'bg-[#9B2C37] dark:bg-rose-500'
+  }
+};
+
+export function getUnsuccessOptionSemanticStyles(key: UnsuccessOptionKey): SemanticStatusToneStyles {
+  return SEMANTIC_UNSUCCESS_STYLES[key] || SEMANTIC_UNSUCCESS_STYLES.pending;
+}
+
+export function getReportStatusSurfaceTint(rawStatus?: string | null): string {
+  const canonical = normalizeCanonicalReportStatus(rawStatus);
+  if (canonical === 'COMPLETE') {
+    return 'border-l-4 border-l-[#218A63] dark:border-l-emerald-500';
+  }
+  if (canonical === 'PENDING') {
+    return 'border-l-4 border-l-[#C88735] dark:border-l-amber-500';
+  }
+  if (canonical === 'RESCHEDULE') {
+    return 'border-l-4 border-l-[#3E81C6] dark:border-l-blue-500';
+  }
+  if (canonical === 'CANCEL') {
+    return 'border-l-4 border-l-[#9B2C37] dark:border-l-rose-600';
+  }
+  return '';
+}
+
 /**
- * Resolves the 4 Unsuccess workflow options (`Pending`, `Reschedule`, `Cancel`, `Kendala Lapangan`)
+ * Resolves the 3 Unsuccess workflow options (`Pending`, `Reschedule`, `Cancel`)
  * against the active `hierarchicalStatuses` configuration.
+ * Kendala lapangan is reported through `Pending` + Level-2 Reason + Remarks.
  */
 export function resolveUnsuccessCategories(
   hierarchicalStatuses: readonly HierarchicalStatus[] | null | undefined
@@ -156,7 +235,7 @@ export function resolveUnsuccessCategories(
     {
       key: 'pending',
       title: 'Pending',
-      description: 'Pekerjaan belum dapat diselesaikan saat ini dan memerlukan tindak lanjut lanjutan.',
+      description: 'Pekerjaan tertunda atau terkendala di lapangan (termasuk kendala teknis, akses lokasi, atau material).',
       flowType: 'progress_report',
       matchedStatus: pendingStatus,
       reasons: getActiveReasonsForStatus(pendingStatus),
@@ -174,20 +253,11 @@ export function resolveUnsuccessCategories(
     {
       key: 'cancel',
       title: 'Cancel',
-      description: 'Pekerjaan dibatalkan di lapangan berdasarkan permintaan atau validasi kondisi lokasi.',
+      description: 'Pekerjaan dibatalkan di lapangan berdasarkan permintaan pelanggan atau validasi kondisi lokasi.',
       flowType: 'progress_report',
       matchedStatus: cancelStatus,
       reasons: getActiveReasonsForStatus(cancelStatus),
       isConfigured: Boolean(cancelStatus && getActiveReasonsForStatus(cancelStatus).length > 0)
-    },
-    {
-      key: 'kendala',
-      title: 'Kendala Lapangan',
-      description: 'Laporkan hambatan lokasi atau teknis dengan foto bukti langsung ke Leader & Dispatch (#ISSUE).',
-      flowType: 'kendala_modal',
-      matchedStatus: null,
-      reasons: [],
-      isConfigured: true
     }
   ];
 }

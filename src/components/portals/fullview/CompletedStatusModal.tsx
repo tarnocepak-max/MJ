@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { HierarchicalStatus, Ticket } from '../../../types/index.ts';
 import { ResponsiveModal } from '../../common/ResponsiveModal';
+import { SearchableReasonDropdown } from './SearchableReasonDropdown';
 import {
   getActiveReasonsForStatus,
   resolveCompletedStatusHierarchy
@@ -262,7 +263,7 @@ export const CompletedStatusModal: React.FC<CompletedStatusModalProps> = ({
           </div>
         )}
 
-        {/* Level 2 Reason Cards */}
+        {/* Level 2 Searchable Reason Dropdown */}
         {activeStatus && (
           <div className="space-y-2">
             <label className="block text-[11px] font-mono uppercase tracking-wider font-bold text-[#52647A] dark:text-[#C4B5D6]">
@@ -273,54 +274,24 @@ export const CompletedStatusModal: React.FC<CompletedStatusModalProps> = ({
                 Belum ada opsi Level 2 Reason WO aktif di bawah status <strong>{activeStatus.name}</strong>.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-2 max-h-[240px] overflow-y-auto pr-0.5">
-                {activeReasons.map(reason => {
-                  const isSelected = selectedReasonObj?.id === reason.id;
-                  const subNote =
-                    (reason as { description?: string }).description ||
-                    (reason.remarks && reason.remarks.length > 0
-                      ? `${reason.remarks.length} template catatan tersedia`
-                      : reason.code
-                      ? `Kode: ${reason.code}`
-                      : undefined);
-                  return (
-                    <button
-                      key={reason.id}
-                      type="button"
-                      onClick={() => {
-                        onSelectStatusAndReason({
-                          reportStatus: activeStatus.name,
-                          reportStatusId: activeStatus.id,
-                          reasonReport: reason.name,
-                          reasonReportId: reason.id
-                        });
-                        setFormError(null);
-                      }}
-                      className={`w-full min-h-[48px] px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#E4F5EC] dark:bg-emerald-950/55 border-[#27A074] dark:border-emerald-500 text-[#1B6B4D] dark:text-emerald-100 shadow-xs'
-                          : 'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF] hover:border-[#27A074]/60'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold leading-snug">{reason.name}</div>
-                        {subNote && (
-                          <div className="text-[10.5px] opacity-80 mt-0.5 truncate">{subNote}</div>
-                        )}
-                      </div>
-                      <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
-                          isSelected
-                            ? 'bg-[#218A63] dark:bg-emerald-500 border-[#218A63] dark:border-emerald-500 text-white'
-                            : 'border-[#CBD5E1] dark:border-[#4B386B]'
-                        }`}
-                      >
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <SearchableReasonDropdown
+                reasons={activeReasons}
+                selectedReasonId={selectedReasonObj?.id || reasonReportId}
+                selectedReasonName={selectedReasonObj?.name || reasonReport}
+                accentTone="emerald"
+                placeholder="-- Pilih Hasil Penyelesaian (Level 2) --"
+                searchPlaceholder="Cari alasan atau kategori pekerjaan..."
+                dataTestId="completed-reason-dropdown"
+                onSelectReason={reason => {
+                  onSelectStatusAndReason({
+                    reportStatus: activeStatus.name,
+                    reportStatusId: activeStatus.id,
+                    reasonReport: reason.name,
+                    reasonReportId: reason.id
+                  });
+                  setFormError(null);
+                }}
+              />
             )}
           </div>
         )}

@@ -53,8 +53,10 @@ export const FloatingLiveChatModal: React.FC<FloatingLiveChatModalProps> = ({
           </span>
         ) : null
       }
-      size="lg"
-      mobileVariant="sheet"
+      size="2xl"
+      mobileVariant="fullscreen"
+      dialogClassName="sm:h-[88dvh]"
+      bodyClassName="flex-1 min-h-0 flex flex-col overflow-hidden p-2.5 sm:p-4"
       variant="dark_purple"
       layerTier="nested"
       footer={

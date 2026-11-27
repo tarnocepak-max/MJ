@@ -54,14 +54,12 @@ import {
   Copy,
   Check,
   Camera,
-  FileText,
   History,
   AlertCircle,
   X,
   XCircle,
   ChevronDown,
   Lock,
-  LockOpen,
   QrCode,
   Cable,
   PenTool,
@@ -86,7 +84,6 @@ import { useAnimation } from '../../context/AnimationContext';
 import { useMoraJawsSound } from '../../context/SoundContext';
 import { useVisualViewportModal } from '../../hooks/useVisualViewportModal';
 import { useModalLayer } from '../../hooks/useModalLayer';
-import { KendalaReportModal } from '../tickets/KendalaReportModal';
 import {
   PHOTO_SLOT_DEFINITIONS,
   PhotoSlotDefinition,
@@ -103,10 +100,12 @@ import { FloatingLiveChatModal } from './fullview/FloatingLiveChatModal';
 import {
   extractCustomerContacts,
   extractLocationExtraMeta,
-  formatFullviewTimeValue
+  formatFullviewTimeValue,
+  getReportStatusSurfaceTint
 } from '../../utils/fullviewWorkflow';
 import {
   evaluatePhotoEvidenceCompleteness,
+  evaluateReportPhotoEvidenceRequirement,
   isVerifiedPersistedPhotoSlot,
   isPersistedStoragePhotoUrl,
   buildPhotoEvidenceIncompleteErrorMessage
@@ -221,10 +220,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     }
   }, [activeTicket?.id, (activeTicket as any)?._isCriticalPartial, loadTicketDetailOnDemand]);
 
-  const [serverProgressTriggerByTicket, setServerProgressTriggerByTicket] = useState<
-    Record<string, boolean>
-  >({});
-  const triggerKey = `${activeTicket.id}::${currentUser?.id || ''}`;
   const draftStorageKey = `mj_checkout_draft_${activeTicket.id}`;
 
   const unreadChatCount = getTicketUnreadCount(activeTicket.id);
@@ -238,17 +233,16 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     opmClean: true,
     customerTested: true
   });
-  const [showKendalaModal, setShowKendalaModal] = useState(false);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showUnsuccessModal, setShowUnsuccessModal] = useState(false);
   const [showLiveChatModal, setShowLiveChatModal] = useState(false);
 
-  const checkInSectionRef = useRef<HTMLDivElement>(null);
+  const preCheckInSectionRef = useRef<HTMLElement>(null);
   const photoAccordionRef = useRef<HTMLDetailsElement>(null);
   const photoSectionRef = useRef<HTMLElement>(null);
   const technicalAccordionRef = useRef<HTMLDetailsElement>(null);
-  const reportAccordionRef = useRef<HTMLDetailsElement>(null);
   const signatureSectionRef = useRef<HTMLDetailsElement>(null);
+  const historySectionRef = useRef<HTMLElement>(null);
   const uploadingSlotKeysRef = useRef<Set<PhotoSlotKey>>(new Set());
 
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
@@ -476,17 +470,14 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (!initialFocusSection) return;
     const timer = setTimeout(() => {
       if (initialFocusSection === 'checkin') {
-        checkInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        preCheckInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (initialFocusSection === 'installation') {
         if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
         technicalAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (initialFocusSection === 'photos') {
         if (photoAccordionRef.current) photoAccordionRef.current.open = true;
         photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (initialFocusSection === 'report') {
-        if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-        reportAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (initialFocusSection === 'checkout') {
+      } else if (initialFocusSection === 'report' || initialFocusSection === 'checkout') {
         if (signatureSectionRef.current) signatureSectionRef.current.open = true;
         signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -612,7 +603,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           fatPort ||
           customerSignatureUrl ||
           showQcConfirmSheet ||
-          showKendalaModal ||
           showCompletedModal ||
           showUnsuccessModal ||
           showLiveChatModal
@@ -634,7 +624,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     fatPort,
     customerSignatureUrl,
     showQcConfirmSheet,
-    showKendalaModal,
     showCompletedModal,
     showUnsuccessModal,
     showLiveChatModal,
@@ -803,63 +792,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   const messages = getMessagesForTicket(activeTicket.id);
 
-  // Authoritative check against persisted DB LiveChat messages for PROGRESS check-in
-  const persistedProgressMessage = useMemo(() => {
-    const cleanUid = String(currentUser?.id || '').trim();
-    if (!cleanUid) return undefined;
-    const targetId = String(activeTicket.id || '').trim();
-    const targetWo = String(activeTicket.woNumber || '').trim().toUpperCase();
-
-    return (messages || []).find(m => {
-      if (!m || !m.id) return false;
-      const msgId = String(m.id).trim();
-      if (
-        !msgId ||
-        msgId.startsWith('temp_') ||
-        msgId.startsWith('pending_') ||
-        msgId.startsWith('local_offline_')
-      ) {
-        return false;
-      }
-      if (
-        (m as any)._offlineSyncStatus === 'pending' ||
-        (m as any).status === 'failed' ||
-        (m as any).status === 'pending'
-      ) {
-        return false;
-      }
-
-      const msgTicketId = String(m.ticketId || '').trim();
-      const msgWo = String(m.woNumber || '').trim().toUpperCase();
-      const woMatches =
-        (targetId && msgTicketId === targetId) ||
-        (targetWo && msgWo === targetWo) ||
-        (targetId && msgWo === targetId.toUpperCase());
-      if (!woMatches) return false;
-
-      const senderId = String(m.senderId || '').trim();
-      if (!senderId || senderId !== cleanUid) return false;
-
-      return String(m.category || '').trim().toUpperCase() === 'PROGRESS';
-    });
-  }, [messages, activeTicket.id, activeTicket.woNumber, currentUser?.id]);
-
-  const hasPersistedProgressFromCurrentTechnician = Boolean(persistedProgressMessage);
-
-  const hasValidProgressFromCurrentTechnician =
-    currentUser.role === 'installer' &&
-    (hasPersistedProgressFromCurrentTechnician ||
-      Boolean(serverProgressTriggerByTicket[triggerKey]) ||
-      Boolean(activeTicket.checkInAt));
-
+  // Authoritative Check-In status comes strictly from Live Camera + GPS Check-In timestamp
   const requiresProgressCheckIn =
-    currentUser.role === 'installer' && !hasValidProgressFromCurrentTechnician;
-
-  const validatedCheckInTime = useMemo(() => {
-    const iso = persistedProgressMessage?.timestamp || activeTicket.checkInAt;
-    if (!iso) return '-';
-    return formatJakartaTimeOnly(iso);
-  }, [persistedProgressMessage?.timestamp, activeTicket.checkInAt]);
+    currentUser.role === 'installer' && !activeTicket.checkInAt;
 
   // Validate assignment & installer login before triggering Check-In camera modal
   const handleTriggerCheckIn = useCallback(() => {
@@ -1244,19 +1179,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
 
   useEffect(() => {
     setIsChatActive(false);
-    let cancelled = false;
-    const activeKey = `${activeTicket.id}::${currentUser?.id || ''}`;
-    refreshMessagesForTicket(activeTicket.id).then(res => {
-      if (cancelled) return;
-      setServerProgressTriggerByTicket(prev => ({
-        ...prev,
-        [activeKey]: Boolean(res?.hasProgressTrigger)
-      }));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTicket.id, currentUser?.id, refreshMessagesForTicket]);
+    void refreshMessagesForTicket(activeTicket.id);
+  }, [activeTicket.id, refreshMessagesForTicket]);
 
   useEffect(() => {
     const existing = String(activeTicket.chatCategory || '').trim();
@@ -1274,20 +1198,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       await setTicketChatCategory(activeTicket.id, newCat);
       toast.success(`Kategori chat disinkronkan ke "${newCat}".`);
     }
-  };
-
-  const handleOpenProgressChatForCheckIn = async () => {
-    const progressCat =
-      activeChatCategories.find(c => String(c.name || '').trim().toUpperCase() === 'PROGRESS')?.name ||
-      'PROGRESS';
-    setChatCategory(progressCat);
-    await setTicketChatCategory(activeTicket.id, progressCat);
-    setShowLiveChatModal(true);
-    setIsChatActive(true);
-    setTimeout(() => {
-      chatInputRef.current?.focus();
-    }, 180);
-    toast.info('Kategori PROGRESS dipilih. Kirim pesan untuk mencatat Check-In otomatis.', 'Siap Check-In');
   };
 
   useEffect(() => {
@@ -1431,12 +1341,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       if (res.success) {
         setChatInputText('');
         setChatAttachments([]);
-        if (currentUser.role === 'installer' && res.hasProgressTrigger) {
-          setServerProgressTriggerByTicket(prev => ({
-            ...prev,
-            [triggerKey]: true
-          }));
-        }
       } else {
         const err = res.error || 'Gagal mengirim pesan chat.';
         setChatError(err);
@@ -1471,9 +1375,9 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
     if (requiresProgressCheckIn) {
       playErrorSound();
       const msg =
-        'Check-In belum tercatat! Lakukan Check-In Foto Rumah GPS terlebih dahulu.';
+        'Check-In belum tercatat! Lakukan Check-In Foto Rumah & GPS terlebih dahulu.';
       setReportError(msg);
-      toast.error(msg, 'Check-In Wajib (#PROGRESS)');
+      toast.error(msg, 'Check-In Wajib Dilakukan');
       handleTriggerCheckIn();
       return false;
     }
@@ -1486,11 +1390,21 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       return false;
     }
 
-    if (!isMandatoryEvidenceReady) {
+    const evidenceReq = evaluateReportPhotoEvidenceRequirement(
+      photoSlots,
+      targetStatus,
+      slotUploadState
+    );
+    if (targetStatus ? !evidenceReq.isReady : !isMandatoryEvidenceReady) {
       playErrorSound();
-      const msg = buildPhotoEvidenceIncompleteErrorMessage(photoEvidenceEval);
+      const msg = targetStatus
+        ? evidenceReq.errorMessage
+        : buildPhotoEvidenceIncompleteErrorMessage(photoEvidenceEval);
       setReportError(msg);
-      toast.error(msg, 'Foto Bukti Wajib Kurang (Min. 3)');
+      toast.error(
+        msg,
+        evidenceReq.isUnsuccess ? 'Foto Unsuccess Kurang (Min. 4)' : 'Foto Bukti Wajib Kurang (Min. 3)'
+      );
       if (photoAccordionRef.current) photoAccordionRef.current.open = true;
       photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return false;
@@ -1639,7 +1553,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         const errMsg = res.error || 'Gagal menyimpan laporan ke database.';
         setReportError(errMsg);
         if ((res as any).code === 'CHECK_IN_REQUIRED') {
-          toast.error(errMsg, 'Check-In PROGRESS Diperlukan');
+          toast.error(errMsg, 'Check-In Diperlukan');
         } else if ((res as any).code === 'PHOTO_EVIDENCE_INCOMPLETE') {
           toast.error(errMsg, 'Foto Bukti Wajib Kurang');
           if (photoAccordionRef.current) photoAccordionRef.current.open = true;
@@ -1838,15 +1752,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
   const totalPhotoSlots = PHOTO_SLOT_DEFINITIONS.length;
   const uploadedPhotoCount = verifiedUploadedPhotoCount;
 
-  const isCheckInStepDone = !requiresProgressCheckIn || Boolean(activeTicket.checkInAt);
-  const isInstallationStepDone =
-    isCheckInStepDone && (Boolean(opmDbm.trim()) || Boolean(ontSerialNumber.trim()) || Boolean(fatPort.trim()));
-  const isPhotosStepDone = isMandatoryEvidenceReady;
-  const isReportStepDone = Boolean(
-    (reportStatus && reasonReport && remarksReport.trim()) ||
-      (activeTicket.progressReports && activeTicket.progressReports.length > 0 && canonicalApproval !== 'REVISION')
-  );
-  const isCheckOutDone = Boolean(activeTicket.checkOutAt) || ticketClosed;
+  const isCheckInStepDone = Boolean(activeTicket.checkInAt);
 
   const isCheckoutFormReady = Boolean(
     reportStatus && reasonReport && remarksReport.trim() && isMandatoryEvidenceReady && !isAnySlotUploading
@@ -2031,17 +1937,8 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 pb-28 sm:pb-24 space-y-3.5">
 
-          {/* TOP NAVIGATION & CHECK-IN STATUS STRIP */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={onBack}
-              className="mj-btn-installer-neutral mj-btn-compact px-3 py-1.5 text-xs font-bold gap-1.5 cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Kembali ke Tugas Saya</span>
-            </button>
-
+          {/* TOP CHECK-IN STATUS STRIP (Top-bar ArrowLeft remains single back control) */}
+          <div className="flex items-center justify-end gap-2">
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-extrabold border ${
                 isCheckInStepDone
@@ -2402,201 +2299,49 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           {/* PRE-CHECK-IN VS POST-CHECK-IN WORKFLOW                       */}
           {/* ============================================================ */}
           {!ticketClosed && requiresProgressCheckIn ? (
-            <>
-              <section
-                ref={checkInSectionRef}
-                className="mj-enterprise-card rounded-2xl p-4 sm:p-5 space-y-3.5"
-              >
-                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/60 border border-[#F2CF95] dark:border-amber-800/60 text-[#9D661F] dark:text-amber-300 flex items-center justify-center shrink-0">
-                      <Camera className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
-                        Check-In Lokasi Pelanggan
-                      </h2>
-                      <p className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
-                        Tahap wajib sebelum membuka form teknis &amp; pelaporan
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-700/60">
-                    Menunggu Check-In
+            <section
+              ref={preCheckInSectionRef}
+              className="mj-enterprise-card rounded-2xl p-4 sm:p-5 space-y-3.5"
+            >
+              <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/60 border border-[#F2CF95] dark:border-amber-800/60 text-[#9D661F] dark:text-amber-300 flex items-center justify-center shrink-0">
+                    <Camera className="w-4 h-4" />
                   </span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#FFF2D9]/75 dark:bg-amber-950/35 border border-[#F2CF95] dark:border-amber-800/60 space-y-3">
-                  <div className="text-xs text-[#7D4F15] dark:text-amber-200 leading-relaxed">
-                    <strong>Siap Memulai Pekerjaan?</strong> Tekan tombol <strong>CHECK IN</strong> di bawah untuk membuka kamera GPS, mengambil <strong>Foto Rumah (#01)</strong>, dan mencatat timestamp Check-In beserta status <strong>#PROGRESS</strong>.
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTriggerCheckIn}
-                      data-testid="fullview-inline-checkin-btn"
-                      className="mj-btn-installer-primary min-h-[44px] px-4 py-2 text-xs font-bold gap-1.5 cursor-pointer"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>CHECK IN Sekarang</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleOpenProgressChatForCheckIn}
-                      className="mj-btn-installer-neutral mj-btn-compact min-h-[44px] px-3 py-2 text-xs font-bold gap-1.5 cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
-                      <span>LiveChat #PROGRESS</span>
-                    </button>
+                  <div>
+                    <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
+                      Check-In Lokasi Pelanggan
+                    </h2>
+                    <p className="text-[11px] text-[#8492A5] dark:text-[#A79BC0]">
+                      Tahap wajib sebelum membuka form teknis &amp; pelaporan
+                    </p>
                   </div>
                 </div>
-              </section>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FFF2D9] dark:bg-amber-950/50 text-[#9D661F] dark:text-amber-300 border border-[#F2CF95] dark:border-amber-700/60">
+                  Menunggu Check-In
+                </span>
+              </div>
 
-              {progressHistory.length > 0 && (
-                <details className="group mj-enterprise-card rounded-2xl overflow-hidden">
-                  <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
-                    <div className="flex items-center gap-2">
-                      <History className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF]" />
-                      <h3 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
-                        Riwayat Report ({progressHistory.length} Versi)
-                      </h3>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-                  </summary>
-                  <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2 max-h-[240px] overflow-y-auto">
-                    {progressHistory.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] space-y-1 text-xs"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-1">
-                          <span className="font-semibold text-[#26364A] dark:text-[#f5eeff]">
-                            {item.reportStatus} · {item.reasonReport}
-                          </span>
-                          <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
-                            {formatJakartaTimeOnly(item.timestamp)} WIB
-                          </span>
-                        </div>
-                        {item.remarksReport && (
-                          <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic">&ldquo;{item.remarksReport}&rdquo;</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </>
+              <div className="p-3.5 rounded-xl bg-[#FFF2D9]/75 dark:bg-amber-950/35 border border-[#F2CF95] dark:border-amber-800/60 space-y-3">
+                <div className="text-xs text-[#7D4F15] dark:text-amber-200 leading-relaxed">
+                  <strong>Siap Memulai Pekerjaan?</strong> Tekan tombol <strong>CHECK IN</strong> di bawah untuk membuka kamera GPS, mengambil <strong>Foto Rumah (#01)</strong>, dan mencatat lokasi serta timestamp Check-In secara langsung.
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTriggerCheckIn}
+                    data-testid="fullview-inline-checkin-btn"
+                    className="mj-btn-installer-primary min-h-[44px] px-4 py-2 text-xs font-bold gap-1.5 cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>CHECK IN Sekarang</span>
+                  </button>
+                </div>
+              </div>
+            </section>
           ) : (
             <>
-              {/* SECTION 4: WORK PROGRESS & CHECK-IN STATUS (NO STANDALONE KENDALA BUTTON) */}
-              <section
-                ref={checkInSectionRef}
-                className="mj-enterprise-card rounded-2xl p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff]">
-                        Work Progress &amp; Check-In
-                      </h2>
-                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                        {isCheckInStepDone
-                          ? `Check-In tercatat pukul ${validatedCheckInTime} WIB • Valid #PROGRESS`
-                          : 'Detail progres pengerjaan Work Order'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E4F5EC] dark:bg-emerald-950/50 border border-[#B7E4CC] dark:border-emerald-700/60 font-mono text-[10.5px] font-bold text-[#218A63] dark:text-emerald-300 tabular-nums">
-                    <LockOpen className="w-3 h-3" />
-                    <span>{validatedCheckInTime !== '-' ? `${validatedCheckInTime} WIB` : 'Aktif'}</span>
-                  </span>
-                </div>
-
-                {/* 5-Stage Progress Stepper */}
-                <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-2.5 border border-[#DDE6F0] dark:border-[#35105E] grid grid-cols-5 gap-1.5 text-center">
-                  {[
-                    {
-                      label: 'Check-In',
-                      done: isCheckInStepDone,
-                      active: !isCheckInStepDone,
-                      sub: isCheckInStepDone ? 'OK' : 'Wajib',
-                      onClick: () => {
-                        checkInSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    },
-                    {
-                      label: 'Foto',
-                      done: isPhotosStepDone,
-                      active: isCheckInStepDone && !isPhotosStepDone,
-                      sub: `Wajib ${mandatoryPhotoCount}/3`,
-                      onClick: () => {
-                        if (photoAccordionRef.current) photoAccordionRef.current.open = true;
-                        photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    },
-                    {
-                      label: 'Instalasi',
-                      done: isInstallationStepDone,
-                      active: isCheckInStepDone && !isInstallationStepDone,
-                      sub: opmDbm ? `${opmDbm} dBm` : 'Teknis',
-                      onClick: () => {
-                        if (technicalAccordionRef.current) technicalAccordionRef.current.open = true;
-                        technicalAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    },
-                    {
-                      label: 'Report',
-                      done: isReportStepDone,
-                      active: isCheckInStepDone && !isReportStepDone,
-                      sub: isReportStepDone ? 'Siap' : 'Status WO',
-                      onClick: () => {
-                        if (reportAccordionRef.current) reportAccordionRef.current.open = true;
-                        reportAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    },
-                    {
-                      label: 'Check-Out',
-                      done: isCheckOutDone,
-                      active: isReportStepDone && !isCheckOutDone,
-                      sub: isCheckOutDone ? 'Selesai' : isSignatureReady ? 'TTD OK' : 'Final',
-                      onClick: () => {
-                        if (signatureSectionRef.current) signatureSectionRef.current.open = true;
-                        signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }
-                  ].map((step, i) => (
-                    <button
-                      key={step.label}
-                      type="button"
-                      onClick={step.onClick}
-                      className="flex flex-col items-center p-1.5 rounded-lg hover:bg-white dark:hover:bg-[#2A194B] transition-colors cursor-pointer"
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-bold mb-1 ${
-                          step.done
-                            ? 'bg-[#218A63] dark:bg-emerald-600 text-white'
-                            : step.active
-                            ? 'bg-[#6657C8] dark:bg-[#7135b5] text-white ring-2 ring-[#BDE4E8] dark:ring-[#58149C]'
-                            : 'bg-[#EDF3F8] dark:bg-[#2A194B] text-[#52647A] dark:text-[#C4B5D6]'
-                        }`}
-                      >
-                        {step.done ? <Check className="w-3.5 h-3.5" /> : i + 1}
-                      </div>
-                      <span className="text-[10.5px] font-bold text-[#26364A] dark:text-[#f5eeff] leading-tight truncate max-w-full">
-                        {step.label}
-                      </span>
-                      <span className="font-mono text-[9px] text-[#8492A5] dark:text-[#A79BC0] truncate max-w-full">
-                        {step.sub}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
 
               {/* SECTION 5: BUKTI FOTO FISIK (ORDERED 1-7) */}
               <details
@@ -2944,209 +2689,22 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
                 </div>
               </details>
 
-              {/* SECTION 7: STATUS LAPORAN & RIWAYAT REPORT */}
-              <details
-                ref={reportAccordionRef}
-                open
-                className="group mj-enterprise-card rounded-2xl overflow-hidden"
-              >
-                <summary className="p-4 flex items-center justify-between cursor-pointer select-none">
+              {reportError && (
+                <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-xs flex items-center justify-between gap-2 font-semibold">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-6 h-6 rounded-lg bg-[#DDF4F4] dark:bg-[#2A194B] text-[#2E7D8B] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
-                      <FileText className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
-                        Ringkasan Laporan &amp; Riwayat Report
-                      </h2>
-                      <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
-                        {reportStatus && reasonReport
-                          ? `${reportStatus} · ${reasonReport}`
-                          : 'Gunakan tombol COMPLETED (hijau) atau UNSUCCESS (merah) di bawah'}
-                      </span>
-                    </div>
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{reportError}</span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B]">
-                      {progressHistory.length} Versi
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 group-open:rotate-180" />
-                  </div>
-                </summary>
-
-                <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-3">
-                  {reportError && (
-                    <div className="p-3 rounded-xl bg-[#FCE9EB] dark:bg-rose-950/50 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-xs flex items-center gap-2 font-semibold">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{reportError}</span>
-                    </div>
-                  )}
-
-                  {/* Compact Current Report Draft / Snapshot */}
-                  <div className="bg-[#F8FAFD] dark:bg-[#160D29] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-[#5145A6] dark:text-[#DAB9FF]">
-                        Status Laporan Terkini
-                      </span>
-                      {!ticketClosed && (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setShowCompletedModal(true)}
-                            className="mj-btn-installer-success mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold cursor-pointer"
-                          >
-                            Form Completed
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowUnsuccessModal(true)}
-                            className="mj-btn-installer-danger mj-btn-xs px-2.5 py-1 text-[10.5px] font-bold cursor-pointer"
-                          >
-                            Form Unsuccess
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Status WO</span>
-                        <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">
-                          {reportStatus || 'Belum dipilih'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Reason WO</span>
-                        <span className="font-bold text-[#26364A] dark:text-[#f5eeff]">
-                          {reasonReport || 'Belum dipilih'}
-                        </span>
-                      </div>
-                    </div>
-                    {remarksReport.trim() && (
-                      <div className="pt-1 border-t border-[#DDE6F0] dark:border-[#35105E]">
-                        <span className="text-[10.5px] text-[#8492A5] dark:text-[#A79BC0] block">Remarks</span>
-                        <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic mt-0.5">
-                          &ldquo;{remarksReport.trim()}&rdquo;
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Report History & Timeline */}
-                  <div className="bg-[#FFFFFF] dark:bg-[#1E1238] rounded-xl p-3.5 border border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowHistorySection(prev => !prev)}
-                      className="w-full flex items-center justify-between pb-2 border-b border-[#DDE6F0] dark:border-[#35105E] cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <History className="w-4 h-4 text-[#5145A6] dark:text-[#DAB9FF] shrink-0" />
-                        <h3 className="font-display font-bold text-[13px] text-[#26364A] dark:text-[#f5eeff]">
-                          Riwayat Report ({progressHistory.length} Versi)
-                        </h3>
-                      </div>
-                      <ChevronDown
-                        className={`w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform ${
-                          showHistorySection ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-
-                    {showHistorySection && (
-                      <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                        {progressHistory.length === 0 ? (
-                          <div className="py-3 text-center text-[#8492A5] dark:text-[#A79BC0] text-xs">
-                            Belum ada riwayat laporan untuk WO ini.
-                          </div>
-                        ) : (
-                          progressHistory.map((item, idx) => {
-                            const formattedDate = new Date(item.timestamp).toLocaleString('id-ID', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            });
-
-                            return (
-                              <div
-                                key={item.id || idx}
-                                className="p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] space-y-1 text-xs"
-                              >
-                                <div className="flex flex-wrap items-center justify-between gap-1 pb-1 border-b border-[#DDE6F0] dark:border-[#35105E]">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF]">
-                                      v{item.versionNumber || progressHistory.length - idx}
-                                    </span>
-                                    <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
-                                      {formattedDate} WIB
-                                    </span>
-                                    <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] inline-flex items-center gap-1">
-                                      <User className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
-                                      {item.submittedBy}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <StatusBadge status={item.reportStatus} variant="report" />
-                                    {(item.approvalStatus ||
-                                      (idx === 0 &&
-                                        activeTicket.approvalStatus &&
-                                        activeTicket.approvalStatus !== 'NONE')) && (
-                                      <StatusBadge
-                                        status={item.approvalStatus || activeTicket.approvalStatus}
-                                        variant="approval"
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
-                                  <span>Reason WO: <strong className="text-[#26364A] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
-                                </div>
-
-                                {item.remarksReport && (
-                                  <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic bg-[#FFFFFF] dark:bg-[#1E1238] p-2 rounded border border-[#DDE6F0] dark:border-[#35105E]">
-                                    &ldquo;{item.remarksReport}&rdquo;
-                                  </p>
-                                )}
-
-                                {(item.revisionReason || (item as any).rejectionReason) && (
-                                  <div className="p-2 rounded bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-[10.5px] font-semibold">
-                                    Catatan Revisi Dispatch: &ldquo;
-                                    {item.revisionReason || (item as any).rejectionReason}&rdquo;
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-
-                        {relatedActivities.length > 0 && (
-                          <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-1.5">
-                            <div className="font-mono text-[10px] uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] font-semibold flex items-center justify-between">
-                              <span>Log Aktivitas Terbaru</span>
-                              <Wrench className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
-                            </div>
-                            {relatedActivities.slice(0, 4).map(act => (
-                              <div
-                                key={act.id}
-                                className="p-2 rounded bg-[#F8FAFD] dark:bg-[#160D29] text-[11px] border-l-2 border-[#6657C8] dark:border-[#7135b5]"
-                              >
-                                <div className="flex items-center justify-between gap-2 text-[#26364A] dark:text-[#f5eeff] font-semibold">
-                                  <span className="truncate">{act.performedBy || 'Sistem'}</span>
-                                  <span className="font-mono text-[9.5px] text-[#8492A5] dark:text-[#A79BC0] shrink-0">
-                                    {formatJakartaTimeOnly(act.timestamp)}
-                                  </span>
-                                </div>
-                                <p className="text-[#52647A] dark:text-[#C4B5D6] leading-snug mt-0.5">{act.description}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReportError(null)}
+                    aria-label="Tutup pesan error"
+                    className="shrink-0 opacity-75 hover:opacity-100 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </details>
+              )}
 
               {/* SECTION 8: TANDA TANGAN PELANGGAN & DRAFT LOKAL */}
               <details
@@ -3258,6 +2816,141 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
               </details>
             </>
           )}
+
+          {/* ============================================================ */}
+          {/* BOTTOM SECTION: HISTORY REPORT WO (READ-ONLY)                */}
+          {/* ============================================================ */}
+          <section
+            ref={historySectionRef}
+            data-testid="history-report-wo-section"
+            className="mj-enterprise-card rounded-2xl overflow-hidden"
+          >
+            <button
+              type="button"
+              onClick={() => setShowHistorySection(prev => !prev)}
+              className="w-full p-4 flex items-center justify-between gap-2 cursor-pointer select-none text-left"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-6 h-6 rounded-lg bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] flex items-center justify-center shrink-0">
+                  <History className="w-3.5 h-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="font-display font-bold text-sm text-[#26364A] dark:text-[#f5eeff] truncate">
+                    History Report WO
+                  </h2>
+                  <span className="text-[11px] text-[#8492A5] dark:text-[#A79BC0] block truncate">
+                    Riwayat pengiriman status laporan &amp; aktivitas WO (read-only)
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF] border border-[#DCE3F2] dark:border-[#4B386B]">
+                  {progressHistory.length} Versi
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-[#8492A5] dark:text-[#A79BC0] transition-transform duration-200 ${
+                    showHistorySection ? 'rotate-180' : ''
+                  }`}
+                />
+              </div>
+            </button>
+
+            {showHistorySection && (
+              <div className="px-4 pb-4 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-2.5">
+                {progressHistory.length === 0 ? (
+                  <div className="py-4 text-center text-[#8492A5] dark:text-[#A79BC0] text-xs">
+                    Belum ada riwayat laporan untuk WO ini.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {progressHistory.map((item, idx) => {
+                      const formattedDate = new Date(item.timestamp).toLocaleString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      const rowTint = getReportStatusSurfaceTint(item.reportStatus);
+
+                      return (
+                        <div
+                          key={item.id || idx}
+                          className={`p-2.5 rounded-lg border border-[#DDE6F0] dark:border-[#35105E] bg-[#F8FAFD] dark:bg-[#160D29] space-y-1 text-xs ${rowTint}`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-1 pb-1 border-b border-[#DDE6F0] dark:border-[#35105E]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#EAE8FF] dark:bg-[#2A194B] text-[#5145A6] dark:text-[#DAB9FF]">
+                                v{item.versionNumber || progressHistory.length - idx}
+                              </span>
+                              <span className="font-mono text-[10px] text-[#8492A5] dark:text-[#A79BC0]">
+                                {formattedDate} WIB
+                              </span>
+                              <span className="font-semibold text-[#26364A] dark:text-[#f5eeff] inline-flex items-center gap-1">
+                                <User className="w-3 h-3 text-[#5145A6] dark:text-[#DAB9FF]" />
+                                {item.submittedBy}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <StatusBadge status={item.reportStatus} variant="report" />
+                              {(item.approvalStatus ||
+                                (idx === 0 &&
+                                  activeTicket.approvalStatus &&
+                                  activeTicket.approvalStatus !== 'NONE')) && (
+                                <StatusBadge
+                                  status={item.approvalStatus || activeTicket.approvalStatus}
+                                  variant="approval"
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-[#52647A] dark:text-[#C4B5D6]">
+                            <span>Reason WO: <strong className="text-[#26364A] dark:text-[#f5eeff]">{item.reasonReport}</strong></span>
+                          </div>
+
+                          {item.remarksReport && (
+                            <p className="text-[11px] text-[#52647A] dark:text-[#C4B5D6] italic bg-[#FFFFFF] dark:bg-[#1E1238] p-2 rounded border border-[#DDE6F0] dark:border-[#35105E]">
+                              &ldquo;{item.remarksReport}&rdquo;
+                            </p>
+                          )}
+
+                          {(item.revisionReason || (item as any).rejectionReason) && (
+                            <div className="p-2 rounded bg-[#FCE9EB] dark:bg-rose-950/40 border border-[#F3C5CA] dark:border-rose-800/60 text-[#9B2C37] dark:text-rose-300 text-[10.5px] font-semibold">
+                              Catatan Revisi Dispatch: &ldquo;
+                              {item.revisionReason || (item as any).rejectionReason}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {relatedActivities.length > 0 && (
+                  <div className="pt-2 border-t border-[#DDE6F0] dark:border-[#35105E] space-y-1.5">
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-[#8492A5] dark:text-[#A79BC0] font-semibold flex items-center justify-between">
+                      <span>Log Aktivitas Terbaru</span>
+                      <Wrench className="w-3.5 h-3.5 text-[#5145A6] dark:text-[#DAB9FF]" />
+                    </div>
+                    {relatedActivities.slice(0, 4).map(act => (
+                      <div
+                        key={act.id}
+                        className="p-2 rounded bg-[#F8FAFD] dark:bg-[#160D29] text-[11px] border-l-2 border-[#6657C8] dark:border-[#7135b5]"
+                      >
+                        <div className="flex items-center justify-between gap-2 text-[#26364A] dark:text-[#f5eeff] font-semibold">
+                          <span className="truncate">{act.performedBy || 'Sistem'}</span>
+                          <span className="font-mono text-[9.5px] text-[#8492A5] dark:text-[#A79BC0] shrink-0">
+                            {formatJakartaTimeOnly(act.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-[#52647A] dark:text-[#C4B5D6] leading-snug mt-0.5">{act.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </div>
       </main>
 
@@ -3664,6 +3357,7 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         remarksReport={remarksReport}
         isMandatoryEvidenceReady={isMandatoryEvidenceReady}
         mandatoryPhotoCount={mandatoryPhotoCount}
+        verifiedUploadedPhotoCount={verifiedUploadedPhotoCount}
         isAnySlotUploading={isAnySlotUploading}
         isSubmittingReport={isSubmittingReport}
         onChangeRemarks={val => {
@@ -3673,10 +3367,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         onGoToPhotos={() => {
           if (photoAccordionRef.current) photoAccordionRef.current.open = true;
           photoAccordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }}
-        onSelectKendalaLapangan={() => {
-          setShowUnsuccessModal(false);
-          setShowKendalaModal(true);
         }}
         onSubmitUnsuccessReport={handleSaveUnsuccessReport}
         onClose={() => setShowUnsuccessModal(false)}
@@ -3714,15 +3404,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
         onRemoveAttachment={handleRemoveAttachment}
         onSendMessage={handleSendChatMessage}
         onZoomImage={url => setLightboxState({ url })}
-      />
-
-      {/* ============================================================== */}
-      {/* KENDALA / RESCHEDULE ESCALATION MODAL (MANDATORY PHOTO+DESC)   */}
-      {/* ============================================================== */}
-      <KendalaReportModal
-        isOpen={showKendalaModal}
-        ticket={activeTicket}
-        onClose={() => setShowKendalaModal(false)}
       />
 
       {/* ============================================================== */}
@@ -3823,11 +3504,6 @@ export const InstallerTicketFullview: React.FC<InstallerTicketFullviewProps> = (
           ticket={activeTicket}
           onCheckInSuccess={() => {
             setShowCheckInCameraModal(false);
-            setServerProgressTriggerByTicket(prev => ({
-              ...prev,
-              [triggerKey]: true
-            }));
-            refreshMessagesForTicket(activeTicket.id).catch(() => {});
           }}
         />
       )}

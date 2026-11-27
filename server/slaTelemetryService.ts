@@ -266,8 +266,7 @@ function evaluateTicket(
   contractorId: string,
   contractorName: string,
   nowMs: number,
-  config: SlaThresholdConfig,
-  progressMsgTicketIds: Set<string>
+  config: SlaThresholdConfig
 ): EvaluatedTicket {
   const { slot, endHour, endMinute } = matchCanonicalSlot(ticket.slotTime);
   const hh = String(Math.min(23, Math.max(0, endHour))).padStart(2, '0');
@@ -331,13 +330,11 @@ function evaluateTicket(
   const hasFtrSample = hasReport || isCompleted || hasReworkHistory || instStatus === 'Failed / Cancelled';
   const isFtrPass = hasFtrSample && !hasReworkHistory && !isCancelled;
 
-  // Check-in & Response Time evaluation
+  // Check-in & Response Time evaluation (authoritative Check-In timestamp or active workSession only)
   const hasCheckIn = Boolean(
     ticket.checkInAt
     || ticket.workStartedAt
     || (ticket.workSessions && ticket.workSessions.length > 0)
-    || progressMsgTicketIds.has(ticket.id)
-    || progressMsgTicketIds.has(ticket.woNumber)
   );
 
   const dispatchStartMs =
@@ -449,14 +446,6 @@ export function computeSlaTelemetryPayload(input: ComputeSlaTelemetryInput): Sla
   const activeInstallers = (users || []).filter(u => u && u.role === 'installer' && !u.isDeleted && u.active !== false);
   const activeLeaders = (users || []).filter(u => u && u.role === 'leader' && !u.isDeleted && u.active !== false);
 
-  const progressMsgTicketIds = new Set<string>();
-  for (const m of ticketMessages) {
-    if (String(m.category || '').toUpperCase() === 'PROGRESS') {
-      if (m.ticketId) progressMsgTicketIds.add(String(m.ticketId));
-      if (m.woNumber) progressMsgTicketIds.add(String(m.woNumber));
-    }
-  }
-
   // Helper to resolve contractor entity for a ticket
   const resolveContractorForTicket = (t: Ticket): { id: string; name: string } => {
     const rawId = String(t.contractorId || '').trim();
@@ -501,7 +490,7 @@ export function computeSlaTelemetryPayload(input: ComputeSlaTelemetryInput): Sla
       if (!matchesFilter) continue;
     }
 
-    periodTickets.push(evaluateTicket(t, woDate, resolvedContractor.id, resolvedContractor.name, nowMs, config, progressMsgTicketIds));
+    periodTickets.push(evaluateTicket(t, woDate, resolvedContractor.id, resolvedContractor.name, nowMs, config));
   }
 
   // Global KPI aggregates
@@ -764,8 +753,8 @@ export function computeSlaTelemetryPayload(input: ComputeSlaTelemetryInput): Sla
     },
     {
       id: 'livechat_checkin',
-      title: '2. Check-in WhatsApp & LiveChat Progress Real-time',
-      subtitle: `${checkInPass}/${nonCancelled.length} WO aktif memiliki validasi Check-in PROGRESS`,
+      title: '2. Check-in Kamera & GPS Geotag Real-time',
+      subtitle: `${checkInPass}/${nonCancelled.length} WO aktif memiliki validasi Check-in Kamera + GPS`,
       complianceRate: checkInRate,
       passedCount: checkInPass,
       totalCount: nonCancelled.length,
@@ -808,7 +797,7 @@ export function computeSlaTelemetryPayload(input: ComputeSlaTelemetryInput): Sla
       || t.remarksAgent
       || t.remarks
       || t.distributionNotes
-      || (b.hasCheckIn ? 'Dalam pengerjaan lapangan — mendekati deadline SLA' : 'Menunggu Check-in LiveChat PROGRESS');
+      || (b.hasCheckIn ? 'Dalam pengerjaan lapangan — mendekati deadline SLA' : 'Menunggu Check-in Kamera & GPS');
 
     return {
       ticketId: t.id,

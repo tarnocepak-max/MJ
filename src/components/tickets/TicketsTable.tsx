@@ -1512,7 +1512,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
 
               <div className="p-3 bg-[#F8FAFD] dark:bg-[#160D29] rounded-lg border border-[#DDE6F0] dark:border-[#35105E]">
                 <span className="text-[11px] font-bold uppercase text-[#8492A5] dark:text-[#8B8495] block">
-                  LiveChat Check-In Dispatch
+                  Status Check-In Teknisi
                 </span>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span
@@ -1522,7 +1522,7 @@ export const TicketsTable: React.FC<TicketsTableProps> = ({
                         : 'bg-[#EDF3F8] dark:bg-[#35105E]/50 text-[#52647A] dark:text-[#CEC0E8]'
                     }`}
                   >
-                    {ticket.checkInAt ? 'PROGRESS' : 'BELUM CHECK-IN'}
+                    {ticket.checkInAt ? 'SUDAH CHECK-IN' : 'BELUM CHECK-IN'}
                   </span>
                   <span className="font-mono text-xs font-bold text-[#26364A] dark:text-white tabular-nums">
                     {ticket.checkInAt ? formatTimeOnlyWIB(ticket.checkInAt) : '-'}

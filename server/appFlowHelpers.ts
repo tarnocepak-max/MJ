@@ -6,8 +6,7 @@
  *    Match Contractor/Vendor + Area first, then fallback to Contractor-level Leader.
  *    Never select a random Leader fallback; otherwise mark as Belum Terdistribusi
  *    ('unmapped_contractor' or 'unmapped_leader') with clear reason.
- * 2. Scope matching helpers for Contractor & Area.
- * 3. Strict LiveChat category === 'PROGRESS' check-in rule.
+ * 3. Scope matching helpers for Contractor & Area.
  * 4. Supabase ticket_messages normalization (readBy, category, timestamp).
  */
 
@@ -256,54 +255,6 @@ export function resolveLeaderForWorkOrder(
   };
 }
 
-/**
- * Strictly requires selected LiveChat category 'PROGRESS' to trigger technician check-in.
- * Keyword-based detection in non-PROGRESS categories is intentionally disabled.
- */
-export function isProgressCategoryOnly(category?: string | null): boolean {
-  return String(category || '').trim().toUpperCase() === 'PROGRESS';
-}
-
-/**
- * Verifies from persisted LiveChat messages whether a specific user (technician)
- * has successfully sent at least one valid PROGRESS message on the target Work Order.
- * Pending, temporary, or failed messages and messages from other users/roles are excluded.
- */
-export function hasUserSentProgressMessage(
-  messages: any[],
-  ticketOrId: { id?: string; woNumber?: string } | string,
-  userId?: string | null
-): boolean {
-  const cleanUid = String(userId || '').trim();
-  if (!cleanUid || !Array.isArray(messages) || messages.length === 0) return false;
-  const targetId = typeof ticketOrId === 'string' ? ticketOrId.trim() : String(ticketOrId?.id || '').trim();
-  const targetWo = typeof ticketOrId === 'string' ? '' : String(ticketOrId?.woNumber || '').trim().toUpperCase();
-
-  return messages.some(m => {
-    if (!m || !m.id) return false;
-    const msgId = String(m.id).trim();
-    if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
-      return false;
-    }
-    if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
-      return false;
-    }
-
-    const msgTicketId = String(m.ticketId || m.ticket_id || '').trim();
-    const msgWo = String(m.woNumber || m.wo_number || '').trim().toUpperCase();
-    const woMatches =
-      (targetId && msgTicketId === targetId) ||
-      (targetWo && msgWo === targetWo) ||
-      (targetId && msgWo === targetId.toUpperCase());
-    if (!woMatches) return false;
-
-    const senderId = String(m.senderId || m.sender_id || '').trim();
-    if (!senderId || senderId !== cleanUid) return false;
-
-    const category = m.category ?? m.payload?.category;
-    return isProgressCategoryOnly(category);
-  });
-}
 
 /**
  * Normalizes a Supabase ticket_messages row into the canonical TicketMessage shape.

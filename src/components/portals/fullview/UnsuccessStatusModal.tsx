@@ -7,16 +7,21 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
-  ShieldAlert,
   X,
   XCircle
 } from 'lucide-react';
 import type { HierarchicalStatus, Ticket } from '../../../types/index.ts';
 import { ResponsiveModal } from '../../common/ResponsiveModal';
 import {
+  SearchableReasonDropdown,
+  type SearchableReasonAccentTone
+} from './SearchableReasonDropdown';
+import {
+  getUnsuccessOptionSemanticStyles,
   resolveUnsuccessCategories,
   UnsuccessOptionKey
 } from '../../../utils/fullviewWorkflow';
+import { MIN_UNSUCCESS_PHOTO_EVIDENCE } from '../../../utils/photoEvidenceValidation';
 
 export interface UnsuccessStatusModalProps {
   isOpen: boolean;
@@ -25,11 +30,11 @@ export interface UnsuccessStatusModalProps {
   remarksReport: string;
   isMandatoryEvidenceReady: boolean;
   mandatoryPhotoCount: number;
+  verifiedUploadedPhotoCount: number;
   isAnySlotUploading: boolean;
   isSubmittingReport: boolean;
   onChangeRemarks: (value: string) => void;
   onGoToPhotos: () => void;
-  onSelectKendalaLapangan: () => void;
   onSubmitUnsuccessReport: (payload: {
     reportStatus: string;
     reportStatusId: string;
@@ -43,8 +48,13 @@ export interface UnsuccessStatusModalProps {
 const OPTION_ICONS: Record<UnsuccessOptionKey, React.ReactNode> = {
   pending: <Clock className="w-4 h-4" />,
   reschedule: <CalendarClock className="w-4 h-4" />,
-  cancel: <XCircle className="w-4 h-4" />,
-  kendala: <ShieldAlert className="w-4 h-4" />
+  cancel: <XCircle className="w-4 h-4" />
+};
+
+const OPTION_DROPDOWN_TONES: Record<UnsuccessOptionKey, SearchableReasonAccentTone> = {
+  pending: 'amber',
+  reschedule: 'blue',
+  cancel: 'red'
 };
 
 export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
@@ -54,11 +64,11 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
   remarksReport,
   isMandatoryEvidenceReady,
   mandatoryPhotoCount,
+  verifiedUploadedPhotoCount,
   isAnySlotUploading,
   isSubmittingReport,
   onChangeRemarks,
   onGoToPhotos,
-  onSelectKendalaLapangan,
   onSubmitUnsuccessReport,
   onClose
 }) => {
@@ -78,10 +88,11 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
 
   const selectedReasonObj = useMemo(() => {
     if (!selectedCategory || selectedCategory.reasons.length === 0) return null;
-    return (
-      selectedCategory.reasons.find(r => r.id === selectedReasonId) || null
-    );
+    return selectedCategory.reasons.find(r => r.id === selectedReasonId) || null;
   }, [selectedCategory, selectedReasonId]);
+
+  const isUnsuccessEvidenceReady =
+    isMandatoryEvidenceReady && verifiedUploadedPhotoCount >= MIN_UNSUCCESS_PHOTO_EVIDENCE;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -92,13 +103,6 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
 
   const handleChooseCategory = (key: UnsuccessOptionKey) => {
     setFormError(null);
-    if (key === 'kendala') {
-      // Directly transition to existing KendalaReportModal without duplicating remarks fields
-      onClose();
-      onSelectKendalaLapangan();
-      return;
-    }
-
     setSelectedCategoryKey(key);
     const cat = categories.find(c => c.key === key);
     if (cat && cat.reasons.length === 1) {
@@ -111,7 +115,7 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
   const handleSave = async () => {
     if (isSubmittingReport || isAnySlotUploading) return;
     if (!selectedCategory || selectedCategory.flowType !== 'progress_report') {
-      setFormError('Pilih kategori Unsuccess terlebih dahulu (Pending, Reschedule, Cancel, atau Kendala Lapangan).');
+      setFormError('Pilih kategori Unsuccess terlebih dahulu (Pending, Reschedule, atau Cancel).');
       return;
     }
     if (!selectedCategory.matchedStatus) {
@@ -128,9 +132,9 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
       setFormError('Remarks wajib diisi untuk menjelaskan penyebab atau kondisi pekerjaan.');
       return;
     }
-    if (!isMandatoryEvidenceReady) {
+    if (!isUnsuccessEvidenceReady) {
       setFormError(
-        `Server SOP membutuhkan 3 foto bukti wajib (${mandatoryPhotoCount}/3 terunggah) untuk menyimpan report ${selectedCategory.title}. Lengkapi foto wajib atau gunakan opsi Kendala Lapangan (#ISSUE).`
+        `Laporan Unsuccess membutuhkan minimal 4 foto evidence, termasuk seluruh foto wajib. (Wajib ${mandatoryPhotoCount}/3, Foto Valid: ${verifiedUploadedPhotoCount}/7)`
       );
       return;
     }
@@ -145,8 +149,9 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
     });
   };
 
-  const showRemarksAndReasons =
-    selectedCategory && selectedCategory.flowType === 'progress_report';
+  const activeCategoryTone = selectedCategoryKey
+    ? getUnsuccessOptionSemanticStyles(selectedCategoryKey)
+    : null;
 
   return (
     <ResponsiveModal
@@ -175,7 +180,8 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
             disabled={
               isSubmittingReport ||
               isAnySlotUploading ||
-              !showRemarksAndReasons
+              !selectedCategory ||
+              !isUnsuccessEvidenceReady
             }
             onClick={handleSave}
             data-testid="unsuccess-modal-save-btn"
@@ -194,7 +200,35 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
       }
     >
       <div className="space-y-4">
-        {/* 4 Category Cards */}
+        {/* Live Photo Evidence Readiness Counter for Unsuccess (Min 4 Valid incl. 3 Mandatory) */}
+        <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 rounded-xl bg-[#F8FAFD] dark:bg-[#160D29] border border-[#DDE6F0] dark:border-[#35105E] text-[11px] font-mono">
+          <span className="font-bold text-[#52647A] dark:text-[#C4B5D6]">
+            Syarat Foto Unsuccess
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`px-2 py-0.5 rounded-full font-bold border ${
+                isMandatoryEvidenceReady
+                  ? 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700'
+                  : 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300 border-[#F2BCC2] dark:border-rose-700'
+              }`}
+            >
+              Wajib: {mandatoryPhotoCount}/3
+            </span>
+            <span
+              data-testid="unsuccess-valid-photo-counter"
+              className={`px-2 py-0.5 rounded-full font-bold border ${
+                isUnsuccessEvidenceReady
+                  ? 'bg-[#E4F5EC] dark:bg-emerald-950/60 text-[#218A63] dark:text-emerald-300 border-[#B7E4CC] dark:border-emerald-700'
+                  : 'bg-[#FFF2D9] dark:bg-amber-950/60 text-[#9D661F] dark:text-amber-300 border-[#F2CF95] dark:border-amber-700'
+              }`}
+            >
+              Foto Valid: {verifiedUploadedPhotoCount}/7
+            </span>
+          </div>
+        </div>
+
+        {/* Strictly 3 Level-1 Category Cards: Pending, Reschedule, Cancel */}
         <div className="space-y-2">
           <label className="block text-[11px] font-mono uppercase tracking-wider font-bold text-[#52647A] dark:text-[#C4B5D6]">
             Pilih Kategori Unsuccess *
@@ -202,6 +236,7 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
           <div className="grid grid-cols-1 gap-2">
             {categories.map(cat => {
               const isSelected = selectedCategoryKey === cat.key;
+              const tone = getUnsuccessOptionSemanticStyles(cat.key);
               return (
                 <button
                   key={cat.key}
@@ -209,17 +244,13 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
                   data-testid={`unsuccess-option-${cat.key}`}
                   onClick={() => handleChooseCategory(cat.key)}
                   className={`w-full min-h-[54px] px-3.5 py-3 rounded-xl border text-left flex items-start justify-between gap-3 transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#FCE9EB] dark:bg-rose-950/55 border-[#D45B66] dark:border-rose-500 text-[#9B2C37] dark:text-rose-100 shadow-xs'
-                      : 'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF] hover:border-[#D45B66]/65'
+                    isSelected ? tone.cardSelected : tone.cardIdle
                   }`}
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                        isSelected
-                          ? 'bg-[#D45B66] dark:bg-rose-600 text-white'
-                          : 'bg-[#FCE9EB] dark:bg-rose-950/60 text-[#9B2C37] dark:text-rose-300'
+                        isSelected ? tone.iconSelected : tone.iconIdle
                       }`}
                     >
                       {OPTION_ICONS[cat.key]}
@@ -227,11 +258,12 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
                     <div className="min-w-0">
                       <div className="text-xs font-extrabold leading-snug flex items-center gap-2 flex-wrap">
                         <span>{cat.title}</span>
-                        {cat.flowType === 'kendala_modal' && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#FCE9EB] dark:bg-rose-900/60 text-[#9B2C37] dark:text-rose-200 font-mono text-[9.5px] font-bold">
-                            Foto + #ISSUE
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono text-[9.5px] font-bold ${tone.badge}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
+                          <span>{cat.reasons.length} Alasan</span>
+                        </span>
                       </div>
                       <p className="text-[11px] opacity-85 leading-snug mt-0.5">{cat.description}</p>
                     </div>
@@ -239,7 +271,7 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
                   <div
                     className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-1 border ${
                       isSelected
-                        ? 'bg-[#D45B66] dark:bg-rose-500 border-[#D45B66] dark:border-rose-500 text-white'
+                        ? tone.radioSelected
                         : 'border-[#CBD5E1] dark:border-[#4B386B]'
                     }`}
                   >
@@ -251,8 +283,8 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
           </div>
         </div>
 
-        {/* Sub-selection & Mandatory Remarks for Pending / Reschedule / Cancel */}
-        {showRemarksAndReasons && (
+        {/* Level-2 Searchable Dropdown & Mandatory Remarks */}
+        {selectedCategory && (
           <div className="space-y-3 pt-2 border-t border-[#DDE6F0] dark:border-[#35105E]">
             {selectedCategory.matchedStatus ? (
               <div className="space-y-2">
@@ -264,29 +296,19 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
                     Belum ada Reason WO aktif untuk status <strong>{selectedCategory.matchedStatus.name}</strong> di Setting Droplist.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-1.5 max-h-[180px] overflow-y-auto pr-0.5">
-                    {selectedCategory.reasons.map(reason => {
-                      const active = selectedReasonId === reason.id;
-                      return (
-                        <button
-                          key={reason.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedReasonId(reason.id);
-                            setFormError(null);
-                          }}
-                          className={`w-full min-h-[44px] px-3 py-2 rounded-xl border text-left text-xs font-semibold flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                            active
-                              ? 'bg-[#FCE9EB] dark:bg-rose-950/50 border-[#D45B66] dark:border-rose-500 text-[#9B2C37] dark:text-rose-200 font-bold'
-                              : 'bg-[#F8FAFD] dark:bg-[#1E1238] border-[#DDE6F0] dark:border-[#35105E] text-[#26364A] dark:text-[#E8DDFF]'
-                          }`}
-                        >
-                          <span>{reason.name}</span>
-                          {active && <CheckCircle2 className="w-4 h-4 shrink-0 text-[#D45B66] dark:text-rose-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SearchableReasonDropdown
+                    reasons={selectedCategory.reasons}
+                    selectedReasonId={selectedReasonObj?.id || selectedReasonId}
+                    selectedReasonName={selectedReasonObj?.name}
+                    accentTone={OPTION_DROPDOWN_TONES[selectedCategory.key]}
+                    placeholder={`-- Pilih Alasan ${selectedCategory.title} (Level 2) --`}
+                    searchPlaceholder="Cari alasan atau kategori pekerjaan..."
+                    dataTestId="unsuccess-reason-dropdown"
+                    onSelectReason={reason => {
+                      setSelectedReasonId(reason.id);
+                      setFormError(null);
+                    }}
+                  />
                 )}
               </div>
             ) : (
@@ -317,37 +339,36 @@ export const UnsuccessStatusModal: React.FC<UnsuccessStatusModalProps> = ({
                   if (formError) setFormError(null);
                 }}
                 placeholder="Masukkan keterangan penyebab atau kondisi pekerjaan..."
-                className="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-xs text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 focus:ring-[#D45B66] dark:focus:ring-rose-500 resize-none"
+                className={`w-full px-3 py-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#1E1238] border border-[#DDE6F0] dark:border-[#35105E] text-xs text-[#26364A] dark:text-[#f5eeff] placeholder:text-[#8492A5] dark:placeholder:text-[#A79BC0] focus:outline-none focus:ring-2 resize-none ${
+                  activeCategoryTone?.focusRing || 'focus:ring-[#D45B66] dark:focus:ring-rose-500'
+                }`}
               />
             </div>
 
-            {!isMandatoryEvidenceReady && (
-              <div className="p-3 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 space-y-2 text-xs text-[#9D661F] dark:text-amber-200">
-                <div className="flex items-start gap-2">
+            {!isUnsuccessEvidenceReady && (
+              <div
+                data-testid="unsuccess-photo-requirement-warning"
+                className="p-3 rounded-xl bg-[#FFF2D9] dark:bg-amber-950/40 border border-[#F2CF95] dark:border-amber-800/60 flex items-center justify-between gap-2.5 text-xs text-[#9D661F] dark:text-amber-200"
+              >
+                <div className="flex items-start gap-2 min-w-0">
                   <Camera className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
-                    Laporan status <strong>{selectedCategory.title}</strong> membutuhkan 3 foto bukti wajib ({mandatoryPhotoCount}/3). Jika terhalang di lokasi dan belum dapat mengambil 3 foto, pilih <strong>Kendala Lapangan</strong>.
+                    Laporan Unsuccess membutuhkan minimal 4 foto evidence, termasuk seluruh foto wajib.{' '}
+                    <strong className="font-mono">
+                      (Wajib {mandatoryPhotoCount}/3 · Foto Valid: {verifiedUploadedPhotoCount}/7)
+                    </strong>
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onGoToPhotos();
-                    }}
-                    className="mj-btn-installer-warning mj-btn-xs px-3 py-1.5 text-[11px] font-bold cursor-pointer"
-                  >
-                    Lengkapi Foto Wajib
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleChooseCategory('kendala')}
-                    className="mj-btn-installer-danger mj-btn-xs px-3 py-1.5 text-[11px] font-bold cursor-pointer"
-                  >
-                    Buka Kendala Lapangan
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onGoToPhotos();
+                  }}
+                  className="mj-btn-installer-warning mj-btn-xs px-3 py-1.5 text-[11px] font-bold shrink-0 cursor-pointer"
+                >
+                  Lengkapi Foto
+                </button>
               </div>
             )}
           </div>

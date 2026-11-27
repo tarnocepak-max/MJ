@@ -148,7 +148,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
       <div className="bg-[#F8FAFD] dark:bg-[#f8f1ff] rounded-xl p-3 border border-[#DDE6F0] dark:border-[#e8ddff] space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-xs font-bold text-[#26364A] dark:text-[#1f1638]">
-            Bukti Foto Fisik Pekerjaan (Minimal 3 Foto Wajib Check-Out)
+            Bukti Foto Fisik Pekerjaan (3 Wajib Completed · Min. 4 Valid Unsuccess)
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
@@ -161,7 +161,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
               Wajib: {mandatoryCount} / 3
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tabular-nums border bg-[#EAE8FF] dark:bg-[#f3eaff] text-[#5145A6] dark:text-[#58149c] border-[#DCE3F2] dark:border-[#d8ccf3]">
-              Total: {verifiedCount} / {totalSlots} ({progressPct.toFixed(0)}%)
+              Foto Valid: {verifiedCount} / {totalSlots} ({progressPct.toFixed(0)}%)
             </span>
           </div>
         </div>
@@ -176,7 +176,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
         <p className="text-[11px] text-[#52647A] dark:text-[#4b4452] leading-snug">
           {mandatoryReady ? (
             <span className="font-semibold text-[#218A63] dark:text-emerald-700">
-              Syarat 3/3 foto bukti wajib terpenuhi ({verifiedCount} foto terverifikasi di server).
+              Syarat 3/3 foto wajib terpenuhi (Foto Valid: {verifiedCount}/{totalSlots}).
             </span>
           ) : (
             <span className="font-semibold text-[#9B2C37] dark:text-[#ba1a1a]">
@@ -184,7 +184,7 @@ export const PhotoEvidenceMatrixSection: React.FC<PhotoEvidenceMatrixSectionProp
             </span>
           )}{' '}
           <span className="font-semibold text-[#5145A6] dark:text-[#58149c]">
-            Foto #01 mengisi Lokasi Rumah &amp; Foto #03 mengisi Lokasi FAT.
+            Unsuccess (Pending/Reschedule/Cancel) membutuhkan minimal 4 foto valid termasuk 3 foto wajib.
           </span>
         </p>
       </div>

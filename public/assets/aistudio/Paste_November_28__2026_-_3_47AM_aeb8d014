@@ -1,0 +1,995 @@
+MORAJAWS — INSTALLER FULLVIEW WORKFLOW REFINEMENT & UI UPDATE
+
+PROJECT OBJECTIVE
+
+Lakukan pembaruan pada aplikasi MoraJaws berdasarkan source code versi terbaru yang diberikan.
+
+Fokus pengerjaan:
+
+1. Memisahkan Chat "#PROGRESS" dari mekanisme Check-In Work Order.
+2. Memperluas tampilan modal LiveChat.
+3. Menghapus kategori Kendala Lapangan sebagai kategori Unsuccess tersendiri dan memindahkan kendala ke kategori Pending.
+4. Mengubah pemilihan Level 2 pada modal Completed dan Unsuccess menjadi searchable dropdown.
+5. Menggunakan warna berbeda untuk Pending, Reschedule, dan Cancel.
+6. Menerapkan persyaratan minimal 4 foto pada laporan Unsuccess.
+7. Menghapus tombol duplikat Kembali ke Tugas Saya.
+8. Menghapus Ringkasan Laporan dan memindahkan History Report WO ke section paling bawah.
+9. Menghapus section tampilan Work Progress & Check-In tanpa merusak fungsi Check-In.
+10. Memperkaya warna UI dengan tetap mempertahankan identitas MoraJaws dan tombol 3D.
+
+PRINSIP UTAMA: REUSE EXISTING COMPONENTS, PRESERVE EXISTING BUSINESS LOGIC, IMPROVE UI PRESENTATION, AND PROTECT DATA INTEGRITY.
+
+---
+
+PHASE 0 — AUDIT SOURCE CODE WAJIB
+
+Gunakan source code terbaru yang diberikan sebagai satu-satunya dasar implementasi.
+
+Jangan menggunakan asumsi dari versi sebelumnya.
+
+Prioritaskan pemeriksaan file:
+
+Frontend
+
+- "src/components/portals/InstallerTicketFullview.tsx"
+- "src/components/portals/fullview/FullviewLiveChatSection.tsx"
+- "src/components/portals/fullview/FloatingLiveChatModal.tsx"
+- "src/components/portals/fullview/CompletedStatusModal.tsx"
+- "src/components/portals/fullview/UnsuccessStatusModal.tsx"
+- "src/components/portals/fullview/PhotoEvidenceMatrixSection.tsx"
+- "src/components/camera/GeoTagCameraCheckInModal.tsx"
+- "src/components/tickets/KendalaReportModal.tsx"
+- "src/components/common/ResponsiveModal.tsx"
+
+State, service, dan utilitas
+
+- "src/context/AppContext.tsx"
+- "src/services/workSessionService.ts"
+- "src/utils/fullviewWorkflow.ts"
+- "src/utils/photoEvidenceValidation.ts"
+
+Backend
+
+- "server.ts"
+- "server/appFlowHelpers.ts"
+- "server/woLifecycleService.ts"
+- "server/slaTelemetryService.ts"
+- "server/supabaseAdapter.ts"
+
+Periksa hubungan:
+
+UI → State → Handler → Service → Express API → Repository → Supabase.
+
+Identifikasi semua pemanggilan Check-In, "checkInAt", "workSessions", kategori chat "PROGRESS", penyimpanan report, validasi foto, dan status hierarki.
+
+Jangan melakukan refactor besar yang tidak dibutuhkan.
+
+---
+
+PHASE 1 — DECOUPLE CHAT PROGRESS FROM CHECK-IN WO
+
+1.1 Hentikan Chat #PROGRESS sebagai pemicu Check-In
+
+Saat ini sistem masih menggunakan pesan LiveChat dengan kategori "PROGRESS" untuk menentukan Check-In teknisi.
+
+Ubah mekanisme tersebut sepenuhnya.
+
+Mulai setelah update, mengirim pesan kategori "PROGRESS" tidak boleh dianggap sebagai Check-In Work Order.
+
+Ketentuan:
+
+- Mengirim pesan "#PROGRESS" hanya menyimpan pesan percakapan.
+- Pesan tidak boleh mengisi "checkInAt".
+- Pesan tidak boleh membuat atau membuka "workSessions".
+- Pesan tidak boleh mengubah "workSessionStatus".
+- Pesan tidak boleh mengubah status WO menjadi On Site.
+- Pesan tidak boleh memulai timer pekerjaan.
+- Pesan tidak boleh mengubah KPI Check-In.
+- Pesan tidak boleh memenuhi validasi bahwa Installer sudah Check-In.
+- Pesan tidak boleh membuka akses report yang mensyaratkan Check-In.
+
+Kategori "PROGRESS" tetap boleh digunakan sebagai kategori komunikasi LiveChat jika masih diperlukan.
+
+Jangan menghapus riwayat pesan "#PROGRESS" yang sudah tersimpan sebelumnya.
+
+1.2 Audit dan hapus ketergantungan di seluruh sistem
+
+Periksa dan perbarui:
+
+InstallerTicketFullview.tsx
+
+- "persistedProgressMessage"
+- "hasValidProgressFromCurrentTechnician"
+- "requiresProgressCheckIn"
+- "validatedCheckInTime"
+- "serverProgressTriggerByTicket"
+- "refreshMessagesForTicket"
+- "handleOpenProgressChatForCheckIn"
+- "handleSendChatMessage"
+- "isCheckInStepDone"
+
+Hapus ketergantungan status Check-In terhadap hasil pesan LiveChat.
+
+Jangan menghapus validasi Check-In berdasarkan data backend yang sebenarnya.
+
+AppContext.tsx
+
+Periksa:
+
+- "sendTicketMessage"
+- "refreshMessagesForTicket"
+- "saveTechnicalReport"
+- "saveProgressReport"
+
+Hapus persyaratan bahwa harus ada pesan "PROGRESS" sebelum report dapat disimpan.
+
+Persyaratan report harus mengacu pada Check-In yang benar-benar tersimpan di backend.
+
+server.ts
+
+Periksa endpoint:
+
+- "POST /api/tickets/:id/messages"
+- "GET /api/tickets/:id/messages"
+- Endpoint penyimpanan technical report.
+- Endpoint penyimpanan progress report.
+- Endpoint update Work Order.
+
+Hapus seluruh efek samping Check-In dari proses pengiriman pesan.
+
+Pesan LiveChat harus tetap mempunyai:
+
+- RBAC.
+- Message persistence.
+- Read receipt.
+- Unread count.
+- Attachment.
+- Idempotency.
+- Realtime refresh.
+
+Pastikan "hasProgressTrigger", "checkInTriggered", "checkedIn", dan "isCheckIn" tidak lagi digunakan sebagai penanda Check-In baru dari pesan.
+
+Jika properti lama masih dibutuhkan untuk kompatibilitas response, jangan gunakan nilainya sebagai sumber status Check-In.
+
+appFlowHelpers.ts
+
+Audit:
+
+- "isProgressCategoryOnly"
+- "hasUserSentProgressMessage"
+
+Hentikan penggunaan fungsi tersebut sebagai penentu Check-In.
+
+Hapus helper yang sudah tidak digunakan hanya setelah seluruh dependency diperiksa.
+
+slaTelemetryService.ts dan woLifecycleService.ts
+
+Pastikan perhitungan Check-In tidak lagi menggunakan pesan PROGRESS sebagai fallback.
+
+KPI dan SLA harus berdasarkan timestamp Check-In atau work session yang benar-benar tercatat.
+
+Ubah deskripsi atau label telemetry yang masih menyatakan bahwa Check-In berasal dari LiveChat PROGRESS.
+
+---
+
+1.3 Check-In tetap wajib melalui Kamera + GPS
+
+PENTING: Jangan menghapus proses Check-In yang sekarang menggunakan kamera dan GPS.
+
+Audit "GeoTagCameraCheckInModal.tsx" dan seluruh backend yang digunakan.
+
+Jika belum tersedia endpoint Check-In khusus yang menyimpan data sesi kerja secara authoritative:
+
+- Implementasikan endpoint Check-In khusus melalui Express Backend yang sudah digunakan aplikasi.
+- Gunakan struktur dan kolom yang sudah tersedia.
+- Jangan membuat tabel atau kolom baru.
+- Jangan membuat akses Supabase langsung dari browser.
+
+Contoh endpoint hanya sebagai rancangan apabila tidak ditemukan endpoint existing:
+
+"POST /api/tickets/:id/check-in"
+
+Backend harus memvalidasi:
+
+1. Pengguna memiliki role Installer.
+2. WO benar-benar ditugaskan kepada Installer tersebut.
+3. WO masih dapat dikerjakan sesuai aturan tanggal dan assignment.
+4. Foto Check-In sudah berhasil tersimpan di backend.
+5. Foto berasal dari kamera langsung sesuai aturan capture yang tersedia.
+6. GPS dan geotag valid.
+7. Akurasi serta geofence mengikuti aturan existing.
+8. WO belum mempunyai sesi Check-In aktif yang sama.
+
+Setelah semua validasi berhasil:
+
+- Simpan "checkInAt".
+- Buat work session sesuai mekanisme existing.
+- Perbarui "workSessionStatus".
+- Perbarui status pekerjaan sesuai lifecycle existing.
+- Kembalikan data WO terbaru dari backend.
+
+Gunakan idempotency agar request berulang tidak membuat sesi kerja ganda.
+
+Jika kamera, GPS, upload, atau penyimpanan gagal, jangan menyatakan Check-In berhasil.
+
+Check-In harus dianggap berhasil hanya setelah backend berhasil menyimpan transaksi Check-In.
+
+Pesan "#PROGRESS" boleh dikirim sebagai catatan komunikasi setelah Check-In berhasil, tetapi pesan tersebut tidak boleh menjadi pemicu atau bukti Check-In.
+
+---
+
+PHASE 2 — EXPAND LIVECHAT MODAL
+
+2.1 Perluas ukuran modal
+
+Saat ini "FloatingLiveChatModal.tsx" masih menggunakan:
+
+- "ResponsiveModal"
+- "size="lg""
+- "mobileVariant="sheet""
+
+Sedangkan "FullviewLiveChatSection.tsx" masih memiliki container dengan tinggi tetap sekitar "h-[440px]".
+
+Ubah tampilan menjadi lebih luas dan nyaman.
+
+Desktop
+
+- Gunakan modal lebih lebar dengan ukuran "2xl" atau ukuran maksimum yang sesuai dengan ResponsiveModal existing.
+- Area percakapan memiliki ruang horizontal dan vertikal lebih besar.
+- Jangan membuat kolom chat sempit.
+- Gunakan header LiveChat yang proporsional.
+- Input pesan dan tombol kirim tetap terlihat.
+
+Mobile
+
+Gunakan layout fullscreen atau sheet dengan tinggi hampir memenuhi layar, disesuaikan kemampuan "ResponsiveModal".
+
+Target:
+
+- Memaksimalkan area percakapan.
+- Menampilkan pesan lebih banyak.
+- Mengurangi ruang kosong yang tidak diperlukan.
+- Mempermudah pembacaan pesan panjang.
+- Input pesan tetap mudah dijangkau.
+
+2.2 Struktur LiveChat
+
+Susun menjadi:
+
+1. Header LiveChat.
+2. Informasi nomor WO dan identitas percakapan.
+3. Area pesan dengan ruang terbesar.
+4. Area attachment dan input pesan.
+5. Tombol kirim.
+
+Gunakan flex layout:
+
+- Container modal: flex column.
+- Header: fixed/flex-shrink-0.
+- Message area: flex-1, min-height: 0, overflow-y-auto.
+- Input composer: flex-shrink-0.
+
+Hindari tinggi tetap yang mengakibatkan percakapan tidak berkembang mengikuti ukuran modal.
+
+Pertahankan seluruh fungsi existing:
+
+- "getMessagesForTicket"
+- "refreshMessagesForTicket"
+- "sendTicketMessage"
+- "sendTypingIndicator"
+- "uploadChatAttachment"
+- "markTicketMessagesAsRead"
+- "getTicketUnreadCount"
+- "setTicketChatCategory"
+
+Jangan membuat Chat subsystem baru.
+
+2.3 Mobile modal behavior
+
+Pertahankan integrasi:
+
+- "ResponsiveModal"
+- "useModalLayer"
+- "useVisualViewportModal"
+
+Pastikan:
+
+- Modal tidak tertutup bottom navigation.
+- Modal tidak tertutup keyboard Android.
+- Input tidak keluar dari viewport.
+- Area pesan dapat discroll.
+- Tombol close mudah dijangkau.
+- Tidak terjadi horizontal overflow.
+- Saat modal ditutup, halaman Ticket Fullview tetap mempertahankan posisi scroll.
+
+---
+
+PHASE 3 — REMOVE KENDALA LAPANGAN CATEGORY AND MOVE TO PENDING
+
+3.1 Hapus Kendala Lapangan sebagai kategori Unsuccess terpisah
+
+Saat ini "UnsuccessStatusModal.tsx" memiliki kategori:
+
+- Pending.
+- Reschedule.
+- Cancel.
+- Kendala Lapangan.
+
+Ubah menjadi hanya:
+
+1. Pending.
+2. Reschedule.
+3. Cancel.
+
+Hapus entry point Kendala Lapangan yang berdiri sendiri dari modal Unsuccess.
+
+Hapus callback khusus "onSelectKendalaLapangan" jika tidak lagi dibutuhkan.
+
+Hapus state dan entry point "showKendalaModal" dari "InstallerTicketFullview.tsx" jika seluruh alur sudah tidak menggunakan modal tersendiri.
+
+Jangan menghapus histori kendala yang sudah tersimpan di database.
+
+3.2 Kendala masuk kategori Pending
+
+Semua kendala pekerjaan lapangan harus dilaporkan melalui:
+
+UNSUCCESS → PENDING → LEVEL 2 REASON
+
+Jika konfigurasi hierarki status sudah menyediakan pilihan seperti:
+
+- Kendala Lapangan.
+- Kendala Akses.
+- Kendala Pelanggan.
+- Kendala Teknis.
+- Kendala Lokasi.
+
+Gunakan konfigurasi tersebut.
+
+Jika pilihan Kendala belum tersedia:
+
+- Periksa konfigurasi droplist aktual.
+- Jangan membuat ID status atau reason secara manual.
+- Jangan mengubah data konfigurasi production.
+- Laporkan bahwa pilihan tersebut belum tersedia dan perlu konfigurasi resmi.
+
+Gunakan kolom Remarks untuk menjelaskan kendala yang terjadi.
+
+Pastikan laporan Pending tetap dapat membedakan alasan teknis, akses lokasi, pelanggan, dan kondisi lapangan jika konfigurasi tersedia.
+
+3.3 Hentikan penggunaan KendalaReportModal sebagai flow terpisah
+
+Hapus penggunaan modal Kendala Lapangan dari workflow Installer Fullview jika sudah tidak diperlukan.
+
+Namun:
+
+- Jangan menghapus histori laporan kendala.
+- Jangan menghapus tabel atau schema kendala.
+- Jangan menghapus data lama.
+- Jangan menghapus seluruh API/backend legacy tanpa audit dependency.
+- Jangan mengubah data report yang sudah tersimpan.
+
+Prioritaskan penghentian entry point UI lama.
+
+Kategori chat "#ISSUE" tidak lagi dikirim otomatis hanya karena Installer memilih Pending.
+
+Informasi kendala mengikuti report Pending dan Remarks.
+
+---
+
+PHASE 4 — SEARCHABLE DROPDOWN PADA LEVEL 2
+
+Ubah pemilihan Level 2 pada kedua modal:
+
+1. "CompletedStatusModal.tsx"
+2. "UnsuccessStatusModal.tsx"
+
+Saat ini pilihan L2 masih menggunakan kumpulan card/grid.
+
+Ubah menjadi searchable dropdown.
+
+4.1 Level 1
+
+Pertahankan pemilihan Level 1 menggunakan card/selectable button seperti desain saat ini.
+
+Completed
+
+Level 1 harus tetap mengikuti konfigurasi status Completed yang tersedia.
+
+Unsuccess
+
+Level 1 terdiri dari:
+
+- Pending.
+- Reschedule.
+- Cancel.
+
+Jangan mengubah ID atau kode status.
+
+4.2 Level 2 — Searchable Dropdown
+
+Saat pengguna sudah memilih L1, tampilkan dropdown L2 yang memiliki fitur pencarian.
+
+Tampilan:
+
+- Label Level 2 / Reason WO.
+- Search input.
+- Ikon search.
+- List opsi sesuai parent L1.
+- Selected state yang jelas.
+- Empty state ketika tidak ada hasil.
+
+Placeholder:
+
+"Cari alasan atau kategori pekerjaan..."
+
+Perilaku:
+
+- Hanya menampilkan L2 yang merupakan anak dari L1 yang dipilih.
+- Pencarian berdasarkan nama dan kode atau deskripsi jika tersedia.
+- Pilihan disimpan menggunakan ID atau code resmi, bukan berdasarkan label yang diketik.
+- Ketika L1 berubah, reset pilihan L2.
+- Ketika dropdown ditutup, pilihan L2 yang sudah dipilih tetap tersimpan.
+- Search dapat dibersihkan tanpa menghapus pilihan yang sudah disimpan.
+- Mendukung keyboard navigation, Enter, Escape, dan klik di luar dropdown.
+- Mendukung tampilan mobile.
+- Dropdown tidak tertutup bottom navigation atau modal footer.
+
+Gunakan data hierarki dari konfigurasi existing "hierarchicalStatuses".
+
+Jangan membuat daftar status hardcoded.
+
+Audit kemungkinan penggunaan komponen searchable existing sebelum membuat komponen baru.
+
+Jika perlu reusable dropdown baru, implementasikan secara minimal dan hanya untuk kebutuhan ini.
+
+4.3 Validasi
+
+Backend tetap wajib memverifikasi:
+
+- L1 ID valid.
+- L2 ID valid.
+- L2 benar-benar merupakan child dari L1.
+- Status sesuai dengan jenis laporan.
+- User berhak melakukan action tersebut.
+
+Jangan hanya mengandalkan validasi frontend.
+
+---
+
+PHASE 5 — WARNA STATUS BERBEDA
+
+Buat warna status yang lebih beragam agar tampilan tidak monoton.
+
+Pertahankan warna utama tombol:
+
+Action / Status| Warna
+Check In| MoraJaws Purple
+Completed| Hijau
+Unsuccess| Merah
+Pending| Amber / Orange
+Reschedule| Biru
+Cancel| Merah tua
+
+Gunakan token warna design system existing apabila tersedia.
+
+Contoh arah warna:
+
+- Pending: amber/orange.
+- Reschedule: blue.
+- Cancel: red.
+- Completed: green.
+- Unsuccess: red.
+
+Pastikan warna status terlihat berbeda pada:
+
+- Pilihan Level 1.
+- Badge status.
+- Ringkasan report.
+- History Report WO.
+- Confirmation modal.
+- Tombol action.
+
+Jangan menggunakan satu warna ungu untuk semua status.
+
+Pertahankan kontras teks, keterbacaan, dan konsistensi Light Mode maupun Night Mode.
+
+Warna harus menunjukkan makna status dan tidak digunakan secara acak.
+
+---
+
+PHASE 6 — UNSUCCESS MINIMUM 4 PHOTO EVIDENCE
+
+Ubah persyaratan evidence untuk laporan Unsuccess.
+
+Setiap laporan Unsuccess wajib memiliki minimal 4 foto evidence yang benar-benar tersimpan dan terverifikasi oleh backend.
+
+Periksa mekanisme existing:
+
+"PhotoEvidenceMatrixSection.tsx"
+
+"photoEvidenceValidation.ts"
+
+"evaluatePhotoEvidenceCompleteness"
+
+Sistem saat ini mempunyai 7 slot evidence, dengan 3 slot wajib dan 4 slot opsional.
+
+Aturan validasi baru:
+
+- Ketiga foto mandatory harus lengkap.
+- Total foto valid minimal 4 slot berbeda.
+- Minimal satu dari empat slot optional harus terisi.
+- Tidak boleh menghitung foto yang sama lebih dari satu kali.
+- Tidak boleh menghitung attachment LiveChat sebagai evidence WO.
+- Tidak boleh menghitung foto lokal yang belum berhasil upload.
+- Tidak boleh menghitung foto dengan metadata/storage path yang tidak valid.
+
+Gunakan:
+
+"verifiedTotalCount >= 4"
+
+Dan:
+
+"isMandatoryComplete === true"
+
+Contoh validasi
+
+Kondisi| Hasil
+3 foto mandatory valid| Gagal untuk Unsuccess
+3 mandatory + 1 optional valid| Lolos
+2 mandatory + 2 optional| Gagal
+4 foto pada slot yang sama| Gagal
+3 mandatory + 1 foto lokal belum upload| Gagal
+3 mandatory + 1 optional tersimpan di backend| Lolos
+
+Tampilkan progress evidence:
+
+"Foto Valid: 3/7"
+
+Untuk Unsuccess tampilkan keterangan:
+
+"Laporan Unsuccess membutuhkan minimal 4 foto evidence, termasuk seluruh foto wajib."
+
+6.1 Frontend validation
+
+Perbarui:
+
+- "UnsuccessStatusModal.tsx"
+- "InstallerTicketFullview.tsx"
+- "AppContext.tsx"
+
+Sebelum menyimpan report, validasi seluruh evidence.
+
+Jika belum lengkap:
+
+- Tombol Simpan tidak boleh melanjutkan proses.
+- Tampilkan foto atau slot yang masih kurang.
+- Berikan pesan error yang jelas.
+
+6.2 Backend validation
+
+Validasi juga wajib diterapkan pada endpoint penyimpanan report di "server.ts".
+
+Jangan hanya mengandalkan validasi frontend.
+
+Backend harus membaca data evidence yang benar-benar tersimpan dan menghitung slot valid.
+
+Buat ketentuan terpisah:
+
+- Completed tetap menggunakan ketentuan existing 3 foto mandatory.
+- Unsuccess menggunakan 4 foto valid total dengan seluruh foto mandatory lengkap.
+
+Jangan menaikkan batas foto global menjadi 4 untuk semua jenis report.
+
+Gunakan server-side photo evidence evaluator.
+
+Jangan menerima "photoCount" dari frontend sebagai bukti valid.
+
+Jika upload masih berlangsung atau backend gagal membaca evidence, gagalkan proses penyimpanan dengan pesan yang sesuai.
+
+---
+
+PHASE 7 — REMOVE DUPLICATE BACK BUTTON
+
+Pada Installer Ticket Fullview terdapat tombol:
+
+"Kembali ke Tugas Saya"
+
+yang duplikat dengan tombol kembali pada topbar.
+
+Hapus tombol "Kembali ke Tugas Saya" dari bagian konten halaman.
+
+Pertahankan tombol kembali yang ada di topbar.
+
+Pastikan:
+
+- Handler navigasi tetap berfungsi.
+- Route kembali tetap sesuai konteks.
+- Tidak ada kehilangan state yang tidak perlu.
+- Tidak ada tombol kosong atau ruang layout bekas tombol yang tersisa.
+
+Jangan menghapus "onBack" dari komponen jika masih dibutuhkan oleh topbar.
+
+---
+
+PHASE 8 — REMOVE RINGKASAN LAPORAN & MOVE HISTORY REPORT WO TO BOTTOM
+
+Audit section yang saat ini menampilkan:
+
+"Ringkasan Laporan & Riwayat Report"
+
+Pisahkan informasi ringkasan dan history.
+
+8.1 Hapus Ringkasan Laporan
+
+Hapus tampilan ringkasan yang menduplikasi informasi:
+
+- Status Laporan Terkini.
+- Status WO.
+- Reason WO.
+- Remarks.
+- Ringkasan status yang sudah ditampilkan di area lain.
+
+Jangan menampilkan ringkasan report berulang kali.
+
+Namun, jangan menghapus:
+
+- Data report yang sudah tersimpan.
+- Validasi report.
+- Error feedback.
+- Action Completed/Unsuccess.
+- QC Confirmation.
+- Approval status.
+- Revision mechanism.
+
+Error report harus tetap terlihat di area action yang relevan atau dalam feedback yang sesuai.
+
+Jangan menyembunyikan error hanya karena section Ringkasan dihapus.
+
+8.2 Pindahkan History Report WO ke section terakhir
+
+Pindahkan komponen History Report WO yang sudah tersedia ke bagian paling bawah halaman Ticket Fullview.
+
+History Report menjadi section terakhir setelah seluruh informasi operasional, termasuk:
+
+- Data WO.
+- Data pelanggan.
+- Lokasi.
+- Evidence.
+- Input teknis.
+- Data Check-Out.
+- Tanda tangan pelanggan.
+- Informasi lain yang memang masih ditampilkan.
+
+History Report WO harus berada paling akhir sebelum penutup halaman.
+
+Pertahankan:
+
+- "progressHistory".
+- Riwayat report sebelumnya.
+- Status approval.
+- Alasan revision.
+- Remarks historis.
+- Timestamp.
+- Versi report.
+- Identitas pembuat laporan jika tersedia.
+
+History harus bersifat read-only terhadap report lama.
+
+Jangan mengubah isi history.
+
+Jangan menampilkan History Report dua kali.
+
+Jika history sedang kosong, tampilkan empty state yang rapi atau sembunyikan section jika memang belum ada history.
+
+---
+
+PHASE 9 — REMOVE WORK PROGRESS & CHECK-IN DISPLAY SECTION
+
+Hapus section UI:
+
+"Work Progress & Check-In"
+
+yang saat ini menampilkan ringkasan status dan stepper tahapan pekerjaan.
+
+Tujuannya adalah menghilangkan section visual yang berulang dengan informasi status pada halaman.
+
+Yang dihapus hanya section presentasinya.
+
+JANGAN menghapus fitur operasional berikut:
+
+- Tombol Check In sebelum pekerjaan dimulai.
+- GeoTagCameraCheckInModal.
+- Kamera.
+- GPS dan geofence.
+- Foto Check-In.
+- "checkInAt".
+- "workSessions".
+- "workSessionStatus".
+- Timer pekerjaan.
+- Photo Evidence Matrix.
+- Validasi evidence.
+- Input teknis pekerjaan.
+- Check-Out.
+- Customer signature.
+- QC Confirmation.
+- Save Progress Report.
+- Approval flow.
+- Offline synchronization.
+- Idempotency.
+- Audit trail.
+
+Jika informasi waktu mulai atau status In Progress masih dibutuhkan, tampilkan secara ringkas di bagian Work Order Summary.
+
+Jangan membuat section Work Progress baru sebagai pengganti.
+
+Periksa seluruh reference ke:
+
+- "checkInSectionRef"
+- Stepper stage references.
+- Scroll navigation.
+- Stage completion state.
+
+Hapus reference yang sudah tidak digunakan atau arahkan ke komponen yang tetap tersedia.
+
+Jangan sampai penghapusan section UI memutus alur navigasi atau validasi Check-In.
+
+---
+
+PHASE 10 — MORAJAWS DESIGN SYSTEM & 3D BUTTON PRESERVATION
+
+Semua pembaruan harus mengikuti design system terbaru dari source code.
+
+Jangan membuat desain generik atau mengganti tampilan MoraJaws.
+
+10.1 Pertahankan button classes
+
+Gunakan komponen dan class existing:
+
+- "mj-btn-installer-primary"
+- "mj-btn-installer-secondary"
+- "mj-btn-installer-success"
+- "mj-btn-installer-danger"
+- "mj-btn-installer-neutral"
+- "mj-btn-installer-warning"
+
+Pertahankan:
+
+- 3D depth.
+- Inner rim.
+- Shadow bertingkat.
+- Gradient.
+- Pressed state.
+- Hover state.
+- Touch feedback.
+- Rounded corner.
+- Proporsi tombol.
+
+Jangan menggantikan tombol 3D dengan flat button.
+
+10.2 Variasi warna UI
+
+Gunakan warna berbeda dengan semantic mapping:
+
+- Primary action: Purple.
+- Completed: Green.
+- Unsuccess: Red.
+- Pending: Amber.
+- Reschedule: Blue.
+- Cancel: Deep Red.
+- Informational state: Blue/Cyan jika token existing tersedia.
+- Neutral action: Gray/Neutral.
+
+Gunakan CSS variable dan class existing dalam "src/index.css".
+
+Hindari hardcoded color di banyak file.
+
+10.3 Light Mode & Night Mode
+
+Light Mode:
+
+- Purple glass panels.
+- White/lilac surfaces.
+- Semantic colors untuk status.
+- Soft shadows.
+- Typography tetap jelas.
+
+Night Mode:
+
+- Pertahankan desain dark MoraJaws yang sudah ada.
+- Jangan merombak seluruh theme.
+- Pertahankan kontras untuk green, red, amber, dan blue.
+- Semua modal dan dropdown tetap readable.
+
+10.4 Mobile UI
+
+Installer tetap mobile-first.
+
+Pastikan:
+
+- Tidak ada horizontal overflow.
+- Tombol action mudah disentuh.
+- Sticky footer tidak menutupi konten.
+- Search dropdown tidak terpotong.
+- Modal dapat mengikuti visual viewport.
+- LiveChat mendapatkan ruang percakapan yang besar.
+- Floating action tidak saling bertumpuk.
+- Area input tidak tertutup keyboard.
+
+---
+
+PHASE 11 — DATA INTEGRITY & SECURITY GUARDRAILS
+
+WAJIB dipatuhi:
+
+1. Jangan membuat migration database.
+2. Jangan mengubah schema Supabase.
+3. Jangan menambah atau menghapus kolom.
+4. Jangan mengubah RLS, policies, grants, trigger, atau function.
+5. Jangan melakukan insert, update, delete, truncate, seed, atau import data production.
+6. Jangan menghapus riwayat report.
+7. Jangan mengubah assignment WO.
+8. Jangan mengubah appointment date otomatis.
+9. Jangan mengubah role atau RBAC.
+10. Jangan mengubah sistem Custom Login dan session.
+11. Jangan mengakses Supabase langsung dari browser.
+12. Gunakan Express Backend sebagai satu-satunya jalur akses aplikasi.
+13. Jangan mengaktifkan local JSON fallback.
+14. Jangan mengubah Production Shield.
+15. Jangan menghapus data kendala historis.
+16. Jangan mengubah data "#PROGRESS" yang sudah tersimpan.
+17. Jangan mengubah mekanisme Offline Sync.
+18. Jangan membuat penyimpanan report kedua.
+19. Jangan menghapus validasi evidence existing.
+20. Jangan melakukan deployment production tanpa persetujuan.
+
+Semua perubahan backend harus mengikuti arsitektur project yang telah tersedia.
+
+Jangan menganggap build berhasil berarti semua alur bisnis sudah benar.
+
+---
+
+PHASE 12 — REGRESSION TEST & ACCEPTANCE CRITERIA
+
+Lakukan testing nyata, bukan hanya memeriksa tampilan.
+
+A. Chat PROGRESS vs Check-In
+
+Uji:
+
+1. Installer mengirim pesan kategori "PROGRESS" tanpa Check-In.
+2. Pastikan "checkInAt" tetap kosong.
+3. Pastikan tidak ada work session yang dibuat.
+4. Pastikan timer tidak dimulai.
+5. Pastikan KPI Check-In tidak berubah.
+6. Pastikan pesan tetap tersimpan dalam LiveChat.
+7. Pastikan pesan tetap muncul setelah refresh.
+8. Installer melakukan Check-In melalui kamera dan GPS.
+9. Pastikan "checkInAt" dan work session berhasil disimpan.
+10. Pastikan pesan PROGRESS tidak diperlukan untuk menganggap Check-In berhasil.
+
+B. LiveChat
+
+- Modal lebih lebar pada desktop.
+- Modal fullscreen atau luas pada mobile.
+- Pesan tampil pada area besar.
+- Input tetap dapat digunakan.
+- Attachment berhasil.
+- Realtime berjalan.
+- Unread count akurat.
+- Modal tidak menutupi topbar dan bottom navigation.
+
+C. Completed / Unsuccess Dropdown
+
+- Level 1 dapat dipilih.
+- Dropdown L2 menampilkan anak dari L1.
+- Search bekerja.
+- Search tanpa hasil menampilkan empty state.
+- Pilihan L2 tersimpan menggunakan ID/code.
+- Mengubah L1 mereset L2.
+- Selected state tidak hilang setelah dropdown ditutup.
+- Backend menolak parent-child ID yang tidak valid.
+
+D. Pending / Reschedule / Cancel
+
+- Pending menggunakan warna amber/orange.
+- Reschedule menggunakan warna biru.
+- Cancel menggunakan warna merah.
+- Kendala tidak lagi muncul sebagai kategori Unsuccess terpisah.
+- Kendala dapat dilaporkan melalui Pending dan Remarks.
+- Data historis tetap tersedia.
+
+E. Unsuccess Photo Evidence
+
+Uji:
+
+- 3 mandatory: gagal.
+- 2 mandatory + 2 optional: gagal.
+- 3 mandatory + 1 optional: berhasil.
+- Duplicate slot: gagal dihitung lebih dari satu kali.
+- Foto lokal belum diupload: tidak dihitung.
+- Attachment chat: tidak dihitung.
+- Upload sedang berjalan: simpan ditolak.
+- Backend tidak tersedia: simpan gagal secara aman.
+
+Completed tetap menggunakan aturan 3 foto mandatory existing.
+
+F. Layout Fullview
+
+- Tombol Kembali ke Tugas Saya sudah tidak ada.
+- Tombol kembali topbar tetap berfungsi.
+- Ringkasan Laporan sudah tidak tampil.
+- History Report WO tampil di paling bawah.
+- History tidak muncul ganda.
+- Section Work Progress & Check-In sudah dihapus.
+- Kamera, GPS, Check-In, timer, evidence, report, dan checkout tetap berfungsi.
+
+G. Build & Test
+
+Gunakan hanya script yang tersedia dalam "package.json".
+
+Setidaknya jalankan:
+
+- "npm run lint"
+- "npm run build"
+- Test terkait workflow jika tersedia.
+
+Jangan mengklaim PASS jika test belum dijalankan.
+
+Berikan hasil per pengujian:
+
+- PASS.
+- FAIL.
+- NOT VERIFIED.
+
+---
+
+PHASE 13 — FINAL IMPLEMENTATION REPORT
+
+Setelah selesai berikan laporan:
+
+1. File yang diubah.
+2. Dependency yang dihapus atau diputus.
+3. Perubahan mekanisme Check-In.
+4. Konfirmasi pesan PROGRESS tidak lagi mengubah Check-In.
+5. Konfirmasi kamera dan GPS tetap berfungsi.
+6. Perubahan ukuran LiveChat.
+7. Penghapusan Kendala Lapangan sebagai kategori terpisah.
+8. Pemetaan kendala ke Pending.
+9. Implementasi searchable dropdown L2.
+10. Perbedaan warna Pending, Reschedule, dan Cancel.
+11. Penerapan minimal 4 foto Unsuccess.
+12. Penghapusan tombol Kembali ke Tugas Saya.
+13. Penghapusan Ringkasan Laporan.
+14. Pemindahan History Report WO ke posisi terakhir.
+15. Penghapusan section Work Progress & Check-In.
+16. Konfirmasi tombol 3D MoraJaws dipertahankan.
+17. Hasil testing frontend dan backend.
+18. Hasil TypeScript lint.
+19. Hasil build.
+20. Gap atau masalah yang belum dapat diselesaikan.
+
+Jangan melakukan deployment production.
+
+FINAL EXPECTED RESULT
+
+Installer Ticket Fullview menjadi lebih ringkas, lebih luas, dan konsisten dengan desain MoraJaws.
+
+Alur Check-In hanya berasal dari kamera + GPS yang berhasil disimpan oleh backend.
+
+Chat "#PROGRESS" hanya merupakan kategori pesan, bukan mekanisme Check-In.
+
+LiveChat memiliki ruang percakapan yang luas.
+
+Completed dan Unsuccess menggunakan searchable Level 2 dropdown.
+
+Pending, Reschedule, dan Cancel memiliki warna yang berbeda.
+
+Unsuccess wajib memiliki minimal 4 foto valid.
+
+Kendala lapangan dilaporkan melalui Pending.
+
+History Report WO berada di posisi paling bawah.
+
+Section Work Progress & Check-In dan tombol navigasi duplikat sudah dihilangkan tanpa merusak fitur operasional.
+
+FINAL PRINCIPLE: SIMPLIFY THE INSTALLER EXPERIENCE WITHOUT BREAKING CHECK-IN, WORK SESSION, PHOTO EVIDENCE, REPORTING, APPROVAL, OR DATA INTEGRITY.

@@ -499,9 +499,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
     }
   };
 
-  const hasCheckIn =
-    Boolean(ticket.checkInAt) ||
-    messages.some(m => m.isCheckIn || String(m.category || '').toUpperCase() === 'PROGRESS');
+  const hasCheckIn = Boolean(ticket.checkInAt);
 
   const contactPhone = ticket.installerContact || ticket.customerPhone;
   const isCriticalPriority =
@@ -696,7 +694,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
               <MapPin className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#38BDF8] shrink-0" />
               <span className="truncate">
                 {ticket.checkInAt
-                  ? `${ticket.installerName || 'Teknisi'} Check-in #PROGRESS (${formatJakartaTimeOnly(ticket.checkInAt)} WIB)`
+                  ? `${ticket.installerName || 'Teknisi'} Check-in Kamera & GPS (${formatJakartaTimeOnly(ticket.checkInAt)} WIB)`
                   : ticket.workStartedAt
                   ? `Mulai pengerjaan (${formatJakartaTimeOnly(ticket.workStartedAt)} WIB) · ${ticket.area || ticket.clusterName || '-'}`
                   : `Assigned ke ${ticket.installerName || 'Teknisi'} · ${ticket.slotTime || ticket.area || '-'}`}
@@ -715,7 +713,7 @@ export const TicketLiveChat: React.FC<TicketLiveChatProps> = ({
             </h4>
             <p className="text-xs max-w-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               {isInstaller
-                ? 'Pilih kategori PROGRESS dan kirim pesan pertama untuk mencatat Check-in lapangan otomatis sebelum mengisi laporan checkout.'
+                ? 'Gunakan ruang chat ini untuk koordinasi teknis, foto kendala, atau update progres dengan Dispatch/Korlap.'
                 : `Mulai koordinasi lapangan bersama ${ticket.installerName || 'Teknisi Lapangan'} untuk redaman OPM, perangkat ONT, atau kendala lokasi.`}
             </p>
           </div>

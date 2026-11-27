@@ -108,7 +108,6 @@ import {
 import {
   calculateDurationMinutes,
   formatWorkDuration,
-  isProgressCategory,
   formatJakartaTimestamp
 } from '../services/workSessionService';
 import { useToast } from './ToastContext';
@@ -172,6 +171,7 @@ import {
 } from '../services/woLifecycleService';
 import {
   evaluatePhotoEvidenceCompleteness,
+  evaluateReportPhotoEvidenceRequirement,
   buildPhotoEvidenceIncompleteErrorMessage
 } from '../utils/photoEvidenceValidation';
 
@@ -338,6 +338,28 @@ interface AppContextType {
     ticket?: Ticket;
     error?: string;
     offline?: boolean;
+  }>;
+  checkInWorkOrder: (
+    ticketId: string,
+    payload: {
+      latitude: number;
+      longitude: number;
+      gpsAccuracyMeters?: number;
+      altitudeMeters?: number;
+      headingDeg?: number;
+      speedMps?: number;
+      locationSource?: string;
+      permissionStatus?: string;
+      clientCaptureId?: string;
+      photoSlotId?: string;
+      fieldNotes?: string;
+    }
+  ) => Promise<{
+    success: boolean;
+    deduplicated?: boolean;
+    ticket?: Ticket;
+    error?: string;
+    code?: string;
   }>;
   deleteWoPhotoEvidence: (
     ticketId: string,
@@ -4389,33 +4411,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ticket = getTicketById(ticketId);
     if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
 
-    // App Flow 5: Installer MUST record persisted PROGRESS LiveChat check-in (WO ID + User ID) before saving report
-    if (currentUser.role === 'installer') {
-      const targetWoUpper = String(ticket.woNumber || '').trim().toUpperCase();
-      const myUid = String(currentUser.id || '').trim();
-      const hasPersistedProgress = Boolean(
-        myUid &&
-          ticketMessages.some(m => {
-            if (!m || !m.id) return false;
-            const msgId = String(m.id).trim();
-            if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
-              return false;
-            }
-            if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
-              return false;
-            }
-            const woMatch =
-              m.ticketId === ticket.id ||
-              (targetWoUpper && String(m.woNumber || '').trim().toUpperCase() === targetWoUpper);
-            if (!woMatch) return false;
-            return String(m.senderId || '').trim() === myUid && isProgressCategory(m.category);
-          })
-      );
-      if (!ticket.checkInAt || !hasPersistedProgress) {
-        const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
-        toast.error(msg, 'Check-in PROGRESS Diperlukan');
-        return { success: false, code: 'CHECK_IN_REQUIRED', error: msg };
-      }
+    // Installer MUST record live Camera + GPS Check-In before saving report
+    if (currentUser.role === 'installer' && !ticket.checkInAt) {
+      const msg = 'Anda wajib melakukan Check-In (Live Camera + GPS) terlebih dahulu sebelum menyimpan laporan.';
+      toast.error(msg, 'Check-In Diperlukan');
+      return { success: false, code: 'CHECK_IN_REQUIRED', error: msg };
     }
 
     const now = new Date().toISOString();
@@ -4732,43 +4732,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      const targetWoUpper = String(ticket.woNumber || '').trim().toUpperCase();
-      const hasPersistedProgress = Boolean(
-        myId &&
-          ticketMessages.some(m => {
-            if (!m || !m.id) return false;
-            const msgId = String(m.id).trim();
-            if (!msgId || msgId.startsWith('temp_') || msgId.startsWith('pending_') || msgId.startsWith('local_offline_')) {
-              return false;
-            }
-            if ((m as any)._offlineSyncStatus === 'pending' || (m as any).status === 'failed' || (m as any).status === 'pending') {
-              return false;
-            }
-            const woMatch =
-              m.ticketId === ticket.id ||
-              (targetWoUpper && String(m.woNumber || '').trim().toUpperCase() === targetWoUpper);
-            if (!woMatch) return false;
-            return String(m.senderId || '').trim() === myId && isProgressCategory(m.category);
-          })
-      );
-
-      if (!ticket.checkInAt || !hasPersistedProgress) {
-        const msg = 'Anda wajib melakukan Check-in terlebih dahulu dengan mengirim pesan LiveChat ber-kategori PROGRESS sebelum menyimpan laporan.';
-        toast.error(msg, 'Check-in PROGRESS Diperlukan');
+      if (!ticket.checkInAt) {
+        const msg = 'Anda wajib melakukan Check-In (Live Camera + GPS) terlebih dahulu sebelum menyimpan laporan.';
+        toast.error(msg, 'Check-In Diperlukan');
         return {
           success: false,
           code: 'CHECK_IN_REQUIRED',
           error: msg
         };
       }
-      // Check-out requires all 3 mandatory photo evidence slots (#1 Rumah, #2 Tiang FAT, #3 Redaman FAT) persisted to server
+      // Completed requires 3 mandatory slots; Unsuccess (Pending/Reschedule/Cancel) requires >= 4 valid slots incl. 3 mandatory
       const candidateSlots = Array.isArray(data.technicalTelemetry?.photoSlots) && data.technicalTelemetry!.photoSlots!.length > 0
         ? data.technicalTelemetry!.photoSlots!
         : (Array.isArray(ticket.technicalReport?.photoSlots) ? ticket.technicalReport!.photoSlots! : []);
-      const evidenceEval = evaluatePhotoEvidenceCompleteness(candidateSlots);
-      if (!evidenceEval.isMandatoryComplete) {
-        const msg = buildPhotoEvidenceIncompleteErrorMessage(evidenceEval);
-        toast.error(msg, 'Bukti Foto Wajib Kurang (Min. 3)');
+      const evidenceReq = evaluateReportPhotoEvidenceRequirement(candidateSlots, data.reportStatus);
+      if (!evidenceReq.isReady) {
+        const msg = evidenceReq.errorMessage || buildPhotoEvidenceIncompleteErrorMessage(evidenceReq.evaluation);
+        toast.error(
+          msg,
+          evidenceReq.isUnsuccess ? 'Bukti Foto Unsuccess Kurang (Min. 4)' : 'Bukti Foto Wajib Kurang (Min. 3)'
+        );
         return {
           success: false,
           code: 'PHOTO_EVIDENCE_INCOMPLETE',
@@ -5119,6 +5102,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         success: false,
         error: err?.message || 'Koneksi gagal saat mengunggah foto bukti.'
+      };
+    }
+  };
+
+  const checkInWorkOrder = async (
+    ticketId: string,
+    payload: {
+      latitude: number;
+      longitude: number;
+      gpsAccuracyMeters?: number;
+      altitudeMeters?: number;
+      headingDeg?: number;
+      speedMps?: number;
+      locationSource?: string;
+      permissionStatus?: string;
+      clientCaptureId?: string;
+      photoSlotId?: string;
+      fieldNotes?: string;
+    }
+  ) => {
+    const ticket = getTicketById(ticketId);
+    if (!ticket) return { success: false, error: 'Tiket tidak ditemukan.' };
+    if (!isOnline) {
+      return {
+        success: false,
+        error: 'Check-In membutuhkan koneksi aktif agar koordinat & bukti kamera tercatat di server.'
+      };
+    }
+
+    try {
+      const resp = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/check-in`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok || !json || json.success !== true) {
+        return {
+          success: false,
+          code: json?.code,
+          error: json?.error || `Check-In gagal (HTTP ${resp.status}).`
+        };
+      }
+
+      if (json.ticket && json.ticket.id) {
+        setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...json.ticket } : t)));
+      }
+      setLastSyncTime(new Date().toISOString());
+      scheduleKpiRefreshRef.current?.();
+
+      if (!json.deduplicated) {
+        const checkInTs = json.ticket?.checkInAt || new Date().toISOString();
+        addAuditLog(
+          'Installer Check-in Recorded',
+          'ticket',
+          ticketId,
+          `Teknisi ${currentUser.name} check-in kamera & GPS pada WO ${ticket.woNumber} (${formatJakartaTimestamp(checkInTs)})`
+        );
+      }
+
+      return {
+        success: true,
+        deduplicated: Boolean(json.deduplicated),
+        ticket: json.ticket
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Koneksi gagal saat menyimpan Check-In ke server.'
       };
     }
   };
@@ -5791,9 +5844,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       effectiveCategory = category.trim().toUpperCase();
     }
 
-    const isStrictProgressCategory = Boolean(effectiveCategory && isProgressCategory(effectiveCategory));
-    const hadCheckInBefore = Boolean(ticket.checkInAt);
-
     // Prepare idempotent optimistic message
     const clientMsgId =
       options?.clientMessageId ||
@@ -5909,30 +5959,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
 
-      // Only notify Check-in AFTER confirmed save of strict PROGRESS category message
-      if (!json.deduplicated && currentUser.role === 'installer' && isStrictProgressCategory && (json.checkInTriggered || json.checkedIn || !hadCheckInBefore)) {
-        const checkInTs = json.ticket?.checkInAt || savedMessage.timestamp || new Date().toISOString();
-        addAuditLog(
-          'Installer Check-in Recorded',
-          'ticket',
-          ticketId,
-          `Teknisi ${currentUser.name} check-in otomatis pada WO ${ticket.woNumber} via pesan LiveChat kategori PROGRESS (${formatJakartaTimestamp(checkInTs)})`
-        );
-        toast.info(
-          `Check-in berhasil tercatat pada ${formatJakartaTimestamp(checkInTs)}. Durasi kerja mulai dihitung.`,
-          'Check-in Otomatis (PROGRESS)'
-        );
-      }
-
-      if (isStrictProgressCategory) {
-        scheduleKpiRefreshRef.current?.();
-      }
-
       if (attachments.length > 0 && !json.deduplicated) {
         addAuditLog('Chat Attachment Uploaded', 'ticket', ticketId, `${currentUser.name} uploaded ${attachments.length} photo(s) in ticket chat`);
       }
 
-      return { success: true, message: savedMessage, hasProgressTrigger: Boolean(json.hasProgressTrigger) };
+      return { success: true, message: savedMessage, hasProgressTrigger: false };
     } catch (err: any) {
       const errMsg = err?.message || 'Koneksi gagal saat mengirim pesan LiveChat.';
       setTicketMessages(prev =>
@@ -8817,6 +8848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveTechnicalReport,
         saveProgressReport,
         uploadWoPhotoEvidence,
+        checkInWorkOrder,
         deleteWoPhotoEvidence,
         submitKendalaReport,
         verifyTechnicalReport,
